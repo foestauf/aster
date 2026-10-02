@@ -76,9 +76,9 @@ describe('emitC', () => {
   it('writes INT64_MIN symbolically and other operators as C', () => {
     const c = cOf('fn main(): int { let m: int = -9223372036854775808; print(!(m < 0) == true); print("a" != "b"); return -m / 2 % 3; }');
     expect(c).toContain('l0_m = INT64_MIN;');
-    expect(c).toContain('= (l0_m < INT64_C(0));');
+    expect(c).toContain('= aster_rt_lt(l0_m, INT64_C(0));');
     expect(c).toContain('= !l1;');
-    expect(c).toContain('= (l2 == true);');
+    expect(c).toContain('= aster_rt_eq(l2, true);');
     expect(c).toContain('= !aster_rt_str_eq(aster_str_0, aster_str_1);');
     expect(c).toContain('= aster_rt_neg(l0_m);');
     expect(c).toContain('aster_rt_div(');

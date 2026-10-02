@@ -24,6 +24,17 @@ static inline int64_t aster_rt_sub(int64_t a, int64_t b) { return (int64_t)((uin
 static inline int64_t aster_rt_mul(int64_t a, int64_t b) { return (int64_t)((uint64_t)a * (uint64_t)b); }
 static inline int64_t aster_rt_neg(int64_t a) { return (int64_t)((uint64_t)0 - (uint64_t)a); }
 
+/*
+ * Comparisons go through functions rather than raw operators so that comparing a
+ * value with itself (`x == x`) can't trip gcc's -Wtautological-compare.
+ */
+static inline bool aster_rt_lt(int64_t a, int64_t b) { return a < b; }
+static inline bool aster_rt_le(int64_t a, int64_t b) { return a <= b; }
+static inline bool aster_rt_gt(int64_t a, int64_t b) { return a > b; }
+static inline bool aster_rt_ge(int64_t a, int64_t b) { return a >= b; }
+static inline bool aster_rt_eq(int64_t a, int64_t b) { return a == b; }
+static inline bool aster_rt_ne(int64_t a, int64_t b) { return a != b; }
+
 static inline int64_t aster_rt_div(int64_t a, int64_t b) {
     if (b == 0) aster_rt_panic_cstr("division by zero");
     if (b == -1) return aster_rt_neg(a); /* INT64_MIN / -1 would trap */

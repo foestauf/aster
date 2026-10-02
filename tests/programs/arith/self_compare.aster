@@ -1,0 +1,19 @@
+// Comparing a value with itself must not trip gcc's -Wtautological-compare.
+// expect-stdout:
+// true
+// false
+// true
+// false
+// true
+// false
+fn main(): int {
+    let x: int = 3;
+    let b: bool = true;
+    print(x == x);
+    print(x < x);
+    print(x <= x);
+    print(x != x);
+    print(b == b);
+    print(b != b);
+    return 0;
+}
