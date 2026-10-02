@@ -1,0 +1,20 @@
+// expect-stdout:
+// 7
+// 9
+// 3
+// -3
+// -1
+// 1
+// -6
+// 5
+fn main(): int {
+    print(1 + 2 * 3);
+    print((1 + 2) * 3);
+    print(10 - 4 - 3);
+    print(-7 / 2);
+    print(-7 % 2);
+    print(7 % -2);
+    print(2 * -3);
+    print(- -5);
+    return 0;
+}

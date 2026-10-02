@@ -1,0 +1,17 @@
+// A `while true` loop without `break` satisfies the missing-return rule.
+// expect-stdout:
+// 14
+fn first_multiple(n: int, of: int): int {
+    var i: int = n;
+    while true {
+        if i % of == 0 {
+            return i;
+        }
+        i = i + 1;
+    }
+}
+
+fn main(): int {
+    print(first_multiple(10, 7));
+    return 0;
+}

@@ -1,0 +1,25 @@
+// expect-stdout:
+// 4
+// 4
+// -
+// 0
+// +
+// 11
+fn abs(n: int): int {
+    let r: int = if n < 0 { -n } else { n };
+    return r;
+}
+
+fn sign(n: int): string {
+    return if n < 0 { "-" } else if n == 0 { "0" } else { "+" };
+}
+
+fn main(): int {
+    print(abs(-4));
+    print(abs(4));
+    print(sign(-1));
+    print(sign(0));
+    print(sign(9));
+    print(if true { 1 } else { 2 } + 10);
+    return 0;
+}

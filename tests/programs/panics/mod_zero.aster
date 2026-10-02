@@ -1,0 +1,6 @@
+// expect-stderr: panic: division by zero
+// expect-exit: 101
+fn main(): int {
+    print(10 % 0);
+    return 0;
+}

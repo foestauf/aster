@@ -1,0 +1,29 @@
+// expect-stdout:
+// 2
+// 1
+// inner
+// 11
+// shadowed param
+fn show(x: int): int {
+    let x: string = "shadowed param";
+    print(x);
+    return 0;
+}
+
+fn main(): int {
+    let x: int = 1;
+    {
+        let x: int = 2;
+        print(x);
+    }
+    print(x);
+    var y: int = 10;
+    if true {
+        let y: string = "inner";
+        print(y);
+    }
+    y = y + 1;
+    print(y);
+    show(5);
+    return 0;
+}

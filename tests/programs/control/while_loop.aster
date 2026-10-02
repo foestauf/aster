@@ -1,0 +1,28 @@
+// expect-stdout:
+// 55
+// 1
+// 3
+// 5
+// 7
+fn main(): int {
+    var i: int = 0;
+    var sum: int = 0;
+    while i < 10 {
+        i = i + 1;
+        sum = sum + i;
+    }
+    print(sum);
+
+    var n: int = 0;
+    while true {
+        n = n + 1;
+        if n % 2 == 0 {
+            continue;
+        }
+        if n > 7 {
+            break;
+        }
+        print(n);
+    }
+    return 0;
+}

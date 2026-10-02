@@ -1,0 +1,23 @@
+// Operands and arguments evaluate left to right.
+// expect-stdout:
+// a
+// b
+// 3
+// x
+// y
+// z
+// 123
+fn t(label: string, v: int): int {
+    print(label);
+    return v;
+}
+
+fn three(x: int, y: int, z: int): int {
+    return x * 100 + y * 10 + z;
+}
+
+fn main(): int {
+    print(t("a", 1) + t("b", 2));
+    print(three(t("x", 1), t("y", 2), t("z", 3)));
+    return 0;
+}

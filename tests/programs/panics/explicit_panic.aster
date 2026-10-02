@@ -1,0 +1,14 @@
+// expect-stdout:
+// before
+// expect-stderr: panic: boom
+// expect-exit: 101
+fn fail(): int {
+    panic("boom");
+}
+
+fn main(): int {
+    print("before");
+    let x: int = fail();
+    print(x);
+    return 0;
+}

@@ -1,0 +1,14 @@
+// expect-stdout:
+// false
+// true
+// false
+// true
+// true
+fn main(): int {
+    print(true && false);
+    print(true || false);
+    print(!true);
+    print(true == true);
+    print(false != true);
+    return 0;
+}

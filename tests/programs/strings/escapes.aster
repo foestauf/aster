@@ -1,0 +1,17 @@
+// expect-stdout:
+// quote " backslash \
+// 9
+// 10
+// 0
+// 3
+// a
+// b
+fn main(): int {
+    print("quote \" backslash \\");
+    print(byte_at("\t", 0));
+    print(byte_at("\n", 0));
+    print(byte_at("\0", 0));
+    print(len("a\0b"));
+    print("a\nb");
+    return 0;
+}

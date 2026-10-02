@@ -1,0 +1,11 @@
+// expect-stdout:
+// true
+// true
+// false
+fn main(): int {
+    let a: string = "ab" + "c";
+    print(a == "abc");
+    print(substring("xabcx", 1, 4) == a);
+    print(substring("xabcx", 0, 3) == a);
+    return 0;
+}

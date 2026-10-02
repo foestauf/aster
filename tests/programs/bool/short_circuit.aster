@@ -1,0 +1,22 @@
+// expect-stdout:
+// a
+// false
+// c
+// true
+// e
+// f
+// false
+fn noisy(label: string, value: bool): bool {
+    print(label);
+    return value;
+}
+
+fn main(): int {
+    let a: bool = noisy("a", false) && noisy("b", true);
+    print(a);
+    let c: bool = noisy("c", true) || noisy("d", false);
+    print(c);
+    let e: bool = noisy("e", true) && noisy("f", false);
+    print(e);
+    return 0;
+}

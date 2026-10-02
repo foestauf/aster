@@ -1,0 +1,12 @@
+// expect-stdout:
+// 65
+// world
+//
+// 3
+fn main(): int {
+    print(byte_at("A", 0));
+    print(substring("hello world", 6, 11));
+    print(substring("abc", 1, 1));
+    print(len(substring("abc", 0, 3)));
+    return 0;
+}

@@ -1,0 +1,13 @@
+// Strings are UTF-8 bytes: len counts bytes, printing round-trips.
+// expect-stdout:
+// 6
+// héllo
+// 195
+// 169
+fn main(): int {
+    print(len("héllo"));
+    print("héllo");
+    print(byte_at("é", 0));
+    print(byte_at("é", 1));
+    return 0;
+}

@@ -1,0 +1,6 @@
+// expect-stderr: panic: substring out of bounds: 2..1, length 3
+// expect-exit: 101
+fn main(): int {
+    print(substring("abc", 2, 1));
+    return 0;
+}

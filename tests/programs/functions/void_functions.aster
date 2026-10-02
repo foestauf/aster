@@ -1,0 +1,20 @@
+// expect-stdout:
+// hello aster
+// non-positive
+fn greet(name: string) {
+    print("hello " + name);
+}
+
+fn early(x: int) {
+    if x > 0 {
+        return;
+    }
+    print("non-positive");
+}
+
+fn main(): int {
+    greet("aster");
+    early(1);
+    early(0);
+    return 0;
+}

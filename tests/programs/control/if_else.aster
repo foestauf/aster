@@ -1,0 +1,20 @@
+// expect-stdout:
+// negative
+// zero
+// positive
+fn classify(n: int): string {
+    if n < 0 {
+        return "negative";
+    } else if n == 0 {
+        return "zero";
+    } else {
+        return "positive";
+    }
+}
+
+fn main(): int {
+    print(classify(-5));
+    print(classify(0));
+    print(classify(7));
+    return 0;
+}

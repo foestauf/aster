@@ -1,0 +1,18 @@
+// expect-stdout:
+// hello, world
+// 5
+// 0
+// true
+// false
+// true
+// -42!
+fn main(): int {
+    print("hello" + ", " + "world");
+    print(len("hello"));
+    print(len(""));
+    print("a" == "a");
+    print("a" == "b");
+    print("ab" != "a");
+    print(int_to_string(-42) + "!");
+    return 0;
+}
