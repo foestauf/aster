@@ -18,14 +18,32 @@ function cli(...argv: string[]) {
   let stdout = '';
   let stderr = '';
   const code = runCli(argv, {
-    stdout: (t) => {
-      stdout += t;
+    childStdio: 'pipe',
+    stdout: (d) => {
+      stdout += Buffer.from(d).toString('utf8');
     },
-    stderr: (t) => {
-      stderr += t;
+    stderr: (d) => {
+      stderr += Buffer.from(d).toString('utf8');
     },
   });
   return { code, stdout, stderr };
+}
+
+/** Like cli(), but in 'inherit' mode or returning raw stdout bytes. */
+function cliRaw(childStdio: 'inherit' | 'pipe', ...argv: string[]) {
+  const out: Buffer[] = [];
+  let calls = 0;
+  const code = runCli(argv, {
+    childStdio,
+    stdout: (d) => {
+      calls++;
+      out.push(Buffer.from(d));
+    },
+    stderr: () => {
+      calls++;
+    },
+  });
+  return { code, stdout: Buffer.concat(out), calls };
 }
 
 const HELLO = 'fn main(): int {\n    let x: int = 10;\n    let y: int = 20;\n    print(x + y);\n    return 0;\n}\n';
@@ -115,6 +133,19 @@ describe('build and run', () => {
   it('forwards panics', () => {
     const r = cli('run', file('panic.aster', 'fn main(): int { let z: int = 0; print(1 / z); return 0; }'));
     expect(r).toEqual({ code: 101, stdout: '', stderr: 'panic: division by zero\n' });
+  });
+});
+
+describe('run output fidelity', () => {
+  it('passes non-UTF-8 bytes through unchanged', () => {
+    const r = cliRaw('pipe', 'run', file('bytes.aster', 'fn main(): int { print(substring("é", 0, 1)); return 0; }'));
+    expect(r.code).toBe(0);
+    expect([...r.stdout]).toEqual([0xc3, 0x0a]);
+  });
+
+  it('streams through inherited stdio without capturing when asked', () => {
+    const r = cliRaw('inherit', 'run', file('quiet.aster', 'fn main(): int { return 7; }'));
+    expect(r).toEqual({ code: 7, stdout: Buffer.alloc(0), calls: 0 });
   });
 });
 

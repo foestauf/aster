@@ -11,8 +11,14 @@ import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
 
 export interface Io {
-  stdout(text: string): void;
-  stderr(text: string): void;
+  stdout(data: string | Uint8Array): void;
+  stderr(data: string | Uint8Array): void;
+  /**
+   * How a program started by `run` gets its stdio. The real CLI uses 'inherit', so
+   * output streams straight through byte for byte with no size limit; 'pipe'
+   * captures it as raw bytes and forwards it to stdout/stderr (used by tests).
+   */
+  childStdio: 'inherit' | 'pipe';
 }
 
 export const EXIT = { ok: 0, compileError: 1, usage: 2, internal: 3 } as const;
@@ -137,13 +143,14 @@ function runProgram(io: Io, cSource: string): number {
     const built = buildExecutable(cSource, exe);
     if (!built.ok) return internalError(io, built.message);
     const result = spawnSync(exe, {
-      stdio: ['inherit', 'pipe', 'pipe'],
-      encoding: 'utf8',
+      stdio: io.childStdio === 'inherit' ? 'inherit' : ['inherit', 'pipe', 'pipe'],
       maxBuffer: 256 * 1024 * 1024,
     });
     if (result.error) return internalError(io, `failed to run program: ${result.error.message}`);
-    io.stdout(result.stdout);
-    io.stderr(result.stderr);
+    if (io.childStdio === 'pipe') {
+      io.stdout(result.stdout);
+      io.stderr(result.stderr);
+    }
     if (result.signal) return 128 + constants.signals[result.signal];
     return result.status ?? EXIT.internal;
   } finally {
