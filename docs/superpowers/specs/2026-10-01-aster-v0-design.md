@@ -39,7 +39,7 @@ learn-lang/
   package.json              # pnpm workspace root; scripts: build, test, lint, typecheck
   pnpm-workspace.yaml
   tsconfig.base.json        # strict
-  eslint.config.mjs
+  .oxlintrc.json
   commitlint.config.js      # conventional commits, husky hook
   .github/workflows/ci.yml  # Ubuntu, Node 24, gcc: typecheck + lint + test
   packages/
@@ -66,7 +66,7 @@ learn-lang/
     superpowers/specs/      # design docs
 ```
 
-Tooling: pnpm, TypeScript (strict), vitest, eslint, commitlint + husky. No turbo while there is a single package. No Docker or deployment; it is a CLI.
+Tooling: pnpm, TypeScript 7 (strict), vitest, oxlint, commitlint + husky. No turbo while there is a single package. No Docker or deployment; it is a CLI.
 
 ## 3. Language (v0)
 
