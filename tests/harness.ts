@@ -31,6 +31,8 @@ export function parseExpectations(text: string): Expectations {
     if (exit) result.exitCode = Number(exit[1]);
     else if (stderr) result.stderr += `${stderr[1]}\n`;
     else if (error) result.errors.push(error[1]);
+    // A typo'd directive would otherwise silently fall back to a default and weaken the test.
+    else if (body.startsWith('expect-')) throw new Error(`unrecognised directive '${lines[i - 1]}'`);
   }
   return result;
 }

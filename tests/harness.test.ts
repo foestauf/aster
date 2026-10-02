@@ -28,6 +28,11 @@ describe('parseExpectations', () => {
     expect(parseExpectations('// a note\nfn main(): int { return 0; }\n// expect-exit: 4').exitCode).toBe(0);
   });
 
+  it('rejects malformed or unknown expect directives', () => {
+    expect(() => parseExpectations('// expect-exit 3\nfn')).toThrow("unrecognised directive '// expect-exit 3'");
+    expect(() => parseExpectations('// expect-stdot:\n// 1\nfn')).toThrow("unrecognised directive '// expect-stdot:'");
+  });
+
   it('handles CRLF files', () => {
     expect(parseExpectations('// expect-stdout:\r\n// hi\r\n// expect-exit: 2\r\nfn')).toEqual({
       stdout: 'hi\n',
