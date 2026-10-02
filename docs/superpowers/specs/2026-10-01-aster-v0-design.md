@@ -143,7 +143,7 @@ Notes:
 - Function names must be unique and must not collide with builtin names.
 - `fn main(): int` with no parameters must exist. Its return value is the process exit code (truncated to the platform's exit-status range by the OS).
 - Parameters are immutable.
-- A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false.
+- A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false. An expression statement that calls `panic` also ends its path.
 - `return e;` in a `void` function and `return;` in a non-`void` function are errors. Arguments are checked for count and type.
 
 **Variables**
@@ -203,7 +203,7 @@ Each stage is a pure function over the previous stage's output. Stages communica
 ```
 lex(source, file)  → { tokens: Token[], diagnostics }
 parse(tokens)      → { ast: Program, diagnostics }
-check(ast)         → { typed: TypedProgram, diagnostics }   // pipeline stops here if any diagnostics are errors
+check(ast)         → { typed: TypedProgram, diagnostics }   // skipped if lexing/parsing reported errors; pipeline stops here on any error
 lower(typed)       → IrProgram
 emitC(ir)          → string
 driver             → writes .c, invokes cc with the runtime, produces an executable
@@ -247,7 +247,7 @@ The IR is deliberately not SSA. That keeps lowering simple and maps one-to-one o
 ### 4.4 C backend
 
 - Each IR function becomes one C function with every local declared at the top, one label per basic block and `goto` for terminators.
-- Mangling: functions become `aster_<name>` and locals `l<id>_<name>`, so user identifiers never collide with C keywords or libc.
+- Mangling: functions become `aster_fn_<name>`, locals `l<id>_<name>` and compiler temporaries `l<id>`, so user identifiers never collide with C keywords, libc or the runtime (whose names all start `aster_rt_`, plus the type `aster_string`).
 - Type mapping: `int` → `int64_t`, `bool` → `bool` (`<stdbool.h>`), `string` → `aster_string` (`struct { const char *ptr; int64_t len; }`, passed by value, not NUL-terminated), `void` → `void`.
 - Integer arithmetic is emitted as calls to `static inline` helpers in `aster_rt.h`. These compute in `uint64_t` and convert back, so wrapping is well-defined without `-fwrapv`. `aster_div` and `aster_mod` check for a zero divisor (panic) and handle `MIN / -1`.
 - String literals become static `aster_string` constants.
@@ -272,7 +272,7 @@ aster run   <file.aster>
 
 - `check` runs lex, parse and check, then prints diagnostics.
 - `build` produces an executable (default output: input basename without extension). With `--emit=<stage>` it prints that stage's output to stdout and stops; `tokens` and `ast` are printed as JSON.
-- `run` builds into a temporary directory, runs the executable with inherited stdio and exits with its exit code.
+- `run` builds into a temporary directory, runs the executable and exits with its exit code (or `128 + signal number` if it was killed by a signal, as shells do).
 - The C compiler is `$ASTER_CC`, falling back to `cc`. The invocation is `$CC -std=c11 -O2 <out.c> <runtime>/aster_rt.c -I<runtime> -o <out>`.
 - Exit codes: `0` on success, `1` for compile errors in the user program, `2` for usage errors, `3` for internal compiler errors (including C compiler failure).
 
@@ -309,9 +309,10 @@ aster run   <file.aster>
 ```
 
 Rules:
-- `expect-stdout:` is followed by one `// `-prefixed line per expected output line, ending at the first line that is not such a comment.
+- `expect-stdout:` is followed by one `// `-prefixed line per expected output line (`//` alone is an empty line), ending at the first line that is not a comment or that starts another `expect-` directive.
 - `expect-error:` may repeat. The listed diagnostics, as `line:col message`, must equal the compiler's diagnostics exactly and in order.
-- `expect-exit` defaults to `0` when absent for run tests.
+- `expect-exit` defaults to `0` when absent for run tests. Absent `expect-stdout`/`expect-stderr` mean that stream must be empty.
+- Golden programs are compiled with `-Werror` added, so every one also proves the generated C is warning-free.
 - A program with `expect-error` is only compiled. Every other program is built and run.
 
 `tests/golden.test.ts` discovers every `.aster` file and generates one vitest case per program. The suite is the language's conformance suite: the future self-hosted compiler must pass it unchanged.
