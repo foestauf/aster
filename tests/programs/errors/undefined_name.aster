@@ -1,0 +1,5 @@
+// expect-error: 3:11 undefined name 'y'
+fn main(): int {
+    print(y);
+    return 0;
+}

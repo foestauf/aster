@@ -1,0 +1,8 @@
+// expect-error: 5:5 function 'add' expects 2 arguments, found 1
+// expect-error: 6:12 type mismatch: expected int, found bool
+fn add(a: int, b: int): int { return a + b; }
+fn main(): int {
+    add(1);
+    add(1, true);
+    return 0;
+}

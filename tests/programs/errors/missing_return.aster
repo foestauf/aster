@@ -1,0 +1,10 @@
+// expect-error: 2:4 function 'pick' is missing a return on some paths
+fn pick(b: bool): int {
+    if b {
+        return 1;
+    }
+}
+
+fn main(): int {
+    return pick(true);
+}

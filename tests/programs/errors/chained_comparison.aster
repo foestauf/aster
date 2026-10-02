@@ -1,0 +1,5 @@
+// expect-error: 3:25 comparison operators cannot be chained
+fn main(): int {
+    let b: bool = 1 < 2 < 3;
+    return 0;
+}

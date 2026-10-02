@@ -1,0 +1,8 @@
+// expect-error: 5:24 unexpected character '&'
+// expect-error: 5:26 expected ';', found 'false'
+// expect-error: 6:16 invalid escape sequence '\q'
+fn main(): int {
+    let b: bool = true & false;
+    print("bad \q escape");
+    return 0;
+}

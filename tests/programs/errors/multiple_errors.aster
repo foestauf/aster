@@ -1,0 +1,7 @@
+// expect-error: 4:19 type mismatch: expected bool, found int
+// expect-error: 5:5 'break' outside of loop
+fn main(): int {
+    let b: bool = 1 + 2;
+    break;
+    return 0;
+}

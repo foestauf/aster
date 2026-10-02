@@ -1,0 +1,5 @@
+// expect-error: 3:18 type mismatch: expected int, found string
+fn main(): int {
+    let x: int = "hello";
+    return x;
+}

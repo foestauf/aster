@@ -1,0 +1,5 @@
+// expect-error: 3:18 if branches have different types: int and string
+fn main(): int {
+    let x: int = if true { 1 } else { "one" };
+    return 0;
+}

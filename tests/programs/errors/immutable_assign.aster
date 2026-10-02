@@ -1,0 +1,6 @@
+// expect-error: 4:5 cannot assign to immutable variable 'x'
+fn main(): int {
+    let x: int = 1;
+    x = 2;
+    return x;
+}

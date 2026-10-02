@@ -1,0 +1,7 @@
+// expect-error: 4:18 expected expression, found ';'
+// expect-error: 5:11 expected ':', found '='
+fn main(): int {
+    let x: int = ;
+    let y = 2;
+    return 0;
+}
