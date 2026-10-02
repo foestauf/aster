@@ -19,3 +19,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm build
+      - run: pnpm aster run tests/programs/basics/hello.aster
