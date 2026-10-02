@@ -1,0 +1,50 @@
+#ifndef ASTER_RT_H
+#define ASTER_RT_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+/* An immutable byte string. Not NUL-terminated. */
+typedef struct {
+    const char *ptr;
+    int64_t len;
+} aster_string;
+
+_Noreturn void aster_rt_panic(aster_string msg);
+_Noreturn void aster_rt_panic_cstr(const char *msg);
+_Noreturn void aster_rt_unreachable(void);
+
+/*
+ * Integer arithmetic wraps: compute in uint64_t (where overflow is defined) and
+ * convert back. The conversion is implementation-defined in C11; gcc and clang
+ * define it as two's-complement wraparound.
+ */
+static inline int64_t aster_rt_add(int64_t a, int64_t b) { return (int64_t)((uint64_t)a + (uint64_t)b); }
+static inline int64_t aster_rt_sub(int64_t a, int64_t b) { return (int64_t)((uint64_t)a - (uint64_t)b); }
+static inline int64_t aster_rt_mul(int64_t a, int64_t b) { return (int64_t)((uint64_t)a * (uint64_t)b); }
+static inline int64_t aster_rt_neg(int64_t a) { return (int64_t)((uint64_t)0 - (uint64_t)a); }
+
+static inline int64_t aster_rt_div(int64_t a, int64_t b) {
+    if (b == 0) aster_rt_panic_cstr("division by zero");
+    if (b == -1) return aster_rt_neg(a); /* INT64_MIN / -1 would trap */
+    return a / b;
+}
+
+static inline int64_t aster_rt_mod(int64_t a, int64_t b) {
+    if (b == 0) aster_rt_panic_cstr("division by zero");
+    if (b == -1) return 0; /* INT64_MIN % -1 would trap */
+    return a % b;
+}
+
+void aster_rt_print_int(int64_t n);
+void aster_rt_print_bool(bool b);
+void aster_rt_print_string(aster_string s);
+
+int64_t aster_rt_len(aster_string s);
+int64_t aster_rt_byte_at(aster_string s, int64_t i);
+aster_string aster_rt_substring(aster_string s, int64_t start, int64_t end);
+aster_string aster_rt_int_to_string(int64_t n);
+aster_string aster_rt_concat(aster_string a, aster_string b);
+bool aster_rt_str_eq(aster_string a, aster_string b);
+
+#endif
