@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --fix",
+    "aster": "node packages/asterc/dist/cli/bin.js",
     "prepare": "husky"
   },
   "devDependencies": {
