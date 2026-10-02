@@ -11,7 +11,9 @@ export interface Span {
   end: number;
 }
 
-export function makeSource(path: string, text: string): SourceFile {
+export function makeSource(path: string, rawText: string): SourceFile {
+  // Some Windows editors start UTF-8 files with a byte order mark; it is not part of the program.
+  const text = rawText.startsWith('\uFEFF') ? rawText.slice(1) : rawText;
   const lineStarts = [0];
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '\n') lineStarts.push(i + 1);

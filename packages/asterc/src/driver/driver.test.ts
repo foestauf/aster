@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource } from '../diagnostics/source.js';
 import { buildExecutable } from './cc.js';
 import { compileToC } from './pipeline.js';
@@ -65,6 +66,14 @@ fn main(): int {
     return 0;
 }`;
     expect(buildAndRun(text)).toEqual({ stdout: '3\n', stderr: '', status: 0 });
+  });
+
+  it('accepts a UTF-8 byte order mark and keeps columns unshifted', () => {
+    const ok = compileToC(makeSource('t.aster', '\uFEFFfn main(): int { return 0; }'));
+    expect(ok.ok).toBe(true);
+    const source = makeSource('t.aster', '\uFEFFfn main(): int { return x; }');
+    const bad = compileToC(source);
+    expect(bad.ok ? [] : bad.diagnostics.map((d) => formatShort(source, d))).toEqual(["1:25 undefined name 'x'"]);
   });
 
   it('stops before checking when there are syntax errors', () => {
