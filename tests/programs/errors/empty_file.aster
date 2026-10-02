@@ -1,0 +1,1 @@
+// expect-error: 1:1 missing 'fn main(): int'
