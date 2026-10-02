@@ -1,0 +1,4 @@
+// expect-exit: 255
+fn main(): int {
+    return -1;
+}

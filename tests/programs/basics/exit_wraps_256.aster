@@ -1,0 +1,5 @@
+// The OS keeps only the low 8 bits of the exit status.
+// expect-exit: 0
+fn main(): int {
+    return 256;
+}

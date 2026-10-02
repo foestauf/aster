@@ -1,0 +1,4 @@
+// expect-exit: 42
+fn main(): int {
+    return 42;
+}

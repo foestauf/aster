@@ -1,0 +1,14 @@
+// expect-stdout:
+// 7
+// true
+// false
+// hi
+//
+fn main(): int {
+    print(7);
+    print(true);
+    print(false);
+    print("hi");
+    print("");
+    return 0;
+}
