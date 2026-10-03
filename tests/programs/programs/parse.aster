@@ -88,7 +88,7 @@ fn is_punct(p: string): bool {
     return match p {
         "(" | ")" | "{" | "}" | "[" | "]" | "," | ":" | ";" | "." | ".." | "=" | "+" | "-" | "*" | "/" | "%" | "!"
             | "<" | "<=" | ">" | ">=" | "==" | "!=" | "&&" | "||" | "+=" | "-=" | "*=" | "/=" | "%=" | "::" | "=>"
-            | "|" => true,
+            | "|" | "?" => true,
         _ => false,
     };
 }
@@ -264,7 +264,7 @@ struct TypeExpr {
 }
 
 enum TypeNode {
-    Named(string),
+    Named(string, [TypeExpr]),
     Array(TypeExpr),
 }
 
@@ -304,6 +304,7 @@ struct EnumDecl {
     start: int,
     end: int,
     name: Ident,
+    params: [Ident],
     variants: [VariantDecl],
 }
 
@@ -368,6 +369,7 @@ enum ExprNode {
     Field(Expr, Ident),
     StructLit(Ident, [FieldInit]),
     Index(Expr, Expr),
+    Try(Expr),
     ArrayLit([Expr]),
     Variant(Ident, Ident, [Expr]),
     Match(Ident, Expr, [Arm]),
@@ -423,7 +425,7 @@ fn bad_expr(): Expr {
 }
 
 fn bad_type(): TypeExpr {
-    return TypeExpr { start: 0, end: 0, node: TypeNode::Named("") };
+    return TypeExpr { start: 0, end: 0, node: TypeNode::Named("", []) };
 }
 
 fn bad_block(): Block {
@@ -699,6 +701,22 @@ fn parse_enum(p: Parser): Item {
     if p.failed {
         return bad_item();
     }
+    let params: [Ident] = [];
+    if eat(p, "[") {
+        var more_params: bool = true;
+        while more_params {
+            let param: Token = expect(p, "ident");
+            if p.failed {
+                return bad_item();
+            }
+            push(params, ident_of(p, param));
+            more_params = eat(p, ",");
+        }
+        expect(p, "]");
+        if p.failed {
+            return bad_item();
+        }
+    }
     expect(p, "{");
     if p.failed {
         return bad_item();
@@ -734,7 +752,7 @@ fn parse_enum(p: Parser): Item {
     if p.failed {
         return bad_item();
     }
-    return Item::Enum(EnumDecl { start: kw.start, end: close.end, name: ident_of(p, name), variants: variants });
+    return Item::Enum(EnumDecl { start: kw.start, end: close.end, name: ident_of(p, name), params: params, variants: variants });
 }
 
 fn parse_type(p: Parser): TypeExpr {
@@ -754,7 +772,24 @@ fn parse_type(p: Parser): TypeExpr {
     if p.failed {
         return bad_type();
     }
-    return TypeExpr { start: t.start, end: t.end, node: TypeNode::Named(text(p, t)) };
+    let args: [TypeExpr] = [];
+    if !eat(p, "[") {
+        return TypeExpr { start: t.start, end: t.end, node: TypeNode::Named(text(p, t), args) };
+    }
+    var more: bool = true;
+    while more {
+        let arg: TypeExpr = parse_type(p);
+        if p.failed {
+            return bad_type();
+        }
+        push(args, arg);
+        more = eat(p, ",");
+    }
+    let close: Token = expect(p, "]");
+    if p.failed {
+        return bad_type();
+    }
+    return TypeExpr { start: t.start, end: close.end, node: TypeNode::Named(text(p, t), args) };
 }
 
 // ---- statements
@@ -1286,6 +1321,9 @@ fn parse_postfix(p: Parser): Expr {
                 return bad_expr();
             }
             e = Expr { start: e.start, end: close.end, node: ExprNode::Index(e, index) };
+        } else if at(p, "?") {
+            let q: Token = advance(p);
+            e = Expr { start: e.start, end: q.end, node: ExprNode::Try(e) };
         } else {
             return e;
         }
@@ -1531,7 +1569,12 @@ fn ident_node(tag: string, i: Ident): string {
 
 fn print_type(d: int, t: TypeExpr) {
     match t.node {
-        TypeNode::Named(name) => line(d, "type " + span(t.start, t.end) + " " + name),
+        TypeNode::Named(name, args) => {
+            line(d, "type " + span(t.start, t.end) + " " + name);
+            for a in args {
+                print_type(d + 1, a);
+            }
+        }
         TypeNode::Array(elem) => {
             line(d, "array-type " + span(t.start, t.end));
             print_type(d + 1, elem);
@@ -1636,6 +1679,10 @@ fn print_expr(src: string, d: int, e: Expr) {
             line(d, "index " + head);
             print_expr(src, d + 1, array);
             print_expr(src, d + 1, index);
+        }
+        ExprNode::Try(operand) => {
+            line(d, "try " + head);
+            print_expr(src, d + 1, operand);
         }
         ExprNode::ArrayLit(elements) => {
             line(d, "array-lit " + head);
@@ -1752,6 +1799,9 @@ fn print_item(src: string, item: Item) {
         }
         Item::Enum(e) => {
             line(0, "enum " + span(e.start, e.end) + " " + named(e.name));
+            for param in e.params {
+                line(1, ident_node("type-param", param));
+            }
             for v in e.variants {
                 line(1, ident_node("variant", v.name));
                 for ty in v.payload {
