@@ -44,6 +44,8 @@ function describe(t: Token): string {
       return `identifier '${t.text}'`;
     case 'int':
       return `integer '${t.text}'`;
+    case 'char':
+      return 'character literal';
     case 'string':
       return 'string literal';
     default:

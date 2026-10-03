@@ -309,4 +309,8 @@ describe('match', () => {
   it('resumes at a match statement after a broken statement', () => {
     expect(errors('fn f() {\n  let x: int = 1\n  match e { _ => {} }\n}')).toEqual(["expected ';', found 'match'"]);
   });
+
+  it('describes a character literal in errors', () => {
+    expect(errors("fn main(): int { return 1 'b'; }")).toEqual(["expected ';', found character literal"]);
+  });
 });

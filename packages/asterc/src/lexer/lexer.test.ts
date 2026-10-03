@@ -5,6 +5,7 @@ import { lex } from './lexer.js';
 const run = (text: string) => lex(makeSource('t.aster', text));
 const kinds = (text: string) => run(text).tokens.map((t) => t.kind);
 const messages = (text: string) => run(text).diagnostics.map((d) => d.message);
+const span = (text: string) => run(text).diagnostics.map((d) => [d.span.start, d.span.end]);
 
 describe('lex', () => {
   it('lexes a function header', () => {
@@ -112,5 +113,48 @@ describe('lex', () => {
 
   it('lexes a lone underscore as its own token but keeps underscore-prefixed identifiers', () => {
     expect(kinds('_ _x __ x_')).toEqual(['_', 'ident', 'ident', 'ident', 'eof']);
+  });
+
+  it('lexes character literals as char tokens with their byte value', () => {
+    const { tokens, diagnostics } = run(`'a' ' ' '~' '\\n' '\\t' '\\r' '\\\\' '\\'' '\\"' '\\0' '"'`);
+    expect(diagnostics).toEqual([]);
+    expect(tokens.slice(0, -1).map((t) => [t.kind, t.intValue])).toEqual([
+      ['char', 97n], ['char', 32n], ['char', 126n], ['char', 10n], ['char', 9n], ['char', 13n],
+      ['char', 92n], ['char', 39n], ['char', 34n], ['char', 0n], ['char', 34n],
+    ]);
+    expect(tokens[0].text).toBe(`'a'`);
+  });
+
+  it('reports bad character literals once each and still produces a char token', () => {
+    expect(messages(`''`)).toEqual(['empty character literal']);
+    expect(messages(`'ab'`)).toEqual(['character literal must be a single ASCII character']);
+    expect(messages(`'é'`)).toEqual(['character literal must be a single ASCII character']);
+    expect(messages(`'\t'`)).toEqual(['character literal must be a single ASCII character']); // a raw tab
+    expect(messages(`'\\q'`)).toEqual(["invalid escape sequence '\\q'"]);
+    expect(messages(`'a\nx`)).toEqual(['unterminated character literal']);
+    expect(messages(`'`)).toEqual(['unterminated character literal']);
+    expect(kinds(`'ab' x`)).toEqual(['char', 'ident', 'eof']);
+    expect(run(`'ab'`).tokens[0].intValue).toBe(0n);
+  });
+
+  it('spans character-literal errors', () => {
+    expect(span(`''`)).toEqual([[0, 2]]);
+    expect(span(`x 'ab' y`)).toEqual([[2, 6]]);
+    expect(span(`'\\q'`)).toEqual([[1, 3]]);
+    expect(span(`'abc\nx`)).toEqual([[0, 4]]);
+  });
+
+  it('does not start a char literal inside a comment or a string', () => {
+    expect(kinds(`// don't\n"it's"`)).toEqual(['string', 'eof']);
+  });
+
+  it('accepts \\r and \\\' in strings', () => {
+    const { tokens, diagnostics } = run(`"a\\rb\\'c"`);
+    expect(diagnostics).toEqual([]);
+    expect(tokens[0].stringValue).toBe("a\rb'c");
+  });
+
+  it('lexes | and keeps || as one token', () => {
+    expect(kinds('a | b || c')).toEqual(['ident', '|', 'ident', '||', 'ident', 'eof']);
   });
 });
