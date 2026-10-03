@@ -1,0 +1,28 @@
+// Array literals, indexing, push, pop and len.
+// expect-stdout:
+// 3
+// 20
+// 4
+// 40
+// 3
+// 99
+// 10
+// a-b
+// false
+fn main(): int {
+    let a: [int] = [10, 20, 30];
+    print(len(a));
+    print(a[1]);
+    push(a, 40);
+    print(len(a));
+    print(pop(a));
+    print(len(a));
+    a[2] = 99;
+    print(a[2]);
+    print(a[0]);
+    let words: [string] = ["a", "b"];
+    print(words[0] + "-" + words[1]);
+    let flags: [bool] = [true, false,];
+    print(flags[1]);
+    return 0;
+}

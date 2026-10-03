@@ -1,8 +1,9 @@
+import type { Type } from '../../types/type.js';
 import type { Instr, IrBinOp, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from '../../ir/ir.js';
 
 const INT64_MIN = -(2n ** 63n);
 
-function cType(t: IrType): string {
+function cType(t: Type): string {
   switch (t.kind) {
     case 'int':
       return 'int64_t';
@@ -12,8 +13,12 @@ function cType(t: IrType): string {
       return 'aster_string';
     case 'struct':
       return mangleStruct(t.name);
+    case 'array':
+      return 'aster_array';
     case 'void':
       return 'void';
+    case 'error':
+      throw new Error('internal: error type reached codegen');
   }
 }
 
@@ -26,6 +31,7 @@ function zeroValue(t: IrType): string {
     case 'string':
       return '{0}';
     case 'struct':
+    case 'array':
       return 'NULL';
     case 'void':
       return '';
@@ -128,6 +134,16 @@ function operand(fn: IrFunction, o: Operand): string {
   }
 }
 
+/** An lvalue of C type `t` at the address a runtime array call returns. */
+const slot = (t: string, call: string): string => `*(${t} *)${call}`;
+
+/** C type of the elements of an array operand. Array values are never constants, so the operand is a local. */
+function elemCType(fn: IrFunction, array: Operand): string {
+  const t = array.kind === 'local' ? fn.locals[array.id].type : null;
+  if (t === null || t.kind !== 'array') throw new Error('internal: array operand is not an array local');
+  return cType(t.elem);
+}
+
 function emitInstr(fn: IrFunction, instr: Instr): string {
   const op = (o: Operand) => operand(fn, o);
   const assign = (dst: number | null, value: string) => (dst === null ? `${value};` : `${mangleLocal(fn.locals[dst])} = ${value};`);
@@ -153,6 +169,24 @@ function emitInstr(fn: IrFunction, instr: Instr): string {
       return assign(instr.dst, `${op(instr.object)}->${mangleField(instr.field)}`);
     case 'field_set':
       return `${op(instr.object)}->${mangleField(instr.field)} = ${op(instr.value)};`;
+    case 'array_new': {
+      const target = mangleLocal(fn.locals[instr.dst]);
+      const t = cType(instr.elem);
+      return [
+        `${target} = aster_rt_array_new(sizeof(${t}), ${instr.elements.length});`,
+        ...instr.elements.map((e, i) => `${slot(t, `aster_rt_array_at(${target}, ${i})`)} = ${op(e)};`),
+      ].join('\n    ');
+    }
+    case 'index_get':
+      return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_at(${op(instr.array)}, ${op(instr.index)})`));
+    case 'index_set':
+      return `${slot(elemCType(fn, instr.array), `aster_rt_array_at(${op(instr.array)}, ${op(instr.index)})`)} = ${op(instr.value)};`;
+    case 'array_len':
+      return assign(instr.dst, `${op(instr.array)}->len`);
+    case 'array_push':
+      return `${slot(elemCType(fn, instr.array), `aster_rt_array_push_slot(${op(instr.array)})`)} = ${op(instr.value)};`;
+    case 'array_pop':
+      return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_pop_slot(${op(instr.array)})`));
   }
 }
 

@@ -1,7 +1,7 @@
 import type { AssignOp, BinaryOp, UnaryOp } from '../ast/ast.js';
 import type { Type } from '../types/type.js';
 
-export type BuiltinName = 'print' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic';
+export type BuiltinName = 'print' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'push' | 'pop';
 
 export interface Local {
   /** Unique within its function; params come first. */
@@ -44,7 +44,8 @@ export interface TBlock {
 /** Something that can be assigned to. */
 export type TPlace =
   | { kind: 'local'; type: Type; local: Local }
-  | { kind: 'field'; type: Type; object: TExpr; field: string };
+  | { kind: 'field'; type: Type; object: TExpr; field: string }
+  | { kind: 'index'; type: Type; array: TExpr; index: TExpr };
 
 export type TStmt =
   | { kind: 'let'; local: Local; init: TExpr }
@@ -68,5 +69,7 @@ export type TExpr =
   | { kind: 'builtin'; type: Type; builtin: BuiltinName; args: TExpr[] }
   | { kind: 'if'; type: Type; cond: TExpr; then: TExpr; else: TExpr }
   | { kind: 'field'; type: Type; object: TExpr; field: string }
+  | { kind: 'index'; type: Type; array: TExpr; index: TExpr }
+  | { kind: 'arrayLit'; type: Type; elements: TExpr[] }
   /** Initialisers in the order written; lowering evaluates them in this order. */
   | { kind: 'structLit'; type: Type; struct: string; fields: { field: string; value: TExpr }[] };

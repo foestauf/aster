@@ -1,0 +1,49 @@
+// Compound assignment on elements evaluates the array and the index exactly once.
+// expect-stdout:
+// idx
+// idx
+// 11
+// 22
+// idx
+// xy
+// 15
+// idx
+// idx
+// idx
+// idx
+// idx
+// 12
+// 4
+// 30
+// 3
+// 2
+fn idx(i: int): int {
+    print("idx");
+    return i;
+}
+
+fn main(): int {
+    let a: [int] = [10, 20];
+    a[idx(0)] += 1;
+    a[idx(1)] += 2;
+    print(a[0]);
+    print(a[1]);
+    let s: [string] = ["x"];
+    s[idx(0)] += "y";
+    print(s[0]);
+    let grid: [[int]] = [[1, 2], [3]];
+    grid[1][0] *= 5;
+    print(grid[1][0]);
+    let n: [int] = [10, 10, 10, 10, 10];
+    n[idx(0)] += 2;
+    n[idx(1)] -= 6;
+    n[idx(2)] *= 3;
+    n[idx(3)] /= 3;
+    n[idx(4)] %= 4;
+    print(n[0]);
+    print(n[1]);
+    print(n[2]);
+    print(n[3]);
+    print(n[4]);
+    return 0;
+}

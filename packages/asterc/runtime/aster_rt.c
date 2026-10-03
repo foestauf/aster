@@ -35,6 +35,41 @@ void *aster_rt_alloc(int64_t size) {
     return p;
 }
 
+aster_array aster_rt_array_new(int64_t elem_size, int64_t len) {
+    aster_array a = aster_rt_alloc((int64_t)sizeof *a);
+    a->len = len;
+    a->cap = len;
+    a->elem_size = elem_size;
+    a->data = len > 0 ? aster_rt_alloc(len * elem_size) : NULL;
+    return a;
+}
+
+void *aster_rt_array_at(aster_array a, int64_t i) {
+    if (i < 0 || i >= a->len) {
+        char buf[160];
+        snprintf(buf, sizeof buf, "index out of bounds: index %" PRId64 ", length %" PRId64, i, a->len);
+        aster_rt_panic_cstr(buf);
+    }
+    return a->data + i * a->elem_size;
+}
+
+void *aster_rt_array_push_slot(aster_array a) {
+    if (a->len == a->cap) {
+        int64_t cap = a->cap > 0 ? a->cap * 2 : 4;
+        char *data = realloc(a->data, (size_t)(cap * a->elem_size));
+        if (data == NULL) aster_rt_panic_cstr("out of memory");
+        a->data = data;
+        a->cap = cap;
+    }
+    return a->data + a->len++ * a->elem_size;
+}
+
+void *aster_rt_array_pop_slot(aster_array a) {
+    if (a->len == 0) aster_rt_panic_cstr("pop from empty array");
+    a->len--;
+    return a->data + a->len * a->elem_size;
+}
+
 void aster_rt_print_int(int64_t n) { printf("%" PRId64 "\n", n); }
 
 void aster_rt_print_bool(bool b) { puts(b ? "true" : "false"); }

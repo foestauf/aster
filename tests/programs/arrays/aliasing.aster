@@ -1,0 +1,22 @@
+// Arrays are references: every binding sees pushes, pops and writes.
+// expect-stdout:
+// 2
+// 5
+// 1
+// 9
+fn fill(xs: [int]) {
+    push(xs, 5);
+}
+
+fn main(): int {
+    let a: [int] = [1];
+    let b: [int] = a;
+    fill(b);
+    print(len(a));
+    print(a[1]);
+    pop(b);
+    print(len(a));
+    b[0] = 9;
+    print(a[0]);
+    return 0;
+}

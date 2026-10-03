@@ -1,0 +1,43 @@
+// An empty array literal takes its type from where it is used.
+// expect-stdout:
+// 0
+// 1
+// 0
+// 2
+// 0
+// 0
+// 3
+// 0
+// 0
+// 0
+struct Bag { items: [string] }
+
+fn count(xs: [int]): int {
+    return len(xs);
+}
+
+fn fresh(): [bool] {
+    return [];
+}
+
+fn main(): int {
+    var a: [int] = [];
+    print(len(a));
+    a = [7];
+    print(len(a));
+    print(count([]));
+    let grid: [[int]] = [[], [1, 2]];
+    print(len(grid[1]));
+    print(len(fresh()));
+    let b: Bag = Bag { items: [] };
+    print(len(b.items));
+    push(grid, []);
+    print(len(grid));
+    let pick: [int] = if len(a) > 0 { [] } else { [1] };
+    print(len(pick));
+    let paren: [int] = ([]);
+    print(len(paren));
+    a = [];
+    print(len(a));
+    return 0;
+}

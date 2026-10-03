@@ -147,6 +147,17 @@ function lowerAssign(st: FnState, stmt: Extract<TStmt, { kind: 'assign' }>): voi
       );
       return;
     }
+    case 'index': {
+      const array = lowerValue(st, place.array);
+      const index = lowerValue(st, place.index);
+      storeThroughPlace(
+        st,
+        stmt,
+        (dst) => ({ kind: 'index_get', dst, array, index }),
+        (value) => ({ kind: 'index_set', array, index, value }),
+      );
+      return;
+    }
   }
 }
 
@@ -285,6 +296,15 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     }
     case 'builtin': {
       const args = e.args.map((a) => lowerValue(st, a));
+      if (e.builtin === 'push') {
+        emit(st, { kind: 'array_push', array: args[0], value: args[1] });
+        return null;
+      }
+      if (e.builtin === 'pop' || (e.builtin === 'len' && e.args[0].type.kind === 'array')) {
+        const dst = newTemp(st, irType(e.type));
+        emit(st, e.builtin === 'pop' ? { kind: 'array_pop', dst, array: args[0] } : { kind: 'array_len', dst, array: args[0] });
+        return { kind: 'local', id: dst };
+      }
       const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
       if (e.builtin === 'panic') terminate(st, { kind: 'unreachable' });
@@ -310,6 +330,21 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       const object = lowerValue(st, e.object);
       const dst = newTemp(st, irType(e.type));
       emit(st, { kind: 'field_get', dst, object, field: e.field });
+      return { kind: 'local', id: dst };
+    }
+    case 'index': {
+      const array = lowerValue(st, e.array);
+      const index = lowerValue(st, e.index);
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'index_get', dst, array, index });
+      return { kind: 'local', id: dst };
+    }
+    case 'arrayLit': {
+      const elements = e.elements.map((el) => lowerValue(st, el));
+      const type = irType(e.type);
+      if (type.kind !== 'array') throw new Error('internal: array literal without an array type');
+      const dst = newTemp(st, type);
+      emit(st, { kind: 'array_new', dst, elem: irType(type.elem), elements });
       return { kind: 'local', id: dst };
     }
     case 'structLit': {
@@ -359,7 +394,15 @@ function binOp(op: BinaryOp, operandType: Type): IrBinOp {
 }
 
 function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
-  if (e.builtin !== 'print') return e.builtin;
-  const t = e.args[0].type.kind;
-  return t === 'int' ? 'print_int' : t === 'bool' ? 'print_bool' : 'print_string';
+  switch (e.builtin) {
+    case 'print': {
+      const t = e.args[0].type.kind;
+      return t === 'int' ? 'print_int' : t === 'bool' ? 'print_bool' : 'print_string';
+    }
+    case 'push':
+    case 'pop':
+      throw new Error(`internal: ${e.builtin} is lowered to an array instruction`);
+    default:
+      return e.builtin;
+  }
 }

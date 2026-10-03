@@ -1,0 +1,42 @@
+// Arrays of structs, structs holding arrays, recursive and mutually recursive types, and deep places.
+// expect-stdout:
+// 6
+// 3
+// 7
+// 18
+// 1
+// ada
+struct Node { value: int, kids: [Node] }
+struct Team { name: string, members: [Person] }
+struct Person { name: string, teams: [Team] }
+
+fn leaf(v: int): Node {
+    return Node { value: v, kids: [] };
+}
+
+fn sum(n: Node): int {
+    var total: int = n.value;
+    var i: int = 0;
+    while i < len(n.kids) {
+        total += sum(n.kids[i]);
+        i += 1;
+    }
+    return total;
+}
+
+fn main(): int {
+    let root: Node = Node { value: 1, kids: [leaf(2), leaf(3)] };
+    print(sum(root));
+    push(root.kids, Node { value: 4, kids: [leaf(5)] });
+    print(len(root.kids));
+    root.kids[2].kids[0].value = 7;
+    print(root.kids[2].kids[0].value);
+    root.kids[2].kids[0].value += 1;
+    print(sum(root));
+    let t: Team = Team { name: "core", members: [] };
+    let p: Person = Person { name: "ada", teams: [t] };
+    push(t.members, p);
+    print(len(p.teams[0].members));
+    print(p.teams[0].members[0].name);
+    return 0;
+}

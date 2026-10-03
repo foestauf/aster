@@ -1,0 +1,35 @@
+// expect-error: 19:13 array element type cannot be void
+// expect-error: 20:15 cannot infer type of empty array
+// expect-error: 21:24 type mismatch: expected int, found string
+// expect-error: 22:9 type mismatch: expected int, found bool
+// expect-error: 23:11 cannot compare '[int]' values
+// expect-error: 24:5 cannot index a value of type string
+// expect-error: 25:7 array index must be int, found bool
+// expect-error: 26:10 function 'push' expects an array, found int
+// expect-error: 27:13 type mismatch: expected int, found string
+// expect-error: 28:5 function 'pop' expects 1 argument, found 0
+// expect-error: 29:9 function 'len' expects a string or array, found bool
+// expect-error: 30:6 array element cannot have type void
+// expect-error: 31:11 cannot print a value of type [int]
+// expect-error: 32:18 type mismatch: expected int, found [int]
+// expect-error: 33:9 function 'pop' expects an array, found int
+fn v() { }
+fn main(): int {
+    let a: [int] = [1, 2];
+    let x: [void] = [];
+    print(len([]));
+    let b: [int] = [1, "two"];
+    [1, true];
+    print(a == a);
+    "abc"[0];
+    a[true];
+    push(1, 2);
+    push(a, "s");
+    pop();
+    len(true);
+    [v()];
+    print(a);
+    let n: int = [1];
+    pop(5);
+    return 0;
+}

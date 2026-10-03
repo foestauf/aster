@@ -1,0 +1,7 @@
+// expect-stderr: panic: pop from empty array
+// expect-exit: 101
+fn main(): int {
+    let a: [int] = [];
+    print(pop(a));
+    return 0;
+}

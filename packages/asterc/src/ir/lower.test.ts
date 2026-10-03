@@ -267,4 +267,35 @@ describe('lower', () => {
       lines('fn f(%0 a: int): void', '  local %1 n: int', 'entry:', '  %1 = copy %0', '  %1 = mul %1, 3', '  ret'),
     );
   });
+
+  it('lowers array literals, indexing, compound element assignment and array builtins', () => {
+    const text = `${MAIN}fn f(a: [int]): int { let b: [int] = [1, a[0]]; push(b, 3); b[1] += pop(a); return len(b) + len("s"); }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 a: [int]): int',
+        '  local %1 b: [int]',
+        '  local %2: int',
+        '  local %3: [int]',
+        '  local %4: int',
+        '  local %5: int',
+        '  local %6: int',
+        '  local %7: int',
+        '  local %8: int',
+        '  local %9: int',
+        'entry:',
+        '  %2 = index_get %0[0]',
+        '  %3 = array_new int [1, %2]',
+        '  %1 = copy %3',
+        '  array_push %1, 3',
+        '  %4 = index_get %1[1]',
+        '  %5 = array_pop %0',
+        '  %6 = add %4, %5',
+        '  index_set %1[1], %6',
+        '  %7 = array_len %1',
+        '  %8 = call_builtin len(str#0)',
+        '  %9 = add %7, %8',
+        '  ret %9',
+      ),
+    );
+  });
 });

@@ -1,6 +1,6 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type CallExpr, type Expr, type FnDecl, type IfStmt, type Program, type Stmt, type StructDecl,
-  type StructLitExpr, type TypeRef,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type Expr, type FnDecl, type IfStmt, type Program, type Stmt, type StructDecl,
+  type StructLitExpr, type TypeExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -50,7 +50,15 @@ const isError = (t: Type): boolean => t.kind === 'error';
 
 const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
 
-function resolveType(env: Env, ref: TypeRef): Type {
+function resolveType(env: Env, ref: TypeExpr): Type {
+  if (ref.kind === 'array') {
+    const elem = resolveType(env, ref.elem);
+    if (elem.kind === 'void') {
+      report(env, 'array element type cannot be void', ref.elem.span);
+      return ERROR;
+    }
+    return isError(elem) ? ERROR : { kind: 'array', elem };
+  }
   const primitive = PRIMITIVES.get(ref.name);
   if (primitive) return primitive;
   if (env.structs.has(ref.name)) return { kind: 'struct', name: ref.name };
@@ -61,8 +69,8 @@ function resolveType(env: Env, ref: TypeRef): Type {
 const findField = (env: Env, struct: string, name: string): TField | undefined =>
   env.structs.get(struct)?.fields.find((f) => f.name === name);
 
-/** Struct (and, from Task 5, array) values are heap references; v0.1 defines no equality for them. */
-const isReference = (t: Type): boolean => t.kind === 'struct';
+/** Struct and array values are heap references; v0.1 defines no equality for them. */
+const isReference = (t: Type): boolean => t.kind === 'struct' || t.kind === 'array';
 
 /** Registers every struct name before resolving any field type, so structs can refer to each other in any order. */
 function collectStructs(env: Env, decls: readonly StructDecl[]): TStruct[] {
@@ -212,14 +220,15 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
         report(ctx, 'variable cannot have type void', stmt.type.span);
         type = ERROR;
       }
-      const init = checkExpr(ctx, stmt.init);
+      const init = checkExpr(ctx, stmt.init, type);
       expectType(ctx, type, init, stmt.init.span);
       const local = declare(ctx, stmt.name, stmt.nameSpan, type, stmt.mutable);
       return { node: { kind: 'let', local, init }, diverges: false };
     }
     case 'assign': {
       const place = checkPlace(ctx, stmt.target);
-      const value = checkExpr(ctx, stmt.value);
+      // A target that was already reported has no type to guide the value, and must not cascade into it.
+      const value = checkExpr(ctx, stmt.value, place === null ? ERROR : place.type);
       if (place === null) return { node: { kind: 'expr', expr: value }, diverges: false };
       if (stmt.op === '=') expectType(ctx, place.type, value, stmt.value.span);
       else checkCompound(ctx, stmt, place.type, value);
@@ -250,7 +259,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
         }
         return { node: { kind: 'return', value: null }, diverges: true };
       }
-      const value = checkExpr(ctx, stmt.value);
+      const value = checkExpr(ctx, stmt.value, ctx.returnType);
       if (ctx.returnType.kind === 'void') report(ctx, 'void function cannot return a value', stmt.value.span);
       else expectType(ctx, ctx.returnType, value, stmt.value.span);
       return { node: { kind: 'return', value }, diverges: true };
@@ -286,7 +295,8 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
 
 // ---- expressions
 
-function checkExpr(ctx: Ctx, expr: Expr): TExpr {
+/** `expected` only guides array literals (and passes into if-expression branches); callers still check the result. */
+function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
   switch (expr.kind) {
     case 'int':
       return { kind: 'int', type: INT, value: expr.value };
@@ -319,8 +329,8 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
       return checkCall(ctx, expr);
     case 'ifExpr': {
       const cond = checkCondition(ctx, expr.cond);
-      const then = checkExpr(ctx, expr.then);
-      const other = checkExpr(ctx, expr.else);
+      const then = checkExpr(ctx, expr.then, expected);
+      const other = checkExpr(ctx, expr.else, expected);
       if (isError(then.type) || isError(other.type)) return errorExpr();
       if (!typeEquals(then.type, other.type)) {
         report(ctx, `if branches have different types: ${typeToString(then.type)} and ${typeToString(other.type)}`, expr.span);
@@ -344,6 +354,22 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
     }
     case 'structLit':
       return checkStructLit(ctx, expr);
+    case 'index': {
+      const array = checkExpr(ctx, expr.array);
+      const index = checkExpr(ctx, expr.index);
+      if (!isError(index.type) && index.type.kind !== 'int') {
+        report(ctx, `array index must be int, found ${typeToString(index.type)}`, expr.index.span);
+      }
+      if (isError(array.type)) return errorExpr();
+      if (array.type.kind !== 'array') {
+        report(ctx, `cannot index a value of type ${typeToString(array.type)}`, expr.array.span);
+        return errorExpr();
+      }
+      if (index.type.kind !== 'int') return errorExpr();
+      return { kind: 'index', type: array.type.elem, array, index };
+    }
+    case 'arrayLit':
+      return checkArrayLit(ctx, expr, expected);
   }
 }
 
@@ -351,15 +377,15 @@ function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
   const struct = ctx.structs.get(expr.name);
   if (!struct) {
     report(ctx, `unknown struct '${expr.name}'`, expr.nameSpan);
-    // Still check the values so their own errors surface. Task 5 must pass the `error` type as the expected type
-    // here, so an `[]` value is not reported as uninferable.
-    for (const init of expr.fields) checkExpr(ctx, init.value);
+    // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
+    // reported as uninferable.
+    for (const init of expr.fields) checkExpr(ctx, init.value, ERROR);
     return errorExpr();
   }
   const fields: { field: string; value: TExpr }[] = [];
   for (const init of expr.fields) {
     const decl = findField(ctx, struct.name, init.name);
-    const value = checkExpr(ctx, init.value);
+    const value = checkExpr(ctx, init.value, decl?.type);
     if (!decl) {
       report(ctx, `unknown field '${init.name}' on '${expr.name}'`, init.nameSpan);
     } else if (fields.some((f) => f.field === init.name)) {
@@ -373,6 +399,39 @@ function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
     if (!fields.some((init) => init.field === f.name)) report(ctx, `missing field '${f.name}' in '${expr.name}'`, expr.nameSpan);
   }
   return { kind: 'structLit', type: { kind: 'struct', name: struct.name }, struct: struct.name, fields };
+}
+
+function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined): TExpr {
+  if (expected !== undefined && isError(expected)) {
+    // The expected type was already reported as wrong; only look for errors inside the elements.
+    for (const el of expr.elements) checkExpr(ctx, el);
+    return errorExpr();
+  }
+  let elem = expected !== undefined && expected.kind === 'array' ? expected.elem : undefined;
+  if (expr.elements.length === 0) {
+    if (elem === undefined) {
+      report(ctx, 'cannot infer type of empty array', expr.span);
+      return errorExpr();
+    }
+    return { kind: 'arrayLit', type: { kind: 'array', elem }, elements: [] };
+  }
+  const elements: TExpr[] = [];
+  for (const el of expr.elements) {
+    const value = checkExpr(ctx, el, elem);
+    if (elem === undefined) {
+      // Without an expected type, the first element decides.
+      if (value.type.kind === 'void') {
+        report(ctx, 'array element cannot have type void', el.span);
+        return errorExpr();
+      }
+      elem = value.type;
+    } else {
+      expectType(ctx, elem, value, el.span);
+    }
+    elements.push(value);
+  }
+  if (elem === undefined || isError(elem)) return errorExpr();
+  return { kind: 'arrayLit', type: { kind: 'array', elem }, elements };
 }
 
 /**
@@ -393,10 +452,12 @@ function checkPlace(ctx: Ctx, target: Expr): TPlace | null {
       if (!local.mutable) report(ctx, `cannot assign to immutable variable '${target.name}'`, target.span);
       return { kind: 'local', type: local.type, local };
     }
-    case 'field': {
+    case 'field':
+    case 'index': {
       const checked = checkExpr(ctx, target);
-      if (checked.kind !== 'field') return null; // already reported
-      return { kind: 'field', type: checked.type, object: checked.object, field: checked.field };
+      if (checked.kind === 'field') return { kind: 'field', type: checked.type, object: checked.object, field: checked.field };
+      if (checked.kind === 'index') return { kind: 'index', type: checked.type, array: checked.array, index: checked.index };
+      return null; // already reported
     }
     default:
       report(ctx, 'invalid assignment target', target.span);
@@ -456,50 +517,84 @@ function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   return { kind: 'binary', type, op: expr.op, left, right };
 }
 
+const arityMessage = (name: string, expected: number, found: number): string =>
+  `function '${name}' expects ${expected} ${expected === 1 ? 'argument' : 'arguments'}, found ${found}`;
+
 function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
-  const args = expr.args.map((a) => checkExpr(ctx, a));
+  // Without a known signature an argument has no expected type, and the `error` type keeps `[]` from cascading.
+  const checkArgs = (params?: readonly Type[]): TExpr[] =>
+    expr.args.map((a, i) => checkExpr(ctx, a, params === undefined ? ERROR : (params[i] ?? ERROR)));
   if (expr.callee.kind !== 'name') {
+    checkArgs();
     report(ctx, 'only named functions can be called', expr.callee.span);
     return errorExpr();
   }
   const name = expr.callee.name;
   if (lookup(ctx, name)) {
+    checkArgs();
     report(ctx, `'${name}' is not a function`, expr.callee.span);
     return errorExpr();
   }
+  if (name === 'print') return checkPrint(ctx, expr, checkArgs());
+  if (name === 'len' || name === 'push' || name === 'pop') return checkCollectionBuiltin(ctx, name, expr);
 
-  if (name === 'print') {
-    if (args.length !== 1) {
-      report(ctx, `function 'print' expects 1 argument, found ${args.length}`, expr.span);
-      return errorExpr();
-    }
-    const t = args[0].type;
-    if (!isError(t) && t.kind !== 'int' && t.kind !== 'bool' && t.kind !== 'string') {
-      report(ctx, `cannot print a value of type ${typeToString(t)}`, expr.args[0].span);
-    }
-    return { kind: 'builtin', type: VOID, builtin: 'print', args };
-  }
-
-  let sig: Signature | undefined;
-  let builtin: SignatureBuiltin | null = null;
-  if (isSignatureBuiltin(name)) {
-    sig = BUILTIN_SIGNATURES[name];
-    builtin = name;
-  } else {
-    sig = ctx.signatures.get(name);
-  }
+  const builtin: SignatureBuiltin | null = isSignatureBuiltin(name) ? name : null;
+  const sig = builtin ? BUILTIN_SIGNATURES[builtin] : ctx.signatures.get(name);
   if (!sig) {
+    checkArgs();
     report(ctx, `undefined function '${name}'`, expr.callee.span);
     return errorExpr();
   }
-
+  const args = checkArgs(sig.params);
   if (args.length !== sig.params.length) {
-    const noun = sig.params.length === 1 ? 'argument' : 'arguments';
-    report(ctx, `function '${name}' expects ${sig.params.length} ${noun}, found ${args.length}`, expr.span);
+    report(ctx, arityMessage(name, sig.params.length, args.length), expr.span);
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
   return builtin
     ? { kind: 'builtin', type: sig.returnType, builtin, args }
     : { kind: 'call', type: sig.returnType, fn: name, args };
+}
+
+function checkPrint(ctx: Ctx, expr: CallExpr, args: TExpr[]): TExpr {
+  if (args.length !== 1) {
+    report(ctx, arityMessage('print', 1, args.length), expr.span);
+    return errorExpr();
+  }
+  const t = args[0].type;
+  if (!isError(t) && t.kind !== 'int' && t.kind !== 'bool' && t.kind !== 'string') {
+    report(ctx, `cannot print a value of type ${typeToString(t)}`, expr.args[0].span);
+  }
+  return { kind: 'builtin', type: VOID, builtin: 'print', args };
+}
+
+/** `len` (string or array), `push` and `pop` (any array). Typed by hand because Aster has no generics. */
+function checkCollectionBuiltin(ctx: Ctx, name: 'len' | 'push' | 'pop', expr: CallExpr): TExpr {
+  const first = expr.args.length > 0 ? checkExpr(ctx, expr.args[0]) : null;
+  const elem = first !== null && first.type.kind === 'array' ? first.type.elem : undefined;
+  // When the first argument is not an array it is reported below (or already was), so the rest must not cascade.
+  const rest = expr.args.slice(1).map((a) => checkExpr(ctx, a, elem ?? ERROR));
+  const arity = name === 'push' ? 2 : 1;
+  if (first === null || expr.args.length !== arity) {
+    report(ctx, arityMessage(name, arity, expr.args.length), expr.span);
+    return errorExpr();
+  }
+  const args = [first, ...rest];
+  const t = first.type;
+  if (name === 'len') {
+    if (!isError(t) && t.kind !== 'string' && t.kind !== 'array') {
+      report(ctx, `function 'len' expects a string or array, found ${typeToString(t)}`, expr.args[0].span);
+    }
+    // len is an int whatever its argument, so a bad argument doesn't cascade.
+    return { kind: 'builtin', type: INT, builtin: 'len', args };
+  }
+  if (elem === undefined) {
+    if (!isError(t)) report(ctx, `function '${name}' expects an array, found ${typeToString(t)}`, expr.args[0].span);
+    return errorExpr();
+  }
+  if (name === 'push') {
+    expectType(ctx, elem, args[1], expr.args[1].span);
+    return { kind: 'builtin', type: VOID, builtin: 'push', args };
+  }
+  return { kind: 'builtin', type: elem, builtin: 'pop', args };
 }

@@ -65,6 +65,18 @@ function printInstr(i: Instr): string {
       return `%${i.dst} = field_get ${operand(i.object)}.${i.field}`;
     case 'field_set':
       return `field_set ${operand(i.object)}.${i.field}, ${operand(i.value)}`;
+    case 'array_new':
+      return `%${i.dst} = array_new ${typeToString(i.elem)} [${i.elements.map(operand).join(', ')}]`;
+    case 'index_get':
+      return `%${i.dst} = index_get ${operand(i.array)}[${operand(i.index)}]`;
+    case 'index_set':
+      return `index_set ${operand(i.array)}[${operand(i.index)}], ${operand(i.value)}`;
+    case 'array_len':
+      return `%${i.dst} = array_len ${operand(i.array)}`;
+    case 'array_push':
+      return `array_push ${operand(i.array)}, ${operand(i.value)}`;
+    case 'array_pop':
+      return `%${i.dst} = array_pop ${operand(i.array)}`;
   }
 }
 

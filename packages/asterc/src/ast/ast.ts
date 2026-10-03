@@ -1,9 +1,9 @@
 import type { Span } from '../diagnostics/source.js';
 
-export interface TypeRef {
-  name: string;
-  span: Span;
-}
+/** A type as written: a name (`int`, `Point`) or an array (`[T]`). */
+export type TypeExpr =
+  | { kind: 'named'; name: string; span: Span }
+  | { kind: 'array'; elem: TypeExpr; span: Span };
 
 export interface Program {
   functions: FnDecl[];
@@ -13,7 +13,7 @@ export interface Program {
 export interface FieldDecl {
   name: string;
   nameSpan: Span;
-  type: TypeRef;
+  type: TypeExpr;
 }
 
 export interface StructDecl {
@@ -27,7 +27,7 @@ export interface StructDecl {
 export interface Param {
   name: string;
   nameSpan: Span;
-  type: TypeRef;
+  type: TypeExpr;
 }
 
 export interface FnDecl {
@@ -36,7 +36,7 @@ export interface FnDecl {
   nameSpan: Span;
   params: Param[];
   /** null means the function returns void. */
-  returnType: TypeRef | null;
+  returnType: TypeExpr | null;
   body: Block;
   span: Span;
 }
@@ -53,7 +53,7 @@ export interface LetStmt {
   mutable: boolean;
   name: string;
   nameSpan: Span;
-  type: TypeRef;
+  type: TypeExpr;
   init: Expr;
   span: Span;
 }
@@ -193,5 +193,18 @@ export interface StructLitExpr {
   span: Span;
 }
 
+export interface IndexExpr {
+  kind: 'index';
+  array: Expr;
+  index: Expr;
+  span: Span;
+}
+
+export interface ArrayLitExpr {
+  kind: 'arrayLit';
+  elements: Expr[];
+  span: Span;
+}
+
 export type Expr =
-  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr;
+  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr;

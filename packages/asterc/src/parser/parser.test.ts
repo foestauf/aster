@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TypeExpr } from '../ast/ast.js';
 import { sexpr } from '../ast/sexpr.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
@@ -6,6 +7,10 @@ import { parse } from './parser.js';
 
 const parseText = (text: string) => parse(lex(makeSource('t.aster', text)).tokens);
 const errors = (text: string) => parseText(text).diagnostics.map((d) => d.message);
+
+/** Renders a parsed type the way it is written; null (no return type) as void. */
+const typeText = (t: TypeExpr | null): string =>
+  t === null ? 'void' : t.kind === 'named' ? t.name : `[${typeText(t.elem)}]`;
 
 /** Parses `text` as an expression statement inside a function and renders it as an s-expression. */
 function expr(text: string): string {
@@ -72,6 +77,22 @@ describe('expressions', () => {
   });
 });
 
+describe('arrays', () => {
+  it('parses array literals and index chains', () => {
+    expect(expr('a[i].kids[j]')).toBe('(index (. (index a i) kids) j)');
+    expect(expr('[1, [2], []]')).toBe('(array 1 (array 2) (array))');
+    expect(expr('[1, 2,]')).toBe('(array 1 2)');
+    expect(expr('f(x)[0]')).toBe('(index (call f x) 0)');
+  });
+
+  it('parses nested array types', () => {
+    const { program, diagnostics } = parseText('fn f(g: [[int]]): [P] { }');
+    expect(diagnostics).toEqual([]);
+    expect(typeText(program.functions[0].params[0].type)).toBe('[[int]]');
+    expect(typeText(program.functions[0].returnType)).toBe('[P]');
+  });
+});
+
 describe('statements and functions', () => {
   it('parses every statement kind', () => {
     const { program, diagnostics } = parseText(`
@@ -89,8 +110,8 @@ describe('statements and functions', () => {
     expect(diagnostics).toEqual([]);
     const fn = program.functions[0];
     expect(fn.name).toBe('f');
-    expect(fn.params.map((p) => [p.name, p.type.name])).toEqual([['a', 'int'], ['b', 'string']]);
-    expect(fn.returnType?.name).toBe('bool');
+    expect(fn.params.map((p) => [p.name, typeText(p.type)])).toEqual([['a', 'int'], ['b', 'string']]);
+    expect(typeText(fn.returnType)).toBe('bool');
     const kinds = fn.body.statements.map((s) => s.kind);
     expect(kinds).toEqual(['let', 'let', 'assign', 'if', 'while', 'block', 'expr', 'return']);
     const [letX, varY, , ifStmt, whileStmt] = fn.body.statements;
@@ -154,7 +175,7 @@ describe('structs', () => {
   it('parses struct declarations with optional trailing commas', () => {
     const { program, diagnostics } = parseText('struct P { x: int, y: string, }\nstruct E {}');
     expect(diagnostics).toEqual([]);
-    expect(program.structs.map((s) => [s.name, s.fields.map((f) => `${f.name}: ${f.type.name}`)])).toEqual([
+    expect(program.structs.map((s) => [s.name, s.fields.map((f) => `${f.name}: ${typeText(f.type)}`)])).toEqual([
       ['P', ['x: int', 'y: string']],
       ['E', []],
     ]);

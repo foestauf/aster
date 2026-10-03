@@ -1,0 +1,7 @@
+// expect-stderr: panic: index out of bounds: index 0, length 0
+// expect-exit: 101
+fn main(): int {
+    let a: [string] = [];
+    a[0] = "x";
+    return 0;
+}

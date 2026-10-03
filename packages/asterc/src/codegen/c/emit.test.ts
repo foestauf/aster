@@ -120,4 +120,15 @@ describe('emitC', () => {
     expect(c).toContain('    l1 = aster_rt_alloc(sizeof(struct aster_S_P));\n    l1->f_x = INT64_C(1);');
     expect(c).toContain('    l2 = l0_p->f_x;');
   });
+
+  it('emits arrays through the runtime with typed slot access', () => {
+    const c = cOf('fn main(): int { let a: [string] = ["x"]; push(a, "y"); print(a[1]); return len(a); }');
+    expect(c).toContain('    aster_array l0_a = NULL;');
+    expect(c).toContain(
+      '    l1 = aster_rt_array_new(sizeof(aster_string), 1);\n    *(aster_string *)aster_rt_array_at(l1, 0) = aster_str_0;',
+    );
+    expect(c).toContain('    *(aster_string *)aster_rt_array_push_slot(l0_a) = aster_str_1;');
+    expect(c).toContain('    l2 = *(aster_string *)aster_rt_array_at(l0_a, INT64_C(1));');
+    expect(c).toContain('    l3 = l0_a->len;');
+  });
 });

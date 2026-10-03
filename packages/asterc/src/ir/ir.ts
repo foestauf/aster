@@ -47,7 +47,15 @@ export type Instr =
   /** Allocates a struct; `fields` are in declaration order. */
   | { kind: 'struct_new'; dst: number; struct: string; fields: { name: string; value: Operand }[] }
   | { kind: 'field_get'; dst: number; object: Operand; field: string }
-  | { kind: 'field_set'; object: Operand; field: string; value: Operand };
+  | { kind: 'field_set'; object: Operand; field: string; value: Operand }
+  | { kind: 'array_new'; dst: number; elem: IrType; elements: Operand[] }
+  /** Bounds-checked; panics outside [0, len). */
+  | { kind: 'index_get'; dst: number; array: Operand; index: Operand }
+  | { kind: 'index_set'; array: Operand; index: Operand; value: Operand }
+  | { kind: 'array_len'; dst: number; array: Operand }
+  | { kind: 'array_push'; array: Operand; value: Operand }
+  /** Panics when the array is empty. */
+  | { kind: 'array_pop'; dst: number; array: Operand };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }

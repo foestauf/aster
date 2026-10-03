@@ -11,12 +11,29 @@ typedef struct {
     int64_t len;
 } aster_string;
 
+/* A growable array of fixed-size elements. Arrays are shared by reference and never freed in v0.1. */
+typedef struct aster_array_data {
+    int64_t len;
+    int64_t cap;
+    int64_t elem_size;
+    char *data;
+} *aster_array;
+
 _Noreturn void aster_rt_panic(aster_string msg);
 _Noreturn void aster_rt_panic_cstr(const char *msg);
 _Noreturn void aster_rt_unreachable(void);
 
 /* Zeroed heap memory for structs and arrays. Never freed in v0.1; panics with "out of memory" on failure. */
 void *aster_rt_alloc(int64_t size);
+
+/* A new array of `len` zeroed elements. */
+aster_array aster_rt_array_new(int64_t elem_size, int64_t len);
+/* Pointer to element i; panics with "index out of bounds: ..." outside [0, len). */
+void *aster_rt_array_at(aster_array a, int64_t i);
+/* Grows the array by one element and returns a pointer to the new slot. */
+void *aster_rt_array_push_slot(aster_array a);
+/* Shrinks the array by one element and returns a pointer to the removed slot, which stays readable until the next push. */
+void *aster_rt_array_pop_slot(aster_array a);
 
 /*
  * Integer arithmetic wraps: compute in uint64_t (where overflow is defined) and

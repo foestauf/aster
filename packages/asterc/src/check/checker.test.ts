@@ -138,7 +138,7 @@ describe('check: expressions', () => {
   it('checks builtins', () => {
     expect(inMain('print(1);\nprint(true);\nprint("s");')).toEqual([]);
     expect(inMain('let n: int = len("abc") + byte_at("a", 0);\nlet s: string = substring("abc", 0, 1) + int_to_string(5);')).toEqual([]);
-    expect(inMain('len(1);')).toEqual(['type mismatch: expected string, found int']);
+    expect(inMain('len(1);')).toEqual(["function 'len' expects a string or array, found int"]);
     expect(inMain('print(1, 2);')).toEqual(["function 'print' expects 1 argument, found 2"]);
     expect(inMain('substring("a");')).toEqual(["function 'substring' expects 3 arguments, found 1"]);
     expect(messages(`${MAIN}fn v() { }\nfn g() { print(v()); }`)).toEqual(['cannot print a value of type void']);
@@ -208,5 +208,29 @@ describe('check: structs', () => {
     expect(inMain('var s: string = "a";\ns += "b";\nvar n: int = 1;\nn %= 2;')).toEqual([]);
     expect(inMain('var b: bool = true;\nb += true;')).toEqual(["operator '+=' cannot be applied to bool and bool"]);
     expect(inMain('let n: int = 1;\nn += 1;')).toEqual(["cannot assign to immutable variable 'n'"]);
+  });
+});
+
+describe('check: arrays', () => {
+  it('infers empty array literals from the expected type', () => {
+    expect(inMain('let a: [[int]] = [[], [1]];\nlet b: [[int]] = [[]];\npush(b, []);')).toEqual([]);
+    expect(inMain('let a: [int] = if true { [] } else { [] };')).toEqual([]);
+    expect(inMain('[];')).toEqual(['cannot infer type of empty array']);
+    expect(inMain('[[]];')).toEqual(['cannot infer type of empty array']);
+  });
+
+  it('allows writes through elements of any binding', () => {
+    expect(inMain('let a: [int] = [1];\na[0] = 2;\na[0] += 1;\npush(a, 3);')).toEqual([]);
+  });
+
+  it('does not cascade from bad arrays or bad element types', () => {
+    expect(inMain('let n: int = nope[0] + 1;')).toEqual(["undefined name 'nope'"]);
+    expect(inMain('let a: [Nope] = [];\nprint(len(a));')).toEqual(["unknown type 'Nope'"]);
+    expect(inMain('let x: int = pop(nope) + 1;')).toEqual(["undefined name 'nope'"]);
+  });
+
+  it('does not report an uninferable empty array when the expected type is already an error', () => {
+    expect(inMain('push(nope, []);')).toEqual(["undefined name 'nope'"]);
+    expect(inMain('Nope { a: [] };')).toEqual(["unknown struct 'Nope'"]);
   });
 });

@@ -1,0 +1,9 @@
+// expect-error: 5:5 only named functions can be called
+// expect-error: 7:5 cannot index a value of type int
+struct P { x: int }
+fn main(): int {
+    P { x: 1 }.x();
+    let n: int = 5;
+    n[0];
+    return 0;
+}

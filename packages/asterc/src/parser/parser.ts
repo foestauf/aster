@@ -1,5 +1,5 @@
 import type {
-  AssignOp, BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
+  AssignOp, BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -159,9 +159,15 @@ export function parse(tokens: readonly Token[]): ParseResult {
     return { kind: 'struct', name: name.text, nameSpan: name.span, fields, span: join(kw.span, close.span) };
   }
 
-  function parseType(): TypeRef {
+  function parseType(): TypeExpr {
+    if (at('[')) {
+      const open = advance();
+      const elem = parseType();
+      const close = expect(']');
+      return { kind: 'array', elem, span: join(open.span, close.span) };
+    }
     const t = expect('ident');
-    return { name: t.text, span: t.span };
+    return { kind: 'named', name: t.text, span: t.span };
   }
 
   // ---- statements
@@ -311,6 +317,10 @@ export function parse(tokens: readonly Token[]): ParseResult {
       } else if (eat('.')) {
         const field = expect('ident');
         expr = { kind: 'field', object: expr, field: field.text, fieldSpan: field.span, span: join(expr.span, field.span) };
+      } else if (eat('[')) {
+        const index = withStructLits(true, parseExpr);
+        const close = expect(']');
+        expr = { kind: 'index', array: expr, index, span: join(expr.span, close.span) };
       } else {
         return expr;
       }
@@ -337,6 +347,18 @@ export function parse(tokens: readonly Token[]): ParseResult {
         advance();
         if (at('{') && !noStructLit) return parseStructLit(t);
         return { kind: 'name', name: t.text, span: t.span };
+      case '[': {
+        advance();
+        const elements: Expr[] = [];
+        withStructLits(true, () => {
+          while (!at(']')) {
+            elements.push(parseExpr());
+            if (!eat(',')) break;
+          }
+        });
+        const close = expect(']');
+        return { kind: 'arrayLit', elements, span: join(t.span, close.span) };
+      }
       case '(': {
         advance();
         const inner = withStructLits(true, parseExpr);
