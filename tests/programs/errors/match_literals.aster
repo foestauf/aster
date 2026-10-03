@@ -1,19 +1,21 @@
-// expect-error: 20:28 pattern type 'string' does not match 'int'
-// expect-error: 21:30 pattern type 'int' does not match 'string'
-// expect-error: 22:30 pattern type 'int' does not match 'string'
-// expect-error: 23:31 pattern type 'int' does not match 'bool'
-// expect-error: 24:28 pattern type 'bool' does not match 'int'
-// expect-error: 25:15 pattern type 'int' does not match 'E'
-// expect-error: 26:15 pattern type 'E' does not match 'int'
-// expect-error: 27:5 non-exhaustive match: add a '_' arm
-// expect-error: 28:5 non-exhaustive match: add a '_' arm
-// expect-error: 29:5 non-exhaustive match: missing 'false'
-// expect-error: 30:5 non-exhaustive match: missing 'true'
-// expect-error: 31:37 unreachable match arm
-// expect-error: 32:23 unreachable match arm
-// expect-error: 33:25 unreachable match arm
-// expect-error: 34:26 unreachable match arm
-// expect-error: 35:11 cannot match on '[int]' values
+// expect-error: 22:28 pattern type 'string' does not match 'int'
+// expect-error: 23:30 pattern type 'int' does not match 'string'
+// expect-error: 24:30 pattern type 'int' does not match 'string'
+// expect-error: 25:31 pattern type 'int' does not match 'bool'
+// expect-error: 26:28 pattern type 'bool' does not match 'int'
+// expect-error: 27:15 pattern type 'int' does not match 'E'
+// expect-error: 28:15 pattern type 'E' does not match 'int'
+// expect-error: 29:5 non-exhaustive match: add a '_' arm
+// expect-error: 30:5 non-exhaustive match: add a '_' arm
+// expect-error: 31:5 non-exhaustive match: missing 'false'
+// expect-error: 32:5 non-exhaustive match: missing 'true'
+// expect-error: 33:37 unreachable match arm
+// expect-error: 34:23 unreachable match arm
+// expect-error: 35:25 unreachable match arm
+// expect-error: 36:26 unreachable match arm
+// expect-error: 37:11 cannot match on '[int]' values
+// expect-error: 39:11 cannot match on 'S' values
+struct S { x: int }
 enum E { A, B(int) }
 fn main(): int {
     let e: E = E::A;
@@ -33,5 +35,7 @@ fn main(): int {
     match 1 { 'a' => {} 97 => {} _ => {} }
     match "s" { "" => {} "" => {} _ => {} }
     match [1] { _ => {} }
+    let s: S = S { x: 1 };
+    match s { _ => {} }
     return 0;
 }

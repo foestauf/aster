@@ -8,6 +8,9 @@
 // 1
 // 2
 // 3
+// word: eq
+// word: other
+// stmt-empty
 fn kind(s: string): string {
     return match s {
         "=" => "assign",
@@ -27,6 +30,18 @@ fn prec(op: string): int {
     };
 }
 
+fn word(s: string) {
+    match s {
+        "==" => {
+            print("word: eq");
+        }
+        "" => print("stmt-empty"),
+        _ => {
+            print("word: other");
+        }
+    }
+}
+
 fn main(): int {
     print(kind("="));
     print(kind("=="));
@@ -36,5 +51,8 @@ fn main(): int {
     print(prec("=="));
     print(prec("-"));
     print(prec("/"));
+    word("==");
+    word("x");
+    word("");
     return 0;
 }
