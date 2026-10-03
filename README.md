@@ -23,7 +23,7 @@ aster build <file.aster> [-o <out>] [--emit=tokens|ast|ir|c]
 aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
 ```
 
-Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through.
+Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through. `run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
 
 ## How it works
 

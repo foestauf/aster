@@ -30,6 +30,11 @@ static char *alloc_bytes(int64_t n) {
     return p;
 }
 
+/* The text for a failed I/O call's saved errno. A stream can report an error without setting errno. */
+static const char *io_reason(int err) {
+    return err != 0 ? strerror(err) : "I/O error";
+}
+
 /*
  * Reads `f` to EOF into a buffer that doubles as it fills, so it works whether or not the stream's size is known.
  * Sets *ok to false when the stream reports an error; errno then holds the reason.
@@ -41,6 +46,8 @@ static aster_string read_all(FILE *f, bool *ok) {
     for (;;) {
         len += (int64_t)fread(buf + len, 1, (size_t)(cap - len), f);
         if (len < cap) break; /* a short read means EOF or an error */
+        /* Doubling past SIZE_MAX would wrap; only reachable where size_t is narrower than 64 bits. */
+        if ((uint64_t)cap > SIZE_MAX / 2) aster_rt_panic_cstr("out of memory");
         cap *= 2;
         buf = realloc(buf, (size_t)cap);
         if (buf == NULL) aster_rt_panic_cstr("out of memory");
@@ -161,7 +168,7 @@ aster_string aster_rt_read_stdin(void) {
     aster_string s = read_all(stdin, &ok);
     if (!ok) {
         char msg[256];
-        snprintf(msg, sizeof msg, "cannot read stdin: %s", strerror(errno));
+        snprintf(msg, sizeof msg, "cannot read stdin: %s", io_reason(errno));
         aster_rt_panic_cstr(msg);
     }
     return s;
@@ -188,16 +195,18 @@ aster_string aster_rt_read_file(aster_string path, bool *ok) {
     char *cpath = alloc_bytes(path.len + 1);
     if (path.len > 0) memcpy(cpath, path.ptr, (size_t)path.len);
     cpath[path.len] = '\0';
+    errno = 0;
     FILE *f = fopen(cpath, "rb");
+    int open_err = errno; /* before free(), which C11 allows to change errno */
     free(cpath);
     if (f == NULL) {
         *ok = false;
-        return path_error(path, path.len, strerror(errno));
+        return path_error(path, path.len, io_reason(open_err));
     }
     errno = 0;
     aster_string contents = read_all(f, ok);
     int err = errno;
     fclose(f);
-    if (!*ok) return path_error(path, path.len, strerror(err));
+    if (!*ok) return path_error(path, path.len, io_reason(err));
     return contents;
 }
