@@ -55,12 +55,12 @@ describe('compileToC + buildExecutable', () => {
 
   it('survives C name collisions', () => {
     const text = `fn printf(x: int): int { return x + 1; }
-fn exit(code: int): int { return code * 2; }
+fn abort(code: int): int { return code * 2; }
 fn aster_rt_add(a: int, b: int): int { return a - b; }
 fn main(): int {
     let int: int = 1;
     let char: int = printf(int);
-    let goto: int = exit(char);
+    let goto: int = abort(char);
     let NULL: int = aster_rt_add(goto, 1);
     print(NULL);
     return 0;

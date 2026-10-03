@@ -1,0 +1,15 @@
+// expect-error: 11:28 expected '=>', found '|'
+// expect-error: 11:38 expected 'fn', 'struct' or 'enum', found '}'
+// expect-error: 12:30 expected pattern, found '_'
+// expect-error: 12:38 expected 'fn', 'struct' or 'enum', found '}'
+// expect-error: 13:26 expected pattern, found '('
+// expect-error: 13:34 expected 'fn', 'struct' or 'enum', found '}'
+// expect-error: 14:27 expected 'int', found character literal
+// expect-error: 14:37 expected 'fn', 'struct' or 'enum', found '}'
+// A pattern syntax error abandons the match statement mid-arm, so recovery closes the function body at the arm's
+// `}` and the function's own `}` is reported as a stray token. Each case therefore gets its own function.
+fn a(x: int) { match x { _ | 1 => {} } }
+fn b(x: int) { match x { 1 | _ => {} } }
+fn c(x: int) { match x { ( => {} } }
+fn d(x: int) { match x { -'a' => {} } }
+fn main(): int { return 0; }

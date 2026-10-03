@@ -1,0 +1,21 @@
+// A non-void function whose match statement ends every arm in `exit` needs no trailing return;
+// exit(3) from a nested call (not main) sets the process exit code.
+// expect-stdout:
+// before
+// expect-exit: 3
+fn bail(code: int): int {
+    match code {
+        3 => exit(3),
+        _ => exit(code),
+    }
+}
+
+fn middle(): int {
+    print("before");
+    return bail(3);
+}
+
+fn main(): int {
+    print(middle() + 1);
+    return 0;
+}

@@ -43,7 +43,7 @@ export type IrBinOp =
 export type IrUnOp = 'neg' | 'not';
 
 export type IrBuiltin =
-  | 'print_int' | 'print_bool' | 'print_string'
+  | 'print_int' | 'print_bool' | 'print_string' | 'eprint_int' | 'eprint_bool' | 'eprint_string' | 'exit'
   | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'read_stdin';
 
 export type Instr =
@@ -77,7 +77,7 @@ export type Terminator =
   | { kind: 'jmp'; target: string }
   | { kind: 'br'; cond: Operand; then: string; else: string }
   /** Jumps to the case whose value equals `value` (an int), else to `default`. A null default means no other value can occur. */
-  | { kind: 'switch'; value: Operand; cases: { value: number; target: string }[]; default: string | null }
+  | { kind: 'switch'; value: Operand; cases: { value: bigint; target: string }[]; default: string | null }
   | { kind: 'ret'; value: Operand | null }
   | { kind: 'unreachable' };
 

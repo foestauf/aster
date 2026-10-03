@@ -1,0 +1,25 @@
+fn f(x: int, s: string, b: bool, e: E): int {
+    let c: int = 'a' + '\n';
+    match x { 1 => {}, -2 | 3 => {} 'z' | '\'' => {}, _ => {} }
+    let y: int = match s { "a" | "" => 1, "it's" => 2, _ => 3 };
+    let z: int = match b { true => 1, false => 0 };
+    let w: int = match e { E::A | E::B(_, _) => 1, E::C(v) => v };
+    let m: int = match x { -9223372036854775808 => 0, - 1 => 1, _ => 2 };
+    return 0;
+}
+fn errors(x: int) {
+    match x { _ | 1 => {} }
+    match x { 1 | _ => {} }
+    match x { ( => {} }
+    match x { -'a' => {} }
+    match x { 1 || 2 => {} }
+    match x { 9223372036854775808 => {}, _ => {} }
+}
+// Recovery from the first error above closes `errors` early and skips to the next item, so each case again on its own.
+fn e1(x: int) { match x { 1 | _ => {} } }
+fn e2(x: int) { match x { ( => {} } }
+fn e3(x: int) { match x { -'a' => {} } }
+fn e4(x: int) { match x { 1 || 2 => {} } }
+fn e5(x: int) { match x { 9223372036854775808 => {}, -9223372036854775809 | 'x' => {}, _ => {} } }
+fn e6(x: int) { match x { E::A | _ => {} } }
+fn e7(x: int) { match x { 1 | } }

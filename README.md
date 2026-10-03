@@ -42,8 +42,9 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - v0.2 design (enums and `match`): [`docs/superpowers/specs/2026-10-02-aster-v0.2-design.md`](docs/superpowers/specs/2026-10-02-aster-v0.2-design.md)
 - v0.3 design (file and stdin input, program arguments): [`docs/superpowers/specs/2026-10-02-aster-v0.3-design.md`](docs/superpowers/specs/2026-10-02-aster-v0.3-design.md)
 - parse.aster design (the self-hosted parser): [`docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md`](docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md)
-- Self-hosting friction log and v0.4 shortlist: [`docs/self-host/friction.md`](docs/self-host/friction.md)
+- v0.4 design (character literals, `match` on ints, bools and strings, or-patterns, `eprint` and `exit`): [`docs/superpowers/specs/2026-10-03-aster-v0.4-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.4-design.md)
+- Self-hosting friction log and shortlist: [`docs/self-host/friction.md`](docs/self-host/friction.md)
 
 ## Tests
 
-`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser.
+`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser. Both self-hosted programs use the v0.4 features (character literals, `match` on strings and ints, `eprint` and `exit`), and the tests compare their stdout and stderr separately.

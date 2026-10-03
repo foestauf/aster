@@ -275,6 +275,13 @@ describe('enums', () => {
   });
 });
 
+const arms = (text: string) => {
+  const { program, diagnostics } = parseText(`fn f() { match x { ${text} } }`);
+  const stmt = program.functions[0].body.statements[0];
+  if (stmt.kind !== 'match') throw new Error(`expected match, got ${stmt.kind}`);
+  return { arms: stmt.arms, diagnostics };
+};
+
 describe('match', () => {
   it('parses match expressions', () => {
     expect(init('match e { E::A => 1, E::B(x, _) => x, _ => 0, }')).toBe('(match e (E::A 1) ((E::B x _) x) (_ 0))');
@@ -302,11 +309,53 @@ describe('match', () => {
 
   it('rejects malformed patterns and arms', () => {
     expect(firstError('fn f() { match e { E::A() => {} } }')).toBe("expected identifier, found ')'");
-    expect(firstError('fn f() { let r: int = match e { }; }')).toBe("expected identifier, found '}'");
+    expect(firstError('fn f() { let r: int = match e { }; }')).toBe("expected pattern, found '}'");
     expect(firstError('fn f() { match e { E::A => g() E::B => g(), } }')).toBe("expected '}', found identifier 'E'");
+  });
+
+  it('parses literal patterns', () => {
+    const r = arms(`1 => 0, -2 => 1, 'a' => 2, "s" => 3, true => 4, _ => 5`);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.arms.map((a) => patternText(a.pattern))).toEqual(['1', '-2', "'a'", '"s"', 'true', '_']);
+  });
+
+  it('parses or-patterns', () => {
+    const r = arms(`1 | 2 | 'c' => 0, E::A | E::B(_) => 1, _ => 2`);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.arms.map((a) => patternText(a.pattern))).toEqual(["(| 1 2 'c')", '(| E::A (E::B _))', '_']);
+  });
+
+  it('spans negative literals from the minus and or-patterns from first to last alternative', () => {
+    const text = 'fn f() { match x { -2 => 0, 1 | 2 => 1 } }';
+    const r = arms('-2 => 0, 1 | 2 => 1');
+    expect(r.arms[0].pattern.span).toEqual({ start: text.indexOf('-2'), end: text.indexOf('-2') + 2 });
+    expect(r.arms[1].pattern.span).toEqual({ start: text.indexOf('1 |'), end: text.lastIndexOf('2 =>') + 1 });
+  });
+
+  it('range-checks literal patterns', () => {
+    expect(arms('-9223372036854775808 => 0, _ => 1').diagnostics).toEqual([]);
+    const r = arms('9223372036854775808 => 0, _ => 1');
+    expect(r.diagnostics.map((d) => d.message)).toEqual(['integer literal out of range']);
+    expect(r.arms).toHaveLength(2);
+  });
+
+  it('rejects malformed or-patterns and literal patterns', () => {
+    expect(firstError('fn f() { match x { _ | 1 => 0 } }')).toBe("expected '=>', found '|'");
+    expect(firstError('fn f() { match x { 1 | _ => 0 } }')).toBe("expected pattern, found '_'");
+    expect(firstError('fn f() { match x { ( => 0 } }')).toBe("expected pattern, found '('");
+    expect(firstError("fn f() { match x { -'a' => 0 } }")).toBe("expected 'int', found character literal");
+    expect(firstError('fn f() { match x { 1 || 2 => 0 } }')).toBe("expected '=>', found '||'");
+  });
+
+  it('renders char expressions by their source text', () => {
+    expect(expr("'a' + 1")).toBe("(+ 'a' 1)");
   });
 
   it('resumes at a match statement after a broken statement', () => {
     expect(errors('fn f() {\n  let x: int = 1\n  match e { _ => {} }\n}')).toEqual(["expected ';', found 'match'"]);
+  });
+
+  it('describes a character literal in errors', () => {
+    expect(errors("fn main(): int { return 1 'b'; }")).toEqual(["expected ';', found character literal"]);
   });
 });

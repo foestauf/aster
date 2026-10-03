@@ -1,0 +1,21 @@
+// An int or string scrutinee is evaluated once, however many alternatives are tested.
+// expect-stdout:
+// n
+// two
+// s
+// b
+fn n(): int {
+    print("n");
+    return 2;
+}
+
+fn s(): string {
+    print("s");
+    return "b";
+}
+
+fn main(): int {
+    print(match n() { 1 => "one", 2 | 3 => "two", _ => "many" });
+    print(match s() { "a" => "a", "b" | "c" => "b", _ => "z" });
+    return 0;
+}

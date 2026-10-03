@@ -1,5 +1,5 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
   type StructLitExpr, type TypeExpr, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
@@ -368,7 +368,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       return checkBlock(ctx, stmt);
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
-      const diverges = expr.kind === 'builtin' && expr.builtin === 'panic';
+      const diverges = expr.kind === 'builtin' && (expr.builtin === 'panic' || expr.builtin === 'exit');
       return { node: { kind: 'expr', expr }, diverges };
     }
   }
@@ -418,6 +418,8 @@ function checkForBody(ctx: Ctx, name: string, nameSpan: Span, type: Type, block:
 function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
   switch (expr.kind) {
     case 'int':
+      return { kind: 'int', type: INT, value: expr.value };
+    case 'char':
       return { kind: 'int', type: INT, value: expr.value };
     case 'string':
       return { kind: 'string', type: STRING, value: expr.value };
@@ -539,13 +541,27 @@ function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
   return { kind: 'variant', type: { kind: 'enum', name: enumType.name }, enum: enumType.name, variant: variant.name, tag: variant.tag, args };
 }
 
+type MatchCategory = 'enum' | 'int' | 'bool' | 'string';
+
+function matchCategory(t: Type): MatchCategory | null {
+  if (t.kind === 'enum' || t.kind === 'int' || t.kind === 'bool' || t.kind === 'string') return t.kind;
+  return null;
+}
+
+/** A pattern alternative that fits the scrutinee: its key in the match's covered set, and the value it matches. */
+type ResolvedAlternative =
+  | { key: string; kind: 'variant'; variant: TVariant }
+  | { key: string; kind: 'int'; value: bigint }
+  | { key: string; kind: 'string'; value: string };
+
 /**
- * Checks a match's scrutinee and patterns:
- * - each pattern must name a variant of the scrutinee's enum
- * - every variant must be covered unless there is a `_` arm
- * - no arm may be unreachable
+ * Checks a match's scrutinee and patterns (spec §3.3):
+ * - the scrutinee must be an enum, int, bool or string
+ * - each pattern alternative must fit the scrutinee's type
+ * - no arm may be unreachable, and no alternative may repeat a value already covered
+ * - an enum or bool match must cover every value unless there is a `_` arm; an int or string match needs `_`
  * `checkArm(i)` checks arm i's body with that arm's binders in scope. Patterns are not checked at all against an
- * error-typed or non-enum scrutinee, and a pattern that fails to resolve switches off the exhaustiveness check.
+ * error-typed or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
  */
 function checkMatch(
   ctx: Ctx,
@@ -557,55 +573,173 @@ function checkMatch(
   const scrutinee = checkExpr(ctx, scrutineeExpr);
   const st = scrutinee.type;
   const decl: TEnum | null = st.kind === 'enum' ? (ctx.enums.get(st.name) ?? null) : null;
-  if (st.kind !== 'enum' && !isError(st)) report(ctx, `cannot match on '${typeToString(st)}' values`, scrutineeExpr.span);
+  if (matchCategory(st) === null && !isError(st)) report(ctx, `cannot match on '${typeToString(st)}' values`, scrutineeExpr.span);
+  const category = st.kind === 'enum' && decl === null ? null : matchCategory(st);
 
-  const covered = new Set<number>();
+  const covered = new Set<string>();
   let wildcardSeen = false;
   let allResolved = true;
   const typed: TPattern[] = [];
   for (const [index, pattern] of patterns.entries()) {
-    let variant: TVariant | null = null;
-    let slots: readonly Type[] | null = null;
-    if (decl !== null) {
-      if (pattern.kind === 'variant') {
-        variant = resolvePatternVariant(ctx, decl, pattern);
-        if (variant === null) allResolved = false;
-        else if (pattern.binders.length === variant.payload.length) slots = variant.payload;
+    const alternatives: readonly Alternative[] =
+      pattern.kind === 'wildcard' ? [] : pattern.kind === 'or' ? pattern.alternatives : [pattern];
+    let resolved: (ResolvedAlternative | null)[] = [];
+    let fresh: ResolvedAlternative[] = [];
+    if (category !== null) {
+      resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
+      if (resolved.includes(null)) allResolved = false;
+      if (pattern.kind === 'wildcard') {
+        if (wildcardSeen || missingValues(category, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+      } else {
+        fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
+        for (const r of fresh) covered.add(r.key);
       }
-      const isWildcard = pattern.kind === 'wildcard';
-      const unreachable =
-        wildcardSeen || (variant !== null && covered.has(variant.tag)) || (isWildcard && covered.size === decl.variants.length);
-      if (unreachable && (isWildcard || variant !== null)) report(ctx, 'unreachable match arm', pattern.span);
-      if (variant !== null) covered.add(variant.tag);
-      if (isWildcard) wildcardSeen = true;
     }
+    if (pattern.kind === 'wildcard') wildcardSeen = true;
 
     ctx.scopes.push(new Map());
-    const seen = new Set<string>();
-    const binders: (Local | null)[] = [];
-    if (pattern.kind === 'variant') {
-      for (const [slot, binder] of pattern.binders.entries()) {
-        if (binder === null) {
-          binders.push(null);
-        } else if (seen.has(binder.name)) {
-          report(ctx, `duplicate binding '${binder.name}'`, binder.span);
-          binders.push(null);
-        } else {
-          seen.add(binder.name);
-          binders.push(declare(ctx, binder.name, binder.span, slots?.[slot] ?? ERROR, false));
-        }
-      }
-    }
+    const single = pattern.kind === 'variant' ? resolved[0] : null;
+    const binders = declareBinders(ctx, pattern, single?.kind === 'variant' ? single.variant : null);
     checkArm(index);
     ctx.scopes.pop();
-    typed.push({ variant: variant === null ? null : { name: variant.name, tag: variant.tag }, binders });
+    typed.push(typedPattern(pattern, category, fresh, binders));
   }
 
-  if (decl !== null && allResolved && !wildcardSeen && covered.size < decl.variants.length) {
-    const missing = decl.variants.filter((v) => !covered.has(v.tag)).map((v) => `'${decl.name}::${v.name}'`);
-    report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
+  if (category !== null && allResolved && !wildcardSeen) {
+    const missing = missingValues(category, decl, covered);
+    if (missing === null) report(ctx, "non-exhaustive match: add a '_' arm", keywordSpan);
+    else if (missing.length > 0) report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
   }
   return { scrutinee, patterns: typed };
+}
+
+/**
+ * Resolves one alternative against the scrutinee type `st`, reporting a pattern that does not fit. Returns null
+ * after any report. `decl` is the scrutinee's enum, or null when the scrutinee is not an enum.
+ */
+function resolveAlternative(ctx: Ctx, st: Type, decl: TEnum | null, alt: Alternative): ResolvedAlternative | null {
+  if (alt.kind === 'variant') {
+    if (decl !== null) {
+      const variant = resolvePatternVariant(ctx, decl, alt);
+      return variant === null ? null : { key: `tag:${variant.tag}`, kind: 'variant', variant };
+    }
+    // Only the enum name matters here: any variant of it is the wrong type.
+    if (ctx.enums.has(alt.enumName)) {
+      report(ctx, `pattern type '${alt.enumName}' does not match '${typeToString(st)}'`, alt.enumSpan);
+    } else {
+      resolveVariant(ctx, alt.enumName, alt.enumSpan, alt.variant, alt.variantSpan);
+    }
+    return null;
+  }
+  const patternType = alt.kind === 'stringPat' ? STRING : alt.kind === 'boolPat' ? BOOL : INT;
+  if (!typeEquals(patternType, st)) {
+    report(ctx, `pattern type '${typeToString(patternType)}' does not match '${typeToString(st)}'`, alt.span);
+    return null;
+  }
+  switch (alt.kind) {
+    case 'intPat':
+    case 'charPat':
+      return { key: `int:${alt.value}`, kind: 'int', value: alt.value };
+    case 'boolPat':
+      return { key: `bool:${alt.value}`, kind: 'int', value: alt.value ? 1n : 0n };
+    case 'stringPat':
+      return { key: `str:${JSON.stringify(alt.value)}`, kind: 'string', value: alt.value };
+  }
+}
+
+/**
+ * Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
+ * otherwise each covered alternative as a duplicate. Returns the alternatives that cover something new.
+ */
+function checkReachability(
+  ctx: Ctx,
+  pattern: Pattern,
+  alternatives: readonly Alternative[],
+  resolved: readonly (ResolvedAlternative | null)[],
+  covered: ReadonlySet<string>,
+  wildcardSeen: boolean,
+): ResolvedAlternative[] {
+  const fresh: ResolvedAlternative[] = [];
+  const stale: Alternative[] = [];
+  const armKeys = new Set<string>();
+  for (const [i, r] of resolved.entries()) {
+    if (r === null) continue;
+    if (covered.has(r.key) || armKeys.has(r.key)) {
+      stale.push(alternatives[i]);
+    } else {
+      armKeys.add(r.key);
+      fresh.push(r);
+    }
+  }
+  if (fresh.length + stale.length === 0) return fresh;
+  if (wildcardSeen || fresh.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+  else for (const alt of stale) report(ctx, 'duplicate pattern alternative', alt.span);
+  return fresh;
+}
+
+/**
+ * The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; null
+ * for int and string, whose values can never all be covered.
+ */
+function missingValues(category: MatchCategory, decl: TEnum | null, covered: ReadonlySet<string>): string[] | null {
+  switch (category) {
+    case 'enum':
+      return (decl?.variants ?? []).filter((v) => !covered.has(`tag:${v.tag}`)).map((v) => `'${decl?.name}::${v.name}'`);
+    case 'bool':
+      return ['true', 'false'].filter((b) => !covered.has(`bool:${b}`)).map((b) => `'${b}'`);
+    case 'int':
+    case 'string':
+      return null;
+  }
+}
+
+/**
+ * Declares a single variant pattern's binders in the current scope, typed by `variant`'s payload when the binder
+ * count is right. Named binders in an or-pattern are reported and not declared.
+ */
+function declareBinders(ctx: Ctx, pattern: Pattern, variant: TVariant | null): (Local | null)[] {
+  if (pattern.kind === 'or') {
+    for (const alt of pattern.alternatives) {
+      if (alt.kind !== 'variant') continue;
+      for (const binder of alt.binders) {
+        if (binder !== null) report(ctx, 'or-pattern alternatives cannot bind names', binder.span);
+      }
+    }
+    return [];
+  }
+  if (pattern.kind !== 'variant') return [];
+  const slots = variant !== null && pattern.binders.length === variant.payload.length ? variant.payload : null;
+  const seen = new Set<string>();
+  const binders: (Local | null)[] = [];
+  for (const [slot, binder] of pattern.binders.entries()) {
+    if (binder === null) {
+      binders.push(null);
+    } else if (seen.has(binder.name)) {
+      report(ctx, `duplicate binding '${binder.name}'`, binder.span);
+      binders.push(null);
+    } else {
+      seen.add(binder.name);
+      binders.push(declare(ctx, binder.name, binder.span, slots?.[slot] ?? ERROR, false));
+    }
+  }
+  return binders;
+}
+
+/** The typed form of an arm's pattern, from the values it newly covers. */
+function typedPattern(pattern: Pattern, category: MatchCategory | null, fresh: readonly ResolvedAlternative[], binders: (Local | null)[]): TPattern {
+  if (pattern.kind === 'wildcard') return { kind: 'wildcard' };
+  switch (category) {
+    case 'int':
+    case 'bool':
+      return { kind: 'ints', values: fresh.flatMap((r) => (r.kind === 'int' ? [r.value] : [])) };
+    case 'string':
+      return { kind: 'strings', values: fresh.flatMap((r) => (r.kind === 'string' ? [r.value] : [])) };
+    case 'enum':
+    case null: {
+      const variants = fresh.flatMap((r) => (r.kind === 'variant' ? [{ name: r.variant.name, tag: r.variant.tag }] : []));
+      return { kind: 'variants', variants, binders: variants.length === 1 ? binders : [] };
+    }
+  }
 }
 
 /**
@@ -643,7 +777,7 @@ function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): 
     report(ctx, 'match expression cannot have type void', expr.span);
     return errorExpr();
   }
-  if (scrutinee.type.kind !== 'enum') return errorExpr();
+  if (matchCategory(scrutinee.type) === null) return errorExpr();
   return { kind: 'match', type, scrutinee, arms: patterns.map((pattern, i) => ({ pattern, body: bodies[i] })) };
 }
 
@@ -815,10 +949,10 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     report(ctx, `'${name}' is not a function`, expr.callee.span);
     return errorExpr();
   }
-  if (name === 'print') {
+  if (name === 'print' || name === 'eprint') {
     // A wrong argument count is reported by checkPrint; its arguments must not cascade then.
     const args = expr.args.map((a) => checkExpr(ctx, a, expr.args.length === 1 ? undefined : ERROR));
-    return checkPrint(ctx, expr, args);
+    return checkPrint(ctx, expr, name, args);
   }
   if (name === 'len' || name === 'push' || name === 'pop') return checkCollectionBuiltin(ctx, name, expr);
 
@@ -841,16 +975,16 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     : { kind: 'call', type: sig.returnType, fn: name, args };
 }
 
-function checkPrint(ctx: Ctx, expr: CallExpr, args: TExpr[]): TExpr {
+function checkPrint(ctx: Ctx, expr: CallExpr, name: 'print' | 'eprint', args: TExpr[]): TExpr {
   if (args.length !== 1) {
-    report(ctx, arityMessage('print', 1, args.length), expr.span);
+    report(ctx, arityMessage(name, 1, args.length), expr.span);
     return errorExpr();
   }
   const t = args[0].type;
   if (!isError(t) && t.kind !== 'int' && t.kind !== 'bool' && t.kind !== 'string') {
     report(ctx, `cannot print a value of type ${typeToString(t)}`, expr.args[0].span);
   }
-  return { kind: 'builtin', type: VOID, builtin: 'print', args };
+  return { kind: 'builtin', type: VOID, builtin: name, args };
 }
 
 /** `len` (string or array), `push` and `pop` (any array). Typed by hand because Aster has no generics. */

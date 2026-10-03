@@ -1,0 +1,24 @@
+// Bool matches: exhaustive without `_` in expression and statement position, and `_` with one literal.
+// expect-stdout:
+// yes
+// no
+// 1
+// 0
+// only true
+// other
+// lit
+fn main(): int {
+    let t: bool = 1 < 2;
+    let f: bool = 2 < 1;
+    print(match t { true => "yes", false => "no" });
+    match f {
+        true => print("yes"),
+        false => print("no"),
+    }
+    print(match t { false => 0, true => 1 });
+    print(match f { false => 0, true => 1 });
+    print(match t { true => "only true", _ => "other" });
+    print(match f { true => "only true", _ => "other" });
+    print(match true { true => "lit", false => "nope" });
+    return 0;
+}

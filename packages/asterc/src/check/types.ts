@@ -1,7 +1,7 @@
 import type { AssignOp, BinaryOp, UnaryOp } from '../ast/ast.js';
 import type { Type } from '../types/type.js';
 
-export type BuiltinName = 'print' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'push' | 'pop' | 'read_stdin' | 'read_file';
+export type BuiltinName = 'print' | 'eprint' | 'exit' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'push' | 'pop' | 'read_stdin' | 'read_file';
 
 export interface Local {
   /** Unique within its function; params come first. */
@@ -63,12 +63,14 @@ export type TPlace =
   | { kind: 'field'; type: Type; object: TExpr; field: string }
   | { kind: 'index'; type: Type; array: TExpr; index: TExpr };
 
-/** What a match arm accepts: one variant, or every value when `variant` is null (`_`). */
-export interface TPattern {
-  variant: { name: string; tag: number } | null;
-  /** One entry per payload slot: the binder's local, or null for `_`. Empty for `_` arms. */
-  binders: (Local | null)[];
-}
+/** What a match arm accepts. Unresolved alternatives contribute no values; an arm with none is never taken. */
+export type TPattern =
+  | { kind: 'wildcard' }
+  /** Enum variants. `binders` has one entry per payload slot when there is exactly one variant, else it is empty. */
+  | { kind: 'variants'; variants: { name: string; tag: number }[]; binders: (Local | null)[] }
+  /** int and char literals; bool patterns as 0n (false) and 1n (true). */
+  | { kind: 'ints'; values: bigint[] }
+  | { kind: 'strings'; values: string[] };
 
 export type TStmt =
   | { kind: 'let'; local: Local; init: TExpr }

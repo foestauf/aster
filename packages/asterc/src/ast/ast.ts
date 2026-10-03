@@ -153,10 +153,19 @@ export interface Binder {
   span: Span;
 }
 
-/** `_`, or `Enum::Variant` with one binder per payload slot. Patterns are flat. */
+/** One alternative of a pattern. Literal `raw` fields hold the source text (`-5`, `'a'`, `"x"`). */
+export type Alternative =
+  | { kind: 'variant'; enumName: string; enumSpan: Span; variant: string; variantSpan: Span; binders: (Binder | null)[]; span: Span }
+  | { kind: 'intPat'; value: bigint; raw: string; span: Span }
+  | { kind: 'charPat'; value: bigint; raw: string; span: Span }
+  | { kind: 'stringPat'; value: string; raw: string; span: Span }
+  | { kind: 'boolPat'; value: boolean; span: Span };
+
+/** `_`, one alternative, or two or more alternatives joined by `|`. Patterns are flat. */
 export type Pattern =
   | { kind: 'wildcard'; span: Span }
-  | { kind: 'variant'; enumName: string; enumSpan: Span; variant: string; variantSpan: Span; binders: (Binder | null)[]; span: Span };
+  | { kind: 'or'; alternatives: Alternative[]; span: Span }
+  | Alternative;
 
 export interface MatchStmtArm {
   pattern: Pattern;
@@ -186,6 +195,14 @@ export interface IntExpr {
 export interface StringExpr {
   kind: 'string';
   value: string;
+  span: Span;
+}
+
+/** `'a'`: an int-valued literal. `raw` is the source text, quotes included. */
+export interface CharExpr {
+  kind: 'char';
+  value: bigint;
+  raw: string;
   span: Span;
 }
 
@@ -294,5 +311,5 @@ export interface MatchExpr {
 }
 
 export type Expr =
-  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr
+  | IntExpr | CharExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr
   | VariantExpr | MatchExpr;

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildExecutable, compileToC, formatDiagnostic, lex, makeSource, parse,
-  type Block, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
+  type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
 } from '../packages/asterc/src/index.js';
 
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
@@ -16,11 +16,14 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/](lex|parse)_\w+\.txt$/.test(f))
   .toSorted();
 
+const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
+
 /**
  * The TypeScript lexer and parser's output in parse.aster's format, with UTF-16 offsets converted to byte offsets in
- * the raw file. `makeSource` strips a leading BOM before lexing, so spans are shifted past its 3 bytes.
+ * the raw file: the tree for stdout and errors (lexer first, then parser) for stderr. `makeSource` strips a leading
+ * BOM before lexing, so spans are shifted past its 3 bytes.
  */
-function expected(text: string): { stdout: string; status: number } {
+function expected(text: string): { stdout: string; stderr: string; status: number } {
   const bom = text.startsWith('﻿') ? 3 : 0;
   const body = bom > 0 ? text.slice(1) : text;
   // byteAt[i] is the byte offset of UTF-16 index i of body.
@@ -48,10 +51,27 @@ function expected(text: string): { stdout: string; status: number } {
     type(d + 1, t.elem);
   };
 
+  const alternative = (d: number, a: Alternative): void => {
+    switch (a.kind) {
+      case 'variant':
+        emit(d, `pattern ${sp(a.span)} ${a.enumName} ${sp(a.enumSpan)} ${a.variant} ${sp(a.variantSpan)}`);
+        for (const b of a.binders) emit(d + 1, b === null ? '_' : `bind ${sp(b.span)} ${b.name}`);
+        return;
+      case 'intPat':
+        return emit(d, `int-pattern ${sp(a.span)} ${a.raw}`);
+      case 'charPat':
+        return emit(d, `char-pattern ${sp(a.span)} ${a.raw}`);
+      case 'stringPat':
+        return emit(d, `string-pattern ${sp(a.span)} ${a.raw}`);
+      case 'boolPat':
+        return emit(d, `bool-pattern ${sp(a.span)} ${a.value}`);
+    }
+  };
   const pattern = (d: number, p: Pattern): void => {
     if (p.kind === 'wildcard') return emit(d, `wildcard ${sp(p.span)}`);
-    emit(d, `pattern ${sp(p.span)} ${p.enumName} ${sp(p.enumSpan)} ${p.variant} ${sp(p.variantSpan)}`);
-    for (const b of p.binders) emit(d + 1, b === null ? '_' : `bind ${sp(b.span)} ${b.name}`);
+    if (p.kind !== 'or') return alternative(d, p);
+    emit(d, `or-pattern ${sp(p.span)}`);
+    for (const a of p.alternatives) alternative(d + 1, a);
   };
 
   const expr = (d: number, e: Expr): void => {
@@ -59,6 +79,8 @@ function expected(text: string): { stdout: string; status: number } {
     switch (e.kind) {
       case 'int':
         return emit(d, `int ${head} ${e.value}`);
+      case 'char':
+        return emit(d, `char ${head} ${e.raw}`);
       case 'string':
         return emit(d, `string ${head} ${body.slice(e.span.start, e.span.end)}`);
       case 'bool':
@@ -218,8 +240,8 @@ function expected(text: string): { stdout: string; status: number } {
     else enumDecl(item);
   }
   const diagnostics = [...lexed.diagnostics, ...parsed.diagnostics];
-  for (const d of diagnostics) lines.push(`error ${sp(d.span)} ${d.message}`);
-  return { stdout: lines.map((l) => `${l}\n`).join(''), status: diagnostics.length > 0 ? 1 : 0 };
+  const errors = diagnostics.map((d) => `error ${sp(d.span)} ${d.message}`);
+  return { stdout: toOutput(lines), stderr: toOutput(errors), status: diagnostics.length > 0 ? 1 : 0 };
 }
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-parse-'));
@@ -237,7 +259,7 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
-    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'lex_bom']) {
+    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
   });
@@ -247,6 +269,6 @@ describe('parse.aster matches the TypeScript parser', () => {
     // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
     const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
-    expect({ stdout: run.stdout, status: run.status }).toEqual(expected(text));
+    expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(text));
   });
 });

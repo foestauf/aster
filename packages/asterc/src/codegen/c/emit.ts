@@ -156,13 +156,17 @@ function emitFunction(fn: IrFunction, enums: EnumTable): string[] {
   return lines;
 }
 
+/** INT64_MIN has no single-literal spelling in C. */
+function intLiteral(v: bigint): string {
+  return v === INT64_MIN ? 'INT64_MIN' : `INT64_C(${v})`;
+}
+
 function operand(fn: IrFunction, o: Operand): string {
   switch (o.kind) {
     case 'local':
       return mangleLocal(fn.locals[o.id]);
     case 'int':
-      // INT64_MIN has no single-literal spelling in C.
-      return o.value === INT64_MIN ? 'INT64_MIN' : `INT64_C(${o.value})`;
+      return intLiteral(o.value);
     case 'bool':
       return o.value ? 'true' : 'false';
     case 'string':
@@ -259,9 +263,12 @@ function emitTerminator(fn: IrFunction, term: Terminator): string {
     case 'br':
       return `if (${operand(fn, term.cond)}) goto ${term.then}; else goto ${term.else};`;
     case 'switch': {
-      const cases = term.cases.map((c) => `case ${c.value}: goto ${c.target};`);
+      const cases = term.cases.map((c) => `case ${intLiteral(c.value)}: goto ${c.target};`);
       const fallback = term.default === null ? 'default: aster_rt_unreachable();' : `default: goto ${term.default};`;
-      return `switch (${operand(fn, term.value)}) { ${[...cases, fallback].join(' ')} }`;
+      // gcc rejects a bool switch condition under -Wswitch-bool.
+      const isBool = term.value.kind === 'bool' || (term.value.kind === 'local' && fn.locals[term.value.id].type.kind === 'bool');
+      const on = isBool ? `(int64_t)${operand(fn, term.value)}` : operand(fn, term.value);
+      return `switch (${on}) { ${[...cases, fallback].join(' ')} }`;
     }
     case 'ret':
       return term.value === null ? 'return;' : `return ${operand(fn, term.value)};`;

@@ -1,0 +1,14 @@
+// expect-error: 8:12 cannot print a value of type [int]
+// expect-error: 9:5 function 'eprint' expects 1 argument, found 0
+// expect-error: 10:10 type mismatch: expected int, found string
+// expect-error: 11:5 function 'exit' expects 1 argument, found 0
+// expect-error: 12:12 cannot print a value of type E
+enum E { A }
+fn main(): int {
+    eprint([1]);
+    eprint();
+    exit("x");
+    exit();
+    eprint(E::A);
+    return 0;
+}

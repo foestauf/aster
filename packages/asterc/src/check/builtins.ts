@@ -6,9 +6,9 @@ export interface Signature {
   returnType: Type;
 }
 
-/** Builtins the checker types by hand: `print` (int, bool or string), `len` (string or array), `push`/`pop` (any array). */
-export type SpecialBuiltin = 'print' | 'len' | 'push' | 'pop';
-const SPECIAL_BUILTINS: ReadonlySet<string> = new Set<SpecialBuiltin>(['print', 'len', 'push', 'pop']);
+/** Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string or array), `push`/`pop` (any array). */
+export type SpecialBuiltin = 'print' | 'eprint' | 'len' | 'push' | 'pop';
+const SPECIAL_BUILTINS: ReadonlySet<string> = new Set<SpecialBuiltin>(['print', 'eprint', 'len', 'push', 'pop']);
 
 export type SignatureBuiltin = Exclude<BuiltinName, SpecialBuiltin>;
 
@@ -21,6 +21,7 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   substring: { params: [STRING, INT, INT], returnType: STRING },
   int_to_string: { params: [INT], returnType: STRING },
   panic: { params: [STRING], returnType: VOID },
+  exit: { params: [INT], returnType: VOID },
   read_stdin: { params: [], returnType: STRING },
   read_file: { params: [STRING], returnType: READ_RESULT_TYPE },
 };

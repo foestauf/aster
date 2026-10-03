@@ -339,37 +339,73 @@ function lowerFor(st: FnState, body: TBlock, counter: number, parts: { cond: () 
 
 /**
  * The shape of a match:
- *   entry:    t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+ *   enum:     entry: t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+ *   int/bool: entry: switch s [value: armN, ...], default <the `_` arm, or unreachable>
+ *   string:   entry: a chain of `str_eq s, "lit"` tests, each br armN / next test, in arm order;
+ *             a `_` arm ends the chain with a jmp, otherwise the chain ends in unreachable
  *   armN:     binder = enum_field s, Enum::Variant.slot (for each binder); body; jmp endmatch
  *   endmatch: (only when some arm falls through; an unused label would warn)
  * The scrutinee is evaluated once, and binders are read before the body runs.
  */
 function lowerMatch(st: FnState, scrutinee: TExpr, patterns: readonly TPattern[], lowerBody: (index: number) => void): void {
   const value = lowerValue(st, scrutinee);
-  if (scrutinee.type.kind !== 'enum') throw new Error('internal: match on a non-enum value');
-  const enumName = scrutinee.type.name;
-  const tag = enumTag(st, value);
   const labels = patterns.map(() => newLabel(st, 'arm'));
   const end = newLabel(st, 'endmatch');
-  const cases: { value: number; target: string }[] = [];
-  let fallback: string | null = null;
-  for (const [i, p] of patterns.entries()) {
-    if (p.variant === null) fallback = labels[i];
-    else cases.push({ value: p.variant.tag, target: labels[i] });
+  const enumName = scrutinee.type.kind === 'enum' ? scrutinee.type.name : '';
+  if (scrutinee.type.kind === 'enum') {
+    lowerSwitch(st, enumTag(st, value), patterns, labels);
+  } else if (scrutinee.type.kind === 'string') {
+    lowerStringTests(st, value, patterns, labels);
+  } else {
+    lowerSwitch(st, value, patterns, labels);
   }
-  terminate(st, { kind: 'switch', value: tag, cases, default: fallback });
   let reachesEnd = false;
   for (const [i, p] of patterns.entries()) {
     startBlock(st, labels[i]);
-    for (const [index, binder] of p.binders.entries()) {
-      if (binder === null || p.variant === null) continue;
-      emit(st, { kind: 'enum_field', dst: binder.id, value, enum: enumName, variant: p.variant.name, tag: p.variant.tag, index });
+    if (p.kind === 'variants' && p.variants.length === 1) {
+      const variant = p.variants[0];
+      for (const [index, binder] of p.binders.entries()) {
+        if (binder === null) continue;
+        emit(st, { kind: 'enum_field', dst: binder.id, value, enum: enumName, variant: variant.name, tag: variant.tag, index });
+      }
     }
     lowerBody(i);
     if (st.current !== null) reachesEnd = true;
     terminate(st, { kind: 'jmp', target: end });
   }
   if (reachesEnd) startBlock(st, end);
+}
+
+/** Terminates the current block with a switch on an enum tag, an int or a bool. */
+function lowerSwitch(st: FnState, on: Operand, patterns: readonly TPattern[], labels: readonly string[]): void {
+  const cases: { value: bigint; target: string }[] = [];
+  let fallback: string | null = null;
+  for (const [i, p] of patterns.entries()) {
+    if (p.kind === 'wildcard') fallback = labels[i];
+    else if (p.kind === 'variants') for (const v of p.variants) cases.push({ value: BigInt(v.tag), target: labels[i] });
+    else if (p.kind === 'ints') for (const v of p.values) cases.push({ value: v, target: labels[i] });
+    else throw new Error('internal: string pattern on a non-string match');
+  }
+  terminate(st, { kind: 'switch', value: on, cases, default: fallback });
+}
+
+/** A string match is a chain of equality tests, in arm order; a `_` arm ends it. */
+function lowerStringTests(st: FnState, on: Operand, patterns: readonly TPattern[], labels: readonly string[]): void {
+  for (const [i, p] of patterns.entries()) {
+    if (p.kind === 'wildcard') {
+      terminate(st, { kind: 'jmp', target: labels[i] });
+      return;
+    }
+    if (p.kind !== 'strings') throw new Error('internal: non-string pattern on a string match');
+    for (const v of p.values) {
+      const test = newTemp(st, { kind: 'bool' });
+      emit(st, { kind: 'binop', dst: test, op: 'str_eq', left: on, right: { kind: 'string', index: internString(st.strings, v) } });
+      const next = newLabel(st, 'test');
+      terminate(st, { kind: 'br', cond: ref(test), then: labels[i], else: next });
+      startBlock(st, next);
+    }
+  }
+  terminate(st, { kind: 'unreachable' });
 }
 
 // ---- expressions
@@ -425,7 +461,7 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       }
       const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
-      if (e.builtin === 'panic') terminate(st, { kind: 'unreachable' });
+      if (e.builtin === 'panic' || e.builtin === 'exit') terminate(st, { kind: 'unreachable' });
       return dst === null ? null : { kind: 'local', id: dst };
     }
     case 'match': {
@@ -543,6 +579,10 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
     case 'print': {
       const t = e.args[0].type.kind;
       return t === 'int' ? 'print_int' : t === 'bool' ? 'print_bool' : 'print_string';
+    }
+    case 'eprint': {
+      const t = e.args[0].type.kind;
+      return t === 'int' ? 'eprint_int' : t === 'bool' ? 'eprint_bool' : 'eprint_string';
     }
     case 'push':
     case 'pop':

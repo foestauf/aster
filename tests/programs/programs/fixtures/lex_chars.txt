@@ -1,0 +1,7 @@
+'a' ' ' '~' '\n' '\t' '\r' '\\' '\'' '\"' '\0' '"'
+"it's \r and \' in a string" // don't start a char here
+a | b || c
+'	'
+'' 'ab' 'é' '\q' '\
+'unterminated
+x

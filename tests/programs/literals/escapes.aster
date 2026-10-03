@@ -1,0 +1,12 @@
+// expect-stdout:
+// 3
+// 13
+// it's
+// true
+fn main(): int {
+    print(len("a\rb"));
+    print(byte_at("a\rb", 1));
+    print("it\'s");
+    print("it's" == "it\'s");
+    return 0;
+}

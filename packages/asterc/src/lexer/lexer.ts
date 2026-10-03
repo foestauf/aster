@@ -10,6 +10,8 @@ const ESCAPES: ReadonlyMap<string, string> = new Map([
   ['\\', '\\'],
   ['"', '"'],
   ['0', '\0'],
+  ['r', '\r'],
+  ["'", "'"],
 ]);
 
 const isDigit = (c: string): boolean => c >= '0' && c <= '9';
@@ -86,6 +88,48 @@ export function lex(source: SourceFile): LexResult {
       }
       if (!terminated) diagnostics.push({ message: 'unterminated string literal', span: { start, end: i } });
       push('string', start, { stringValue: value });
+      continue;
+    }
+
+    if (c === "'") {
+      // Scan to the closing quote on this line, honouring backslash escapes, so an error spans the whole literal.
+      i++;
+      let terminated = false;
+      while (i < text.length && text[i] !== '\n') {
+        if (text[i] === '\\' && i + 1 < text.length && text[i + 1] !== '\n') {
+          i += 2;
+          continue;
+        }
+        if (text[i] === "'") {
+          i++;
+          terminated = true;
+          break;
+        }
+        i++;
+      }
+      const body = text.slice(start + 1, terminated ? i - 1 : i);
+      let value = 0n;
+      let error: Diagnostic | null = null;
+      if (!terminated) {
+        error = { message: 'unterminated character literal', span: { start, end: i } };
+      } else if (body.length === 0) {
+        error = { message: 'empty character literal', span: { start, end: i } };
+      } else if (body[0] === '\\') {
+        const mapped = body.length === 2 ? ESCAPES.get(body[1]) : undefined;
+        if (body.length === 2 && mapped === undefined) {
+          error = { message: `invalid escape sequence '${body}'`, span: { start: start + 1, end: start + 3 } };
+        } else if (mapped === undefined) {
+          error = { message: 'character literal must be a single ASCII character', span: { start, end: i } };
+        } else {
+          value = BigInt(mapped.charCodeAt(0));
+        }
+      } else if (body.length === 1 && body >= ' ' && body <= '~') {
+        value = BigInt(body.charCodeAt(0));
+      } else {
+        error = { message: 'character literal must be a single ASCII character', span: { start, end: i } };
+      }
+      if (error !== null) diagnostics.push(error);
+      push('char', start, { intValue: value });
       continue;
     }
 
