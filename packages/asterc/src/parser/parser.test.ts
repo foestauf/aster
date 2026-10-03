@@ -34,6 +34,32 @@ function init(text: string): string {
 const firstError = (text: string) => errors(text)[0];
 
 describe('expressions', () => {
+  it('parses ? as a postfix operator binding tighter than unary minus', () => {
+    expect(expr('-x?')).toBe('(- (? x))');
+    expect(expr('f(a)?.b')).toBe('(. (? (call f a)) b)');
+    expect(expr('x??')).toBe('(? (? x))');
+    expect(expr('xs[0]? + 1')).toBe('(+ (? (index xs 0)) 1)');
+  });
+
+  it('parses type arguments and type parameters', () => {
+    const head = 'enum Pair[A, B] { P(A, B) }\nfn f(x: Result[[int], Option[Pair[int, bool]]]';
+    const { program, diagnostics } = parseText(`${head}) {}`);
+    expect(diagnostics).toEqual([]);
+    expect(program.enums[0].typeParams.map((p) => p.name)).toEqual(['A', 'B']);
+    const t = program.functions[0].params[0].type;
+    expect(t).toMatchObject({ kind: 'named', name: 'Result', args: [{ kind: 'array' }, { kind: 'named', name: 'Option' }] });
+    // The span of a named type with arguments runs to its closing bracket.
+    expect(t.span.end).toBe(head.length);
+  });
+
+  it('reports empty and trailing-comma type lists', () => {
+    expect(errors('enum E[] { A }')).toEqual(["expected identifier, found ']'"]);
+    expect(errors('fn f(x: Option[]) {}')).toEqual(["expected identifier, found ']'"]);
+    expect(errors('enum E[T,] { A(T) }')).toEqual(["expected identifier, found ']'"]);
+    expect(errors('fn f(x: Option[int,]) {}')).toEqual(["expected identifier, found ']'"]);
+    expect(errors('fn main(): int { return ?x; }')).toEqual(["expected expression, found '?'"]);
+  });
+
   it('respects precedence', () => {
     expect(expr('1 + 2 * 3')).toBe('(+ 1 (* 2 3))');
     expect(expr('a || b && c == d < e + f')).toBe('(|| a (&& b (== c (< d (+ e f)))))');

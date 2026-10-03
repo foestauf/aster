@@ -477,6 +477,10 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     }
     case 'structLit':
       return checkStructLit(ctx, expr);
+    case 'try':
+      // Placeholder until the checker learns `?`; the operand is still checked.
+      checkExpr(ctx, expr.operand);
+      return errorExpr();
     case 'index': {
       const array = checkExpr(ctx, expr.array);
       const index = checkExpr(ctx, expr.index);

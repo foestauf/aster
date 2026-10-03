@@ -167,6 +167,14 @@ export function parse(tokens: readonly Token[]): ParseResult {
   function parseEnum(): EnumDecl {
     const kw = expect('enum');
     const name = expect('ident');
+    const typeParams: { name: string; nameSpan: Span }[] = [];
+    if (eat('[')) {
+      do {
+        const p = expect('ident');
+        typeParams.push({ name: p.text, nameSpan: p.span });
+      } while (eat(','));
+      expect(']');
+    }
     expect('{');
     const variants: VariantDecl[] = [];
     for (;;) {
@@ -181,7 +189,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
       if (!eat(',') || at('}')) break;
     }
     const close = expect('}');
-    return { kind: 'enum', name: name.text, nameSpan: name.span, variants, span: join(kw.span, close.span) };
+    return { kind: 'enum', name: name.text, nameSpan: name.span, typeParams, variants, span: join(kw.span, close.span) };
   }
 
   function parseType(): TypeExpr {
@@ -192,7 +200,12 @@ export function parse(tokens: readonly Token[]): ParseResult {
       return { kind: 'array', elem, span: join(open.span, close.span) };
     }
     const t = expect('ident');
-    return { kind: 'named', name: t.text, span: t.span };
+    const args: TypeExpr[] = [];
+    if (!eat('[')) return { kind: 'named', name: t.text, args, span: t.span };
+    do args.push(parseType());
+    while (eat(','));
+    const close = expect(']');
+    return { kind: 'named', name: t.text, args, span: join(t.span, close.span) };
   }
 
   // ---- statements
@@ -454,6 +467,9 @@ export function parse(tokens: readonly Token[]): ParseResult {
         const index = withStructLits(true, parseExpr);
         const close = expect(']');
         expr = { kind: 'index', array: expr, index, span: join(expr.span, close.span) };
+      } else if (at('?')) {
+        const q = advance();
+        expr = { kind: 'try', operand: expr, span: join(expr.span, q.span) };
       } else {
         return expr;
       }
