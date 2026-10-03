@@ -165,8 +165,16 @@ fn lex_string(lx: Lexer) {
     push_token(lx, "string", start);
 }
 
+// The length of a leading UTF-8 byte order mark, which the compiler skips; offsets still count its bytes.
+fn bom_len(src: string): int {
+    if len(src) >= 3 && byte_at(src, 0) == 239 && byte_at(src, 1) == 187 && byte_at(src, 2) == 191 {
+        return 3;
+    }
+    return 0;
+}
+
 fn lex(src: string): Lexer {
-    let lx: Lexer = Lexer { src: src, pos: 0, tokens: [], errors: [] };
+    let lx: Lexer = Lexer { src: src, pos: bom_len(src), tokens: [], errors: [] };
     while lx.pos < len(src) {
         let start: int = lx.pos;
         let c: int = byte_at(src, start);
