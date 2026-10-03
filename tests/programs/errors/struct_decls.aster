@@ -1,0 +1,15 @@
+// expect-error: 8:8 'int' is a built-in type and cannot be redefined
+// expect-error: 9:8 'print' is a builtin function and cannot be redefined
+// expect-error: 11:8 duplicate struct 'P'
+// expect-error: 12:4 'P' is already declared as a struct
+// expect-error: 13:20 duplicate field 'x'
+// expect-error: 14:15 unknown type 'Nope'
+// expect-error: 14:24 field cannot have type void
+struct int { a: int }
+struct print { a: int }
+struct P { x: int }
+struct P { y: int }
+fn P() { }
+struct Q { x: int, x: bool }
+struct R { a: Nope, b: void }
+fn main(): int { return 0; }

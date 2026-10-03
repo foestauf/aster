@@ -10,6 +10,8 @@ function cType(t: IrType): string {
       return 'bool';
     case 'string':
       return 'aster_string';
+    case 'struct':
+      return mangleStruct(t.name);
     case 'void':
       return 'void';
   }
@@ -23,6 +25,8 @@ function zeroValue(t: IrType): string {
       return 'false';
     case 'string':
       return '{0}';
+    case 'struct':
+      return 'NULL';
     case 'void':
       return '';
   }
@@ -47,10 +51,23 @@ const BINOPS: Record<IrBinOp, (a: string, b: string) => string> = {
 };
 
 export const mangleFn = (name: string): string => `aster_fn_${name}`;
+export const mangleStruct = (name: string): string => `aster_S_${name}`;
+export const mangleField = (name: string): string => `f_${name}`;
 export const mangleLocal = (local: IrLocal): string => (local.name === null ? `l${local.id}` : `l${local.id}_${local.name}`);
 
 export function emitC(program: IrProgram): string {
   const out: string[] = ['#include "aster_rt.h"', ''];
+  if (program.structs.length > 0) {
+    // Every typedef comes first, so struct bodies can refer to any struct, including themselves.
+    for (const s of program.structs) out.push(`typedef struct ${mangleStruct(s.name)} *${mangleStruct(s.name)};`);
+    out.push('');
+    for (const s of program.structs) {
+      out.push(`struct ${mangleStruct(s.name)} {`);
+      if (s.fields.length === 0) out.push('    char aster_empty;'); // C11 has no empty structs
+      for (const f of s.fields) out.push(`    ${cType(f.type)} ${mangleField(f.name)};`);
+      out.push('};', '');
+    }
+  }
   if (program.strings.length > 0) {
     // Not static: an unused static const would trip -Wunused-const-variable.
     program.strings.forEach((s, i) => out.push(`const aster_string aster_str_${i} = ${stringLiteral(s)};`));
@@ -125,6 +142,17 @@ function emitInstr(fn: IrFunction, instr: Instr): string {
       return assign(instr.dst, `${mangleFn(instr.fn)}(${instr.args.map(op).join(', ')})`);
     case 'call_builtin':
       return assign(instr.dst, `aster_rt_${instr.builtin}(${instr.args.map(op).join(', ')})`);
+    case 'struct_new': {
+      const target = mangleLocal(fn.locals[instr.dst]);
+      return [
+        `${target} = aster_rt_alloc(sizeof(struct ${mangleStruct(instr.struct)}));`,
+        ...instr.fields.map((f) => `${target}->${mangleField(f.name)} = ${op(f.value)};`),
+      ].join('\n    ');
+    }
+    case 'field_get':
+      return assign(instr.dst, `${op(instr.object)}->${mangleField(instr.field)}`);
+    case 'field_set':
+      return `${op(instr.object)}->${mangleField(instr.field)} = ${op(instr.value)};`;
   }
 }
 

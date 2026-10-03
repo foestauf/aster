@@ -19,5 +19,9 @@ export function sexpr(e: Expr): string {
       return `(call ${[e.callee, ...e.args].map(sexpr).join(' ')})`;
     case 'ifExpr':
       return `(if ${sexpr(e.cond)} ${sexpr(e.then)} ${sexpr(e.else)})`;
+    case 'field':
+      return `(. ${sexpr(e.object)} ${e.field})`;
+    case 'structLit':
+      return `(struct ${[e.name, ...e.fields.map((f) => `(${f.name} ${sexpr(f.value)})`)].join(' ')})`;
   }
 }

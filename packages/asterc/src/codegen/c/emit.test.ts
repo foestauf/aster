@@ -88,4 +88,36 @@ describe('emitC', () => {
   it('emits unreachable as a runtime call', () => {
     expect(cOf('fn main(): int { panic("x"); }')).toContain('    aster_rt_panic(aster_str_0);\n    aster_rt_unreachable();');
   });
+
+  it('declares every struct typedef before any definition so structs can refer to each other', () => {
+    const c = cOf('struct A { b: B, n: int }\nstruct B { a: A }\nstruct E {}\nfn main(): int { return 0; }');
+    expect(c).toContain(
+      [
+        'typedef struct aster_S_A *aster_S_A;',
+        'typedef struct aster_S_B *aster_S_B;',
+        'typedef struct aster_S_E *aster_S_E;',
+        '',
+        'struct aster_S_A {',
+        '    aster_S_B f_b;',
+        '    int64_t f_n;',
+        '};',
+        '',
+        'struct aster_S_B {',
+        '    aster_S_A f_a;',
+        '};',
+        '',
+        'struct aster_S_E {',
+        '    char aster_empty;',
+        '};',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('allocates structs on the heap and accesses fields through the pointer', () => {
+    const c = cOf('struct P { x: int }\nfn main(): int { let p: P = P { x: 1 }; return p.x; }');
+    expect(c).toContain('    aster_S_P l0_p = NULL;');
+    expect(c).toContain('    l1 = aster_rt_alloc(sizeof(struct aster_S_P));\n    l1->f_x = INT64_C(1);');
+    expect(c).toContain('    l2 = l0_p->f_x;');
+  });
 });

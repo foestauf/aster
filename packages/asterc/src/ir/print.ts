@@ -1,8 +1,15 @@
 import type { Instr, IrFunction, IrLocal, IrProgram, Operand, Terminator } from './ir.js';
 import { typeToString } from '../types/type.js';
 
+const braces = (items: string[]): string => (items.length === 0 ? '{}' : `{ ${items.join(', ')} }`);
+
 export function printIr(program: IrProgram): string {
   const parts: string[] = [];
+  if (program.structs.length > 0) {
+    parts.push(
+      program.structs.map((s) => `struct ${s.name} ${braces(s.fields.map((f) => `${f.name}: ${typeToString(f.type)}`))}\n`).join(''),
+    );
+  }
   if (program.strings.length > 0) {
     parts.push(program.strings.map((s, i) => `string #${i} = ${JSON.stringify(s)}\n`).join(''));
   }
@@ -52,6 +59,12 @@ function printInstr(i: Instr): string {
       return `${dst(i.dst)}call ${i.fn}(${i.args.map(operand).join(', ')})`;
     case 'call_builtin':
       return `${dst(i.dst)}call_builtin ${i.builtin}(${i.args.map(operand).join(', ')})`;
+    case 'struct_new':
+      return `%${i.dst} = struct_new ${i.struct} ${braces(i.fields.map((f) => `${f.name}: ${operand(f.value)}`))}`;
+    case 'field_get':
+      return `%${i.dst} = field_get ${operand(i.object)}.${i.field}`;
+    case 'field_set':
+      return `field_set ${operand(i.object)}.${i.field}, ${operand(i.value)}`;
   }
 }
 

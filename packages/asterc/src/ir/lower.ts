@@ -1,7 +1,9 @@
 import type { BinaryOp } from '../ast/ast.js';
-import type { TBlock, TExpr, TFunction, TStmt, TypedProgram } from '../check/types.js';
+import type { TBlock, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, type Type } from '../types/type.js';
-import type { BasicBlock, Instr, IrBinOp, IrBuiltin, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from './ir.js';
+import type {
+  BasicBlock, Instr, IrBinOp, IrBuiltin, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
+} from './ir.js';
 
 interface StringTable {
   values: string[];
@@ -21,6 +23,7 @@ interface FnState {
   labelCount: number;
   loops: Loop[];
   strings: StringTable;
+  structs: ReadonlyMap<string, TStruct>;
 }
 
 const INT_BINOPS: Record<Exclude<BinaryOp, '&&' | '||'>, IrBinOp> = {
@@ -39,16 +42,22 @@ const INT_BINOPS: Record<Exclude<BinaryOp, '&&' | '||'>, IrBinOp> = {
 
 export function lower(program: TypedProgram): IrProgram {
   const strings: StringTable = { values: [], index: new Map() };
-  const functions = program.functions.map((fn) => lowerFunction(fn, strings));
-  return { functions, strings: strings.values };
+  const structs = new Map(program.structs.map((s) => [s.name, s]));
+  const functions = program.functions.map((fn) => lowerFunction(fn, strings, structs));
+  return { structs: program.structs.map(irStruct), functions, strings: strings.values };
 }
+
+const irStruct = (s: TStruct): IrStruct => ({
+  name: s.name,
+  fields: s.fields.map((f) => ({ name: f.name, type: irType(f.type) })),
+});
 
 function irType(t: Type): IrType {
   if (t.kind === 'error') throw new Error('internal: error type reached lowering');
   return t;
 }
 
-function lowerFunction(fn: TFunction, strings: StringTable): IrFunction {
+function lowerFunction(fn: TFunction, strings: StringTable, structs: ReadonlyMap<string, TStruct>): IrFunction {
   const st: FnState = {
     locals: fn.locals.map((l) => ({ id: l.id, name: l.name, type: irType(l.type) })),
     blocks: [],
@@ -56,6 +65,7 @@ function lowerFunction(fn: TFunction, strings: StringTable): IrFunction {
     labelCount: 0,
     loops: [],
     strings,
+    structs,
   };
   lowerBlock(st, fn.body);
   // The checker guarantees non-void functions never fall off the end.
@@ -242,6 +252,28 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       emit(st, { kind: 'copy', dst, src: lowerValue(st, e.else) });
       terminate(st, { kind: 'jmp', target: endLabel });
       startBlock(st, endLabel);
+      return { kind: 'local', id: dst };
+    }
+    case 'field': {
+      const object = lowerValue(st, e.object);
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'field_get', dst, object, field: e.field });
+      return { kind: 'local', id: dst };
+    }
+    case 'structLit': {
+      // Evaluate in written order, then hand the values over in declaration order. Reordering operands is safe
+      // because no Aster expression can assign to a local.
+      const values = new Map<string, Operand>();
+      for (const f of e.fields) values.set(f.field, lowerValue(st, f.value));
+      const decl = st.structs.get(e.struct);
+      if (!decl) throw new Error(`internal: unknown struct ${e.struct}`);
+      const fields = decl.fields.map((f) => {
+        const value = values.get(f.name);
+        if (value === undefined) throw new Error(`internal: missing field ${f.name}`);
+        return { name: f.name, value };
+      });
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'struct_new', dst, struct: e.struct, fields });
       return { kind: 'local', id: dst };
     }
   }

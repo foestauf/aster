@@ -7,6 +7,21 @@ export interface TypeRef {
 
 export interface Program {
   functions: FnDecl[];
+  structs: StructDecl[];
+}
+
+export interface FieldDecl {
+  name: string;
+  nameSpan: Span;
+  type: TypeRef;
+}
+
+export interface StructDecl {
+  kind: 'struct';
+  name: string;
+  nameSpan: Span;
+  fields: FieldDecl[];
+  span: Span;
 }
 
 export interface Param {
@@ -148,4 +163,28 @@ export interface IfExpr {
   span: Span;
 }
 
-export type Expr = IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr;
+export interface FieldExpr {
+  kind: 'field';
+  object: Expr;
+  field: string;
+  fieldSpan: Span;
+  span: Span;
+}
+
+export interface FieldInit {
+  name: string;
+  nameSpan: Span;
+  value: Expr;
+}
+
+/** `Name { f: e, ... }`. Fields appear in the order written. */
+export interface StructLitExpr {
+  kind: 'structLit';
+  name: string;
+  nameSpan: Span;
+  fields: FieldInit[];
+  span: Span;
+}
+
+export type Expr =
+  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr;

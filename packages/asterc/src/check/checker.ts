@@ -1,9 +1,11 @@
-import type { BinaryExpr, BinaryOp, Block, CallExpr, Expr, FnDecl, IfStmt, Program, Stmt, TypeRef } from '../ast/ast.js';
+import type {
+  BinaryExpr, BinaryOp, Block, CallExpr, Expr, FnDecl, IfStmt, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
+} from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
 import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
-import type { Local, TBlock, TExpr, TFunction, TStmt, TypedProgram } from './types.js';
+import type { Local, TBlock, TExpr, TField, TFunction, TStmt, TStruct, TypedProgram } from './types.js';
 
 export interface CheckResult {
   program: TypedProgram;
@@ -13,6 +15,8 @@ export interface CheckResult {
 /** State shared by the whole program check. */
 interface Env {
   diagnostics: Diagnostic[];
+  /** Every accepted struct, by name. Struct names live in the type namespace. */
+  structs: Map<string, TStruct>;
 }
 
 /** Per-function checking state. */
@@ -48,12 +52,53 @@ const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
 function resolveType(env: Env, ref: TypeRef): Type {
   const primitive = PRIMITIVES.get(ref.name);
   if (primitive) return primitive;
+  if (env.structs.has(ref.name)) return { kind: 'struct', name: ref.name };
   report(env, `unknown type '${ref.name}'`, ref.span);
   return ERROR;
 }
 
+const findField = (env: Env, struct: string, name: string): TField | undefined =>
+  env.structs.get(struct)?.fields.find((f) => f.name === name);
+
+/** Struct (and, from Task 5, array) values are heap references; v0.1 defines no equality for them. */
+const isReference = (t: Type): boolean => t.kind === 'struct';
+
+/** Registers every struct name before resolving any field type, so structs can refer to each other in any order. */
+function collectStructs(env: Env, decls: readonly StructDecl[]): TStruct[] {
+  const accepted: { decl: StructDecl; struct: TStruct }[] = [];
+  for (const decl of decls) {
+    if (PRIMITIVES.has(decl.name)) {
+      report(env, `'${decl.name}' is a built-in type and cannot be redefined`, decl.nameSpan);
+    } else if (isBuiltin(decl.name)) {
+      report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
+    } else if (env.structs.has(decl.name)) {
+      report(env, `duplicate struct '${decl.name}'`, decl.nameSpan);
+    } else {
+      const struct: TStruct = { name: decl.name, fields: [] };
+      env.structs.set(decl.name, struct);
+      accepted.push({ decl, struct });
+    }
+  }
+  for (const { decl, struct } of accepted) {
+    for (const field of decl.fields) {
+      if (struct.fields.some((f) => f.name === field.name)) {
+        report(env, `duplicate field '${field.name}'`, field.nameSpan);
+        continue;
+      }
+      let type = resolveType(env, field.type);
+      if (type.kind === 'void') {
+        report(env, 'field cannot have type void', field.type.span);
+        type = ERROR;
+      }
+      struct.fields.push({ name: field.name, type });
+    }
+  }
+  return accepted.map((a) => a.struct);
+}
+
 export function check(program: Program): CheckResult {
-  const env: Env = { diagnostics: [] };
+  const env: Env = { diagnostics: [], structs: new Map() };
+  const structs = collectStructs(env, program.structs);
 
   // Pass 1: collect signatures so functions can be called before their declaration.
   const signatures = new Map<string, Signature>();
@@ -61,6 +106,10 @@ export function check(program: Program): CheckResult {
   for (const decl of program.functions) {
     if (isBuiltin(decl.name)) {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
+      continue;
+    }
+    if (env.structs.has(decl.name)) {
+      report(env, `'${decl.name}' is already declared as a struct`, decl.nameSpan);
       continue;
     }
     if (signatures.has(decl.name)) {
@@ -87,7 +136,7 @@ export function check(program: Program): CheckResult {
 
   // Pass 2: check bodies.
   const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
-  return { program: { functions }, diagnostics: env.diagnostics };
+  return { program: { structs, functions }, diagnostics: env.diagnostics };
 }
 
 function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
@@ -288,7 +337,47 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
       }
       return { kind: 'if', type: then.type, cond, then, else: other };
     }
+    case 'field': {
+      const object = checkExpr(ctx, expr.object);
+      if (isError(object.type)) return errorExpr();
+      const field = object.type.kind === 'struct' ? findField(ctx, object.type.name, expr.field) : undefined;
+      if (!field) {
+        report(ctx, `unknown field '${expr.field}' on '${typeToString(object.type)}'`, expr.fieldSpan);
+        return errorExpr();
+      }
+      return { kind: 'field', type: field.type, object, field: expr.field };
+    }
+    case 'structLit':
+      return checkStructLit(ctx, expr);
   }
+}
+
+function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
+  const struct = ctx.structs.get(expr.name);
+  if (!struct) {
+    report(ctx, `unknown struct '${expr.name}'`, expr.nameSpan);
+    // Still check the values so their own errors surface. Task 5 must pass the `error` type as the expected type
+    // here, so an `[]` value is not reported as uninferable.
+    for (const init of expr.fields) checkExpr(ctx, init.value);
+    return errorExpr();
+  }
+  const fields: { field: string; value: TExpr }[] = [];
+  for (const init of expr.fields) {
+    const decl = findField(ctx, struct.name, init.name);
+    const value = checkExpr(ctx, init.value);
+    if (!decl) {
+      report(ctx, `unknown field '${init.name}' on '${expr.name}'`, init.nameSpan);
+    } else if (fields.some((f) => f.field === init.name)) {
+      report(ctx, `duplicate field '${init.name}'`, init.nameSpan);
+    } else {
+      expectType(ctx, decl.type, value, init.value.span);
+      fields.push({ field: init.name, value });
+    }
+  }
+  for (const f of struct.fields) {
+    if (!fields.some((init) => init.field === f.name)) report(ctx, `missing field '${f.name}' in '${expr.name}'`, expr.nameSpan);
+  }
+  return { kind: 'structLit', type: { kind: 'struct', name: struct.name }, struct: struct.name, fields };
 }
 
 function binaryResultType(op: BinaryOp, left: Type, right: Type): Type | null {
@@ -319,6 +408,10 @@ function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   const left = checkExpr(ctx, expr.left);
   const right = checkExpr(ctx, expr.right);
   if (isError(left.type) || isError(right.type)) return errorExpr();
+  if ((expr.op === '==' || expr.op === '!=') && typeEquals(left.type, right.type) && isReference(left.type)) {
+    report(ctx, `cannot compare '${typeToString(left.type)}' values`, expr.span);
+    return errorExpr();
+  }
   const type = binaryResultType(expr.op, left.type, right.type);
   if (type === null) {
     report(
@@ -348,7 +441,10 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
       report(ctx, `function 'print' expects 1 argument, found ${args.length}`, expr.span);
       return errorExpr();
     }
-    if (args[0].type.kind === 'void') report(ctx, 'cannot print a value of type void', expr.args[0].span);
+    const t = args[0].type;
+    if (!isError(t) && t.kind !== 'int' && t.kind !== 'bool' && t.kind !== 'string') {
+      report(ctx, `cannot print a value of type ${typeToString(t)}`, expr.args[0].span);
+    }
     return { kind: 'builtin', type: VOID, builtin: 'print', args };
   }
 

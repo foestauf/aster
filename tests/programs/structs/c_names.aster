@@ -1,0 +1,15 @@
+// Struct and field names that are C keywords or libc names stay out of the generated C's way,
+// and a local may share a struct's name.
+// expect-stdout:
+// 1
+// true
+// FILE
+struct FILE { int: int, double: bool, len: string }
+
+fn main(): int {
+    let FILE: FILE = FILE { int: 1, double: true, len: "FILE" };
+    print(FILE.int);
+    print(FILE.double);
+    print(FILE.len);
+    return 0;
+}

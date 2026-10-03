@@ -1,0 +1,17 @@
+// Field initialisers run in the order written, not declaration order.
+// expect-stdout:
+// b
+// a
+// 12
+struct Pair { a: int, b: int }
+
+fn t(label: string, v: int): int {
+    print(label);
+    return v;
+}
+
+fn main(): int {
+    let p: Pair = Pair { b: t("b", 2), a: t("a", 1) };
+    print(p.a * 10 + p.b);
+    return 0;
+}

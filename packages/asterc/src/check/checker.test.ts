@@ -178,3 +178,26 @@ describe('check: control flow', () => {
     expect(messages(`${MAIN}fn f(): int { panic("no"); }`)).toEqual([]);
   });
 });
+
+describe('check: structs', () => {
+  it('records struct field types in declaration order', () => {
+    const { program } = checkText(`${MAIN}struct P { x: int, s: string, q: Q }\nstruct Q { }`);
+    expect(program.structs.map((s) => [s.name, s.fields.map((f) => `${f.name}: ${typeToString(f.type)}`)])).toEqual([
+      ['P', ['x: int', 's: string', 'q: Q']],
+      ['Q', []],
+    ]);
+  });
+
+  it('keeps struct names apart from local variable names', () => {
+    expect(messages(`${MAIN}struct P { x: int }\nfn f() { let P: P = P { x: 1 }; print(P.x); }`)).toEqual([]);
+  });
+
+  it('does not cascade from an unknown struct or field', () => {
+    expect(inMain('let n: int = nope.x + 1;')).toEqual(["undefined name 'nope'"]);
+    expect(inMain('let n: int = Nope { a: 1 }.b;')).toEqual(["unknown struct 'Nope'"]);
+  });
+
+  it('reports only the unknown-struct diagnostic when the literal names no struct', () => {
+    expect(inMain('Nope { a: 1, b: "s" };')).toEqual(["unknown struct 'Nope'"]);
+  });
+});

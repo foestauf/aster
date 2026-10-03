@@ -1,0 +1,21 @@
+// expect-error: 11:5 unknown struct 'Nope'
+// expect-error: 12:16 missing field 'y' in 'P'
+// expect-error: 13:21 unknown field 'z' on 'P'
+// expect-error: 14:21 duplicate field 'x'
+// expect-error: 15:13 unknown field 'w' on 'P'
+// expect-error: 17:13 unknown field 'x' on 'int'
+// expect-error: 18:11 cannot compare 'P' values
+// expect-error: 19:11 cannot print a value of type P
+struct P { x: int, y: int }
+fn main(): int {
+    Nope { x: 1 };
+    let p: P = P { x: 1 };
+    P { x: 1, y: 2, z: 3 };
+    P { x: 1, y: 2, x: 3 };
+    print(p.w);
+    let n: int = 1;
+    print(n.x);
+    print(p == p);
+    print(p);
+    return 0;
+}

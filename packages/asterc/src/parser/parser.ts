@@ -1,4 +1,6 @@
-import type { BinaryOp, Block, Expr, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, TypeRef } from '../ast/ast.js';
+import type {
+  BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
+} from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import type { Token, TokenKind } from '../lexer/token.js';
@@ -61,6 +63,24 @@ export function parse(tokens: readonly Token[]): ParseResult {
   };
   const eat = (kind: TokenKind): Token | null => (at(kind) ? advance() : null);
 
+  const atItem = (): boolean => at('fn') || at('struct');
+
+  /** True while parsing an `if`/`while`/`for` header, where `Name {` starts the body rather than a struct literal. */
+  let noStructLit = false;
+
+  /** Runs `run` with struct literals allowed or not, restoring the previous mode even when a syntax error unwinds. */
+  function withStructLits<T>(allowed: boolean, run: () => T): T {
+    const saved = noStructLit;
+    noStructLit = !allowed;
+    try {
+      return run();
+    } finally {
+      noStructLit = saved;
+    }
+  }
+
+  const parseHeaderExpr = (): Expr => withStructLits(false, parseExpr);
+
   function fail(message: string, where: Span): never {
     diagnostics.push({ message, span: where });
     throw SYNC;
@@ -80,26 +100,28 @@ export function parse(tokens: readonly Token[]): ParseResult {
 
   function parseProgram(): Program {
     const functions: FnDecl[] = [];
+    const structs: StructDecl[] = [];
     while (!at('eof')) {
-      if (!at('fn')) {
-        diagnostics.push({ message: `expected 'fn', found ${describe(peek())}`, span: peek().span });
-        syncToFn();
+      if (!atItem()) {
+        diagnostics.push({ message: `expected 'fn' or 'struct', found ${describe(peek())}`, span: peek().span });
+        syncToItem();
         continue;
       }
       try {
-        functions.push(parseFunction());
+        if (at('fn')) functions.push(parseFunction());
+        else structs.push(parseStruct());
       } catch (e) {
         if (e !== SYNC) throw e;
-        syncToFn();
+        syncToItem();
       }
     }
-    return { functions };
+    return { functions, structs };
   }
 
-  /** Skips to the next `fn` or EOF. Consumes at least one token unless already at `fn`. */
-  function syncToFn(): void {
-    if (!at('fn')) advance();
-    while (!at('fn') && !at('eof')) advance();
+  /** Skips to the next `fn`, `struct` or EOF. Consumes at least one token unless already at an item. */
+  function syncToItem(): void {
+    if (!atItem()) advance();
+    while (!atItem() && !at('eof')) advance();
   }
 
   function parseFunction(): FnDecl {
@@ -120,6 +142,21 @@ export function parse(tokens: readonly Token[]): ParseResult {
     return { kind: 'fn', name: name.text, nameSpan: name.span, params, returnType, body, span: join(fnTok.span, body.span) };
   }
 
+  function parseStruct(): StructDecl {
+    const kw = expect('struct');
+    const name = expect('ident');
+    expect('{');
+    const fields: FieldDecl[] = [];
+    while (!at('}')) {
+      const fieldName = expect('ident');
+      expect(':');
+      fields.push({ name: fieldName.text, nameSpan: fieldName.span, type: parseType() });
+      if (!eat(',')) break;
+    }
+    const close = expect('}');
+    return { kind: 'struct', name: name.text, nameSpan: name.span, fields, span: join(kw.span, close.span) };
+  }
+
   function parseType(): TypeRef {
     const t = expect('ident');
     return { name: t.text, span: t.span };
@@ -130,7 +167,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
   function parseBlock(): Block {
     const open = expect('{');
     const statements: Stmt[] = [];
-    while (!at('}') && !at('eof') && !at('fn')) {
+    while (!at('}') && !at('eof') && !atItem()) {
       try {
         statements.push(parseStatement());
       } catch (e) {
@@ -142,9 +179,9 @@ export function parse(tokens: readonly Token[]): ParseResult {
     return { kind: 'block', statements, span: join(open.span, close.span) };
   }
 
-  /** Skips past the next `;`, or up to (not past) a `}`, `fn` or EOF. */
+  /** Skips past the next `;`, or up to (not past) a `}`, `fn`, `struct` or EOF. */
   function syncStatement(): void {
-    while (!at('eof') && !at('}') && !at('fn')) {
+    while (!at('eof') && !at('}') && !atItem()) {
       if (advance().kind === ';') return;
     }
   }
@@ -175,7 +212,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
         return parseIfStmt();
       case 'while': {
         advance();
-        const cond = parseExpr();
+        const cond = parseHeaderExpr();
         const body = parseBlock();
         return { kind: 'while', cond, body, span: join(t.span, body.span) };
       }
@@ -216,7 +253,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
 
   function parseIfStmt(): IfStmt {
     const kw = expect('if');
-    const cond = parseExpr();
+    const cond = parseHeaderExpr();
     const then = parseBlock();
     let elseBranch: Block | IfStmt | null = null;
     if (eat('else')) elseBranch = at('if') ? parseIfStmt() : parseBlock();
@@ -260,17 +297,24 @@ export function parse(tokens: readonly Token[]): ParseResult {
 
   function parsePostfix(): Expr {
     let expr = parsePrimary();
-    while (at('(')) {
-      advance();
-      const args: Expr[] = [];
-      if (!at(')')) {
-        do args.push(parseExpr());
-        while (eat(','));
+    for (;;) {
+      if (eat('(')) {
+        const args: Expr[] = [];
+        withStructLits(true, () => {
+          if (!at(')')) {
+            do args.push(parseExpr());
+            while (eat(','));
+          }
+        });
+        const close = expect(')');
+        expr = { kind: 'call', callee: expr, args, span: join(expr.span, close.span) };
+      } else if (eat('.')) {
+        const field = expect('ident');
+        expr = { kind: 'field', object: expr, field: field.text, fieldSpan: field.span, span: join(expr.span, field.span) };
+      } else {
+        return expr;
       }
-      const close = expect(')');
-      expr = { kind: 'call', callee: expr, args, span: join(expr.span, close.span) };
     }
-    return expr;
   }
 
   function parsePrimary(): Expr {
@@ -291,10 +335,11 @@ export function parse(tokens: readonly Token[]): ParseResult {
         return { kind: 'bool', value: t.kind === 'true', span: t.span };
       case 'ident':
         advance();
+        if (at('{') && !noStructLit) return parseStructLit(t);
         return { kind: 'name', name: t.text, span: t.span };
       case '(': {
         advance();
-        const inner = parseExpr();
+        const inner = withStructLits(true, parseExpr);
         expect(')');
         return inner;
       }
@@ -305,9 +350,24 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
+  function parseStructLit(name: Token): StructLitExpr {
+    expect('{');
+    const fields: FieldInit[] = [];
+    withStructLits(true, () => {
+      while (!at('}')) {
+        const fieldName = expect('ident');
+        expect(':');
+        fields.push({ name: fieldName.text, nameSpan: fieldName.span, value: parseExpr() });
+        if (!eat(',')) break;
+      }
+    });
+    const close = expect('}');
+    return { kind: 'structLit', name: name.text, nameSpan: name.span, fields, span: join(name.span, close.span) };
+  }
+
   function parseIfExpr(): IfExpr {
     const kw = expect('if');
-    const cond = parseExpr();
+    const cond = parseHeaderExpr();
     const then = parseExprBlock();
     if (!at('else')) fail('if expression requires an else branch', peek().span);
     advance();
@@ -317,7 +377,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
 
   function parseExprBlock(): Expr {
     expect('{');
-    const e = parseExpr();
+    const e = withStructLits(true, parseExpr);
     expect('}');
     return e;
   }

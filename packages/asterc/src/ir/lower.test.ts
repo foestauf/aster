@@ -212,4 +212,29 @@ describe('lower', () => {
       ),
     );
   });
+
+  it('lowers struct literals in written order and passes fields in declaration order', () => {
+    const text = `${MAIN}struct P { x: int, y: int }\nfn f(a: int): int { let p: P = P { y: a + 1, x: 2 }; return p.x; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 a: int): int',
+        '  local %1 p: P',
+        '  local %2: int',
+        '  local %3: P',
+        '  local %4: int',
+        'entry:',
+        '  %2 = add %0, 1',
+        '  %3 = struct_new P { x: 2, y: %2 }',
+        '  %1 = copy %3',
+        '  %4 = field_get %1.x',
+        '  ret %4',
+      ),
+    );
+  });
+
+  it('prints the struct table first', () => {
+    expect(printIr(lowerText(`struct P { x: int, q: Q }\nstruct Q {}\n${MAIN}`))).toBe(
+      lines('struct P { x: int, q: Q }', 'struct Q {}', '', 'fn main(): int', 'entry:', '  ret 0'),
+    );
+  });
 });

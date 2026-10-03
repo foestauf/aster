@@ -1,0 +1,9 @@
+// expect-error: 5:18 expected ';', found ':'
+struct P { x: int }
+fn main(): int {
+    let p: P = P { x: 1 };
+    if p == P { x: 1 } {
+        return 1;
+    }
+    return 0;
+}

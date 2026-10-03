@@ -1,0 +1,19 @@
+// Structs may be used before they are declared, and an empty struct is fine.
+// expect-stdout:
+// 42
+// done
+fn make(): Box {
+    return Box { inner: Inner { value: 42 }, unit: Unit {} };
+}
+
+fn main(): int {
+    let b: Box = make();
+    print(b.inner.value);
+    let u: Unit = b.unit;
+    print("done");
+    return 0;
+}
+
+struct Box { inner: Inner, unit: Unit }
+struct Inner { value: int }
+struct Unit {}

@@ -29,6 +29,12 @@ static char *alloc_bytes(int64_t n) {
     return p;
 }
 
+void *aster_rt_alloc(int64_t size) {
+    void *p = calloc(1, size > 0 ? (size_t)size : 1);
+    if (p == NULL) aster_rt_panic_cstr("out of memory");
+    return p;
+}
+
 void aster_rt_print_int(int64_t n) { printf("%" PRId64 "\n", n); }
 
 void aster_rt_print_bool(bool b) { puts(b ? "true" : "false"); }

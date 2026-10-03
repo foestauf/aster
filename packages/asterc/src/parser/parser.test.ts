@@ -107,7 +107,7 @@ describe('statements and functions', () => {
   });
 
   it('parses an empty file to an empty program', () => {
-    expect(parseText('')).toEqual({ program: { functions: [] }, diagnostics: [] });
+    expect(parseText('')).toEqual({ program: { functions: [], structs: [] }, diagnostics: [] });
   });
 
   it('records statement spans from first to last token', () => {
@@ -127,7 +127,7 @@ describe('statements and functions', () => {
 
   it('recovers from junk at the top level', () => {
     const r = parseText('let x: int = 1;\nfn main(): int { return 0; }');
-    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', found 'let'"]);
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn' or 'struct', found 'let'"]);
     expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
   });
 
@@ -139,5 +139,42 @@ describe('statements and functions', () => {
     expect(errors('fn 1() {}')).toEqual(["expected identifier, found integer '1'"]);
     expect(errors('fn f() { let "s" }')).toEqual(['expected identifier, found string literal']);
     expect(errors('fn f() { x y; }')).toEqual(["expected ';', found identifier 'y'"]);
+  });
+});
+
+describe('structs', () => {
+  it('parses struct declarations with optional trailing commas', () => {
+    const { program, diagnostics } = parseText('struct P { x: int, y: string, }\nstruct E {}');
+    expect(diagnostics).toEqual([]);
+    expect(program.structs.map((s) => [s.name, s.fields.map((f) => `${f.name}: ${f.type.name}`)])).toEqual([
+      ['P', ['x: int', 'y: string']],
+      ['E', []],
+    ]);
+  });
+
+  it('parses field access and struct literals', () => {
+    expect(expr('p.x.y')).toBe('(. (. p x) y)');
+    expect(expr('f(a).b')).toBe('(. (call f a) b)');
+    expect(expr('P { x: 1, y: Q { z: 2 }, }')).toBe('(struct P (x 1) (y (struct Q (z 2))))');
+    expect(expr('E {}')).toBe('(struct E)');
+  });
+
+  it('reads `Name {` in an if/while header as the start of the body', () => {
+    expect(errors('fn f() { if P { x: 1 } { } }')).toEqual(["expected ';', found ':'"]);
+    expect(errors('fn f() { while ok { } }')).toEqual([]);
+  });
+
+  it('allows struct literals in headers inside parentheses, arguments, fields and if-expression branches', () => {
+    expect(errors('fn f() { if (P { x: 1 }).x == 1 { } }')).toEqual([]);
+    expect(errors('fn f() { if g(P { x: 1 }) { } }')).toEqual([]);
+    expect(errors('fn f() { while ok(Q { p: P { x: 1 } }) { } }')).toEqual([]);
+    expect(errors('fn f() { let v: int = if c { P { x: 1 }.x } else { 0 }; }')).toEqual([]);
+  });
+
+  it('recovers at a struct after an unclosed function', () => {
+    const r = parseText('fn f() {\n  let x: int = 1;\nstruct S { a: int }\nfn main(): int { return 0; }');
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected '}', found 'struct'"]);
+    expect(r.program.structs.map((s) => s.name)).toEqual(['S']);
+    expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
   });
 });

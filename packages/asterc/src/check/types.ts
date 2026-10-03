@@ -11,7 +11,19 @@ export interface Local {
   mutable: boolean;
 }
 
+export interface TField {
+  name: string;
+  type: Type;
+}
+
+export interface TStruct {
+  name: string;
+  /** In declaration order. */
+  fields: TField[];
+}
+
 export interface TypedProgram {
+  structs: TStruct[];
   functions: TFunction[];
 }
 
@@ -49,4 +61,7 @@ export type TExpr =
   | { kind: 'binary'; type: Type; op: BinaryOp; left: TExpr; right: TExpr }
   | { kind: 'call'; type: Type; fn: string; args: TExpr[] }
   | { kind: 'builtin'; type: Type; builtin: BuiltinName; args: TExpr[] }
-  | { kind: 'if'; type: Type; cond: TExpr; then: TExpr; else: TExpr };
+  | { kind: 'if'; type: Type; cond: TExpr; then: TExpr; else: TExpr }
+  | { kind: 'field'; type: Type; object: TExpr; field: string }
+  /** Initialisers in the order written; lowering evaluates them in this order. */
+  | { kind: 'structLit'; type: Type; struct: string; fields: { field: string; value: TExpr }[] };

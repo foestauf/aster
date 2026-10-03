@@ -2,6 +2,7 @@
 #define ASTER_RT_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* An immutable byte string. Not NUL-terminated. */
@@ -13,6 +14,9 @@ typedef struct {
 _Noreturn void aster_rt_panic(aster_string msg);
 _Noreturn void aster_rt_panic_cstr(const char *msg);
 _Noreturn void aster_rt_unreachable(void);
+
+/* Zeroed heap memory for structs and arrays. Never freed in v0.1; panics with "out of memory" on failure. */
+void *aster_rt_alloc(int64_t size);
 
 /*
  * Integer arithmetic wraps: compute in uint64_t (where overflow is defined) and

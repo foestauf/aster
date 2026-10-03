@@ -15,6 +15,12 @@ export interface IrLocal {
   type: IrType;
 }
 
+export interface IrStruct {
+  name: string;
+  /** In declaration order. */
+  fields: { name: string; type: IrType }[];
+}
+
 export type Operand =
   | { kind: 'local'; id: number }
   | { kind: 'int'; value: bigint }
@@ -37,7 +43,11 @@ export type Instr =
   | { kind: 'unop'; dst: number; op: IrUnOp; operand: Operand }
   | { kind: 'binop'; dst: number; op: IrBinOp; left: Operand; right: Operand }
   | { kind: 'call'; dst: number | null; fn: string; args: Operand[] }
-  | { kind: 'call_builtin'; dst: number | null; builtin: IrBuiltin; args: Operand[] };
+  | { kind: 'call_builtin'; dst: number | null; builtin: IrBuiltin; args: Operand[] }
+  /** Allocates a struct; `fields` are in declaration order. */
+  | { kind: 'struct_new'; dst: number; struct: string; fields: { name: string; value: Operand }[] }
+  | { kind: 'field_get'; dst: number; object: Operand; field: string }
+  | { kind: 'field_set'; object: Operand; field: string; value: Operand };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }
@@ -63,6 +73,7 @@ export interface IrFunction {
 }
 
 export interface IrProgram {
+  structs: IrStruct[];
   functions: IrFunction[];
   /** Interned string literals, referenced by index. */
   strings: string[];

@@ -1,0 +1,33 @@
+// Struct literals, field reads, nesting, passing and returning.
+// expect-stdout:
+// 3
+// 4
+// 7
+// origin
+// 10
+// 20
+// true
+struct Point {
+    x: int,
+    y: int,
+}
+
+struct Segment { from: Point, to: Point, label: string }
+
+fn add(a: Point, b: Point): Point {
+    return Point { y: a.y + b.y, x: a.x + b.x };
+}
+
+fn main(): int {
+    let p: Point = Point { x: 3, y: 4 };
+    print(p.x);
+    print(p.y);
+    print(p.x + p.y);
+    let s: Segment = Segment { label: "origin", from: Point { x: 0, y: 0 }, to: p };
+    print(s.label);
+    let q: Point = add(Point { x: 7, y: 16 }, s.to);
+    print(q.x);
+    print(q.y);
+    print(s.to.y == 4);
+    return 0;
+}
