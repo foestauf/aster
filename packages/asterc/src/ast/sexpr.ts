@@ -1,4 +1,4 @@
-import type { Expr } from './ast.js';
+import type { Expr, Pattern } from './ast.js';
 
 /** Renders an expression as a compact s-expression, e.g. `(+ 1 (* 2 3))`. */
 export function sexpr(e: Expr): string {
@@ -17,6 +17,8 @@ export function sexpr(e: Expr): string {
       return `(${e.op} ${sexpr(e.left)} ${sexpr(e.right)})`;
     case 'call':
       return `(call ${[e.callee, ...e.args].map(sexpr).join(' ')})`;
+    case 'matchExpr':
+      return `(match ${[sexpr(e.scrutinee), ...e.arms.map((a) => `(${patternText(a.pattern)} ${sexpr(a.body)})`)].join(' ')})`;
     case 'ifExpr':
       return `(if ${sexpr(e.cond)} ${sexpr(e.then)} ${sexpr(e.else)})`;
     case 'field':
@@ -32,4 +34,11 @@ export function sexpr(e: Expr): string {
     case 'structLit':
       return `(struct ${[e.name, ...e.fields.map((f) => `(${f.name} ${sexpr(f.value)})`)].join(' ')})`;
   }
+}
+
+/** Renders a pattern: `_`, `E::V`, or `(E::V x _)` with binders. */
+export function patternText(p: Pattern): string {
+  if (p.kind === 'wildcard') return '_';
+  const head = `${p.enumName}::${p.variant}`;
+  return p.binders.length === 0 ? head : `(${[head, ...p.binders.map((b) => b?.name ?? '_')].join(' ')})`;
 }

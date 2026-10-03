@@ -406,4 +406,52 @@ describe('lower', () => {
   it('prints enum declarations', () => {
     expect(printIr(lowerText(`enum E { A, B(int, [E]) }\n${MAIN}`))).toContain('enum E { A, B(int, [E]) }\n');
   });
+
+  it('lowers match to a switch on the tag, with binders read from the payload', () => {
+    const text = `${MAIN}enum E { A, B(int), C(int, string) }\nfn f(e: E): int { return match e { E::B(n) => n, E::C(_, s) => len(s), _ => 0 }; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 e: E): int',
+        '  local %1 n: int',
+        '  local %2 s: string',
+        '  local %3: int',
+        '  local %4: int',
+        '  local %5: int',
+        'entry:',
+        '  %4 = enum_tag %0',
+        '  switch %4 [1: arm1, 2: arm2], default arm3',
+        'arm1:',
+        '  %1 = enum_field %0, E::B.0',
+        '  %3 = copy %1',
+        '  jmp endmatch4',
+        'arm2:',
+        '  %2 = enum_field %0, E::C.1',
+        '  %5 = call_builtin len(%2)',
+        '  %3 = copy %5',
+        '  jmp endmatch4',
+        'arm3:',
+        '  %3 = copy 0',
+        '  jmp endmatch4',
+        'endmatch4:',
+        '  ret %3',
+      ),
+    );
+  });
+
+  it('omits the end block when every arm of a match statement returns', () => {
+    const text = `${MAIN}enum K { X, Y }\nfn f(k: K): int { match k { K::X => { return 1; } K::Y => { return 2; } } }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 k: K): int',
+        '  local %1: int',
+        'entry:',
+        '  %1 = enum_tag %0',
+        '  switch %1 [0: arm1, 1: arm2], default unreachable',
+        'arm1:',
+        '  ret 1',
+        'arm2:',
+        '  ret 2',
+      ),
+    );
+  });
 });

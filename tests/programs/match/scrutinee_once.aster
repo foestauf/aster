@@ -1,0 +1,27 @@
+// The scrutinee is evaluated once, and binders keep the values they had when the arm started.
+// expect-stdout:
+// made
+// 1
+// 1
+enum Box { Full(int), Empty }
+
+fn make(n: int): Box {
+    print("made");
+    return Box::Full(n);
+}
+
+fn main(): int {
+    match make(1) {
+        Box::Full(n) => print(n),
+        Box::Empty => print(0),
+    }
+    var b: Box = Box::Full(1);
+    match b {
+        Box::Full(x) => {
+            b = Box::Full(2);
+            print(x);
+        }
+        Box::Empty => {}
+    }
+    return 0;
+}

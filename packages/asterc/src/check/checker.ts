@@ -1,12 +1,12 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Program, type Stmt, type StructDecl,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
   type StructLitExpr, type TypeExpr, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
 import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
-import type { Local, TBlock, TEnum, TExpr, TField, TFunction, TPlace, TStmt, TStruct, TVariant, TypedProgram } from './types.js';
+import type { Local, TBlock, TEnum, TExpr, TField, TFunction, TPattern, TPlace, TStmt, TStruct, TVariant, TypedProgram } from './types.js';
 
 export interface CheckResult {
   program: TypedProgram;
@@ -317,6 +317,22 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       else expectType(ctx, ctx.returnType, value, stmt.value.span);
       return { node: { kind: 'return', value }, diverges: true };
     }
+    case 'match': {
+      const bodies: Checked<TBlock>[] = [];
+      const { scrutinee, patterns } = checkMatch(ctx, stmt.scrutinee, stmt.keywordSpan, stmt.arms.map((a) => a.pattern), (i) => {
+        const body = stmt.arms[i].body;
+        if (body.kind === 'block') {
+          bodies.push(checkBlock(ctx, body));
+        } else {
+          const checked = checkStmt(ctx, { kind: 'expr', expr: body, span: body.span });
+          bodies.push({ node: { kind: 'block', statements: [checked.node] }, diverges: checked.diverges });
+        }
+      });
+      const arms = patterns.map((pattern, i) => ({ pattern, body: bodies[i].node }));
+      // Every match is exhaustive, so it ends a control path exactly when every arm does.
+      const diverges = bodies.length > 0 && bodies.every((b) => b.diverges);
+      return { node: { kind: 'match', scrutinee, arms }, diverges };
+    }
     case 'block':
       return checkBlock(ctx, stmt);
     case 'expr': {
@@ -399,6 +415,8 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
       return checkBinary(ctx, expr);
     case 'call':
       return checkCall(ctx, expr);
+    case 'matchExpr':
+      return checkMatchExpr(ctx, expr, expected);
     case 'ifExpr': {
       const cond = checkCondition(ctx, expr.cond);
       const then = checkExpr(ctx, expr.then, expected);
@@ -487,6 +505,114 @@ function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
   }
   args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
   return { kind: 'variant', type: { kind: 'enum', name: enumType.name }, enum: enumType.name, variant: variant.name, tag: variant.tag, args };
+}
+
+/**
+ * Checks a match's scrutinee and patterns:
+ * - each pattern must name a variant of the scrutinee's enum
+ * - every variant must be covered unless there is a `_` arm
+ * - no arm may be unreachable
+ * `checkArm(i)` checks arm i's body with that arm's binders in scope. Patterns are not checked at all against an
+ * error-typed or non-enum scrutinee, and a pattern that fails to resolve switches off the exhaustiveness check.
+ */
+function checkMatch(
+  ctx: Ctx,
+  scrutineeExpr: Expr,
+  keywordSpan: Span,
+  patterns: readonly Pattern[],
+  checkArm: (index: number) => void,
+): { scrutinee: TExpr; patterns: TPattern[] } {
+  const scrutinee = checkExpr(ctx, scrutineeExpr);
+  const st = scrutinee.type;
+  const decl: TEnum | null = st.kind === 'enum' ? (ctx.enums.get(st.name) ?? null) : null;
+  if (st.kind !== 'enum' && !isError(st)) report(ctx, `cannot match on '${typeToString(st)}' values`, scrutineeExpr.span);
+
+  const covered = new Set<number>();
+  let wildcardSeen = false;
+  let allResolved = true;
+  const typed: TPattern[] = [];
+  for (const [index, pattern] of patterns.entries()) {
+    let variant: TVariant | null = null;
+    let slots: readonly Type[] | null = null;
+    if (decl !== null) {
+      if (pattern.kind === 'variant') {
+        variant = resolvePatternVariant(ctx, decl, pattern);
+        if (variant === null) allResolved = false;
+        else if (pattern.binders.length === variant.payload.length) slots = variant.payload;
+      }
+      const isWildcard = pattern.kind === 'wildcard';
+      const unreachable =
+        wildcardSeen || (variant !== null && covered.has(variant.tag)) || (isWildcard && covered.size === decl.variants.length);
+      if (unreachable && (isWildcard || variant !== null)) report(ctx, 'unreachable match arm', pattern.span);
+      if (variant !== null) covered.add(variant.tag);
+      if (isWildcard) wildcardSeen = true;
+    }
+
+    ctx.scopes.push(new Map());
+    const seen = new Set<string>();
+    const binders: (Local | null)[] = [];
+    if (pattern.kind === 'variant') {
+      for (const [slot, binder] of pattern.binders.entries()) {
+        if (binder === null) {
+          binders.push(null);
+        } else if (seen.has(binder.name)) {
+          report(ctx, `duplicate binding '${binder.name}'`, binder.span);
+          binders.push(null);
+        } else {
+          seen.add(binder.name);
+          binders.push(declare(ctx, binder.name, binder.span, slots?.[slot] ?? ERROR, false));
+        }
+      }
+    }
+    checkArm(index);
+    ctx.scopes.pop();
+    typed.push({ variant: variant === null ? null : { name: variant.name, tag: variant.tag }, binders });
+  }
+
+  if (decl !== null && allResolved && !wildcardSeen && covered.size < decl.variants.length) {
+    const missing = decl.variants.filter((v) => !covered.has(v.tag)).map((v) => `'${decl.name}::${v.name}'`);
+    report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
+  }
+  return { scrutinee, patterns: typed };
+}
+
+/**
+ * Resolves `F::V(...)` against the scrutinee's enum. Returns null after reporting an unknown or wrong enum or an
+ * unknown variant. A wrong binder count is reported, but the variant is still returned, so it still counts as covered.
+ */
+function resolvePatternVariant(ctx: Ctx, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
+  const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
+  if (found === null) return null;
+  if (found.enumType.name !== decl.name) {
+    report(ctx, `pattern type '${found.enumType.name}' does not match '${decl.name}'`, pattern.enumSpan);
+    return null;
+  }
+  const { variant } = found;
+  if (pattern.binders.length !== variant.payload.length) {
+    report(ctx, variantArityMessage(decl.name, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
+  }
+  return variant;
+}
+
+function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): TExpr {
+  const bodies: TExpr[] = [];
+  const { scrutinee, patterns } = checkMatch(ctx, expr.scrutinee, expr.keywordSpan, expr.arms.map((a) => a.pattern), (i) => {
+    bodies.push(checkExpr(ctx, expr.arms[i].body, expected));
+  });
+  if (bodies.some((b) => isError(b.type))) return errorExpr();
+  // The parser guarantees at least one arm.
+  const type = bodies[0].type;
+  const other = bodies.find((b) => !typeEquals(b.type, type));
+  if (other !== undefined) {
+    report(ctx, `match arms have different types: ${typeToString(type)} and ${typeToString(other.type)}`, expr.span);
+    return errorExpr();
+  }
+  if (type.kind === 'void') {
+    report(ctx, 'match expression cannot have type void', expr.span);
+    return errorExpr();
+  }
+  if (scrutinee.type.kind !== 'enum') return errorExpr();
+  return { kind: 'match', type, scrutinee, arms: patterns.map((pattern, i) => ({ pattern, body: bodies[i] })) };
 }
 
 function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {

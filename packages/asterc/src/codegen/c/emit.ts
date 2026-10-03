@@ -236,6 +236,8 @@ function emitInstr(fn: IrFunction, enums: EnumTable, instr: Instr): string {
         ...instr.args.map((a, i) => `${member}.p${i} = ${op(a)};`),
       ].join('\n    ');
     }
+    case 'enum_field':
+      return assign(instr.dst, `${op(instr.value)}->u.${mangleVariant(instr.variant)}.p${instr.index}`);
     case 'enum_tag':
       return assign(instr.dst, enumOf(fn, enums, instr.value).payloadFree ? op(instr.value) : `${op(instr.value)}->tag`);
     case 'array_pop':
@@ -249,6 +251,11 @@ function emitTerminator(fn: IrFunction, term: Terminator): string {
       return `goto ${term.target};`;
     case 'br':
       return `if (${operand(fn, term.cond)}) goto ${term.then}; else goto ${term.else};`;
+    case 'switch': {
+      const cases = term.cases.map((c) => `case ${c.value}: goto ${c.target};`);
+      const fallback = term.default === null ? 'default: aster_rt_unreachable();' : `default: goto ${term.default};`;
+      return `switch (${operand(fn, term.value)}) { ${[...cases, fallback].join(' ')} }`;
+    }
     case 'ret':
       return term.value === null ? 'return;' : `return ${operand(fn, term.value)};`;
     case 'unreachable':

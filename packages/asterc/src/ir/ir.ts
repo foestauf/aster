@@ -67,11 +67,15 @@ export type Instr =
   /** Builds a variant value; `args` are its payload values in slot order, already evaluated left to right. */
   | { kind: 'enum_new'; dst: number; enum: string; variant: string; tag: number; args: Operand[] }
   /** Reads an enum value's tag as an int. */
-  | { kind: 'enum_tag'; dst: number; value: Operand };
+  | { kind: 'enum_tag'; dst: number; value: Operand }
+  /** Reads payload slot `index` of a value whose tag is known to be `tag`. */
+  | { kind: 'enum_field'; dst: number; value: Operand; enum: string; variant: string; tag: number; index: number };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }
   | { kind: 'br'; cond: Operand; then: string; else: string }
+  /** Jumps to the case whose value equals `value` (an int), else to `default`. A null default means no other value can occur. */
+  | { kind: 'switch'; value: Operand; cases: { value: number; target: string }[]; default: string | null }
   | { kind: 'ret'; value: Operand | null }
   | { kind: 'unreachable' };
 

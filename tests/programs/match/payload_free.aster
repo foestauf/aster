@@ -1,0 +1,22 @@
+// Matching a payload-free enum, and a match whose only arm is _ on a single-variant payload enum.
+// expect-stdout:
+// +
+// -
+// ?
+// always
+enum Op { Plus, Minus, Times }
+enum Wrap { W(int) }
+
+fn symbol(o: Op): string {
+    return match o { Op::Plus => "+", Op::Minus => "-", _ => "?" };
+}
+
+fn main(): int {
+    print(symbol(Op::Plus));
+    print(symbol(Op::Minus));
+    print(symbol(Op::Times));
+    match Wrap::W(9) {
+        _ => print("always"),
+    }
+    return 0;
+}

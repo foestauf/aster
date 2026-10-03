@@ -83,6 +83,8 @@ function printInstr(i: Instr): string {
       return `array_push ${operand(i.array)}, ${operand(i.value)}`;
     case 'enum_new':
       return `%${i.dst} = enum_new ${i.enum}::${i.variant}${i.args.length === 0 ? '' : `(${i.args.map(operand).join(', ')})`}`;
+    case 'enum_field':
+      return `%${i.dst} = enum_field ${operand(i.value)}, ${i.enum}::${i.variant}.${i.index}`;
     case 'enum_tag':
       return `%${i.dst} = enum_tag ${operand(i.value)}`;
     case 'array_pop':
@@ -96,6 +98,8 @@ function printTerminator(t: Terminator): string {
       return `jmp ${t.target}`;
     case 'br':
       return `br ${operand(t.cond)}, ${t.then}, ${t.else}`;
+    case 'switch':
+      return `switch ${operand(t.value)} [${t.cases.map((c) => `${c.value}: ${c.target}`).join(', ')}], default ${t.default ?? 'unreachable'}`;
     case 'ret':
       return t.value === null ? 'ret' : `ret ${operand(t.value)}`;
     case 'unreachable':

@@ -168,4 +168,16 @@ describe('emitC', () => {
     expect(c).toContain('    l3 = INT64_C(1);');
     expect(c).toContain('    l4 = l1_k;');
   });
+
+  it('emits match as a C switch over the tag', () => {
+    const c = cOf('enum E { A, B(int) }\nfn main(): int { let e: E = E::B(4); return match e { E::B(n) => n, _ => 0 }; }');
+    expect(c).toContain('    l4 = l0_e->tag;');
+    expect(c).toContain('    switch (l4) { case 1: goto arm1; default: goto arm2; }');
+    expect(c).toContain('arm1:;\n    l1_n = l0_e->u.v_B.p0;');
+  });
+
+  it('makes the default case unreachable when every variant has an arm', () => {
+    const c = cOf('enum K { X, Y }\nfn main(): int { let k: K = K::Y; match k { K::X => { return 1; } K::Y => { return 0; } } }');
+    expect(c).toContain('    switch (l2) { case 0: goto arm1; case 1: goto arm2; default: aster_rt_unreachable(); }');
+  });
 });

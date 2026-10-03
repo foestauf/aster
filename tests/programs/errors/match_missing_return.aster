@@ -1,0 +1,9 @@
+// expect-error: 3:4 function 'f' is missing a return on some paths
+enum E { A, B }
+fn f(e: E): int {
+    match e {
+        E::A => { return 1; }
+        E::B => print(2),
+    }
+}
+fn main(): int { return 0; }

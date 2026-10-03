@@ -1,0 +1,50 @@
+// break/continue inside arms, binders that shadow outer names, functions whose only returns are in match arms,
+// and a match inside `while true`.
+// expect-stdout:
+// 1
+// 3
+// stop
+// 5
+// 42
+// 1
+enum Step { Skip, Show(int), Stop }
+
+fn code(s: Step): int {
+    match s {
+        Step::Skip => { return 0; }
+        Step::Show(n) => { return n; }
+        Step::Stop => { return -1; }
+    }
+}
+
+fn first_show(steps: [Step]): int {
+    var i: int = 0;
+    while true {
+        match steps[i] {
+            Step::Show(n) => { return n; }
+            _ => { i += 1; }
+        }
+    }
+}
+
+fn main(): int {
+    let steps: [Step] = [Step::Show(1), Step::Skip, Step::Show(3), Step::Stop, Step::Show(4)];
+    for s in steps {
+        match s {
+            Step::Skip => { continue; }
+            Step::Show(n) => print(n),
+            Step::Stop => {
+                print("stop");
+                break;
+            }
+        }
+    }
+    let n: int = 42;
+    match Step::Show(5) {
+        Step::Show(n) => print(n),
+        _ => {}
+    }
+    print(code(Step::Show(n)));
+    print(first_show(steps));
+    return 0;
+}

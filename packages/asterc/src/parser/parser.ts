@@ -1,5 +1,5 @@
 import type {
-  AssignOp, BinaryOp, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
+  AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -210,9 +210,9 @@ export function parse(tokens: readonly Token[]): ParseResult {
     return { kind: 'block', statements, span: join(open.span, close.span) };
   }
 
-  /** Skips past the next `;`, or up to (not past) a `}`, `fn`, `struct` or EOF. */
+  /** Skips past the next `;`, or up to (not past) a `}`, `fn`, `struct`, `enum`, `match` or EOF. */
   function syncStatement(): void {
-    while (!at('eof') && !at('}') && !atItem()) {
+    while (!at('eof') && !at('}') && !atItem() && !at('match')) {
       if (advance().kind === ';') return;
     }
   }
@@ -239,6 +239,8 @@ export function parse(tokens: readonly Token[]): ParseResult {
           span: join(t.span, semi.span),
         };
       }
+      case 'match':
+        return parseMatchStmt();
       case 'if':
         return parseIfStmt();
       case 'for':
@@ -303,6 +305,57 @@ export function parse(tokens: readonly Token[]): ParseResult {
     let elseBranch: Block | IfStmt | null = null;
     if (eat('else')) elseBranch = at('if') ? parseIfStmt() : parseBlock();
     return { kind: 'if', cond, then, else: elseBranch, span: join(kw.span, (elseBranch ?? then).span) };
+  }
+
+  /** Arms are `pattern => block [,]` or `pattern => expr ,`; the comma after the last expression arm is optional. */
+  function parseMatchStmt(): MatchStmt {
+    const kw = expect('match');
+    const scrutinee = parseHeaderExpr();
+    expect('{');
+    const arms: MatchStmtArm[] = [];
+    while (!at('}') && !at('eof')) {
+      const pattern = parsePattern();
+      expect('=>');
+      if (at('{')) {
+        arms.push({ pattern, body: parseBlock() });
+        eat(',');
+      } else {
+        arms.push({ pattern, body: withStructLits(true, parseExpr) });
+        if (!eat(',')) break;
+      }
+    }
+    const close = expect('}');
+    return { kind: 'match', keywordSpan: kw.span, scrutinee, arms, span: join(kw.span, close.span) };
+  }
+
+  function parsePattern(): Pattern {
+    const wildcard = eat('_');
+    if (wildcard) return { kind: 'wildcard', span: wildcard.span };
+    const enumName = expect('ident');
+    expect('::');
+    const variant = expect('ident');
+    const binders: (Binder | null)[] = [];
+    let end = variant.span;
+    if (eat('(')) {
+      do {
+        if (eat('_')) {
+          binders.push(null);
+        } else {
+          const name = expect('ident');
+          binders.push({ name: name.text, span: name.span });
+        }
+      } while (eat(','));
+      end = expect(')').span;
+    }
+    return {
+      kind: 'variant',
+      enumName: enumName.text,
+      enumSpan: enumName.span,
+      variant: variant.text,
+      variantSpan: variant.span,
+      binders,
+      span: join(enumName.span, end),
+    };
   }
 
   // ---- expressions
@@ -407,6 +460,8 @@ export function parse(tokens: readonly Token[]): ParseResult {
       }
       case 'if':
         return parseIfExpr();
+      case 'match':
+        return parseMatchExpr();
       default:
         return fail(`expected expression, found ${describe(t)}`, t.span);
     }
@@ -458,6 +513,23 @@ export function parse(tokens: readonly Token[]): ParseResult {
     advance();
     const elseBranch = at('if') ? parseIfExpr() : parseExprBlock();
     return { kind: 'ifExpr', cond, then, else: elseBranch, span: join(kw.span, previous().span) };
+  }
+
+  function parseMatchExpr(): MatchExpr {
+    const kw = expect('match');
+    const scrutinee = parseHeaderExpr();
+    expect('{');
+    const arms: MatchExprArm[] = [];
+    withStructLits(true, () => {
+      for (;;) {
+        const pattern = parsePattern();
+        expect('=>');
+        arms.push({ pattern, body: parseExpr() });
+        if (!eat(',') || at('}')) break;
+      }
+    });
+    const close = expect('}');
+    return { kind: 'matchExpr', keywordSpan: kw.span, scrutinee, arms, span: join(kw.span, close.span) };
   }
 
   function parseExprBlock(): Expr {

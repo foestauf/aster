@@ -1,0 +1,32 @@
+// match statements: block arms, expression arms, binders, _ binders and a _ arm.
+// expect-stdout:
+// num 7
+// add
+// neg
+// other
+// first 1
+enum Shape { Num(int), Add(int, int), Neg(int), Pair(int, int) }
+
+fn describe(s: Shape) {
+    match s {
+        Shape::Num(n) => print("num " + int_to_string(n)),
+        Shape::Add(_, _) => {
+            print("add");
+        }
+        Shape::Neg(_) => print("neg"),
+        _ => print("other"),
+    }
+}
+
+fn main(): int {
+    describe(Shape::Num(7));
+    describe(Shape::Add(1, 2));
+    describe(Shape::Neg(3));
+    describe(Shape::Pair(4, 5));
+    let p: Shape = Shape::Pair(1, 2);
+    match p {
+        Shape::Pair(first, _) => print("first " + int_to_string(first)),
+        _ => {}
+    }
+    return 0;
+}

@@ -1,5 +1,5 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
-import type { TBlock, TEnum, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
+import type { TBlock, TEnum, TExpr, TFunction, TPattern, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, INT, type Type } from '../types/type.js';
 import type {
   BasicBlock, Instr, IrBinOp, IrBuiltin, IrEnum, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
@@ -209,6 +209,9 @@ function lowerStmt(st: FnState, stmt: TStmt): void {
     case 'assign':
       lowerAssign(st, stmt);
       return;
+    case 'match':
+      lowerMatch(st, stmt.scrutinee, stmt.arms.map((a) => a.pattern), (i) => lowerBlock(st, stmt.arms[i].body));
+      return;
     case 'expr':
       lowerExpr(st, stmt.expr);
       return;
@@ -333,6 +336,41 @@ function lowerFor(st: FnState, body: TBlock, counter: number, parts: { cond: () 
   startBlock(st, end);
 }
 
+/**
+ * The shape of a match:
+ *   entry:    t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+ *   armN:     binder = enum_field s, Enum::Variant.slot (for each binder); body; jmp endmatch
+ *   endmatch: (only when some arm falls through; an unused label would warn)
+ * The scrutinee is evaluated once, and binders are read before the body runs.
+ */
+function lowerMatch(st: FnState, scrutinee: TExpr, patterns: readonly TPattern[], lowerBody: (index: number) => void): void {
+  const value = lowerValue(st, scrutinee);
+  if (scrutinee.type.kind !== 'enum') throw new Error('internal: match on a non-enum value');
+  const enumName = scrutinee.type.name;
+  const tag = enumTag(st, value);
+  const labels = patterns.map(() => newLabel(st, 'arm'));
+  const end = newLabel(st, 'endmatch');
+  const cases: { value: number; target: string }[] = [];
+  let fallback: string | null = null;
+  for (const [i, p] of patterns.entries()) {
+    if (p.variant === null) fallback = labels[i];
+    else cases.push({ value: p.variant.tag, target: labels[i] });
+  }
+  terminate(st, { kind: 'switch', value: tag, cases, default: fallback });
+  let reachesEnd = false;
+  for (const [i, p] of patterns.entries()) {
+    startBlock(st, labels[i]);
+    for (const [index, binder] of p.binders.entries()) {
+      if (binder === null || p.variant === null) continue;
+      emit(st, { kind: 'enum_field', dst: binder.id, value, enum: enumName, variant: p.variant.name, tag: p.variant.tag, index });
+    }
+    lowerBody(i);
+    if (st.current !== null) reachesEnd = true;
+    terminate(st, { kind: 'jmp', target: end });
+  }
+  if (reachesEnd) startBlock(st, end);
+}
+
 // ---- expressions
 
 function lowerValue(st: FnState, e: TExpr): Operand {
@@ -387,6 +425,13 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
       if (e.builtin === 'panic') terminate(st, { kind: 'unreachable' });
       return dst === null ? null : { kind: 'local', id: dst };
+    }
+    case 'match': {
+      const dst = newTemp(st, irType(e.type));
+      lowerMatch(st, e.scrutinee, e.arms.map((a) => a.pattern), (i) => {
+        emit(st, { kind: 'copy', dst, src: lowerValue(st, e.arms[i].body) });
+      });
+      return { kind: 'local', id: dst };
     }
     case 'if': {
       const cond = lowerValue(st, e.cond);

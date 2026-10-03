@@ -1,0 +1,40 @@
+// match expressions: recursive, nested, as an operand and argument, after return, and with [] typed by the
+// expected type.
+// expect-stdout:
+// 3
+// -3
+// 10
+// zero
+// 0
+// 100
+enum Expr { Num(int), Add(Expr, Expr), Neg(Expr) }
+enum Sign { Neg, Zero, Pos }
+
+fn eval(e: Expr): int {
+    return match e {
+        Expr::Num(n) => n,
+        Expr::Add(a, b) => eval(a) + eval(b),
+        Expr::Neg(x) => -eval(x),
+    };
+}
+
+fn sign(n: int): Sign {
+    return if n < 0 { Sign::Neg } else if n == 0 { Sign::Zero } else { Sign::Pos };
+}
+
+fn name(s: Sign): string {
+    return match s { Sign::Neg => "negative", Sign::Zero => "zero", Sign::Pos => "positive" };
+}
+
+fn main(): int {
+    let e: Expr = Expr::Add(Expr::Num(1), Expr::Num(2));
+    print(eval(e));
+    print(eval(Expr::Neg(e)));
+    let doubled: int = match e { Expr::Add(a, b) => eval(a) + eval(b), _ => 0 } * 2 + 4;
+    print(doubled);
+    print(name(sign(0)));
+    let empty: [int] = match sign(5) { Sign::Pos => [], _ => [1] };
+    print(len(empty));
+    print(match sign(-2) { Sign::Neg => match e { Expr::Num(n) => n, _ => 100 }, _ => 0 });
+    return 0;
+}

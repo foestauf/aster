@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TypeExpr } from '../ast/ast.js';
-import { sexpr } from '../ast/sexpr.js';
+import { patternText, sexpr } from '../ast/sexpr.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from './parser.js';
@@ -20,6 +20,18 @@ function expr(text: string): string {
   if (stmt.kind !== 'expr') throw new Error(`expected an expression statement, got ${stmt.kind}`);
   return sexpr(stmt.expr);
 }
+
+/** Parses `text` as a let initialiser (so a leading `match` is an expression) and renders it as an s-expression. */
+function init(text: string): string {
+  const { program, diagnostics } = parseText(`fn f() { let r: int = ${text}; }`);
+  expect(diagnostics).toEqual([]);
+  const stmt = program.functions[0].body.statements[0];
+  if (stmt.kind !== 'let') throw new Error(`expected let, got ${stmt.kind}`);
+  return sexpr(stmt.init);
+}
+
+/** The first syntax error, for inputs whose recovery reports follow-on errors. */
+const firstError = (text: string) => errors(text)[0];
 
 describe('expressions', () => {
   it('respects precedence', () => {
@@ -260,5 +272,41 @@ describe('enums', () => {
 
   it('rejects _ as a name', () => {
     expect(errors('fn f() { let _: int = 1; }')).toEqual(["expected identifier, found '_'"]);
+  });
+});
+
+describe('match', () => {
+  it('parses match expressions', () => {
+    expect(init('match e { E::A => 1, E::B(x, _) => x, _ => 0, }')).toBe('(match e (E::A 1) ((E::B x _) x) (_ 0))');
+    expect(init('match e { _ => 0 } + 1')).toBe('(+ (match e (_ 0)) 1)');
+    expect(init('f(match m { _ => match n { _ => 2 } })')).toBe('(call f (match m (_ (match n (_ 2)))))');
+  });
+
+  it('parses match statements with block and expression arms', () => {
+    const { program, diagnostics } = parseText('fn f() { match e { E::A => { g(); } E::B(x) => g(x), _ => g() } }');
+    expect(diagnostics).toEqual([]);
+    const stmt = program.functions[0].body.statements[0];
+    if (stmt.kind !== 'match') throw new Error(`expected match, got ${stmt.kind}`);
+    expect(stmt.arms.map((a) => `${patternText(a.pattern)} => ${a.body.kind === 'block' ? 'block' : sexpr(a.body)}`)).toEqual([
+      'E::A => block',
+      '(E::B x) => (call g x)',
+      '_ => (call g)',
+    ]);
+  });
+
+  it('parses the scrutinee without struct literals and allows them inside arms', () => {
+    expect(init('match p { _ => P { x: 1 } }')).toBe('(match p (_ (struct P (x 1))))');
+    expect(init('match (P { x: 1 }) { _ => 0 }')).toBe('(match (struct P (x 1)) (_ 0))');
+    expect(firstError('fn f() { match P { x: 1 } { _ => {} } }')).toBe("expected '::', found ':'");
+  });
+
+  it('rejects malformed patterns and arms', () => {
+    expect(firstError('fn f() { match e { E::A() => {} } }')).toBe("expected identifier, found ')'");
+    expect(firstError('fn f() { let r: int = match e { }; }')).toBe("expected identifier, found '}'");
+    expect(firstError('fn f() { match e { E::A => g() E::B => g(), } }')).toBe("expected '}', found identifier 'E'");
+  });
+
+  it('resumes at a match statement after a broken statement', () => {
+    expect(errors('fn f() {\n  let x: int = 1\n  match e { _ => {} }\n}')).toEqual(["expected ';', found 'match'"]);
   });
 });
