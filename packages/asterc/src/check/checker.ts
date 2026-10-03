@@ -276,7 +276,8 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
         }
         return { node: { kind: 'return', value: null }, diverges: true };
       }
-      const value = checkExpr(ctx, stmt.value, ctx.returnType);
+      // In a void function the value is wrong whatever it is, so `[]` must not also be reported as uninferable.
+      const value = checkExpr(ctx, stmt.value, ctx.returnType.kind === 'void' ? ERROR : ctx.returnType);
       if (ctx.returnType.kind === 'void') report(ctx, 'void function cannot return a value', stmt.value.span);
       else expectType(ctx, ctx.returnType, value, stmt.value.span);
       return { node: { kind: 'return', value }, diverges: true };
@@ -421,7 +422,7 @@ function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
   const fields: { field: string; value: TExpr }[] = [];
   for (const init of expr.fields) {
     const decl = findField(ctx, struct.name, init.name);
-    const value = checkExpr(ctx, init.value, decl?.type);
+    const value = checkExpr(ctx, init.value, decl?.type ?? ERROR);
     if (!decl) {
       report(ctx, `unknown field '${init.name}' on '${expr.name}'`, init.nameSpan);
     } else if (fields.some((f) => f.field === init.name)) {
@@ -440,7 +441,7 @@ function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
 function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined): TExpr {
   if (expected !== undefined && isError(expected)) {
     // The expected type was already reported as wrong; only look for errors inside the elements.
-    for (const el of expr.elements) checkExpr(ctx, el);
+    for (const el of expr.elements) checkExpr(ctx, el, ERROR);
     return errorExpr();
   }
   let elem = expected !== undefined && expected.kind === 'array' ? expected.elem : undefined;
@@ -572,7 +573,11 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     report(ctx, `'${name}' is not a function`, expr.callee.span);
     return errorExpr();
   }
-  if (name === 'print') return checkPrint(ctx, expr, expr.args.map((a) => checkExpr(ctx, a)));
+  if (name === 'print') {
+    // A wrong argument count is reported by checkPrint; its arguments must not cascade then.
+    const args = expr.args.map((a) => checkExpr(ctx, a, expr.args.length === 1 ? undefined : ERROR));
+    return checkPrint(ctx, expr, args);
+  }
   if (name === 'len' || name === 'push' || name === 'pop') return checkCollectionBuiltin(ctx, name, expr);
 
   const builtin: SignatureBuiltin | null = isSignatureBuiltin(name) ? name : null;

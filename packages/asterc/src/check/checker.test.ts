@@ -250,4 +250,11 @@ describe('check: arrays', () => {
     expect(inMain('push(nope, []);')).toEqual(["undefined name 'nope'"]);
     expect(inMain('Nope { a: [] };')).toEqual(["unknown struct 'Nope'"]);
   });
+
+  it('reports one diagnostic where an empty array would otherwise cascade', () => {
+    expect(inMain('let x: Foo = [[]];')).toEqual(["unknown type 'Foo'"]);
+    expect(messages(`${MAIN}struct P { x: int }\nfn f() { P { x: 1, y: [] }; }`)).toEqual(["unknown field 'y' on 'P'"]);
+    expect(inMain('print([], 1);')).toEqual(["function 'print' expects 1 argument, found 2"]);
+    expect(messages(`${MAIN}fn f() { return []; }`)).toEqual(['void function cannot return a value']);
+  });
 });

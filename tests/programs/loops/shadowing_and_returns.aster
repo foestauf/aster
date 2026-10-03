@@ -7,6 +7,8 @@
 // 5
 // -1
 // 7
+// 4
+// -1
 fn first(xs: [int]): int {
     for x in xs {
         return x;
@@ -17,6 +19,16 @@ fn first(xs: [int]): int {
 fn first_plus_seven(n: int): int {
     for i in 0..n {
         return i + 7;
+    }
+    return -1;
+}
+
+fn first_not_three(start: int, n: int): int {
+    for i in start..n {
+        if i == 3 {
+            continue;
+        }
+        return i;
     }
     return -1;
 }
@@ -34,5 +46,7 @@ fn main(): int {
         break;
     }
     print(first_plus_seven(3));
+    print(first_not_three(3, 5));
+    print(first_not_three(3, 4));
     return 0;
 }

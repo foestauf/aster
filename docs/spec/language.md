@@ -100,12 +100,12 @@ Notes:
 - Omitting `: type` on a function means `void`.
 - Only a plain identifier can be called. Calling any other expression (`a.f()`, `a[0]()`) is a type error.
 - The parser is hand-written: recursive descent for statements, precedence climbing (Pratt) for expressions.
-- Trailing commas are allowed in struct declarations, struct literals and array literals.
+- Trailing commas are allowed in struct declarations, struct literals and array literals. They remain disallowed in parameter lists and call arguments.
 
 ## Semantics and type rules
 
 **Functions and structs**
-- Functions and structs are top-level and may be declared in any order. Functions may be mutually recursive, and structs may refer to themselves and to each other.
+- Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs may refer to themselves and to each other.
 - Function names must be unique and must not collide with builtin names. Struct names must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, a function or a builtin.
 - Struct names live in the type namespace. A local variable may share a struct's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
@@ -117,7 +117,7 @@ Notes:
 
 **Variables and assignment**
 - `let` declares an immutable binding and `var` a mutable one. An initializer is required and must match the declared type.
-- `x = e;` requires `x` to be a `var`. Writing through a field or element (`p.x = 1;`, `a[i] = 2;`) is always allowed: `let` fixes the binding, not the object it refers to.
+- `x = e;` requires `x` to be a `var`, and `e` must have the type of `x`; the same holds for assignment to a field or element. Writing through a field or element (`p.x = 1;`, `a[i] = 2;`) is always allowed: `let` fixes the binding, not the object it refers to.
 - Compound assignment `p op= e` is allowed when `p op e` is well typed with the type of `p`. `+=` works on `int` and `string` (concatenation); `-= *= /= %=` work on `int` only.
 - Order of evaluation:
   - `o.f = v` evaluates `o`, then `v`.
@@ -126,7 +126,7 @@ Notes:
 - Redeclaring a name in the same scope is an error. Shadowing a name from an enclosing scope (including parameters) is allowed.
 
 **Structs and arrays**
-- A struct literal `Name { f: e, ... }` must set every field exactly once, in any order. Initialisers run in the order written.
+- A struct literal `Name { f: e, ... }` must set every field exactly once, in any order. Initialisers run in the order written. Mistakes are reported as `missing field '<f>' in '<Name>'`, `duplicate field '<f>'` and `unknown field '<f>' on '<Name>'`.
 - `e.f` reads a field. `e[i]` reads an element, where `i` must be an `int`. Indexing outside `[0, len)` panics. Strings cannot be indexed; use `byte_at`.
 - An array literal `[e1, e2]` takes its element type from the context it appears in, or else from its first element. An empty `[]` needs that context: a `let`/`var` type, an assignment target, a parameter, a return type, a field, `push`'s second argument, an enclosing array literal, or an `if`-expression branch in one of those positions. Anywhere else, `[]` is the error `cannot infer type of empty array`.
 - `==` and `!=` are not defined on structs or arrays (`cannot compare '<T>' values`). `print` accepts only `int`, `bool` and `string`.

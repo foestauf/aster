@@ -364,6 +364,12 @@ describe('lower', () => {
     );
   });
 
+  it('keeps the step block when the body only reaches it through continue', () => {
+    const ir = irOf(`${MAIN}fn f(n: int): int { for i in 0..n { if i == 3 { continue; } return i; } return -1; }`, 'f');
+    expect(ir).toContain('for_step');
+    expect(ir).toContain('jmp for_step');
+  });
+
   it('omits the step block when the body can neither fall through nor continue', () => {
     expect(irOf(`${MAIN}fn f(n: int): int { for i in 0..n { return i; } return 0; }`, 'f')).not.toContain('for_step');
   });

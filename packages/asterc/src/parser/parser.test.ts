@@ -204,6 +204,12 @@ describe('structs', () => {
     expect(errors('fn f() { while ok { } }')).toEqual([]);
   });
 
+  it('reads `Name {` in a for header as an identifier followed by the body', () => {
+    expect(errors('fn f() { for x in xs { } }')).toEqual([]);
+    expect(errors('fn f() { for x in P { x: 1 } { } }')).toEqual(["expected ';', found ':'"]);
+    expect(errors('fn f() { for x in (P { x: 1 }) { } }')).toEqual([]);
+  });
+
   it('allows struct literals in headers inside parentheses, arguments, fields and if-expression branches', () => {
     expect(errors('fn f() { if (P { x: 1 }).x == 1 { } }')).toEqual([]);
     expect(errors('fn f() { if g(P { x: 1 }) { } }')).toEqual([]);

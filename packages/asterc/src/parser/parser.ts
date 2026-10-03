@@ -16,9 +16,9 @@ interface Level {
   chainable: boolean;
 }
 
-/** Binary operator levels, loosest first. */
 const ASSIGN_OPS: readonly TokenKind[] = ['=', '+=', '-=', '*=', '/=', '%='];
 
+/** Binary operator levels, loosest first. */
 const LEVELS: readonly Level[] = [
   { ops: ['||'], chainable: true },
   { ops: ['&&'], chainable: true },
