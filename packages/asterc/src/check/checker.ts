@@ -368,7 +368,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       return checkBlock(ctx, stmt);
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
-      const diverges = expr.kind === 'builtin' && expr.builtin === 'panic';
+      const diverges = expr.kind === 'builtin' && (expr.builtin === 'panic' || expr.builtin === 'exit');
       return { node: { kind: 'expr', expr }, diverges };
     }
   }
@@ -949,10 +949,10 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     report(ctx, `'${name}' is not a function`, expr.callee.span);
     return errorExpr();
   }
-  if (name === 'print') {
+  if (name === 'print' || name === 'eprint') {
     // A wrong argument count is reported by checkPrint; its arguments must not cascade then.
     const args = expr.args.map((a) => checkExpr(ctx, a, expr.args.length === 1 ? undefined : ERROR));
-    return checkPrint(ctx, expr, args);
+    return checkPrint(ctx, expr, name, args);
   }
   if (name === 'len' || name === 'push' || name === 'pop') return checkCollectionBuiltin(ctx, name, expr);
 
@@ -975,16 +975,16 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     : { kind: 'call', type: sig.returnType, fn: name, args };
 }
 
-function checkPrint(ctx: Ctx, expr: CallExpr, args: TExpr[]): TExpr {
+function checkPrint(ctx: Ctx, expr: CallExpr, name: 'print' | 'eprint', args: TExpr[]): TExpr {
   if (args.length !== 1) {
-    report(ctx, arityMessage('print', 1, args.length), expr.span);
+    report(ctx, arityMessage(name, 1, args.length), expr.span);
     return errorExpr();
   }
   const t = args[0].type;
   if (!isError(t) && t.kind !== 'int' && t.kind !== 'bool' && t.kind !== 'string') {
     report(ctx, `cannot print a value of type ${typeToString(t)}`, expr.args[0].span);
   }
-  return { kind: 'builtin', type: VOID, builtin: 'print', args };
+  return { kind: 'builtin', type: VOID, builtin: name, args };
 }
 
 /** `len` (string or array), `push` and `pop` (any array). Typed by hand because Aster has no generics. */

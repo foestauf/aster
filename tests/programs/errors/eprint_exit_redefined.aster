@@ -1,0 +1,5 @@
+// expect-error: 3:4 'eprint' is a builtin function and cannot be redefined
+// expect-error: 4:4 'exit' is a builtin function and cannot be redefined
+fn eprint() { }
+fn exit() { }
+fn main(): int { return 0; }

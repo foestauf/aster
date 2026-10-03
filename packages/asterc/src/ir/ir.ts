@@ -43,7 +43,7 @@ export type IrBinOp =
 export type IrUnOp = 'neg' | 'not';
 
 export type IrBuiltin =
-  | 'print_int' | 'print_bool' | 'print_string'
+  | 'print_int' | 'print_bool' | 'print_string' | 'eprint_int' | 'eprint_bool' | 'eprint_string' | 'exit'
   | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'read_stdin';
 
 export type Instr =

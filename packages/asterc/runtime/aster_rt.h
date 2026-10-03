@@ -71,6 +71,10 @@ static inline int64_t aster_rt_mod(int64_t a, int64_t b) {
 void aster_rt_print_int(int64_t n);
 void aster_rt_print_bool(bool b);
 void aster_rt_print_string(aster_string s);
+void aster_rt_eprint_int(int64_t n);
+void aster_rt_eprint_bool(bool b);
+void aster_rt_eprint_string(aster_string s);
+_Noreturn void aster_rt_exit(int64_t code);
 
 int64_t aster_rt_len(aster_string s);
 int64_t aster_rt_byte_at(aster_string s, int64_t i);

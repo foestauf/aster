@@ -107,6 +107,27 @@ void aster_rt_print_string(aster_string s) {
     fputc('\n', stdout);
 }
 
+void aster_rt_eprint_int(int64_t n) {
+    fflush(stdout);
+    fprintf(stderr, "%" PRId64 "\n", n);
+}
+
+void aster_rt_eprint_bool(bool b) {
+    fflush(stdout);
+    fputs(b ? "true\n" : "false\n", stderr);
+}
+
+void aster_rt_eprint_string(aster_string s) {
+    fflush(stdout);
+    fwrite(s.ptr, 1, (size_t)s.len, stderr);
+    fputc('\n', stderr);
+}
+
+_Noreturn void aster_rt_exit(int64_t code) {
+    fflush(stdout);
+    exit((int)code);
+}
+
 int64_t aster_rt_len(aster_string s) { return s.len; }
 
 int64_t aster_rt_byte_at(aster_string s, int64_t i) {

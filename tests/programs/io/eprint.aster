@@ -1,0 +1,14 @@
+// expect-stdout:
+// out 1
+// out 2
+// expect-stderr: err 1
+// expect-stderr: 42
+// expect-stderr: false
+fn main(): int {
+    print("out 1");
+    eprint("err 1");
+    eprint(42);
+    eprint(false);
+    print("out 2");
+    return 0;
+}

@@ -1,0 +1,20 @@
+// expect-stdout:
+// 0
+// 1
+// expect-exit: 0
+fn stop(i: int): int {
+    if i == 2 {
+        exit(0);
+    }
+    return i;
+}
+
+fn never(): int { exit(0); }
+
+fn main(): int {
+    for i in 0..5 {
+        print(stop(i));
+    }
+    print("unreachable");
+    return never();
+}

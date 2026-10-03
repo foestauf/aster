@@ -218,6 +218,15 @@ describe('lower', () => {
     expect(ir).toContain('%1 = not false');
   });
 
+  it('lowers eprint by argument type and exit as a terminating builtin', () => {
+    const ir = irOf('fn main(): int { eprint("x"); eprint(1); eprint(true); exit(2); }', 'main');
+    expect(ir).toContain('call_builtin eprint_string(str#0)');
+    expect(ir).toContain('call_builtin eprint_int(1)');
+    expect(ir).toContain('call_builtin eprint_bool(true)');
+    expect(ir).toContain('call_builtin exit(2)');
+    expect(ir).toContain('unreachable');
+  });
+
   it('prints the string table and blank lines between functions', () => {
     expect(printIr(lowerText('fn main(): int { print("hi"); return 0; }\nfn v() { }'))).toBe(
       lines(

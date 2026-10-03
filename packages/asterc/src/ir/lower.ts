@@ -458,7 +458,7 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       }
       const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
-      if (e.builtin === 'panic') terminate(st, { kind: 'unreachable' });
+      if (e.builtin === 'panic' || e.builtin === 'exit') terminate(st, { kind: 'unreachable' });
       return dst === null ? null : { kind: 'local', id: dst };
     }
     case 'match': {
@@ -576,6 +576,10 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
     case 'print': {
       const t = e.args[0].type.kind;
       return t === 'int' ? 'print_int' : t === 'bool' ? 'print_bool' : 'print_string';
+    }
+    case 'eprint': {
+      const t = e.args[0].type.kind;
+      return t === 'int' ? 'eprint_int' : t === 'bool' ? 'eprint_bool' : 'eprint_string';
     }
     case 'push':
     case 'pop':

@@ -188,6 +188,8 @@ describe('check: control flow', () => {
     expect(messages(`${MAIN}fn f(): int { while true { while true { break; } } }`)).toEqual([]);
     expect(messages(`${MAIN}fn f(): int { { return 1; } }`)).toEqual([]);
     expect(messages(`${MAIN}fn f(): int { panic("no"); }`)).toEqual([]);
+    expect(messages(`${MAIN}fn f(): int { exit(1); }`)).toEqual([]);
+    expect(messages(`${MAIN}fn f(x: int): int { match x { 1 => exit(1), _ => exit(2), } }`)).toEqual([]);
   });
 
   it('treats for loops as possibly running zero times', () => {
@@ -492,5 +494,26 @@ describe('check: ReadResult', () => {
     expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([bad]);
     expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([bad]);
     expect(messages(`${MAIN}fn ReadResult() { }`)).toEqual([bad]);
+  });
+});
+
+const mainBody = (body: string): string[] => messages(`fn main(): int { ${body} return 0; }`);
+const declared = (n: string): string[] => messages(`fn ${n}() { } fn main(): int { return 0; }`);
+
+describe('eprint and exit', () => {
+  const main = mainBody;
+  it('accepts eprint of int, bool and string', () => {
+    expect(main('eprint(1); eprint(true); eprint("s");')).toEqual([]);
+  });
+  it('rejects bad eprint and exit calls', () => {
+    expect(main('eprint([1]);')).toEqual(['cannot print a value of type [int]']);
+    expect(main('eprint();')).toEqual(["function 'eprint' expects 1 argument, found 0"]);
+    expect(main('exit("x");')).toEqual(['type mismatch: expected int, found string']);
+    expect(main('exit();')).toEqual(["function 'exit' expects 1 argument, found 0"]);
+  });
+  it('cannot be redefined', () => {
+    const m = declared;
+    expect(m('eprint')).toEqual(["'eprint' is a builtin function and cannot be redefined"]);
+    expect(m('exit')).toEqual(["'exit' is a builtin function and cannot be redefined"]);
   });
 });
