@@ -105,4 +105,23 @@ export type TExpr =
   | { kind: 'variant'; type: Type; enum: string; variant: string; tag: number; args: TExpr[] }
   /** `==` / `!=` on a payload-free enum: compares tags. */
   | { kind: 'enumCompare'; type: Type; op: '==' | '!='; left: TExpr; right: TExpr }
-  | { kind: 'match'; type: Type; scrutinee: TExpr; arms: { pattern: TPattern; body: TExpr }[] };
+  | { kind: 'match'; type: Type; scrutinee: TExpr; arms: { pattern: TPattern; body: TExpr }[] }
+  /**
+   * `operand?`: continues with payload slot 0 of `okVariant`, or returns `returnFailVariant` of `returnEnum` (the
+   * enclosing function's return type) from the function. `failPayloadType` is the operand's `Err` slot type for
+   * `Result`, carried into the returned `Err`, and null for `Option`.
+   */
+  | {
+    kind: 'try';
+    type: Type;
+    operand: TExpr;
+    okVariant: string;
+    okTag: number;
+    failVariant: string;
+    failTag: number;
+    returnType: Type;
+    returnEnum: string;
+    returnFailVariant: string;
+    returnFailTag: number;
+    failPayloadType: Type | null;
+  };

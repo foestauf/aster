@@ -520,6 +520,33 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       emit(st, { kind: 'binop', dst, op: e.op === '==' ? 'eq' : 'ne', left, right });
       return { kind: 'local', id: dst };
     }
+    case 'try': {
+      // `operand?`: branch on the tag; the failure path builds the return enum's failure value and returns it.
+      if (e.operand.type.kind !== 'enum') throw new Error('internal: ? on a non-enum operand');
+      const operandEnum = e.operand.type.name;
+      const value = lowerValue(st, e.operand);
+      const tag = enumTag(st, value);
+      const isOk = newTemp(st, irType(BOOL));
+      emit(st, { kind: 'binop', dst: isOk, op: 'eq', left: tag, right: { kind: 'int', value: BigInt(e.okTag) } });
+      const okLabel = newLabel(st, 'try_ok');
+      const failLabel = newLabel(st, 'try_fail');
+      terminate(st, { kind: 'br', cond: ref(isOk), then: okLabel, else: failLabel });
+      startBlock(st, failLabel);
+      const args: Operand[] = [];
+      if (e.failPayloadType !== null) {
+        const payload = newTemp(st, irType(e.failPayloadType));
+        emit(st, { kind: 'enum_field', dst: payload, value, enum: operandEnum, variant: e.failVariant, tag: e.failTag, index: 0 });
+        args.push(ref(payload));
+      }
+      const failValue = newTemp(st, irType(e.returnType));
+      emit(st, { kind: 'enum_new', dst: failValue, enum: e.returnEnum, variant: e.returnFailVariant, tag: e.returnFailTag, args });
+      terminate(st, { kind: 'ret', value: ref(failValue) });
+      // The fail block is terminated, so opening the ok block adds no fall-through jump.
+      startBlock(st, okLabel);
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'enum_field', dst, value, enum: operandEnum, variant: e.okVariant, tag: e.okTag, index: 0 });
+      return ref(dst);
+    }
     case 'structLit': {
       // Evaluate in written order, then hand the values over in declaration order. Reordering operands is safe
       // because no Aster expression can assign to a local.

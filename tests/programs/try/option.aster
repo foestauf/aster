@@ -1,0 +1,63 @@
+// `?` on Option: in binary operands, as an expression statement and inside a return value.
+// expect-stdout:
+// 6
+// bad
+// bad
+// checked
+// none
+// 5
+// none
+fn parse_digit(s: string, i: int): Option[int] {
+    if i >= len(s) {
+        return Option::None;
+    }
+    let b: int = byte_at(s, i);
+    if b < '0' || b > '9' {
+        return Option::None;
+    }
+    return Option::Some(b - '0');
+}
+
+fn sum2(s: string): Option[int] {
+    return Option::Some(parse_digit(s, 0)? + parse_digit(s, 1)?);
+}
+
+fn show(o: Option[int]) {
+    match o {
+        Option::Some(n) => print(n),
+        Option::None => print("bad"),
+    }
+}
+
+fn check_first(s: string): Option[bool] {
+    parse_digit(s, 0)?;
+    print("checked");
+    return Option::Some(true);
+}
+
+fn first(s: string): Option[int] {
+    return Option::Some(parse_digit(s, 0)?);
+}
+
+fn main(): int {
+    show(sum2("42"));
+    show(sum2("4x"));
+    show(sum2(""));
+    match check_first("1") {
+        Option::Some(_) => {}
+        Option::None => print("none"),
+    }
+    match check_first("x") {
+        Option::Some(_) => {}
+        Option::None => print("none"),
+    }
+    match first("5") {
+        Option::Some(n) => print(n),
+        Option::None => print("none"),
+    }
+    match first("") {
+        Option::Some(n) => print(n),
+        Option::None => print("none"),
+    }
+    return 0;
+}

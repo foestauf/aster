@@ -601,9 +601,7 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     case 'structLit':
       return checkStructLit(ctx, expr);
     case 'try':
-      // Placeholder until the checker learns `?`; the operand is still checked.
-      checkExpr(ctx, expr.operand);
-      return errorExpr();
+      return checkTry(ctx, expr);
     case 'index': {
       const array = checkExpr(ctx, expr.array);
       const index = checkExpr(ctx, expr.index);
@@ -623,6 +621,60 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     case 'variant':
       return checkVariantExpr(ctx, expr, expected);
   }
+}
+
+/** `t`'s instance name, base and type arguments when it is an `Option` or `Result` instantiation, else null. */
+const tryable = (t: Type): { name: string; base: string; args: Type[] } | null =>
+  t.kind === 'enum' && t.generic !== undefined && (t.generic.base === OPTION || t.generic.base === RESULT)
+    ? { name: t.name, ...t.generic }
+    : null;
+
+/** `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function. */
+function checkTry(ctx: Ctx, expr: Extract<Expr, { kind: 'try' }>): TExpr {
+  const operand = checkExpr(ctx, expr.operand);
+  if (isError(operand.type)) return errorExpr();
+  const op = tryable(operand.type);
+  if (op === null) {
+    report(ctx, `'?' applies to Option or Result, not '${typeToString(operand.type)}'`, expr.span);
+    return errorExpr();
+  }
+  const isResult = op.base === RESULT;
+  const opEnum = ctx.enums.get(op.name);
+  if (!opEnum) throw new Error(`internal: missing instantiation ${op.name}`);
+  const [ok, fail] = opEnum.variants;
+  const type = ok.payload[0];
+  const failPayloadType = isResult ? fail.payload[0] : null;
+  const ret = tryable(ctx.returnType);
+  const node = (returnFailVariant: string, returnFailTag: number): TExpr => ({
+    kind: 'try',
+    type,
+    operand,
+    okVariant: ok.name,
+    okTag: ok.tag,
+    failVariant: fail.name,
+    failTag: fail.tag,
+    returnType: ctx.returnType,
+    returnEnum: ctx.returnType.kind === 'enum' ? ctx.returnType.name : '',
+    returnFailVariant,
+    returnFailTag,
+    failPayloadType,
+  });
+  // Unreachable, since signatures resolve before bodies; lowering never runs when there are errors.
+  if (isError(ctx.returnType)) return node(fail.name, fail.tag);
+  if (ret === null || ret.base !== op.base) {
+    const kind = isResult ? 'a Result' : 'an Option';
+    report(ctx, `'?' needs the function to return ${kind}, but it returns '${typeToString(ctx.returnType)}'`, expr.span);
+    return errorExpr();
+  }
+  if (isResult && !typeEquals(op.args[1], ret.args[1])) {
+    const [mine, theirs] = [op.args[1], ret.args[1]].map(typeToString);
+    report(ctx, `'?' error type '${mine}' does not match the function's error type '${theirs}'`, expr.span);
+    return errorExpr();
+  }
+  // The signature resolved the return type, so its instantiation exists.
+  const retFail = ctx.enums.get(ret.name)?.variants[1];
+  if (!retFail) throw new Error(`internal: missing instantiation ${ret.name}`);
+  return node(retFail.name, retFail.tag);
 }
 
 const variantArityMessage = (enumName: string, variant: string, expected: number, found: number): string =>

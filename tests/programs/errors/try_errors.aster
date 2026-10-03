@@ -1,0 +1,12 @@
+// expect-error: 7:54 '?' applies to Option or Result, not 'int'
+// expect-error: 8:30 '?' needs the function to return an Option, but it returns 'void'
+// expect-error: 9:70 '?' needs the function to return a Result, but it returns 'Option[int]'
+// expect-error: 10:68 '?' needs the function to return an Option, but it returns 'Result[int, string]'
+// expect-error: 11:75 '?' error type 'int' does not match the function's error type 'string'
+// expect-error: 12:66 '?' needs the function to return an Option, but it returns 'int'
+fn on_int(x: int): Option[int] { return Option::Some(x?); }
+fn in_void(o: Option[int]) { o?; }
+fn r_in_o(r: Result[int, string]): Option[int] { return Option::Some(r?); }
+fn o_in_r(o: Option[int]): Result[int, string] { return Result::Ok(o?); }
+fn mismatch(r: Result[int, int]): Result[int, string] { return Result::Ok(r?); }
+fn main(): int { let o: Option[int] = Option::None; let x: int = o?; return x; }

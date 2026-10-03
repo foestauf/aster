@@ -1,0 +1,49 @@
+// A `?` chain into a field access, and a repeated `?` on a nested Option.
+// expect-stdout:
+// ann
+// none
+// 3
+// none
+// none
+struct Person { name: string, age: int }
+
+fn find(xs: [Person], age: int): Option[Person] {
+    for p in xs {
+        if p.age == age {
+            return Option::Some(p);
+        }
+    }
+    return Option::None;
+}
+
+fn name_of(xs: [Person], age: int): Option[string] {
+    return Option::Some(find(xs, age)?.name);
+}
+
+fn flat(x: Option[Option[int]]): Option[int] {
+    return Option::Some(x??);
+}
+
+fn show_name(o: Option[string]) {
+    match o {
+        Option::Some(s) => print(s),
+        Option::None => print("none"),
+    }
+}
+
+fn show(o: Option[int]) {
+    match o {
+        Option::Some(n) => print(n),
+        Option::None => print("none"),
+    }
+}
+
+fn main(): int {
+    let xs: [Person] = [Person { name: "ann", age: 30 }, Person { name: "bob", age: 40 }];
+    show_name(name_of(xs, 30));
+    show_name(name_of(xs, 50));
+    show(flat(Option::Some(Option::Some(3))));
+    show(flat(Option::Some(Option::None)));
+    show(flat(Option::None));
+    return 0;
+}

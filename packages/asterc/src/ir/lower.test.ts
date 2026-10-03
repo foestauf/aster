@@ -523,4 +523,43 @@ describe('lower', () => {
       ),
     );
   });
+
+  it('lowers ? to a tag test, a try_fail block that returns and a try_ok block that reads the payload', () => {
+    const ir = irOf(`${MAIN}fn f(o: Option[int]): Option[int] { return Option::Some(o? + 1); }`, 'f');
+    expect(ir).toBe(
+      lines(
+        'fn f(%0 o: Option[int]): Option[int]',
+        '  local %1: int',
+        '  local %2: bool',
+        '  local %3: Option[int]',
+        '  local %4: int',
+        '  local %5: int',
+        '  local %6: Option[int]',
+        'entry:',
+        '  %1 = enum_tag %0',
+        '  %2 = eq %1, 0',
+        '  br %2, try_ok1, try_fail2',
+        'try_fail2:',
+        '  %3 = enum_new Option[int]::None',
+        '  ret %3',
+        'try_ok1:',
+        '  %4 = enum_field %0, Option[int]::Some.0',
+        '  %5 = add %4, 1',
+        '  %6 = enum_new Option[int]::Some(%5)',
+        '  ret %6',
+      ),
+    );
+  });
+
+  it('carries the Err payload of ? into a new value of the return type', () => {
+    const ir = irOf(`${MAIN}fn f(r: Result[int, string]): Result[bool, string] { let x: int = r?; return Result::Ok(true); }`, 'f');
+    expect(ir).toContain(
+      lines(
+        'try_fail2:',
+        '  %4 = enum_field %0, Result[int, string]::Err.0',
+        '  %5 = enum_new Result[bool, string]::Err(%4)',
+        '  ret %5',
+      ),
+    );
+  });
 });

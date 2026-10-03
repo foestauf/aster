@@ -614,4 +614,39 @@ describe('generic enums', () => {
     expect(inMain('let o: Option[int] = Option::None;\nmatch o { Option::Nope => {}, _ => {} }')).toEqual(["unknown variant 'Nope' on 'Option'"]);
     expect(inMain('match 1 { Option::None => {}, _ => {} }')).toEqual(["pattern type 'Option' does not match 'int'"]);
   });
+
+  it('types ? on Option and Result by the ok payload and records both failure variants', () => {
+    const { program, diagnostics } = checkText(
+      `fn f(r: Result[string, int]): Result[bool, int] {\nlet s: string = r?;\nreturn Result::Ok(true);\n}\n${MAIN}`,
+    );
+    expect(diagnostics).toEqual([]);
+    const stmt = program.functions[0].body.statements[0];
+    expect(stmt.kind === 'let' ? stmt.init : null).toMatchObject({
+      kind: 'try', type: STRING, okVariant: 'Ok', okTag: 0, failVariant: 'Err', failTag: 1,
+      returnEnum: 'Result[bool, int]', returnFailVariant: 'Err', returnFailTag: 1, failPayloadType: INT,
+    });
+    const opt = checkText(`fn g(o: Option[int]): Option[string] {\no?;\nreturn Option::None;\n}\n${MAIN}`);
+    expect(opt.diagnostics).toEqual([]);
+    const s2 = opt.program.functions[0].body.statements[0];
+    expect(s2.kind === 'expr' ? s2.expr : null).toMatchObject({
+      kind: 'try', type: INT, okVariant: 'Some', failVariant: 'None', returnEnum: 'Option[string]', returnFailVariant: 'None', returnFailTag: 1, failPayloadType: null,
+    });
+  });
+
+  it('reports ? on a non-Option/Result, in the wrong kind of function, and with a different error type', () => {
+    expect(messages(`fn f(x: int): Option[int] { return Option::Some(x?); }\n${MAIN}`)).toEqual(["'?' applies to Option or Result, not 'int'"]);
+    expect(messages(`fn f(o: Option[int]) { o?; }\n${MAIN}`)).toEqual(["'?' needs the function to return an Option, but it returns 'void'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nlet x: int = o?;')).toEqual(["'?' needs the function to return an Option, but it returns 'int'"]);
+    expect(messages(`fn f(r: Result[int, int]): Option[int] { return Option::Some(r?); }\n${MAIN}`)).toEqual([
+      "'?' needs the function to return a Result, but it returns 'Option[int]'",
+    ]);
+    expect(messages(`fn f(r: Result[int, int]): Result[int, string] { return Result::Ok(r?); }\n${MAIN}`)).toEqual([
+      "'?' error type 'int' does not match the function's error type 'string'",
+    ]);
+    expect(messages(`fn f(): Option[int] { return Option::Some(nope?); }\n${MAIN}`)).toEqual(["undefined name 'nope'"]);
+  });
+
+  it('does not let ? end a control path', () => {
+    expect(messages(`fn f(o: Option[int]): Option[int] { o?; }\n${MAIN}`)).toEqual(["function 'f' is missing a return on some paths"]);
+  });
 });
