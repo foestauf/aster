@@ -214,7 +214,7 @@ Notes:
 - A file that can't be read is the error `cannot import '<path>': <reason>`, at the import's string literal. `<path>` is the literal's value as written. `<reason>` is `No such file or directory`, `Is a directory`, `Permission denied`, `Not a directory`, `Too many levels of symbolic links`, `File name too long`, or `invalid path` for a path containing `\0`, and otherwise the OS's message.
 - Every loaded file is lexed and parsed. If any file has lexical or syntax errors, compilation stops after loading, with every file's syntax errors (and `cannot import` errors) reported, and nothing is checked.
 - An import has no other meaning, and an unused import is not an error.
-- **Diagnostics** belong to the file that contains them. The CLI prints the path of that file as the compiler reached it: the root path as given on the command line, and an imported path joined to its importer's path (`programs/lexer.aster:12:5: error: …`). Diagnostics are sorted by load order, then by position within a file.
+- **Diagnostics** belong to the file that contains them. The CLI prints the path of that file as the compiler reached it: the root path as given on the command line, and an imported path appended to its importer's directory as written, with `.` and `..` kept so they resolve physically through symlinks (`programs/lexer.aster:12:5: error: …`). Diagnostics are sorted by load order, then by position within a file.
 - **CLI.** `check`, `build` and `run` load the whole program. `--emit=tokens` and `--emit=ast` show the root file only and don't follow imports (the root's imports appear in the AST as items). `--emit=ir` and `--emit=c` show the whole program.
 
 **Generic enum declarations**
