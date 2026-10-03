@@ -258,9 +258,9 @@ const exe = join(workDir, 'parse');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
 beforeAll(() => {
-  const source = makeSource('parse.aster', readFileSync(join(PROGRAMS_DIR, 'programs', 'parse.aster'), 'utf8'));
+  const source = makeSource(join(PROGRAMS_DIR, 'programs', 'parse.aster'), readFileSync(join(PROGRAMS_DIR, 'programs', 'parse.aster'), 'utf8'));
   const compiled = compileToC(source);
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(source, d)).join('\n'));
+  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
   const built = buildExecutable(compiled.c, exe, ['-Werror']);
   if (!built.ok) throw new Error(built.message);
 });
@@ -268,6 +268,7 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
+    expect(corpus).toContain(join('programs', 'lexer.aster'));
     for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'parse_generics', 'parse_imports', 'lex_question', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
