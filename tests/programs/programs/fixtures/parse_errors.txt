@@ -1,0 +1,52 @@
+garbage here
+fn broken_header(a int) {}
+fn ok_after(): int { return 1; }
+struct S { a: int b: int }
+enum E { }
+enum F { V() }
+fn missing_init() {
+    let x: int = ;
+    let ok: int = 1;
+}
+fn chained() {
+    let y: bool = 1 < 2 < 3;
+    let ok: bool = 1 < 2 == true;
+}
+fn header_restores_struct_lits() {
+    while 1 + ;
+    let s: S = S { a: 1, b: 2 };
+    if (S { a: 1 x: 2 ;
+    let t: S = S { a: 3, b: 4 };
+    for i in [1, ;
+    let u: S = S { a: 5, b: 6 };
+    match S { a: ;
+    let v: S = S { a: 7, b: 8 };
+}
+fn missing_else() {
+    let z: int = if true { 1 };
+    let ok: int = if true { 1 } else { 2 };
+}
+fn empty_pattern_parens() {
+    match z { E::V() => 1, }
+}
+fn empty_variant_parens() {
+    let a: int = E::V();
+    let ok: int = 1;
+}
+fn binder_list() {
+    match z { F::V(a b) => { } }
+}
+fn arm_comma() {
+    match z { _ => 1 _ => 2 }
+}
+fn statements() {
+    while true { let q: int = 1 + ; }
+    foo(1, 2,);
+    a.b.;
+    x = y = 3;
+    { nested = ;
+      deeper[; }
+    return 1
+}
+fn missing_close() {
+    let w: [int] = [1, 2

@@ -40,6 +40,15 @@ describe('lex', () => {
     ]);
   });
 
+  it('ends a one-character punctuator at the end of the file inside the file', () => {
+    const { tokens } = run('{}');
+    expect(tokens.map((t) => [t.text, t.span.start, t.span.end])).toEqual([
+      ['{', 0, 1],
+      ['}', 1, 2],
+      ['', 2, 2],
+    ]);
+  });
+
   it('stores int values as bigint without range checking', () => {
     expect(run('9223372036854775808').tokens[0].intValue).toBe(9223372036854775808n);
   });

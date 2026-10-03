@@ -89,8 +89,9 @@ export function lex(source: SourceFile): LexResult {
       continue;
     }
 
+    // At the last character, slice returns one character; only a real two-character punctuator advances by two.
     const two = text.slice(i, i + 2);
-    if (PUNCTUATION_SET.has(two)) {
+    if (two.length === 2 && PUNCTUATION_SET.has(two)) {
       i += 2;
       push(two as TokenKind, start);
       continue;

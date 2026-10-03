@@ -1,0 +1,14 @@
+fn main(): int {
+    let a: int = 0;
+    let b: int = 000;
+    let c: int = -0;
+    let d: int = 9223372036854775807;
+    let e: int = -9223372036854775808;
+    let f: int = 9223372036854775808;
+    let g: int = -9223372036854775809;
+    let h: int = 00009223372036854775807;
+    let i: int = 18446744073709551616;
+    let j: int = - 5;
+    let k: int = --7;
+    return 0;
+}
