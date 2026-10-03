@@ -1,0 +1,4 @@
+fn main(): int {
+    let s: string = "a\n"; // é
+    return E::V(_x) => 1..2 != _;
+}
