@@ -1,17 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource, nextBase } from '../diagnostics/source.js';
 import { loadProgram, nodeHost, type LoadHost } from './load.js';
 
-/** An in-memory file system keyed by absolute path; real paths are just resolved paths. */
+/** An in-memory file system keyed by absolute path; lookups and real paths normalise with path.resolve. */
 function memoryHost(files: Record<string, string>): LoadHost {
   const fs = new Map(Object.entries(files));
   return {
     readFile: (path) => {
-      const text = fs.get(path);
+      const text = fs.get(resolve(path));
       return text === undefined ? { ok: false, reason: 'No such file or directory' } : { ok: true, text };
     },
     realPath: (path) => resolve(path),
@@ -32,6 +32,11 @@ describe('loadProgram', () => {
     expect(result.map.files.map((f) => [f.path, f.base])).toEqual([['/r/main.aster', 0]]);
     expect(result.rootEnd).toBe(MAIN.length);
     expect(result.program.functions.map((f) => f.name)).toEqual(['main']);
+  });
+
+  it('measures rootEnd globally when the root does not start at base 0', () => {
+    const root = makeSource('/r/main.aster', MAIN, 10);
+    expect(loadProgram(root, memoryHost({ '/r/main.aster': MAIN })).rootEnd).toBe(10 + MAIN.length);
   });
 
   it('loads depth first, pre-order, laying files out with nextBase', () => {
@@ -61,7 +66,8 @@ describe('loadProgram', () => {
       '/r/lib.aster': 'fn lib(): int { return 1; }\n',
     });
     expect(result.diagnostics).toEqual([]);
-    expect(result.map.files.map((f) => f.path)).toEqual(['/r/main.aster', '/r/lib.aster']);
+    // The first spelling wins and is kept as written: display paths are not normalised.
+    expect(result.map.files.map((f) => f.path)).toEqual(['/r/main.aster', '/r/./lib.aster']);
     expect(result.program.functions.map((f) => f.name)).toEqual(['main', 'lib']);
   });
 
@@ -78,7 +84,7 @@ describe('loadProgram', () => {
     expect(self.map.files.map((f) => f.path)).toEqual(['/r/main.aster']);
   });
 
-  it('resolves imports against the importing file, and joins display paths to it', () => {
+  it('resolves imports against the importing file, and prefixes display paths with its directory', () => {
     const result = load({
       '/r/main.aster': `import "sub/a.aster";\n${MAIN}`,
       '/r/sub/a.aster': 'import "b.aster";\n',
@@ -93,7 +99,7 @@ describe('loadProgram', () => {
     const root = makeSource('rel/main.aster', files[resolve('rel/main.aster')]);
     const result = loadProgram(root, memoryHost(files));
     expect(result.diagnostics).toEqual([]);
-    expect(result.map.files.map((f) => f.path)).toEqual(['rel/main.aster', join('rel', 'sub', 'a.aster')]);
+    expect(result.map.files.map((f) => f.path)).toEqual(['rel/main.aster', `rel${sep}sub/a.aster`]);
   });
 
   it('uses an absolute import path as is', () => {
@@ -154,6 +160,27 @@ describe('nodeHost', () => {
     expect(nodeHost.realPath(join(dir, 'd', '..', 'x.aster'))).toBe(nodeHost.realPath(join(dir, 'x.aster')));
     expect(nodeHost.realPath(join(dir, 'missing'))).toBe(resolve(dir, 'missing'));
     expect(nodeHost.realPath('a\0b')).toBe(resolve('a\0b'));
+  });
+
+  it('resolves `..` physically through a symlinked directory', () => {
+    // real/link -> ../other/dir, so real/link/../y.aster is other/y.aster on disk, not real/y.aster.
+    mkdirSync(join(dir, 'real'));
+    mkdirSync(join(dir, 'other', 'dir'), { recursive: true });
+    symlinkSync(join('..', 'other', 'dir'), join(dir, 'real', 'link'), 'dir');
+    writeFileSync(join(dir, 'other', 'dir', 'x.aster'), 'import "../y.aster";\nfn x(): int { return 1; }\n');
+    writeFileSync(join(dir, 'other', 'y.aster'), 'fn physical(): int { return 2; }\n');
+    writeFileSync(join(dir, 'real', 'y.aster'), 'fn lexical(): int { return 3; }\n');
+    const rootPath = join(dir, 'real', 'main.aster');
+    const result = loadProgram(makeSource(rootPath, `import "link/x.aster";\n${MAIN}`), nodeHost);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.program.functions.map((f) => f.name)).toEqual(['main', 'x', 'physical']);
+    expect(result.map.files[2].path).toBe(`${join(dir, 'real', 'link')}${sep}../y.aster`);
+  });
+
+  it('quotes the import literal as written, escapes and all, when it cannot be read', () => {
+    const text = `import "a\\0b";\n${MAIN}`;
+    const result = loadProgram(makeSource(join(dir, 'nul.aster'), text), nodeHost);
+    expect(result.diagnostics.map((d) => d.message)).toEqual(["cannot import 'a\\0b': invalid path"]);
   });
 
   it('loads imports from disk through the default host', () => {

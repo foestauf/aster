@@ -1,5 +1,5 @@
 import { readFileSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve, sep } from 'node:path';
 import type { Program } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import { makeSource, nextBase, sourceMapOf, type SourceFile, type SourceMap } from '../diagnostics/source.js';
@@ -84,19 +84,23 @@ export function loadProgram(root: SourceFile, host: LoadHost): LoadResult {
     program.enums.push(...parsed.program.enums);
     program.imports.push(...parsed.program.imports);
     for (const imp of parsed.program.imports) {
-      const real = host.realPath(resolve(dirname(source.path), imp.path));
+      // No path.join/resolve here: they collapse `..` on the text, which is wrong through a symlinked directory.
+      // The OS resolves the unnormalised path physically; that same string is the display path.
+      const path = isAbsolute(imp.path) ? imp.path : `${dirname(source.path)}${sep}${imp.path}`;
+      const real = host.realPath(path);
       if (loaded.has(real)) continue;
-      const read = host.readFile(real);
+      const read = host.readFile(path);
       if (!read.ok) {
-        diagnostics.push({ message: `cannot import '${imp.path}': ${read.reason}`, span: imp.pathSpan });
+        // Quote the literal as written (escapes intact), never the decoded value, which may hold control bytes.
+        const literal = source.text.slice(imp.pathSpan.start - source.base + 1, imp.pathSpan.end - source.base - 1);
+        diagnostics.push({ message: `cannot import '${literal}': ${read.reason}`, span: imp.pathSpan });
         continue;
       }
       loaded.add(real);
-      const display = isAbsolute(imp.path) ? imp.path : join(dirname(source.path), imp.path);
-      visit(makeSource(display, read.text, nextBase(files[files.length - 1])));
+      visit(makeSource(path, read.text, nextBase(files[files.length - 1])));
     }
   };
 
   visit(root);
-  return { map: sourceMapOf(files), program, rootEnd: root.text.length, diagnostics };
+  return { map: sourceMapOf(files), program, rootEnd: root.base + root.text.length, diagnostics };
 }
