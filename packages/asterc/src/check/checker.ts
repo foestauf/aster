@@ -139,6 +139,14 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
   return { structs: structs.map((s) => s.struct), enums: enums.map((e) => e.enumType) };
 }
 
+/** `fn main(): int`, or `fn main(args: [string]): int` with any parameter name. */
+const isMainSignature = (sig: Signature): boolean => {
+  if (sig.returnType.kind !== 'int') return false;
+  if (sig.params.length === 0) return true;
+  const [param] = sig.params;
+  return sig.params.length === 1 && param.kind === 'array' && param.elem.kind === 'string';
+};
+
 export function check(program: Program): CheckResult {
   const env: Env = { diagnostics: [], structs: new Map(), enums: new Map() };
   const { structs, enums } = collectTypes(env, program);
@@ -174,8 +182,8 @@ export function check(program: Program): CheckResult {
   const main = declared.find((d) => d.decl.name === 'main');
   if (!main) {
     report(env, "missing 'fn main(): int'", { start: 0, end: 0 });
-  } else if (main.sig.params.length !== 0 || main.sig.returnType.kind !== 'int') {
-    report(env, "'main' must have signature 'fn main(): int'", main.decl.nameSpan);
+  } else if (!isMainSignature(main.sig)) {
+    report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", main.decl.nameSpan);
   }
 
   // Pass 2: check bodies.

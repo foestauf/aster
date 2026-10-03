@@ -1,0 +1,6 @@
+// expect-stdout:
+// 0
+fn main(argv: [string]): int {
+    print(len(argv));
+    return len(argv);
+}

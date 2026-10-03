@@ -94,7 +94,12 @@ export function emitC(program: IrProgram): string {
   for (const fn of program.functions) out.push(`${signature(fn)};`);
   out.push('');
   for (const fn of program.functions) out.push(...emitFunction(fn, enums), '');
-  out.push('int main(void) {', '    return (int)aster_fn_main();', '}', '');
+  const mainTakesArgs = program.functions.some((fn) => fn.name === 'main' && fn.paramCount === 1);
+  if (mainTakesArgs) {
+    out.push('int main(int argc, char **argv) {', '    return (int)aster_fn_main(aster_rt_args(argc, argv));', '}', '');
+  } else {
+    out.push('int main(void) {', '    return (int)aster_fn_main();', '}', '');
+  }
   return out.join('\n');
 }
 

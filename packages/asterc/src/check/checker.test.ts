@@ -38,8 +38,15 @@ describe('check: whole programs', () => {
   });
 
   it('checks the signature of main', () => {
-    expect(messages('fn main() { }')).toEqual(["'main' must have signature 'fn main(): int'"]);
-    expect(messages('fn main(a: int): int { return 0; }')).toEqual(["'main' must have signature 'fn main(): int'"]);
+    const bad = "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'";
+    expect(messages('fn main(args: [string]): int { return 0; }')).toEqual([]);
+    expect(messages('fn main(argv: [string]): int { return 0; }')).toEqual([]);
+    expect(messages('fn main() { }')).toEqual([bad]);
+    expect(messages('fn main(a: int): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: [int]): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: string): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(a: [string], b: int): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: [string]) { }')).toEqual([bad]);
   });
 
   it('rejects duplicate and builtin-named functions', () => {

@@ -122,3 +122,14 @@ aster_string aster_rt_concat(aster_string a, aster_string b) {
 bool aster_rt_str_eq(aster_string a, aster_string b) {
     return a.len == b.len && (a.len == 0 || memcmp(a.ptr, b.ptr, (size_t)a.len) == 0);
 }
+
+aster_array aster_rt_args(int argc, char **argv) {
+    int64_t n = argc > 1 ? (int64_t)argc - 1 : 0;
+    aster_array a = aster_rt_array_new((int64_t)sizeof(aster_string), n);
+    for (int64_t i = 0; i < n; i++) {
+        const char *s = argv[i + 1];
+        aster_string arg = { s, (int64_t)strlen(s) };
+        *(aster_string *)aster_rt_array_at(a, i) = arg;
+    }
+    return a;
+}

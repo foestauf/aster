@@ -40,6 +40,12 @@ describe('mangling', () => {
 });
 
 describe('emitC', () => {
+  it('passes the arguments to a main that takes them', () => {
+    const c = cOf('fn main(args: [string]): int { return len(args); }');
+    expect(c).toContain('int main(int argc, char **argv) {\n    return (int)aster_fn_main(aster_rt_args(argc, argv));\n}\n');
+    expect(c).not.toContain('int main(void)');
+  });
+
   it('emits a complete translation unit', () => {
     expect(cOf('fn main(): int { let x: int = 10; print(x + 1); return 0; }')).toBe(
       [

@@ -79,4 +79,7 @@ aster_string aster_rt_int_to_string(int64_t n);
 aster_string aster_rt_concat(aster_string a, aster_string b);
 bool aster_rt_str_eq(aster_string a, aster_string b);
 
+/* The program's arguments argv[1..argc) as a [string]. The strings point into argv. */
+aster_array aster_rt_args(int argc, char **argv);
+
 #endif
