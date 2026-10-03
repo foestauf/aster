@@ -52,6 +52,8 @@ export type TStmt =
   | { kind: 'assign'; place: TPlace; op: AssignOp; value: TExpr }
   | { kind: 'if'; cond: TExpr; then: TBlock; else: TBlock | null }
   | { kind: 'while'; cond: TExpr; body: TBlock }
+  | { kind: 'forRange'; local: Local; start: TExpr; end: TExpr; body: TBlock }
+  | { kind: 'forEach'; local: Local; array: TExpr; body: TBlock }
   | { kind: 'break' }
   | { kind: 'continue' }
   | { kind: 'return'; value: TExpr | null }

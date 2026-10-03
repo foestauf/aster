@@ -177,6 +177,17 @@ describe('check: control flow', () => {
     expect(messages(`${MAIN}fn f(): int { { return 1; } }`)).toEqual([]);
     expect(messages(`${MAIN}fn f(): int { panic("no"); }`)).toEqual([]);
   });
+
+  it('treats for loops as possibly running zero times', () => {
+    expect(messages(`${MAIN}fn f(): int { for i in 0..1 { return i; } }`)).toEqual([
+      "function 'f' is missing a return on some paths",
+    ]);
+  });
+
+  it('scopes the loop variable to the loop and allows break/continue inside it', () => {
+    expect(inMain('for i in 0..2 { continue; }\nprint(i);')).toEqual(["undefined name 'i'"]);
+    expect(inMain('for x in [1, 2] { if x == 2 { break; } }')).toEqual([]);
+  });
 });
 
 describe('check: structs', () => {

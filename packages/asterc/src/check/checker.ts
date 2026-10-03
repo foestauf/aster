@@ -245,6 +245,23 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       const infinite = stmt.cond.kind === 'bool' && stmt.cond.value && !loop.hasBreak;
       return { node: { kind: 'while', cond, body: body.node }, diverges: infinite };
     }
+    case 'forRange': {
+      const start = checkRangeBound(ctx, stmt.start);
+      const end = checkRangeBound(ctx, stmt.end);
+      const { local, body } = checkForBody(ctx, stmt.name, stmt.nameSpan, INT, stmt.body);
+      // A for loop may run zero times, so it never ends a control path on its own.
+      return { node: { kind: 'forRange', local, start, end, body }, diverges: false };
+    }
+    case 'forEach': {
+      const array = checkExpr(ctx, stmt.iterable);
+      let elem: Type = ERROR;
+      if (array.type.kind === 'array') elem = array.type.elem;
+      else if (!isError(array.type)) {
+        report(ctx, `cannot iterate over a value of type ${typeToString(array.type)}`, stmt.iterable.span);
+      }
+      const { local, body } = checkForBody(ctx, stmt.name, stmt.nameSpan, elem, stmt.body);
+      return { node: { kind: 'forEach', local, array, body }, diverges: false };
+    }
     case 'break':
     case 'continue': {
       const loop = ctx.loops[ctx.loops.length - 1];
@@ -291,6 +308,25 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
     node: { kind: 'if', cond, then: then.node, else: other.node },
     diverges: then.diverges && other.diverges,
   };
+}
+
+function checkRangeBound(ctx: Ctx, expr: Expr): TExpr {
+  const bound = checkExpr(ctx, expr);
+  if (!isError(bound.type) && bound.type.kind !== 'int') {
+    report(ctx, `range bound must be int, found ${typeToString(bound.type)}`, expr.span);
+  }
+  return bound;
+}
+
+/** Checks a for-loop body with the immutable loop variable declared in a scope of its own. */
+function checkForBody(ctx: Ctx, name: string, nameSpan: Span, type: Type, block: Block): { local: Local; body: TBlock } {
+  ctx.scopes.push(new Map());
+  const local = declare(ctx, name, nameSpan, type, false);
+  ctx.loops.push({ hasBreak: false });
+  const body = checkBlock(ctx, block);
+  ctx.loops.pop();
+  ctx.scopes.pop();
+  return { local, body: body.node };
 }
 
 // ---- expressions

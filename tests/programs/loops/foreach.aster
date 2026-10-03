@@ -1,0 +1,42 @@
+// for-in over arrays sees pushes and pops made during the loop, but not a rebinding of the source variable.
+// expect-stdout:
+// a
+// b
+// c
+// 1
+// 2
+// 3
+// 4
+// 5
+// 10
+// 20
+// 2
+// 7
+// 8
+struct Item { name: string }
+
+fn main(): int {
+    let items: [Item] = [Item { name: "a" }, Item { name: "b" }, Item { name: "c" }];
+    for it in items {
+        print(it.name);
+    }
+    let xs: [int] = [1, 2, 3];
+    for x in xs {
+        print(x);
+        if x < 3 {
+            push(xs, x + 3);
+        }
+    }
+    let ys: [int] = [10, 20, 30, 40];
+    for y in ys {
+        print(y);
+        pop(ys);
+    }
+    print(len(ys));
+    var zs: [int] = [7, 8];
+    for z in zs {
+        zs = [];
+        print(z);
+    }
+    return 0;
+}

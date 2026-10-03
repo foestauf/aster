@@ -218,6 +218,8 @@ export function parse(tokens: readonly Token[]): ParseResult {
       }
       case 'if':
         return parseIfStmt();
+      case 'for':
+        return parseFor();
       case 'while': {
         advance();
         const cond = parseHeaderExpr();
@@ -255,6 +257,20 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
     const semi = expect(';');
     return { kind: 'expr', expr, span: join(expr.span, semi.span) };
+  }
+
+  function parseFor(): Stmt {
+    const kw = expect('for');
+    const name = expect('ident');
+    expect('in');
+    const first = parseHeaderExpr();
+    if (eat('..')) {
+      const end = parseHeaderExpr();
+      const body = parseBlock();
+      return { kind: 'forRange', name: name.text, nameSpan: name.span, start: first, end, body, span: join(kw.span, body.span) };
+    }
+    const body = parseBlock();
+    return { kind: 'forEach', name: name.text, nameSpan: name.span, iterable: first, body, span: join(kw.span, body.span) };
   }
 
   function parseIfStmt(): IfStmt {

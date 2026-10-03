@@ -1,6 +1,6 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
 import type { TBlock, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
-import { BOOL, type Type } from '../types/type.js';
+import { BOOL, INT, type Type } from '../types/type.js';
 import type {
   BasicBlock, Instr, IrBinOp, IrBuiltin, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
 } from './ir.js';
@@ -13,6 +13,8 @@ interface StringTable {
 interface Loop {
   continueLabel: string;
   breakLabel: string;
+  /** Set when a `continue` targets this loop, so its continue block is reachable. */
+  continued: boolean;
 }
 
 interface FnState {
@@ -213,9 +215,12 @@ function lowerStmt(st: FnState, stmt: TStmt): void {
     case 'break':
       terminate(st, { kind: 'jmp', target: currentLoop(st).breakLabel });
       return;
-    case 'continue':
-      terminate(st, { kind: 'jmp', target: currentLoop(st).continueLabel });
+    case 'continue': {
+      const loop = currentLoop(st);
+      loop.continued = true;
+      terminate(st, { kind: 'jmp', target: loop.continueLabel });
       return;
+    }
     case 'if': {
       const cond = lowerValue(st, stmt.cond);
       const thenLabel = newLabel(st, 'then');
@@ -245,14 +250,81 @@ function lowerStmt(st: FnState, stmt: TStmt): void {
       const cond = lowerValue(st, stmt.cond);
       terminate(st, { kind: 'br', cond, then: body, else: end });
       startBlock(st, body);
-      st.loops.push({ continueLabel: head, breakLabel: end });
+      st.loops.push({ continueLabel: head, breakLabel: end, continued: false });
       lowerBlock(st, stmt.body);
       st.loops.pop();
       terminate(st, { kind: 'jmp', target: head });
       startBlock(st, end);
       return;
     }
+    case 'forRange': {
+      const start = lowerValue(st, stmt.start);
+      const end = lowerValue(st, stmt.end);
+      const counter = newTemp(st, irType(INT));
+      const limit = newTemp(st, irType(INT));
+      emit(st, { kind: 'copy', dst: counter, src: start });
+      emit(st, { kind: 'copy', dst: limit, src: end });
+      lowerFor(st, stmt.body, counter, {
+        cond: () => {
+          const c = newTemp(st, irType(BOOL));
+          emit(st, { kind: 'binop', dst: c, op: 'lt', left: ref(counter), right: ref(limit) });
+          return ref(c);
+        },
+        bind: () => emit(st, { kind: 'copy', dst: stmt.local.id, src: ref(counter) }),
+      });
+      return;
+    }
+    case 'forEach': {
+      const source = lowerValue(st, stmt.array);
+      const array = newTemp(st, irType(stmt.array.type));
+      const index = newTemp(st, irType(INT));
+      emit(st, { kind: 'copy', dst: array, src: source });
+      emit(st, { kind: 'copy', dst: index, src: { kind: 'int', value: 0n } });
+      lowerFor(st, stmt.body, index, {
+        cond: () => {
+          const n = newTemp(st, irType(INT));
+          emit(st, { kind: 'array_len', dst: n, array: ref(array) });
+          const c = newTemp(st, irType(BOOL));
+          emit(st, { kind: 'binop', dst: c, op: 'lt', left: ref(index), right: ref(n) });
+          return ref(c);
+        },
+        bind: () => emit(st, { kind: 'index_get', dst: stmt.local.id, array: ref(array), index: ref(index) }),
+      });
+      return;
+    }
   }
+}
+
+const ref = (id: number): Operand => ({ kind: 'local', id });
+const ONE: Operand = { kind: 'int', value: 1n };
+
+/**
+ * The shared shape of both for loops (`counter` is the hidden int local that the step block increments):
+ *   head: br cond, body, end
+ *   body: bind the loop variable; body; jmp step
+ *   step: counter += 1; jmp head   (only when the body can fall through or continue; an unused label would warn)
+ *   end:
+ */
+function lowerFor(st: FnState, body: TBlock, counter: number, parts: { cond: () => Operand; bind: () => void }): void {
+  const head = newLabel(st, 'for_head');
+  const bodyLabel = newLabel(st, 'for_body');
+  const step = newLabel(st, 'for_step');
+  const end = newLabel(st, 'for_end');
+  startBlock(st, head);
+  const cond = parts.cond();
+  terminate(st, { kind: 'br', cond, then: bodyLabel, else: end });
+  startBlock(st, bodyLabel);
+  parts.bind();
+  const loop: Loop = { continueLabel: step, breakLabel: end, continued: false };
+  st.loops.push(loop);
+  lowerBlock(st, body);
+  st.loops.pop();
+  if (st.current !== null || loop.continued) {
+    startBlock(st, step);
+    emit(st, { kind: 'binop', dst: counter, op: 'add', left: ref(counter), right: ONE });
+    terminate(st, { kind: 'jmp', target: head });
+  }
+  startBlock(st, end);
 }
 
 // ---- expressions

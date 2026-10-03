@@ -169,6 +169,17 @@ describe('statements and functions', () => {
     );
     expect(shown).toEqual(['(. (. p q) x) = 1', '(. p n) += 2', 's -= 1', 't *= 2', 'u /= 3', 'v %= 4', '1 = 2']);
   });
+
+  it('parses range and array for loops', () => {
+    const { program, diagnostics } = parseText('fn f() { for i in 0..n + 1 { } for x in xs { } for p in P { } }');
+    expect(diagnostics).toEqual([]);
+    const [range, each, named] = program.functions[0].body.statements;
+    if (range.kind !== 'forRange' || each.kind !== 'forEach' || named.kind !== 'forEach') throw new Error('expected for loops');
+    expect([range.name, sexpr(range.start), sexpr(range.end)]).toEqual(['i', '0', '(+ n 1)']);
+    expect([each.name, sexpr(each.iterable)]).toEqual(['x', 'xs']);
+    // `P {` in a for header starts the body, so this iterates over a variable named P.
+    expect(sexpr(named.iterable)).toBe('P');
+  });
 });
 
 describe('structs', () => {

@@ -1,0 +1,13 @@
+// expect-error: 6:14 cannot iterate over a value of type int
+// expect-error: 7:17 range bound must be int, found bool
+// expect-error: 8:21 cannot assign to immutable variable 'i'
+// expect-error: 11:4 function 'f' is missing a return on some paths
+fn main(): int {
+    for x in 5 { }
+    for i in 0..true { }
+    for i in 0..3 { i = 1; }
+    return 0;
+}
+fn f(xs: [int]): int {
+    for x in xs { return x; }
+}

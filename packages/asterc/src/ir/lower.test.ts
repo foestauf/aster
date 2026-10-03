@@ -298,4 +298,73 @@ describe('lower', () => {
       ),
     );
   });
+
+  it('lowers range loops with a step block that continue jumps to', () => {
+    const text = `${MAIN}fn f(n: int) { for i in 0..n { if i == 2 { continue; } print(i); } }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 n: int): void',
+        '  local %1 i: int',
+        '  local %2: int',
+        '  local %3: int',
+        '  local %4: bool',
+        '  local %5: bool',
+        'entry:',
+        '  %2 = copy 0',
+        '  %3 = copy %0',
+        '  jmp for_head1',
+        'for_head1:',
+        '  %4 = lt %2, %3',
+        '  br %4, for_body2, for_end4',
+        'for_body2:',
+        '  %1 = copy %2',
+        '  %5 = eq %1, 2',
+        '  br %5, then5, endif6',
+        'then5:',
+        '  jmp for_step3',
+        'endif6:',
+        '  call_builtin print_int(%1)',
+        '  jmp for_step3',
+        'for_step3:',
+        '  %2 = add %2, 1',
+        '  jmp for_head1',
+        'for_end4:',
+        '  ret',
+      ),
+    );
+  });
+
+  it('lowers for-in over arrays by index, re-reading the length each iteration', () => {
+    expect(irOf(`${MAIN}fn f(xs: [int]) { for x in xs { print(x); } }`, 'f')).toBe(
+      lines(
+        'fn f(%0 xs: [int]): void',
+        '  local %1 x: int',
+        '  local %2: [int]',
+        '  local %3: int',
+        '  local %4: int',
+        '  local %5: bool',
+        'entry:',
+        '  %2 = copy %0',
+        '  %3 = copy 0',
+        '  jmp for_head1',
+        'for_head1:',
+        '  %4 = array_len %2',
+        '  %5 = lt %3, %4',
+        '  br %5, for_body2, for_end4',
+        'for_body2:',
+        '  %1 = index_get %2[%3]',
+        '  call_builtin print_int(%1)',
+        '  jmp for_step3',
+        'for_step3:',
+        '  %3 = add %3, 1',
+        '  jmp for_head1',
+        'for_end4:',
+        '  ret',
+      ),
+    );
+  });
+
+  it('omits the step block when the body can neither fall through nor continue', () => {
+    expect(irOf(`${MAIN}fn f(n: int): int { for i in 0..n { return i; } return 0; }`, 'f')).not.toContain('for_step');
+  });
 });

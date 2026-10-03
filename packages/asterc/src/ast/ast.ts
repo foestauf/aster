@@ -110,7 +110,28 @@ export interface ExprStmt {
   span: Span;
 }
 
-export type Stmt = LetStmt | AssignStmt | IfStmt | WhileStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
+/** `for name in start..end body`: start and end are evaluated once, start first; `name` runs over [start, end). */
+export interface ForRangeStmt {
+  kind: 'forRange';
+  name: string;
+  nameSpan: Span;
+  start: Expr;
+  end: Expr;
+  body: Block;
+  span: Span;
+}
+
+/** `for name in iterable body`, where iterable is an array. */
+export interface ForEachStmt {
+  kind: 'forEach';
+  name: string;
+  nameSpan: Span;
+  iterable: Expr;
+  body: Block;
+  span: Span;
+}
+
+export type Stmt = LetStmt | AssignStmt | IfStmt | WhileStmt | ForRangeStmt | ForEachStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
 
 export type UnaryOp = '-' | '!';
 export type BinaryOp = '||' | '&&' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '+' | '-' | '*' | '/' | '%';
