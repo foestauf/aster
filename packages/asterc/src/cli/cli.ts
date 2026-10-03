@@ -26,7 +26,7 @@ export const EXIT = { ok: 0, compileError: 1, usage: 2, internal: 3 } as const;
 const USAGE = `usage:
   aster check <file.aster>
   aster build <file.aster> [-o <out>] [--emit=tokens|ast|ir|c]
-  aster run <file.aster>
+  aster run <file.aster> [-- <args>...]
 `;
 
 const EMIT_STAGES = ['tokens', 'ast', 'ir', 'c'] as const;
@@ -37,6 +37,8 @@ interface Args {
   file: string;
   out: string | null;
   emit: EmitStage | null;
+  /** For `run`: the arguments after `--`, passed to the program. */
+  programArgs: string[];
 }
 
 /** Returns parsed arguments, or a usage-error reason. */
@@ -47,9 +49,14 @@ function parseArgs(argv: readonly string[]): Args | string {
   let file: string | null = null;
   let out: string | null = null;
   let emit: EmitStage | null = null;
+  let programArgs: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
-    if (arg === '-o' || arg.startsWith('--emit=')) {
+    if (arg === '--') {
+      if (command !== 'run') return "'--' is only valid with 'run'";
+      programArgs = rest.slice(i + 1);
+      break;
+    } else if (arg === '-o' || arg.startsWith('--emit=')) {
       if (command !== 'build') return `'${arg === '-o' ? '-o' : '--emit'}' is only valid with 'build'`;
       if (arg === '-o') {
         const next = rest[++i];
@@ -69,7 +76,7 @@ function parseArgs(argv: readonly string[]): Args | string {
     }
   }
   if (file === null) return 'missing input file';
-  return { command, file, out, emit };
+  return { command, file, out, emit, programArgs };
 }
 
 /** Output path for `build` without `-o`: the input's basename minus `.aster`, never the input itself. */
@@ -124,7 +131,7 @@ function runCommand(argv: readonly string[], io: Io): number {
     const built = buildExecutable(compiled.c, args.out ?? defaultOutput(args.file));
     return built.ok ? EXIT.ok : internalError(io, built.message);
   }
-  return runProgram(io, compiled.c);
+  return runProgram(io, compiled.c, args.programArgs);
 }
 
 function emitFrontEnd(io: Io, source: SourceFile, stage: 'tokens' | 'ast'): number {
@@ -136,13 +143,13 @@ function emitFrontEnd(io: Io, source: SourceFile, stage: 'tokens' | 'ast'): numb
   return EXIT.ok;
 }
 
-function runProgram(io: Io, cSource: string): number {
+function runProgram(io: Io, cSource: string, programArgs: readonly string[]): number {
   const dir = mkdtempSync(join(tmpdir(), 'aster-run-'));
   try {
     const exe = join(dir, 'program');
     const built = buildExecutable(cSource, exe);
     if (!built.ok) return internalError(io, built.message);
-    const result = spawnSync(exe, {
+    const result = spawnSync(exe, programArgs, {
       stdio: io.childStdio === 'inherit' ? 'inherit' : ['inherit', 'pipe', 'pipe'],
       maxBuffer: 256 * 1024 * 1024,
     });
