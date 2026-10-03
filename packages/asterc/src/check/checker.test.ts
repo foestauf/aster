@@ -229,6 +229,12 @@ describe('check: arrays', () => {
     expect(inMain('let x: int = pop(nope) + 1;')).toEqual(["undefined name 'nope'"]);
   });
 
+  it('rejects array literals passed to print', () => {
+    expect(inMain('print([1]);')).toEqual(['cannot print a value of type [int]']);
+    expect(inMain('print([]);')).toEqual(['cannot infer type of empty array']);
+    expect(inMain('print(if true { [1] } else { [2] });')).toEqual(['cannot print a value of type [int]']);
+  });
+
   it('does not report an uninferable empty array when the expected type is already an error', () => {
     expect(inMain('push(nope, []);')).toEqual(["undefined name 'nope'"]);
     expect(inMain('Nope { a: [] };')).toEqual(["unknown struct 'Nope'"]);

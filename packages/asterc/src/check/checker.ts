@@ -521,7 +521,8 @@ const arityMessage = (name: string, expected: number, found: number): string =>
   `function '${name}' expects ${expected} ${expected === 1 ? 'argument' : 'arguments'}, found ${found}`;
 
 function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
-  // Without a known signature an argument has no expected type, and the `error` type keeps `[]` from cascading.
+  // Only used once a problem with the call itself has been reported (or the signature is known): the `error`
+  // type keeps `[]` arguments from cascading. Calls nothing has complained about yet must not use it.
   const checkArgs = (params?: readonly Type[]): TExpr[] =>
     expr.args.map((a, i) => checkExpr(ctx, a, params === undefined ? ERROR : (params[i] ?? ERROR)));
   if (expr.callee.kind !== 'name') {
@@ -535,7 +536,7 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
     report(ctx, `'${name}' is not a function`, expr.callee.span);
     return errorExpr();
   }
-  if (name === 'print') return checkPrint(ctx, expr, checkArgs());
+  if (name === 'print') return checkPrint(ctx, expr, expr.args.map((a) => checkExpr(ctx, a)));
   if (name === 'len' || name === 'push' || name === 'pop') return checkCollectionBuiltin(ctx, name, expr);
 
   const builtin: SignatureBuiltin | null = isSignatureBuiltin(name) ? name : null;
