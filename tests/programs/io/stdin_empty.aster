@@ -1,0 +1,6 @@
+// expect-stdout:
+// 0
+fn main(): int {
+    print(len(read_stdin()));
+    return 0;
+}

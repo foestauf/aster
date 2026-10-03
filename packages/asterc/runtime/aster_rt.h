@@ -82,4 +82,7 @@ bool aster_rt_str_eq(aster_string a, aster_string b);
 /* The program's arguments argv[1..argc) as a [string]. The strings point into argv. */
 aster_array aster_rt_args(int argc, char **argv);
 
+/* Reads stdin to EOF. Panics with "cannot read stdin: <reason>" on a read error. */
+aster_string aster_rt_read_stdin(void);
+
 #endif

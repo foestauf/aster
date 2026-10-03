@@ -17,6 +17,7 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   substring: { params: [STRING, INT, INT], returnType: STRING },
   int_to_string: { params: [INT], returnType: STRING },
   panic: { params: [STRING], returnType: VOID },
+  read_stdin: { params: [], returnType: STRING },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {

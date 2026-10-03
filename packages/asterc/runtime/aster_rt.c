@@ -1,5 +1,6 @@
 #include "aster_rt.h"
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,26 @@ static char *alloc_bytes(int64_t n) {
     char *p = malloc(n > 0 ? (size_t)n : 1);
     if (p == NULL) aster_rt_panic_cstr("out of memory");
     return p;
+}
+
+/*
+ * Reads `f` to EOF into a buffer that doubles as it fills, so it works whether or not the stream's size is known.
+ * Sets *ok to false when the stream reports an error; errno then holds the reason.
+ */
+static aster_string read_all(FILE *f, bool *ok) {
+    int64_t cap = 4096;
+    int64_t len = 0;
+    char *buf = alloc_bytes(cap);
+    for (;;) {
+        len += (int64_t)fread(buf + len, 1, (size_t)(cap - len), f);
+        if (len < cap) break; /* a short read means EOF or an error */
+        cap *= 2;
+        buf = realloc(buf, (size_t)cap);
+        if (buf == NULL) aster_rt_panic_cstr("out of memory");
+    }
+    *ok = !ferror(f);
+    aster_string s = { buf, len };
+    return s;
 }
 
 void *aster_rt_alloc(int64_t size) {
@@ -132,4 +153,16 @@ aster_array aster_rt_args(int argc, char **argv) {
         *(aster_string *)aster_rt_array_at(a, i) = arg;
     }
     return a;
+}
+
+aster_string aster_rt_read_stdin(void) {
+    bool ok = true;
+    errno = 0;
+    aster_string s = read_all(stdin, &ok);
+    if (!ok) {
+        char msg[256];
+        snprintf(msg, sizeof msg, "cannot read stdin: %s", strerror(errno));
+        aster_rt_panic_cstr(msg);
+    }
+    return s;
 }

@@ -44,7 +44,7 @@ export type IrUnOp = 'neg' | 'not';
 
 export type IrBuiltin =
   | 'print_int' | 'print_bool' | 'print_string'
-  | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic';
+  | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'read_stdin';
 
 export type Instr =
   | { kind: 'copy'; dst: number; src: Operand }
