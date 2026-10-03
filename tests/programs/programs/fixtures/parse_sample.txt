@@ -1,0 +1,28 @@
+// One of every node kind.
+struct Point { x: int, y: int, }
+enum Shape { Dot, Line(Point, Point), Many([Point]), }
+
+fn area(s: Shape, scale: int): int {
+    let n: int = -0;
+    var total: int = 007;
+    total += 1;
+    total = total * scale - n % 2;
+    if s == Shape::Dot && !false { return 0; } else if true { total -= 1; } else { }
+    while total > 10 || total <= -3 { break; }
+    for i in 0..3 { continue; }
+    for p in [Point { x: 1, y: 2 }, Point { x: 3, y: 4 },] { print(p.x); }
+    let grid: [[int]] = [[1], []];
+    grid[0][0] = 2;
+    match s {
+        Shape::Dot => print("dot\n"),
+        Shape::Line(a, _) => { print(a.y); }
+        _ => {}
+    }
+    let v: int = match s { Shape::Many(ps) => len(ps), _ => if total != 2 { 1 } else { 2 }, };
+    { return (v + total) / 2; }
+}
+
+fn main() {
+    print(area(Shape::Line(Point { x: 0, y: 0 }, Point { x: 1, y: 1 }), 2) >= 1);
+    return;
+}

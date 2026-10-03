@@ -1,0 +1,25 @@
+garbage here
+fn broken_header(a int) {}
+fn ok_after(): int { return 1; }
+struct S { a: int b: int }
+enum E { }
+enum F { V() }
+fn body() {
+    let x: int = ;
+    let y: int = 1 < 2 < 3;
+    if (S { a: 1 x: 2 }).a == 1 { }
+    if p == S { a: 1 }.a { }
+    let z: int = if true { 1 };
+    match z { E::V() => 1, }
+    match z { F::V(a b) => { } }
+    while true { let q: int = 1 + ; }
+    foo(1, 2,);
+    a.b.;
+    x = y = 3;
+    { nested = ;
+      deeper[;
+    }
+    return 1
+}
+fn trailing() {
+    let w: [int] = [1, 2
