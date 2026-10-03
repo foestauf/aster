@@ -19,10 +19,12 @@ pnpm aster run tests/programs/programs/parse.aster -- tests/programs/basics/hell
 ## CLI
 
 ```
-aster check <file.aster>                                   # type-check only
+aster check <file.aster>                                   # type-check only (follows imports)
 aster build <file.aster> [-o <out>] [--emit=tokens|ast|ir|c]
 aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
 ```
+
+A program can span several files: `import "other.aster";` is a top-level item, and every loaded file joins one flat namespace (no qualified names yet). Paths resolve against the importing file's directory, each file loads once (cycles are fine), and `main` must live in the file you pass to the compiler. `--emit=tokens` and `--emit=ast` show that root file only, and `--emit=ir` and `--emit=c` show the whole program.
 
 Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through. `run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
 
@@ -44,8 +46,9 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - parse.aster design (the self-hosted parser): [`docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md`](docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md)
 - v0.4 design (character literals, `match` on ints, bools and strings, or-patterns, `eprint` and `exit`): [`docs/superpowers/specs/2026-10-03-aster-v0.4-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.4-design.md)
 - v0.5 design (generic enums, `Option[T]` and `Result[T, E]`, the `?` operator, `read_file` returns `Result`): [`docs/superpowers/specs/2026-10-03-aster-v0.5-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.5-design.md)
+- v0.6 design (`import` and multi-file programs): [`docs/superpowers/specs/2026-10-03-aster-v0.6-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.6-design.md)
 - Self-hosting friction log and shortlist: [`docs/self-host/friction.md`](docs/self-host/friction.md)
 
 ## Tests
 
-`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser. Both self-hosted programs use the v0.4 features (character literals, `match` on strings and ints, `eprint` and `exit`) and v0.5 features (generic enums, `Option`, `Result` and `?`), and the tests compare their stdout and stderr separately.
+`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser. Both self-hosted programs use the v0.4 features (character literals, `match` on strings and ints, `eprint` and `exit`) and v0.5 features (generic enums, `Option`, `Result` and `?`), and the tests compare their stdout and stderr separately. Since v0.6 both programs import a shared `lexer.aster`, a library file marked `// expect-library`, which the golden suite never compiles as a root but both conformance suites still lex and parse. Multi-file golden programs live in `tests/programs/modules/`.
