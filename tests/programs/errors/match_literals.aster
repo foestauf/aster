@@ -1,0 +1,37 @@
+// expect-error: 20:28 pattern type 'string' does not match 'int'
+// expect-error: 21:30 pattern type 'int' does not match 'string'
+// expect-error: 22:30 pattern type 'int' does not match 'string'
+// expect-error: 23:31 pattern type 'int' does not match 'bool'
+// expect-error: 24:28 pattern type 'bool' does not match 'int'
+// expect-error: 25:15 pattern type 'int' does not match 'E'
+// expect-error: 26:15 pattern type 'E' does not match 'int'
+// expect-error: 27:5 non-exhaustive match: add a '_' arm
+// expect-error: 28:5 non-exhaustive match: add a '_' arm
+// expect-error: 29:5 non-exhaustive match: missing 'false'
+// expect-error: 30:5 non-exhaustive match: missing 'true'
+// expect-error: 31:37 unreachable match arm
+// expect-error: 32:23 unreachable match arm
+// expect-error: 33:25 unreachable match arm
+// expect-error: 34:26 unreachable match arm
+// expect-error: 35:11 cannot match on '[int]' values
+enum E { A, B(int) }
+fn main(): int {
+    let e: E = E::A;
+    let a: int = match 1 { "a" => 0, _ => 1 };
+    let b: int = match "s" { 1 => 0, _ => 1 };
+    let c: int = match "s" { 'a' => 0, _ => 1 };
+    let d: int = match true { 1 => 0, _ => 1 };
+    let f: int = match 1 { true => 0, _ => 1 };
+    match e { 1 => {} _ => {} }
+    match 1 { E::A => {} _ => {} }
+    match 1 { 1 => {} }
+    match "s" { "a" => {} }
+    match true { true => {} }
+    match true { false => {} }
+    match true { true | false => {} _ => {} }
+    match 1 { 1 => {} 1 => {} _ => {} }
+    match 1 { 'a' => {} 97 => {} _ => {} }
+    match "s" { "" => {} "" => {} _ => {} }
+    match [1] { _ => {} }
+    return 0;
+}

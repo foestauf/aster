@@ -1,4 +1,4 @@
-// expect-error: 12:11 cannot match on 'int' values
+// expect-error: 12:11 cannot match on '[int]' values
 // expect-error: 13:15 pattern type 'F' does not match 'E'
 // expect-error: 14:15 variant 'E::B' expects 1 value, got 2
 // expect-error: 15:23 duplicate binding 'x'
@@ -9,7 +9,7 @@ enum E { A, B(int), C(int, string) }
 enum F { X }
 fn main(): int {
     let e: E = E::A;
-    match 1 { _ => {} }
+    match [1] { _ => {} }
     match e { F::X => {} _ => {} }
     match e { E::B(x, y) => {} _ => {} }
     match e { E::C(x, x) => {} _ => {} }

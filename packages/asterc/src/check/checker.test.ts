@@ -335,7 +335,7 @@ describe('check: match', () => {
     expect(inFn('match e { F::X => {} _ => {} }')).toEqual(["pattern type 'F' does not match 'E'"]);
     expect(inFn('match e { E::B(x, y) => {} _ => {} }')).toEqual(["variant 'E::B' expects 1 value, got 2"]);
     expect(inFn('match e { E::C(x, x) => {} _ => {} }')).toEqual(["duplicate binding 'x'"]);
-    expect(inFn('match 1 { _ => {} }')).toEqual(["cannot match on 'int' values"]);
+    expect(inFn('match [1] { _ => {} }')).toEqual(["cannot match on '[int]' values"]);
   });
 
   it('does not cascade from a bad scrutinee or pattern', () => {
@@ -343,7 +343,7 @@ describe('check: match', () => {
     expect(inFn('match e { E::Q => {} }')).toEqual(["unknown variant 'Q' on 'E'"]);
     expect(inFn('match e { F::X => {} }')).toEqual(["pattern type 'F' does not match 'E'"]);
     expect(inFn('match e { E::B(x, y) => {} E::A => {} E::C(_, _) => {} }')).toEqual(["variant 'E::B' expects 1 value, got 2"]);
-    expect(inFn('match 1 { E::A(x) => print(x + "s"), }')).toEqual(["cannot match on 'int' values"]);
+    expect(inFn('match [1] { E::A(x) => print(x + "s"), }')).toEqual(["cannot match on '[int]' values"]);
   });
 
   it('types match expressions from their arms', () => {
@@ -360,6 +360,107 @@ describe('check: match', () => {
 
   it('scopes binders to their arm', () => {
     expect(inFn('match e { E::B(n) => {} _ => {} }\nprint(n);')).toEqual(["undefined name 'n'"]);
+  });
+});
+
+/** The typed patterns of the match that is `main`'s first statement. */
+function armPatterns(text: string) {
+  const main = checkText(text).program.functions.find((f) => f.name === 'main');
+  const stmt = main?.body.statements[0];
+  if (stmt?.kind !== 'match') throw new Error('expected a match statement');
+  return stmt.arms.map((a) => a.pattern);
+}
+
+describe('check: literal matches', () => {
+  const ENUMS = 'enum E { A, B(int), C(int, string) }\n';
+  /** Diagnostics for statements inside `main`, with the enum `E` declared and `e: E` in scope. */
+  const withEnum = (body: string) => messages(`${ENUMS}fn main(): int {\nlet e: E = E::A;\n${body}\nreturn 0;\n}`);
+
+  it('accepts int, char, string and bool matches', () => {
+    expect(inMain('match 1 { 1 => {} -2 => {} _ => {} }')).toEqual([]);
+    expect(inMain("let c: int = 97;\nmatch c { 'a' | 'b' => {} '\\n' => {} _ => {} }")).toEqual([]);
+    expect(inMain('match "s" { "a" => {} "" => {} _ => {} }')).toEqual([]);
+    expect(inMain('match true { true => {} false => {} }')).toEqual([]);
+    expect(inMain('let n: int = match "s" { "a" | "b" => 1, _ => 2 };\nprint(n);')).toEqual([]);
+  });
+
+  it('accepts an enum or-pattern covering every variant', () => {
+    expect(withEnum('match e { E::A | E::B(_) => {} E::C(_, _) => {} }')).toEqual([]);
+  });
+
+  it('treats a literal match statement as terminating when every arm does', () => {
+    expect(messages(`${MAIN}fn f(x: int): int { match x { 1 => { return 1; } _ => panic("x"), } }`)).toEqual([]);
+    expect(messages(`${MAIN}fn f(x: int): int { match x { 1 => { return 1; } _ => {} } }`)).toEqual([
+      "function 'f' is missing a return on some paths",
+    ]);
+  });
+
+  it('checks each alternative against the scrutinee type', () => {
+    expect(inMain('let n: int = match 1 { "a" => 0, _ => 1 };')).toEqual(["pattern type 'string' does not match 'int'"]);
+    expect(inMain('let n: int = match "s" { 1 => 0, _ => 1 };')).toEqual(["pattern type 'int' does not match 'string'"]);
+    expect(inMain("let n: int = match \"s\" { 'a' => 0, _ => 1 };")).toEqual(["pattern type 'int' does not match 'string'"]);
+    expect(inMain('let n: int = match true { 1 => 0, _ => 1 };')).toEqual(["pattern type 'int' does not match 'bool'"]);
+    expect(inMain('let n: int = match 1 { true => 0, _ => 1 };')).toEqual(["pattern type 'bool' does not match 'int'"]);
+    expect(withEnum('match e { 1 => {} _ => {} }')).toEqual(["pattern type 'int' does not match 'E'"]);
+    expect(withEnum('match 1 { E::A => {} _ => {} }')).toEqual(["pattern type 'E' does not match 'int'"]);
+    expect(withEnum('match 1 { Nope::A => {} _ => {} }')).toEqual(["unknown enum 'Nope'"]);
+  });
+
+  it('does not report non-exhaustiveness after a mismatched alternative', () => {
+    expect(inMain('match true { 1 => {} }')).toEqual(["pattern type 'int' does not match 'bool'"]);
+    expect(inMain('match 1 { 1 | "a" => {} }')).toEqual(["pattern type 'string' does not match 'int'"]);
+  });
+
+  it('requires `_` for int and string matches and both values for bool', () => {
+    expect(inMain('let n: int = match 1 { 1 => 0 };')).toEqual(["non-exhaustive match: add a '_' arm"]);
+    expect(inMain('match "s" { "a" => {} }')).toEqual(["non-exhaustive match: add a '_' arm"]);
+    expect(inMain('let n: int = match true { true => 0 };')).toEqual(["non-exhaustive match: missing 'false'"]);
+    expect(inMain('let n: int = match true { false => 0 };')).toEqual(["non-exhaustive match: missing 'true'"]);
+  });
+
+  it('reports unreachable arms and duplicate alternatives', () => {
+    expect(inMain('let n: int = match true { true | false => 0, _ => 1 };')).toEqual(['unreachable match arm']);
+    expect(inMain('let n: int = match 1 { 1 => 0, 1 => 1, _ => 2 };')).toEqual(['unreachable match arm']);
+    expect(inMain('let n: int = match 1 { 1 => 0, 1 | 2 => 1, _ => 2 };')).toEqual(['duplicate pattern alternative']);
+    expect(inMain('let n: int = match 1 { 1 | 1 => 0, _ => 1 };')).toEqual(['duplicate pattern alternative']);
+    expect(inMain("let n: int = match 1 { 'a' => 0, 97 => 1, _ => 2 };")).toEqual(['unreachable match arm']);
+    expect(inMain('let n: int = match "s" { "a" => 0, "a" => 1, _ => 2 };')).toEqual(['unreachable match arm']);
+    expect(inMain('let n: int = match 1 { _ => 0, 1 => 1 };')).toEqual(['unreachable match arm']);
+    expect(withEnum('match e { E::A => {} E::A | E::B(_) => {} _ => {} }')).toEqual(['duplicate pattern alternative']);
+    expect(withEnum('match e { E::A | E::B(_) => {} E::C(_, _) => {} _ => {} }')).toEqual(['unreachable match arm']);
+  });
+
+  it('reports the duplicate alternative on its own span', () => {
+    const { source, diagnostics } = checkText('fn main(): int {\nlet n: int = match 1 { 1 => 0, 1 | 2 => 1, _ => 2 };\nreturn 0;\n}');
+    expect(diagnostics.map((d) => formatShort(source, d))).toEqual(['2:32 duplicate pattern alternative']);
+  });
+
+  it('forbids named binders in or-patterns', () => {
+    expect(withEnum('match e { E::B(x) | E::A => {} _ => {} }')).toEqual(['or-pattern alternatives cannot bind names']);
+    expect(withEnum('match e { E::B(_) | E::C(_, s) => {} _ => {} }')).toEqual(['or-pattern alternatives cannot bind names']);
+  });
+
+  it('still rejects other scrutinee types', () => {
+    expect(inMain('let n: int = match [1] { _ => 0 };')).toEqual(["cannot match on '[int]' values"]);
+  });
+
+  it('builds typed patterns', () => {
+    expect(armPatterns("fn main(): int {\nmatch 1 { 1 | 'a' => {} _ => {} }\nreturn 0;\n}")).toEqual([
+      { kind: 'ints', values: [1n, 97n] },
+      { kind: 'wildcard' },
+    ]);
+    expect(armPatterns('fn main(): int {\nmatch true { false => {} true => {} }\nreturn 0;\n}')).toEqual([
+      { kind: 'ints', values: [0n] },
+      { kind: 'ints', values: [1n] },
+    ]);
+    expect(armPatterns('fn main(): int {\nmatch "s" { "a" | "" => {} _ => {} }\nreturn 0;\n}')).toEqual([
+      { kind: 'strings', values: ['a', ''] },
+      { kind: 'wildcard' },
+    ]);
+    expect(armPatterns(`${ENUMS}fn main(): int {\nmatch E::A { E::A | E::C(_, _) => {} _ => {} }\nreturn 0;\n}`)).toEqual([
+      { kind: 'variants', variants: [{ name: 'A', tag: 0 }, { name: 'C', tag: 2 }], binders: [] },
+      { kind: 'wildcard' },
+    ]);
   });
 });
 

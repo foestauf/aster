@@ -354,16 +354,20 @@ function lowerMatch(st: FnState, scrutinee: TExpr, patterns: readonly TPattern[]
   const cases: { value: number; target: string }[] = [];
   let fallback: string | null = null;
   for (const [i, p] of patterns.entries()) {
-    if (p.variant === null) fallback = labels[i];
-    else cases.push({ value: p.variant.tag, target: labels[i] });
+    if (p.kind === 'wildcard') fallback = labels[i];
+    else if (p.kind === 'variants') for (const v of p.variants) cases.push({ value: v.tag, target: labels[i] });
+    else throw new Error('internal: literal pattern on an enum match');
   }
   terminate(st, { kind: 'switch', value: tag, cases, default: fallback });
   let reachesEnd = false;
   for (const [i, p] of patterns.entries()) {
     startBlock(st, labels[i]);
-    for (const [index, binder] of p.binders.entries()) {
-      if (binder === null || p.variant === null) continue;
-      emit(st, { kind: 'enum_field', dst: binder.id, value, enum: enumName, variant: p.variant.name, tag: p.variant.tag, index });
+    if (p.kind === 'variants' && p.variants.length === 1) {
+      const variant = p.variants[0];
+      for (const [index, binder] of p.binders.entries()) {
+        if (binder === null) continue;
+        emit(st, { kind: 'enum_field', dst: binder.id, value, enum: enumName, variant: variant.name, tag: variant.tag, index });
+      }
     }
     lowerBody(i);
     if (st.current !== null) reachesEnd = true;
