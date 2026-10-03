@@ -1,11 +1,12 @@
-import type {
-  BinaryExpr, BinaryOp, Block, CallExpr, Expr, FnDecl, IfStmt, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
+import {
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type CallExpr, type Expr, type FnDecl, type IfStmt, type Program, type Stmt, type StructDecl,
+  type StructLitExpr, type TypeRef,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
 import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
-import type { Local, TBlock, TExpr, TField, TFunction, TStmt, TStruct, TypedProgram } from './types.js';
+import type { Local, TBlock, TExpr, TField, TFunction, TPlace, TStmt, TStruct, TypedProgram } from './types.js';
 
 export interface CheckResult {
   program: TypedProgram;
@@ -217,18 +218,12 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       return { node: { kind: 'let', local, init }, diverges: false };
     }
     case 'assign': {
+      const place = checkPlace(ctx, stmt.target);
       const value = checkExpr(ctx, stmt.value);
-      const local = lookup(ctx, stmt.name);
-      if (!local) {
-        const message = isFunctionName(ctx, stmt.name)
-          ? `cannot assign to function '${stmt.name}'`
-          : `undefined name '${stmt.name}'`;
-        report(ctx, message, stmt.nameSpan);
-        return { node: { kind: 'expr', expr: value }, diverges: false };
-      }
-      if (!local.mutable) report(ctx, `cannot assign to immutable variable '${stmt.name}'`, stmt.nameSpan);
-      expectType(ctx, local.type, value, stmt.value.span);
-      return { node: { kind: 'assign', local, value }, diverges: false };
+      if (place === null) return { node: { kind: 'expr', expr: value }, diverges: false };
+      if (stmt.op === '=') expectType(ctx, place.type, value, stmt.value.span);
+      else checkCompound(ctx, stmt, place.type, value);
+      return { node: { kind: 'assign', place, op: stmt.op, value }, diverges: false };
     }
     case 'if':
       return checkIf(ctx, stmt);
@@ -378,6 +373,43 @@ function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
     if (!fields.some((init) => init.field === f.name)) report(ctx, `missing field '${f.name}' in '${expr.name}'`, expr.nameSpan);
   }
   return { kind: 'structLit', type: { kind: 'struct', name: struct.name }, struct: struct.name, fields };
+}
+
+/**
+ * Resolves an assignment target. Only a bare local needs to be `var`; writing through a field (or, from Task 5, an
+ * element) is always allowed, because `let` only fixes the binding, not the object it refers to.
+ */
+function checkPlace(ctx: Ctx, target: Expr): TPlace | null {
+  switch (target.kind) {
+    case 'name': {
+      const local = lookup(ctx, target.name);
+      if (!local) {
+        const message = isFunctionName(ctx, target.name)
+          ? `cannot assign to function '${target.name}'`
+          : `undefined name '${target.name}'`;
+        report(ctx, message, target.span);
+        return null;
+      }
+      if (!local.mutable) report(ctx, `cannot assign to immutable variable '${target.name}'`, target.span);
+      return { kind: 'local', type: local.type, local };
+    }
+    case 'field': {
+      const checked = checkExpr(ctx, target);
+      if (checked.kind !== 'field') return null; // already reported
+      return { kind: 'field', type: checked.type, object: checked.object, field: checked.field };
+    }
+    default:
+      report(ctx, 'invalid assignment target', target.span);
+      return null;
+  }
+}
+
+function checkCompound(ctx: Ctx, stmt: AssignStmt, target: Type, value: TExpr): void {
+  if (stmt.op === '=' || isError(target) || isError(value.type)) return;
+  const result = binaryResultType(binaryOpOf(stmt.op), target, value.type);
+  if (result === null || !typeEquals(result, target)) {
+    report(ctx, `operator '${stmt.op}' cannot be applied to ${typeToString(target)} and ${typeToString(value.type)}`, stmt.span);
+  }
 }
 
 function binaryResultType(op: BinaryOp, left: Type, right: Type): Type | null {

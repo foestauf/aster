@@ -1,5 +1,5 @@
 import type {
-  BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
+  AssignOp, BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeRef,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -17,6 +17,8 @@ interface Level {
 }
 
 /** Binary operator levels, loosest first. */
+const ASSIGN_OPS: readonly TokenKind[] = ['=', '+=', '-=', '*=', '/=', '%='];
+
 const LEVELS: readonly Level[] = [
   { ops: ['||'], chainable: true },
   { ops: ['&&'], chainable: true },
@@ -236,17 +238,15 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
-  /** An assignment `x = e;` or an expression statement `e;`. */
+  /** An assignment `place op= e;` or an expression statement `e;`. */
   function parseSimpleStatement(): Stmt {
-    const t = peek();
-    if (t.kind === 'ident' && peek(1).kind === '=') {
-      advance();
-      advance();
+    const expr = parseExpr();
+    if (ASSIGN_OPS.includes(peek().kind)) {
+      const op = advance().kind as AssignOp;
       const value = parseExpr();
       const semi = expect(';');
-      return { kind: 'assign', name: t.text, nameSpan: t.span, value, span: join(t.span, semi.span) };
+      return { kind: 'assign', target: expr, op, value, span: join(expr.span, semi.span) };
     }
-    const expr = parseExpr();
     const semi = expect(';');
     return { kind: 'expr', expr, span: join(expr.span, semi.span) };
   }

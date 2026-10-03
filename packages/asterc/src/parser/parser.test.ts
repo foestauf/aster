@@ -140,6 +140,14 @@ describe('statements and functions', () => {
     expect(errors('fn f() { let "s" }')).toEqual(['expected identifier, found string literal']);
     expect(errors('fn f() { x y; }')).toEqual(["expected ';', found identifier 'y'"]);
   });
+  it('parses assignment to any place, with compound operators', () => {
+    const { program, diagnostics } = parseText('fn f() { p.q.x = 1; p.n += 2; s -= 1; t *= 2; u /= 3; v %= 4; 1 = 2; }');
+    expect(diagnostics).toEqual([]);
+    const shown = program.functions[0].body.statements.map((s) =>
+      s.kind === 'assign' ? `${sexpr(s.target)} ${s.op} ${sexpr(s.value)}` : s.kind,
+    );
+    expect(shown).toEqual(['(. (. p q) x) = 1', '(. p n) += 2', 's -= 1', 't *= 2', 'u /= 3', 'v %= 4', '1 = 2']);
+  });
 });
 
 describe('structs', () => {

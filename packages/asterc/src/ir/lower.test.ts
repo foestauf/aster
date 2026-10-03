@@ -237,4 +237,34 @@ describe('lower', () => {
       lines('struct P { x: int, q: Q }', 'struct Q {}', '', 'fn main(): int', 'entry:', '  ret 0'),
     );
   });
+  it('evaluates the object of a compound field assignment once', () => {
+    const text = `${MAIN}struct P { x: int }\nfn g(): P { return P { x: 1 }; }\nfn f() { g().x += 2; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(): void',
+        '  local %0: P',
+        '  local %1: int',
+        '  local %2: int',
+        'entry:',
+        '  %0 = call g()',
+        '  %1 = field_get %0.x',
+        '  %2 = add %1, 2',
+        '  field_set %0.x, %2',
+        '  ret',
+      ),
+    );
+  });
+
+  it('lowers a plain field assignment to a single field_set', () => {
+    const text = `${MAIN}struct P { x: int }\nfn f(p: P) { p.x = 7; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines('fn f(%0 p: P): void', 'entry:', '  field_set %0.x, 7', '  ret'),
+    );
+  });
+
+  it('compound-assigns locals in place', () => {
+    expect(irOf(`${MAIN}fn f(a: int) { var n: int = a; n *= 3; }`, 'f')).toBe(
+      lines('fn f(%0 a: int): void', '  local %1 n: int', 'entry:', '  %1 = copy %0', '  %1 = mul %1, 3', '  ret'),
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import type { BinaryOp, UnaryOp } from '../ast/ast.js';
+import type { AssignOp, BinaryOp, UnaryOp } from '../ast/ast.js';
 import type { Type } from '../types/type.js';
 
 export type BuiltinName = 'print' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic';
@@ -41,9 +41,14 @@ export interface TBlock {
   statements: TStmt[];
 }
 
+/** Something that can be assigned to. */
+export type TPlace =
+  | { kind: 'local'; type: Type; local: Local }
+  | { kind: 'field'; type: Type; object: TExpr; field: string };
+
 export type TStmt =
   | { kind: 'let'; local: Local; init: TExpr }
-  | { kind: 'assign'; local: Local; value: TExpr }
+  | { kind: 'assign'; place: TPlace; op: AssignOp; value: TExpr }
   | { kind: 'if'; cond: TExpr; then: TBlock; else: TBlock | null }
   | { kind: 'while'; cond: TExpr; body: TBlock }
   | { kind: 'break' }

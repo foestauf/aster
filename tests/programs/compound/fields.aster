@@ -1,0 +1,42 @@
+// Assignment through a field evaluates the object expression exactly once,
+// and every compound operator works on a field.
+// expect-stdout:
+// get
+// 11
+// get
+// 20
+// get
+// xy
+// get
+// 17
+// get
+// 5
+// get
+// 10
+// get
+// 2
+struct Box { n: int, s: string }
+
+fn get(b: Box): Box {
+    print("get");
+    return b;
+}
+
+fn main(): int {
+    let b: Box = Box { n: 10, s: "x" };
+    get(b).n += 1;
+    print(b.n);
+    get(b).n = 20;
+    print(b.n);
+    get(b).s += "y";
+    print(b.s);
+    get(b).n -= 3;
+    print(b.n);
+    get(b).n /= 3;
+    print(b.n);
+    get(b).n *= 2;
+    print(b.n);
+    get(b).n %= 4;
+    print(b.n);
+    return 0;
+}

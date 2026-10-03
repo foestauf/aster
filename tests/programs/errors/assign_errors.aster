@@ -1,0 +1,21 @@
+// expect-error: 13:5 invalid assignment target
+// expect-error: 14:5 invalid assignment target
+// expect-error: 15:5 cannot assign to immutable variable 'n'
+// expect-error: 16:5 operator '-=' cannot be applied to string and string
+// expect-error: 17:5 operator '+=' cannot be applied to int and bool
+// expect-error: 18:11 type mismatch: expected int, found string
+// expect-error: 19:7 unknown field 'z' on 'P'
+struct P { x: int }
+fn main(): int {
+    let n: int = 1;
+    var s: string = "a";
+    let p: P = P { x: 1 };
+    1 = 2;
+    main() += 1;
+    n += 1;
+    s -= "b";
+    p.x += true;
+    p.x = "no";
+    p.z = 1;
+    return n;
+}

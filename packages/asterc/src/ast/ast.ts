@@ -58,10 +58,17 @@ export interface LetStmt {
   span: Span;
 }
 
+export type CompoundOp = '+=' | '-=' | '*=' | '/=' | '%=';
+export type AssignOp = '=' | CompoundOp;
+
+/** The binary operator a compound assignment applies, e.g. `+` for `+=`. */
+export const binaryOpOf = (op: CompoundOp): BinaryOp => op.slice(0, -1) as BinaryOp;
+
+/** `target op value;`. The checker rejects targets that are not places (a name, `e.f` or `e[i]`). */
 export interface AssignStmt {
   kind: 'assign';
-  name: string;
-  nameSpan: Span;
+  target: Expr;
+  op: AssignOp;
   value: Expr;
   span: Span;
 }

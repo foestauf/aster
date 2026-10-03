@@ -1,0 +1,27 @@
+// Structs are references: a write through one binding is visible through every other.
+// expect-stdout:
+// 5
+// 5
+// 6
+// 99
+// moved
+struct Counter { n: int, label: string }
+
+fn bump(c: Counter) {
+    c.n += 1;
+}
+
+fn main(): int {
+    let a: Counter = Counter { n: 0, label: "start" };
+    let b: Counter = a;
+    b.n = 5;
+    print(a.n);
+    print(b.n);
+    bump(a);
+    print(b.n);
+    a.n = 99;
+    print(b.n);
+    b.label = "moved";
+    print(a.label);
+    return 0;
+}

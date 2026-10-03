@@ -200,4 +200,13 @@ describe('check: structs', () => {
   it('reports only the unknown-struct diagnostic when the literal names no struct', () => {
     expect(inMain('Nope { a: 1, b: "s" };')).toEqual(["unknown struct 'Nope'"]);
   });
+  it('allows writes through the fields of any binding', () => {
+    expect(messages(`${MAIN}struct P { x: int }\nfn f(p: P) { p.x = 1; p.x += 2; }`)).toEqual([]);
+  });
+
+  it('type-checks compound assignment like its binary operator', () => {
+    expect(inMain('var s: string = "a";\ns += "b";\nvar n: int = 1;\nn %= 2;')).toEqual([]);
+    expect(inMain('var b: bool = true;\nb += true;')).toEqual(["operator '+=' cannot be applied to bool and bool"]);
+    expect(inMain('let n: int = 1;\nn += 1;')).toEqual(["cannot assign to immutable variable 'n'"]);
+  });
 });

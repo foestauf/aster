@@ -1,4 +1,4 @@
-import type { BinaryOp } from '../ast/ast.js';
+import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
 import type { TBlock, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, type Type } from '../types/type.js';
 import type {
@@ -123,6 +123,58 @@ function currentLoop(st: FnState): Loop {
 
 // ---- statements
 
+function lowerAssign(st: FnState, stmt: Extract<TStmt, { kind: 'assign' }>): void {
+  const { place, op } = stmt;
+  switch (place.kind) {
+    case 'local': {
+      // A local can't change while the right-hand side runs, so it can be read after it.
+      const value = lowerValue(st, stmt.value);
+      if (op === '=') {
+        emit(st, { kind: 'copy', dst: place.local.id, src: value });
+      } else {
+        const self: Operand = { kind: 'local', id: place.local.id };
+        emit(st, { kind: 'binop', dst: place.local.id, op: binOp(binaryOpOf(op), place.type), left: self, right: value });
+      }
+      return;
+    }
+    case 'field': {
+      const object = lowerValue(st, place.object);
+      storeThroughPlace(
+        st,
+        stmt,
+        (dst) => ({ kind: 'field_get', dst, object, field: place.field }),
+        (value) => ({ kind: 'field_set', object, field: place.field, value }),
+      );
+      return;
+    }
+  }
+}
+
+/**
+ * Finishes an assignment to a place whose sub-expressions are already lowered (so they run exactly once): computes
+ * the new value, via `read` for compound operators, and emits `write`.
+ */
+function storeThroughPlace(
+  st: FnState,
+  stmt: Extract<TStmt, { kind: 'assign' }>,
+  read: (dst: number) => Instr,
+  write: (value: Operand) => Instr,
+): void {
+  const { place, op } = stmt;
+  const value = op === '=' ? lowerValue(st, stmt.value) : combine(st, op, place.type, read, stmt.value);
+  emit(st, write(value));
+}
+
+/** For `place op= rhs`: loads the place's current value, evaluates `rhs`, applies `op` and returns the result. */
+function combine(st: FnState, op: CompoundOp, type: Type, read: (dst: number) => Instr, rhs: TExpr): Operand {
+  const old = newTemp(st, irType(type));
+  emit(st, read(old));
+  const value = lowerValue(st, rhs);
+  const dst = newTemp(st, irType(type));
+  emit(st, { kind: 'binop', dst, op: binOp(binaryOpOf(op), type), left: { kind: 'local', id: old }, right: value });
+  return { kind: 'local', id: dst };
+}
+
 function lowerBlock(st: FnState, block: TBlock): void {
   for (const stmt of block.statements) {
     if (!st.current) return; // the rest is unreachable
@@ -136,7 +188,7 @@ function lowerStmt(st: FnState, stmt: TStmt): void {
       emit(st, { kind: 'copy', dst: stmt.local.id, src: lowerValue(st, stmt.init) });
       return;
     case 'assign':
-      emit(st, { kind: 'copy', dst: stmt.local.id, src: lowerValue(st, stmt.value) });
+      lowerAssign(st, stmt);
       return;
     case 'expr':
       lowerExpr(st, stmt.expr);

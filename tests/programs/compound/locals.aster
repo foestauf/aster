@@ -1,0 +1,26 @@
+// Compound assignment on int and string locals.
+// expect-stdout:
+// 15
+// 12
+// 36
+// 7
+// 1
+// abc
+fn main(): int {
+    var n: int = 10;
+    n += 5;
+    print(n);
+    n -= 3;
+    print(n);
+    n *= 3;
+    print(n);
+    n /= 5;
+    print(n);
+    n %= 2;
+    print(n);
+    var s: string = "a";
+    s += "b";
+    s += "c";
+    print(s);
+    return 0;
+}

@@ -1,0 +1,9 @@
+// expect-stderr: panic: division by zero
+// expect-exit: 101
+fn main(): int {
+    var n: int = 10;
+    let zero: int = 0;
+    n /= zero;
+    print(n);
+    return 0;
+}
