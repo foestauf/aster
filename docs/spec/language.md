@@ -1,37 +1,60 @@
-# Aster v0.4 Language Reference
+# Aster v0.5 Language Reference
 
 Aster is a small, statically typed, compiled language. It compiles to C and then to a native executable.
 
-```
-enum Shape { Circle(int), Rect(int, int), Dot }
+```aster
+enum Tree[T] { Node(Tree[T], T, Tree[T]), Leaf }
 
-fn area(s: Shape): int {
-    return match s {
-        Shape::Circle(r) => 3 * r * r,
-        Shape::Rect(w, h) => w * h,
-        Shape::Dot => 0,
+fn parse_digit(s: string, i: int): Option[int] {
+    if i >= len(s) {
+        return Option::None;
+    }
+    let b: int = byte_at(s, i);
+    if b < '0' || b > '9' {
+        return Option::None;
+    }
+    return Option::Some(b - '0');
+}
+
+fn sum2(s: string): Option[int] {
+    return Option::Some(parse_digit(s, 0)? + parse_digit(s, 1)?);
+}
+
+fn load(path: string): Result[int, string] {
+    let text: string = read_file(path)?;
+    return Result::Ok(len(text));
+}
+
+fn total(t: Tree[int]): int {
+    return match t {
+        Tree::Node(l, v, r) => total(l) + v + total(r),
+        Tree::Leaf => 0,
     };
 }
 
 fn main(): int {
-    let shapes: [Shape] = [Shape::Rect(2, 3), Shape::Circle(1), Shape::Dot];
-    var total: int = 0;
-    for s in shapes {
-        total += area(s);
+    match sum2("42") {
+        Option::Some(n) => print(n),   // 6
+        Option::None => print("bad"),
     }
-    print(total);   // 9
+    let leaf: Tree[int] = Tree::Leaf;
+    print(total(Tree::Node(leaf, 5, Tree::Node(leaf, 7, leaf))));   // 12
+    match load("/nonexistent") {
+        Result::Ok(n) => print(n),
+        Result::Err(e) => eprint(e),
+    }
     return 0;
 }
 ```
 
-Run it with `pnpm build && pnpm aster run example.aster`.
+Run it with `pnpm build && pnpm aster run example.aster`. It prints `6` and `12`, then the read error on stderr.
 
 ## Lexical structure
 
 - Comments: `//` to end of line. No block comments.
 - Whitespace is insignificant except as a separator.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`, excluding keywords.
-- Keywords: `fn let var if else while for in break continue return true false struct enum match`.
+- Keywords: `fn let var if else while for in break continue return true false struct enum match`. `Option` and `Result` are predeclared type names, not keywords.
 - Type names `int bool string void` are ordinary identifiers resolved as types in type position. They are not keywords.
 - Integer literals: decimal digits only. A literal that does not fit in a signed 64-bit integer is a compile error. A negative number is unary minus applied to a literal. As a special case, `-9223372036854775808` is accepted.
 - String literals: `"..."` with escapes `\n \t \r \\ \" \' \0`. Any other escape is a compile error. Raw newlines inside a string literal are a compile error.
@@ -42,7 +65,7 @@ Run it with `pnpm build && pnpm aster run example.aster`.
   - `invalid escape sequence '<text>'` for an unknown escape.
 
   An erroneous literal that is properly closed (for example an empty or multi-character one) still produces a token (with value 0), so it doesn't cause follow-on parse errors; an unterminated literal consumes the rest of the line, including any `;`, so a follow-on parse error may appear. A `'` inside a comment or a string literal does not start a character literal.
-- Punctuation: `( ) { } [ ] , : ; . .. = + - * / % ! < <= > >= == != && || | += -= *= /= %= :: =>`. `||` is one token, so `a || b` is unchanged and `|` appears only in patterns.
+- Punctuation: `( ) { } [ ] , : ; . .. = + - * / % ! < <= > >= == != && || | += -= *= /= %= :: => ?`. `||` is one token, so `a || b` is unchanged and `|` appears only in patterns.
 - `_` on its own is the wildcard token, not an identifier. Names that merely start with `_` (`_x`) are ordinary identifiers.
 
 ## Types
@@ -53,16 +76,19 @@ Run it with `pnpm build && pnpm aster run example.aster`.
 | `bool`   | `true` / `false`. |
 | `string` | Immutable sequence of bytes (UTF-8 by convention). |
 | `void`   | Return type only. Not usable as a variable, parameter, field or element type. |
-| `Name`   | A struct or an enum named `Name`. |
+| `Name`   | A struct or a non-generic enum named `Name`. |
+| `Name[T1, …]` | An instantiation of a generic enum, such as `Option[int]` or `Result[[string], string]`. Arguments may be any type except `void`. |
 | `[T]`    | A reference to a growable array of `T`. `T` may be any type except `void`, including another array. |
 
 There are no implicit conversions. Array types are equal when their element types are equal, and struct types are equal when their names are equal.
 
 Structs and arrays are heap-allocated **references**. Assigning one, passing it to a function or returning it shares the same object, so a change made through one reference is visible through every other. There is no null: every struct literal sets every field. Nothing is freed; memory is reclaimed when the process exits.
 
-An **enum** declares variants, each with zero or more positional payload values: `enum Expr { Num(int), Add(Expr, Expr) }`. If no variant has a payload, the enum is *payload-free*: its values are plain tags that can be compared with `==`. Otherwise its values are heap-allocated references like structs, and a payload struct or array is shared, not copied. Enum types are equal when their names are equal.
+An **enum** declares variants, each with zero or more positional payload values: `enum Expr { Num(int), Add(Expr, Expr) }`. If no variant has a payload, the enum is *payload-free*: its values are plain tags that can be compared with `==`. Otherwise its values are heap-allocated references like structs, and a payload struct or array is shared, not copied. Enum types are equal when their names are equal. Two instantiations are equal when their enum names are equal and their arguments are pairwise equal.
 
-`ReadResult` is a predeclared enum, as if every program declared `enum ReadResult { Ok(string), Err(string) }`. It is what `read_file` returns, and it can be used like any other enum.
+`Option` and `Result` are predeclared generic enums, as if every program declared `enum Option[T] { Some(T), None }` and `enum Result[T, E] { Ok(T), Err(E) }`. They can be used like any other generic enum. `read_file` returns `Result[string, string]`.
+
+**Generic enums.** An enum may declare type parameters: `enum Tree[T] { Node(Tree[T], T, Tree[T]), Leaf }`. Structs and functions cannot. `Name[T1, …]` names an instantiation, which behaves like a non-generic enum with the arguments substituted into its payloads. Because every parameter must appear in a payload, an instantiation always has a payload, so it is a heap-allocated reference and is not payload-free. Diagnostics write instantiations as `Option[int]` and `Result[[string], string]`, with `, ` between arguments. Each instantiation is compiled only if the program uses it.
 
 ## Grammar
 
@@ -73,9 +99,10 @@ function    = "fn" IDENT "(" [ param { "," param } ] ")" [ ":" type ] block ;
 param       = IDENT ":" type ;
 structDecl  = "struct" IDENT "{" [ fieldDecl { "," fieldDecl } [ "," ] ] "}" ;
 fieldDecl   = IDENT ":" type ;
-enumDecl    = "enum" IDENT "{" variant { "," variant } [ "," ] "}" ;
+enumDecl    = "enum" IDENT [ typeParams ] "{" variant { "," variant } [ "," ] "}" ;
 variant     = IDENT [ "(" type { "," type } ")" ] ;
-type        = IDENT | "[" type "]" ;
+typeParams  = "[" IDENT { "," IDENT } "]" ;
+type        = IDENT [ "[" type { "," type } "]" ] | "[" type "]" ;
 
 block       = "{" { statement } "}" ;
 statement   = "let" IDENT ":" type "=" expr ";"
@@ -102,7 +129,7 @@ comparison  = additive { ( "<" | "<=" | ">" | ">=" ) additive } ;
 additive    = multiplicative { ( "+" | "-" ) multiplicative } ;
 multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
 unary       = ( "-" | "!" ) unary | postfix ;
-postfix     = primary { "(" [ expr { "," expr } ] ")" | "." IDENT | "[" expr "]" } ;
+postfix     = primary { "(" [ expr { "," expr } ] ")" | "." IDENT | "[" expr "]" | "?" } ;
 primary     = INT | CHAR | STRING | "true" | "false" | IDENT
             | "(" expr ")"
             | ifExpr
@@ -124,6 +151,8 @@ binder      = IDENT | "_" ;
 ```
 
 Notes:
+- A type parameter list or type argument list has at least one entry: `enum E[] { … }` and `Option[]` are both `expected identifier, found ']'`. Trailing commas are not allowed in either. In type position `Name[` always starts a type argument list, so it never conflicts with array types.
+- `?` binds like the other postfix operators: `-x?` is `-(x?)`, `a.b?` is `(a.b)?`, and `f(x)?.y` and `xs[0]?` work. It may repeat (`x??`). `?` at the start of an expression is `expected expression, found '?'`.
 - `_` must stand alone as a whole pattern. `_ | 1` is the parse error `expected '=>', found '|'`, and `1 | _` is `expected pattern, found '_'`. A token that cannot start an alternative is `expected pattern, found <token>`.
 - In a pattern, `-` applies only to an `INT`. An int pattern is range-checked like an int expression, and `-9223372036854775808` is accepted.
 - All binary operators are left-associative. Comparison and equality operators are non-associative: `a < b < c` is a parse error.
@@ -136,13 +165,13 @@ Notes:
 - The parser is hand-written: recursive descent for statements, precedence climbing (Pratt) for expressions.
 - A statement beginning with `match` is always a `matchStmt`; a `match` anywhere else is a `matchExpr`. In a `matchStmt`, an expression arm needs a trailing `,` unless it is the last arm. The scrutinee follows the struct-literal rule for headers.
 - An enum needs at least one variant. `V()` with empty parentheses is a syntax error, in a declaration, a value or a pattern.
-- Trailing commas are allowed in struct declarations, struct literals, array literals, enum variant lists and `match` arms (in both forms). They remain disallowed in parameter lists, call arguments, payload type lists, variant argument lists and binder lists.
+- Trailing commas are allowed in struct declarations, struct literals, array literals, enum variant lists and `match` arms (in both forms). They remain disallowed in parameter lists, call arguments, payload type lists, variant argument lists, binder lists, type parameter lists and type argument lists.
 
 ## Semantics and type rules
 
 **Functions, structs and enums**
 - Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs and enums may refer to themselves and to each other.
-- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin. `ReadResult` is a builtin type and cannot be redefined.
+- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin. `Option` and `Result` are builtin types and cannot be redefined (`'Option' is a builtin type and cannot be redefined`).
 - Struct and enum names live in the type namespace. A local variable may share a struct's or enum's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
 - `main` must exist with the signature `fn main(): int` or `fn main(args: [string]): int` (any parameter name). `args` holds the command-line arguments without the program name, as a fresh array. The return value is the process exit code (truncated to the platform's exit-status range by the OS).
@@ -150,6 +179,17 @@ Notes:
 - A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false, and every `for` loop as possibly running zero times. An expression statement that calls `panic` or `exit` ends its path, and a `match` statement ends a path when all of its arms do.
 - `return e;` in a `void` function and `return;` in a non-`void` function are errors. `return e;` requires `e` to match the declared return type.
 - Calls are checked for argument count and argument types.
+
+**Generic enum declarations**
+- Type parameter names must be distinct (`duplicate type parameter 'T'`). A parameter must not be named `int`, `bool`, `string` or `void`, or share a name with a struct, an enum (including `Option` and `Result`) or a builtin function: `type parameter 'T' conflicts with a type of the same name`, reported once per offending parameter.
+- Inside its enum's variant list, a type parameter can be used wherever a type can: alone, as an array element or as a type argument. Outside its enum it is `unknown type 'T'`. A type parameter cannot take arguments (`'T' is not generic`).
+- Every type parameter must appear in at least one payload type: `type parameter 'T' is never used`.
+- **Infinite expansion.** A set of generic enums that would need infinitely many instantiations is rejected at the declaration, used or not: `generic enum 'E' expands infinitely`. Build a graph whose nodes are (enum, parameter) pairs. For each type argument `A` passed to parameter `Q` of enum `F` inside a payload of enum `E`, and each parameter `P` of `E` that occurs in `A`, add an edge `(E, P) → (F, Q)`. The edge is *expanding* when `A` is not exactly `P`. Each enum with a parameter on a cycle that contains an expanding edge is reported once, at its name. `enum List[T] { Cons(T, List[T]), Nil }` is fine, and `enum Bad[T] { B(Bad[[T]]) }` is rejected.
+- Errors in a generic enum's declaration (unknown types, `void` payloads, arity mistakes) are reported once, at the declaration, whether or not the enum is used.
+
+**Type arguments**
+- The argument count must equal the parameter count: `'Option' expects 1 type argument, got 2` and `'Result' expects 2 type arguments, got 1`. A generic enum written with no arguments is the same error with `got 0`. Arguments on a non-generic type are `'Point' is not generic`, and also for `int` and the other primitives.
+- A `void` argument is `type argument cannot be void`.
 
 **Variables and assignment**
 - `let` declares an immutable binding and `var` a mutable one. An initializer is required and must match the declared type.
@@ -168,8 +208,14 @@ Notes:
 - `==` and `!=` are not defined on structs or arrays (`cannot compare '<T>' values`). `print` and `eprint` accept only `int`, `bool` and `string`.
 
 **Enums**
-- `E::V` / `E::V(e1, …)` builds a variant. The number of values must equal the variant's payload count (`variant 'E::V' expects N values, got M`). Values are evaluated left to right, and each takes its slot type as context (so `Opt::Some([])` works). Errors: `unknown enum 'E'`, `'E' is not an enum`, `unknown variant 'V' on 'E'`.
-- `==` and `!=` work on payload-free enums. On other enums they are `cannot compare 'E' values`. `print` and `eprint` do not accept enums.
+- `E::V` / `E::V(e1, …)` builds a variant. The number of values must equal the variant's payload count (`variant 'E::V' expects N values, got M`). Values are evaluated left to right, and each takes its slot type as context (so `Opt::Some([])` works). Errors that don't involve generics are unchanged: `unknown enum 'E'`, `'E' is not an enum`, `unknown variant 'V' on 'E'`.
+- `==` and `!=` work on payload-free enums. On other enums, including every instantiation, they are `cannot compare 'E' values`. `print` and `eprint` do not accept enums.
+- **Inference.** `E::V(e1, …)` where `E` is generic infers `E`'s type arguments. Type arguments are never written in expressions or patterns, and there is no turbofish.
+  1. *From context.* If the expression appears where a type is expected, and that type is an instantiation of `E`, its arguments are used. The contexts are the ones that type an empty `[]`: a `let`/`var` type, an assignment target, a function argument, a `return` value, a struct literal field, a variant payload value, `push`'s second argument, an array literal element, and an `if`-expression or `match`-expression arm in one of those positions. An expected type that is not an instantiation of `E` is ignored here and reported as an ordinary mismatch afterwards.
+  2. *From payload values.* Otherwise the values are checked left to right. Each value takes its slot type as context if the parameters it mentions are already known. Then its type is matched against the slot type, which fixes any parameter still unknown. A later value whose slot mentions a parameter fixed earlier is checked against that type, so `Pair::P(1, true)` with `P(T, T)` is `type mismatch: expected int, found bool`. A `void` value never fixes a parameter.
+  3. If a parameter is still unknown, the error is `cannot infer type arguments for 'E'`, at the variant expression, and the expression has the error type. It is not reported when a payload value or the expected type already has the error type.
+
+  So `Option::Some(5)` works anywhere, `Option::None` and `Result::Ok(1)` need context, and `let x: Option[[int]] = Option::Some([]);` works because the context fixes `T` before the payload is checked. Inference is left to right only: `[Option::None, Option::Some(1)]` with no outer context is `cannot infer type arguments for 'Option'` on the first element.
 
 **Match**
 - `match e { … }` accepts an `int`, `bool`, `string` or enum scrutinee. Any other type is `cannot match on 'T' values`. The scrutinee is evaluated once, and the first arm with a matching pattern runs. Strings compare by bytes, as `==` does.
@@ -183,6 +229,8 @@ Notes:
   | `string` | string literals |
   | enum `E` | `E::V…` naming variants of `E` |
 
+A variant pattern never carries type arguments: `Option::Some(x)` matches any `Option` instantiation, and its binders have the scrutinee instantiation's payload types. A pattern naming a different enum than the scrutinee writes its type as the bare enum name: `pattern type 'Result' does not match 'Option[int]'`.
+
 - Alternatives in an or-pattern of two or more cannot bind names: `E::A(_) | E::B` is fine, `E::A(x) | E::B` is `or-pattern alternatives cannot bind names`. A pattern with a single alternative binds as usual.
 - **Reachability.** An alternative whose value an earlier arm, or an earlier alternative of the same arm, already covers is `duplicate pattern alternative`. If every alternative of an arm is already covered, the whole arm is `unreachable match arm` instead. Any arm after `_` is `unreachable match arm`, as is `_` once every value is covered. Only `bool` and enum matches can be fully covered by values.
 - **Exhaustiveness.** Matches must be exhaustive:
@@ -190,6 +238,22 @@ Notes:
   - `bool`: both `true` and `false`, or a `_` arm (`non-exhaustive match: missing 'true'` or `missing 'false'`).
   - `int` and `string`: a `_` arm is required (`non-exhaustive match: add a '_' arm`).
 - In a `match` expression, all arms must have the same type, which must not be `void` (`match arms have different types: A and B`, `match expression cannot have type void`).
+
+**The `?` operator**
+
+`e?` evaluates `e` once. It unwraps a success or returns the failure from the enclosing function:
+
+| `e`'s type | The function must return | Value of `e?` | When `e` is the failure variant |
+|------------|--------------------------|---------------|---------------------------------|
+| `Option[T]` | `Option[U]` for any `U` | the `Some` payload, of type `T` | returns `Option::None` |
+| `Result[T, E]` | `Result[U, E]` for any `U`, with the same `E` | the `Ok` payload, of type `T` | returns `Result::Err(x)`, where `x` is the `Err` payload |
+
+Errors, reported at the `?` expression:
+- `'?' applies to Option or Result, not 'X'` for any other operand type.
+- `'?' needs the function to return an Option, but it returns 'X'` (or `a Result`) when the return type is the wrong kind. `void` and `int` count, so `?` cannot be used in `main`.
+- `'?' error type 'E1' does not match the function's error type 'E2'` when both are `Result` with different error types. There is no conversion.
+
+If `e` has the error type, no further error is reported and `e?` has the error type. `?` does not end a control path for the missing-return analysis.
 
 **Control flow**
 - Conditions of `if`/`while` must be `bool`.
@@ -217,7 +281,7 @@ Evaluation order: operands left to right, arguments left to right.
 
 ## Builtins
 
-Builtins are special-cased in the checker. There is no overloading or generics in user code.
+Builtins are special-cased in the checker. There is no overloading in user code, and generics exist only for enums.
 
 | Builtin | Signature | Behaviour |
 |---------|-----------|-----------|
@@ -230,7 +294,7 @@ Builtins are special-cased in the checker. There is no overloading or generics i
 | `byte_at` | `(s: string, i: int): int` | Byte value 0–255 at index `i`. Panics if `i < 0` or `i >= len(s)`. |
 | `substring` | `(s: string, start: int, end: int): string` | Bytes `[start, end)`. Panics unless `0 <= start <= end <= len(s)`. |
 | `int_to_string` | `(n: int): string` | Decimal representation. |
-| `read_file` | `(path: string): ReadResult` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
+| `read_file` | `(path: string): Result[string, string]` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
 | `read_stdin` | `(): string` | Reads stdin to EOF. Later calls return `""`. |
 | `panic` | `(msg: string): void` | Writes `panic: <msg>` to stderr and exits with code 101. |
 
@@ -245,6 +309,6 @@ A runtime panic writes `panic: <message>` plus a newline to stderr and exits wit
 - A read error on stdin (`cannot read stdin: <reason>`).
 - `panic(msg)`.
 
-## Not in v0.4
+## Not in v0.5
 
-Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generics, methods, null, equality on structs, arrays or enums with payloads, printing structs, arrays or enums, modules, freeing memory, and C-style `for` loops.
+Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, modules, freeing memory, and C-style `for` loops.
