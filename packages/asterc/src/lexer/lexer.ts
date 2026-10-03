@@ -51,7 +51,7 @@ export function lex(source: SourceFile): LexResult {
     if (isIdentStart(c)) {
       while (i < text.length && isIdentPart(text[i])) i++;
       const word = text.slice(start, i);
-      push(KEYWORD_SET.has(word) ? (word as Keyword) : 'ident', start);
+      push(word === '_' ? '_' : KEYWORD_SET.has(word) ? (word as Keyword) : 'ident', start);
       continue;
     }
     if (c === '"') {

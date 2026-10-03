@@ -1,0 +1,5 @@
+// expect-error: 3:13 expected identifier, found '}'
+// expect-error: 4:12 expected identifier, found ')'
+enum Empty {}
+enum V { A() }
+fn main(): int { return 0; }

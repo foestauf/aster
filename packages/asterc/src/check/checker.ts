@@ -1,12 +1,12 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type Expr, type FnDecl, type IfStmt, type Program, type Stmt, type StructDecl,
-  type StructLitExpr, type TypeExpr,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
+  type StructLitExpr, type TypeExpr, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
 import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
-import type { Local, TBlock, TExpr, TField, TFunction, TPlace, TStmt, TStruct, TypedProgram } from './types.js';
+import type { Local, TBlock, TEnum, TExpr, TField, TFunction, TPattern, TPlace, TStmt, TStruct, TVariant, TypedProgram } from './types.js';
 
 export interface CheckResult {
   program: TypedProgram;
@@ -16,8 +16,10 @@ export interface CheckResult {
 /** State shared by the whole program check. */
 interface Env {
   diagnostics: Diagnostic[];
-  /** Every accepted struct, by name. Struct names live in the type namespace. */
+  /** Every accepted struct, by name. Struct and enum names share the type namespace. */
   structs: Map<string, TStruct>;
+  /** Every accepted enum, by name. */
+  enums: Map<string, TEnum>;
 }
 
 /** Per-function checking state. */
@@ -62,6 +64,7 @@ function resolveType(env: Env, ref: TypeExpr): Type {
   const primitive = PRIMITIVES.get(ref.name);
   if (primitive) return primitive;
   if (env.structs.has(ref.name)) return { kind: 'struct', name: ref.name };
+  if (env.enums.has(ref.name)) return { kind: 'enum', name: ref.name };
   report(env, `unknown type '${ref.name}'`, ref.span);
   return ERROR;
 }
@@ -72,23 +75,39 @@ const findField = (env: Env, struct: string, name: string): TField | undefined =
 /** Struct and array values are heap references; v0.1 defines no equality for them. */
 const isReference = (t: Type): boolean => t.kind === 'struct' || t.kind === 'array';
 
-/** Registers every struct name before resolving any field type, so structs can refer to each other in any order. */
-function collectStructs(env: Env, decls: readonly StructDecl[]): TStruct[] {
-  const accepted: { decl: StructDecl; struct: TStruct }[] = [];
+/** 'a struct' / 'an enum', for diagnostics. */
+const article = (kind: 'struct' | 'enum'): string => (kind === 'struct' ? 'a struct' : 'an enum');
+
+/**
+ * Registers every struct and enum name before resolving any field or payload type, so types can refer to each other
+ * in any order. Structs and enums share the type namespace; of two colliding declarations, the later one is reported.
+ */
+function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: TEnum[] } {
+  const decls = [...program.structs, ...program.enums].toSorted((a, b) => a.span.start - b.span.start);
+  const structs: { decl: StructDecl; struct: TStruct }[] = [];
+  const enums: { decl: EnumDecl; enumType: TEnum }[] = [];
   for (const decl of decls) {
+    const previous = env.structs.has(decl.name) ? 'struct' : env.enums.has(decl.name) ? 'enum' : null;
     if (PRIMITIVES.has(decl.name)) {
       report(env, `'${decl.name}' is a built-in type and cannot be redefined`, decl.nameSpan);
     } else if (isBuiltin(decl.name)) {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
-    } else if (env.structs.has(decl.name)) {
-      report(env, `duplicate struct '${decl.name}'`, decl.nameSpan);
-    } else {
+    } else if (previous === decl.kind) {
+      report(env, `duplicate ${decl.kind} '${decl.name}'`, decl.nameSpan);
+    } else if (previous !== null) {
+      report(env, `'${decl.name}' is already declared as ${article(previous)}`, decl.nameSpan);
+    } else if (decl.kind === 'struct') {
       const struct: TStruct = { name: decl.name, fields: [] };
       env.structs.set(decl.name, struct);
-      accepted.push({ decl, struct });
+      structs.push({ decl, struct });
+    } else {
+      const payloadFree = decl.variants.every((v) => v.payload.length === 0);
+      const enumType: TEnum = { name: decl.name, payloadFree, variants: [] };
+      env.enums.set(decl.name, enumType);
+      enums.push({ decl, enumType });
     }
   }
-  for (const { decl, struct } of accepted) {
+  for (const { decl, struct } of structs) {
     for (const field of decl.fields) {
       if (struct.fields.some((f) => f.name === field.name)) {
         report(env, `duplicate field '${field.name}'`, field.nameSpan);
@@ -102,12 +121,27 @@ function collectStructs(env: Env, decls: readonly StructDecl[]): TStruct[] {
       struct.fields.push({ name: field.name, type });
     }
   }
-  return accepted.map((a) => a.struct);
+  for (const { decl, enumType } of enums) {
+    for (const variant of decl.variants) {
+      if (enumType.variants.some((v) => v.name === variant.name)) {
+        report(env, `duplicate variant '${variant.name}' in '${decl.name}'`, variant.nameSpan);
+        continue;
+      }
+      const payload = variant.payload.map((ref) => {
+        const type = resolveType(env, ref);
+        if (type.kind !== 'void') return type;
+        report(env, 'payload cannot have type void', ref.span);
+        return ERROR;
+      });
+      enumType.variants.push({ name: variant.name, tag: enumType.variants.length, payload });
+    }
+  }
+  return { structs: structs.map((s) => s.struct), enums: enums.map((e) => e.enumType) };
 }
 
 export function check(program: Program): CheckResult {
-  const env: Env = { diagnostics: [], structs: new Map() };
-  const structs = collectStructs(env, program.structs);
+  const env: Env = { diagnostics: [], structs: new Map(), enums: new Map() };
+  const { structs, enums } = collectTypes(env, program);
 
   // Pass 1: collect signatures so functions can be called before their declaration.
   const signatures = new Map<string, Signature>();
@@ -117,8 +151,9 @@ export function check(program: Program): CheckResult {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
       continue;
     }
-    if (env.structs.has(decl.name)) {
-      report(env, `'${decl.name}' is already declared as a struct`, decl.nameSpan);
+    const typeKind = env.structs.has(decl.name) ? 'struct' : env.enums.has(decl.name) ? 'enum' : null;
+    if (typeKind !== null) {
+      report(env, `'${decl.name}' is already declared as ${article(typeKind)}`, decl.nameSpan);
       continue;
     }
     if (signatures.has(decl.name)) {
@@ -145,7 +180,7 @@ export function check(program: Program): CheckResult {
 
   // Pass 2: check bodies.
   const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
-  return { program: { structs, functions }, diagnostics: env.diagnostics };
+  return { program: { structs, enums, functions }, diagnostics: env.diagnostics };
 }
 
 function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
@@ -282,6 +317,22 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       else expectType(ctx, ctx.returnType, value, stmt.value.span);
       return { node: { kind: 'return', value }, diverges: true };
     }
+    case 'match': {
+      const bodies: Checked<TBlock>[] = [];
+      const { scrutinee, patterns } = checkMatch(ctx, stmt.scrutinee, stmt.keywordSpan, stmt.arms.map((a) => a.pattern), (i) => {
+        const body = stmt.arms[i].body;
+        if (body.kind === 'block') {
+          bodies.push(checkBlock(ctx, body));
+        } else {
+          const checked = checkStmt(ctx, { kind: 'expr', expr: body, span: body.span });
+          bodies.push({ node: { kind: 'block', statements: [checked.node] }, diverges: checked.diverges });
+        }
+      });
+      const arms = patterns.map((pattern, i) => ({ pattern, body: bodies[i].node }));
+      // Every match is exhaustive, so it ends a control path exactly when every arm does.
+      const diverges = bodies.length > 0 && bodies.every((b) => b.diverges);
+      return { node: { kind: 'match', scrutinee, arms }, diverges };
+    }
     case 'block':
       return checkBlock(ctx, stmt);
     case 'expr': {
@@ -364,6 +415,8 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
       return checkBinary(ctx, expr);
     case 'call':
       return checkCall(ctx, expr);
+    case 'matchExpr':
+      return checkMatchExpr(ctx, expr, expected);
     case 'ifExpr': {
       const cond = checkCondition(ctx, expr.cond);
       const then = checkExpr(ctx, expr.then, expected);
@@ -407,7 +460,159 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     }
     case 'arrayLit':
       return checkArrayLit(ctx, expr, expected);
+    case 'variant':
+      return checkVariantExpr(ctx, expr);
   }
+}
+
+const variantArityMessage = (enumName: string, variant: string, expected: number, found: number): string =>
+  `variant '${enumName}::${variant}' expects ${expected} ${expected === 1 ? 'value' : 'values'}, got ${found}`;
+
+/** Resolves `E::V`, reporting an unknown enum, a non-enum type or an unknown variant. */
+function resolveVariant(
+  env: Env,
+  enumName: string,
+  enumSpan: Span,
+  variantName: string,
+  variantSpan: Span,
+): { enumType: TEnum; variant: TVariant } | null {
+  const enumType = env.enums.get(enumName);
+  if (!enumType) {
+    const isType = env.structs.has(enumName) || PRIMITIVES.has(enumName);
+    report(env, isType ? `'${enumName}' is not an enum` : `unknown enum '${enumName}'`, enumSpan);
+    return null;
+  }
+  const variant = enumType.variants.find((v) => v.name === variantName);
+  if (!variant) {
+    report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
+    return null;
+  }
+  return { enumType, variant };
+}
+
+function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
+  const found = resolveVariant(ctx, expr.enumName, expr.enumSpan, expr.variant, expr.variantSpan);
+  if (found === null) {
+    // Still check the values for their own errors; the `error` type keeps `[]` from being reported as uninferable.
+    for (const a of expr.args) checkExpr(ctx, a, ERROR);
+    return errorExpr();
+  }
+  const { enumType, variant } = found;
+  const args = expr.args.map((a, i) => checkExpr(ctx, a, variant.payload[i] ?? ERROR));
+  if (args.length !== variant.payload.length) {
+    report(ctx, variantArityMessage(enumType.name, variant.name, variant.payload.length, args.length), expr.span);
+    return errorExpr();
+  }
+  args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
+  return { kind: 'variant', type: { kind: 'enum', name: enumType.name }, enum: enumType.name, variant: variant.name, tag: variant.tag, args };
+}
+
+/**
+ * Checks a match's scrutinee and patterns:
+ * - each pattern must name a variant of the scrutinee's enum
+ * - every variant must be covered unless there is a `_` arm
+ * - no arm may be unreachable
+ * `checkArm(i)` checks arm i's body with that arm's binders in scope. Patterns are not checked at all against an
+ * error-typed or non-enum scrutinee, and a pattern that fails to resolve switches off the exhaustiveness check.
+ */
+function checkMatch(
+  ctx: Ctx,
+  scrutineeExpr: Expr,
+  keywordSpan: Span,
+  patterns: readonly Pattern[],
+  checkArm: (index: number) => void,
+): { scrutinee: TExpr; patterns: TPattern[] } {
+  const scrutinee = checkExpr(ctx, scrutineeExpr);
+  const st = scrutinee.type;
+  const decl: TEnum | null = st.kind === 'enum' ? (ctx.enums.get(st.name) ?? null) : null;
+  if (st.kind !== 'enum' && !isError(st)) report(ctx, `cannot match on '${typeToString(st)}' values`, scrutineeExpr.span);
+
+  const covered = new Set<number>();
+  let wildcardSeen = false;
+  let allResolved = true;
+  const typed: TPattern[] = [];
+  for (const [index, pattern] of patterns.entries()) {
+    let variant: TVariant | null = null;
+    let slots: readonly Type[] | null = null;
+    if (decl !== null) {
+      if (pattern.kind === 'variant') {
+        variant = resolvePatternVariant(ctx, decl, pattern);
+        if (variant === null) allResolved = false;
+        else if (pattern.binders.length === variant.payload.length) slots = variant.payload;
+      }
+      const isWildcard = pattern.kind === 'wildcard';
+      const unreachable =
+        wildcardSeen || (variant !== null && covered.has(variant.tag)) || (isWildcard && covered.size === decl.variants.length);
+      if (unreachable && (isWildcard || variant !== null)) report(ctx, 'unreachable match arm', pattern.span);
+      if (variant !== null) covered.add(variant.tag);
+      if (isWildcard) wildcardSeen = true;
+    }
+
+    ctx.scopes.push(new Map());
+    const seen = new Set<string>();
+    const binders: (Local | null)[] = [];
+    if (pattern.kind === 'variant') {
+      for (const [slot, binder] of pattern.binders.entries()) {
+        if (binder === null) {
+          binders.push(null);
+        } else if (seen.has(binder.name)) {
+          report(ctx, `duplicate binding '${binder.name}'`, binder.span);
+          binders.push(null);
+        } else {
+          seen.add(binder.name);
+          binders.push(declare(ctx, binder.name, binder.span, slots?.[slot] ?? ERROR, false));
+        }
+      }
+    }
+    checkArm(index);
+    ctx.scopes.pop();
+    typed.push({ variant: variant === null ? null : { name: variant.name, tag: variant.tag }, binders });
+  }
+
+  if (decl !== null && allResolved && !wildcardSeen && covered.size < decl.variants.length) {
+    const missing = decl.variants.filter((v) => !covered.has(v.tag)).map((v) => `'${decl.name}::${v.name}'`);
+    report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
+  }
+  return { scrutinee, patterns: typed };
+}
+
+/**
+ * Resolves `F::V(...)` against the scrutinee's enum. Returns null after reporting an unknown or wrong enum or an
+ * unknown variant. A wrong binder count is reported, but the variant is still returned, so it still counts as covered.
+ */
+function resolvePatternVariant(ctx: Ctx, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
+  const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
+  if (found === null) return null;
+  if (found.enumType.name !== decl.name) {
+    report(ctx, `pattern type '${found.enumType.name}' does not match '${decl.name}'`, pattern.enumSpan);
+    return null;
+  }
+  const { variant } = found;
+  if (pattern.binders.length !== variant.payload.length) {
+    report(ctx, variantArityMessage(decl.name, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
+  }
+  return variant;
+}
+
+function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): TExpr {
+  const bodies: TExpr[] = [];
+  const { scrutinee, patterns } = checkMatch(ctx, expr.scrutinee, expr.keywordSpan, expr.arms.map((a) => a.pattern), (i) => {
+    bodies.push(checkExpr(ctx, expr.arms[i].body, expected));
+  });
+  if (bodies.some((b) => isError(b.type))) return errorExpr();
+  // The parser guarantees at least one arm.
+  const type = bodies[0].type;
+  const other = bodies.find((b) => !typeEquals(b.type, type));
+  if (other !== undefined) {
+    report(ctx, `match arms have different types: ${typeToString(type)} and ${typeToString(other.type)}`, expr.span);
+    return errorExpr();
+  }
+  if (type.kind === 'void') {
+    report(ctx, 'match expression cannot have type void', expr.span);
+    return errorExpr();
+  }
+  if (scrutinee.type.kind !== 'enum') return errorExpr();
+  return { kind: 'match', type, scrutinee, arms: patterns.map((pattern, i) => ({ pattern, body: bodies[i] })) };
 }
 
 function checkStructLit(ctx: Ctx, expr: StructLitExpr): TExpr {
@@ -538,9 +743,14 @@ function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   const left = checkExpr(ctx, expr.left);
   const right = checkExpr(ctx, expr.right);
   if (isError(left.type) || isError(right.type)) return errorExpr();
-  if ((expr.op === '==' || expr.op === '!=') && typeEquals(left.type, right.type) && isReference(left.type)) {
-    report(ctx, `cannot compare '${typeToString(left.type)}' values`, expr.span);
-    return errorExpr();
+  if ((expr.op === '==' || expr.op === '!=') && typeEquals(left.type, right.type)) {
+    const t = left.type;
+    const payloadFreeEnum = t.kind === 'enum' && ctx.enums.get(t.name)?.payloadFree === true;
+    if (isReference(t) || (t.kind === 'enum' && !payloadFreeEnum)) {
+      report(ctx, `cannot compare '${typeToString(t)}' values`, expr.span);
+      return errorExpr();
+    }
+    if (payloadFreeEnum) return { kind: 'enumCompare', type: BOOL, op: expr.op, left, right };
   }
   const type = binaryResultType(expr.op, left.type, right.type);
   if (type === null) {

@@ -1,0 +1,73 @@
+// A binary search tree over a recursive enum: insert (rebuilding the path), contains, height, and an in-order walk
+// into [int]. The duplicate 3 is ignored.
+// expect-stdout:
+// 1 3 4 5 6 7 8 9
+// size 8
+// true
+// false
+// height 4
+enum Tree { Leaf, Node(Tree, int, Tree) }
+
+fn insert(t: Tree, v: int): Tree {
+    return match t {
+        Tree::Leaf => Tree::Node(Tree::Leaf, v, Tree::Leaf),
+        Tree::Node(l, x, r) => if v < x {
+            Tree::Node(insert(l, v), x, r)
+        } else if v > x {
+            Tree::Node(l, x, insert(r, v))
+        } else {
+            t
+        },
+    };
+}
+
+fn contains(t: Tree, v: int): bool {
+    return match t {
+        Tree::Leaf => false,
+        Tree::Node(l, x, r) => if v == x { true } else if v < x { contains(l, v) } else { contains(r, v) },
+    };
+}
+
+fn walk(t: Tree, out: [int]) {
+    match t {
+        Tree::Leaf => {}
+        Tree::Node(l, x, r) => {
+            walk(l, out);
+            push(out, x);
+            walk(r, out);
+        }
+    }
+}
+
+fn height(t: Tree): int {
+    match t {
+        Tree::Leaf => { return 0; }
+        Tree::Node(l, _, r) => {
+            let a: int = height(l);
+            let b: int = height(r);
+            return 1 + if a > b { a } else { b };
+        }
+    }
+}
+
+fn main(): int {
+    var t: Tree = Tree::Leaf;
+    for v in [5, 3, 8, 1, 4, 7, 9, 6, 3] {
+        t = insert(t, v);
+    }
+    let values: [int] = [];
+    walk(t, values);
+    var line: string = "";
+    for v in values {
+        if len(line) > 0 {
+            line += " ";
+        }
+        line += int_to_string(v);
+    }
+    print(line);
+    print("size " + int_to_string(len(values)));
+    print(contains(t, 4));
+    print(contains(t, 2));
+    print("height " + int_to_string(height(t)));
+    return 0;
+}

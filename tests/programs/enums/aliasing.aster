@@ -1,0 +1,35 @@
+// A struct inside a payload is shared, not copied. Enums also work as fields, array elements, parameters and
+// results, and a mixed enum's unit variant is a heap value too.
+// expect-stdout:
+// 5
+// 2
+// 7
+struct Counter { n: int }
+enum Slot { Empty, Holds(Counter) }
+struct Shelf { slots: [Slot], label: Slot }
+
+fn bump(s: Slot) {
+    match s {
+        Slot::Holds(c) => { c.n += 1; }
+        Slot::Empty => {}
+    }
+}
+
+fn count(s: Slot): int {
+    return match s { Slot::Holds(c) => c.n, Slot::Empty => -1 };
+}
+
+fn main(): int {
+    let c: Counter = Counter { n: 3 };
+    let s: Slot = Slot::Holds(c);
+    bump(s);
+    bump(s);
+    print(c.n);
+    let shelf: Shelf = Shelf { slots: [s, Slot::Empty], label: Slot::Empty };
+    shelf.label = s;
+    print(len(shelf.slots));
+    bump(shelf.slots[0]);
+    bump(shelf.label);
+    print(count(s));
+    return 0;
+}

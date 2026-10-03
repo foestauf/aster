@@ -94,4 +94,14 @@ describe('lex', () => {
   it('still lexes a line comment rather than /=', () => {
     expect(kinds('x //= y')).toEqual(['ident', 'eof']);
   });
+
+  it('lexes the v0.2 keywords and punctuation', () => {
+    expect(kinds('enum match')).toEqual(['enum', 'match', 'eof']);
+    expect(kinds('E::V => x')).toEqual(['ident', '::', 'ident', '=>', 'ident', 'eof']);
+    expect(kinds('a: b = c')).toEqual(['ident', ':', 'ident', '=', 'ident', 'eof']);
+  });
+
+  it('lexes a lone underscore as its own token but keeps underscore-prefixed identifiers', () => {
+    expect(kinds('_ _x __ x_')).toEqual(['_', 'ident', 'ident', 'ident', 'eof']);
+  });
 });

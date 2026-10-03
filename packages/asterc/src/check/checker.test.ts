@@ -258,3 +258,95 @@ describe('check: arrays', () => {
     expect(messages(`${MAIN}fn f() { return []; }`)).toEqual(['void function cannot return a value']);
   });
 });
+
+describe('check: enums', () => {
+  it('records variants with tags and payload types, and whether the enum is payload-free', () => {
+    const { program, diagnostics } = checkText(`${MAIN}enum E { A, B(int, [E]) }\nenum K { X, Y }`);
+    expect(diagnostics).toEqual([]);
+    expect(
+      program.enums.map((e) => [e.name, e.payloadFree, e.variants.map((v) => `${v.tag}:${v.name}(${v.payload.map(typeToString).join(', ')})`)]),
+    ).toEqual([
+      ['E', false, ['0:A()', '1:B(int, [E])']],
+      ['K', true, ['0:X()', '1:Y()']],
+    ]);
+  });
+
+  it('lets structs and enums refer to each other in any order', () => {
+    expect(messages(`${MAIN}struct Node { next: Opt }\nenum Opt { None, Some(Node) }`)).toEqual([]);
+  });
+
+  it('keeps enum names apart from local variable names', () => {
+    expect(messages('enum K { X }\nfn main(): int {\nlet K: int = 1;\nlet k: K = K::X;\nreturn K;\n}')).toEqual([]);
+  });
+
+  it('infers [] from a payload slot', () => {
+    expect(messages(`enum E { A([int]) }\n${MAIN}fn f(): E { return E::A([]); }`)).toEqual([]);
+  });
+
+  it('compares payload-free enums only', () => {
+    const text = `enum K { X, Y }\nenum E { A, B(int) }\n${MAIN}fn f(k: K): bool { return k == K::X && k != K::Y; }\nfn g(e: E): bool { return e == E::A; }`;
+    expect(messages(text)).toEqual(["cannot compare 'E' values"]);
+  });
+
+  it('does not cascade from an unknown enum or variant', () => {
+    expect(inMain('let x: int = Nope::A([]) + 1;')).toEqual(["unknown enum 'Nope'"]);
+    expect(messages('enum E { A }\nfn main(): int { let e: E = E::Z(1); return 0; }')).toEqual(["unknown variant 'Z' on 'E'"]);
+  });
+});
+
+describe('check: match', () => {
+  const ENUMS = 'enum E { A, B(int), C(int, string) }\nenum F { X }\n';
+  /** Diagnostics for statements inside `fn f(e: E): int`. */
+  const inFn = (body: string) => messages(`${ENUMS}${MAIN}fn f(e: E): int {\n${body}\nreturn 0;\n}`);
+
+  /** Diagnostics for `fn g(e: E): int` whose body is just a match with the given arms. */
+  const fn = (arms: string) => messages(`${ENUMS}${MAIN}fn g(e: E): int {\nmatch e { ${arms} }\n}`);
+
+  it('accepts exhaustive matches with binders and wildcards', () => {
+    expect(inFn('match e { E::A => {} E::B(n) => print(n), E::C(n, s) => print(s) }')).toEqual([]);
+    expect(inFn('match e { E::B(_) => {} _ => {} }')).toEqual([]);
+    expect(inFn('let n: int = match e { E::B(n) => n, _ => 0 };')).toEqual([]);
+  });
+
+  it('reports missing variants in declaration order', () => {
+    expect(inFn('match e { E::B(_) => {} }')).toEqual(["non-exhaustive match: missing 'E::A', 'E::C'"]);
+  });
+
+  it('reports unreachable arms', () => {
+    expect(inFn('match e { _ => {} E::A => {} }')).toEqual(['unreachable match arm']);
+    expect(inFn('match e { E::A => {} E::A => {} _ => {} }')).toEqual(['unreachable match arm']);
+    expect(inFn('match e { E::A => {} E::B(_) => {} E::C(_, _) => {} _ => {} }')).toEqual(['unreachable match arm']);
+    expect(inFn('match e { _ => {} _ => {} }')).toEqual(['unreachable match arm']);
+  });
+
+  it('checks patterns against the scrutinee enum', () => {
+    expect(inFn('match e { F::X => {} _ => {} }')).toEqual(["pattern type 'F' does not match 'E'"]);
+    expect(inFn('match e { E::B(x, y) => {} _ => {} }')).toEqual(["variant 'E::B' expects 1 value, got 2"]);
+    expect(inFn('match e { E::C(x, x) => {} _ => {} }')).toEqual(["duplicate binding 'x'"]);
+    expect(inFn('match 1 { _ => {} }')).toEqual(["cannot match on 'int' values"]);
+  });
+
+  it('does not cascade from a bad scrutinee or pattern', () => {
+    expect(inFn('match nope { E::Zzz => {} }')).toEqual(["undefined name 'nope'"]);
+    expect(inFn('match e { E::Q => {} }')).toEqual(["unknown variant 'Q' on 'E'"]);
+    expect(inFn('match e { F::X => {} }')).toEqual(["pattern type 'F' does not match 'E'"]);
+    expect(inFn('match e { E::B(x, y) => {} E::A => {} E::C(_, _) => {} }')).toEqual(["variant 'E::B' expects 1 value, got 2"]);
+    expect(inFn('match 1 { E::A(x) => print(x + "s"), }')).toEqual(["cannot match on 'int' values"]);
+  });
+
+  it('types match expressions from their arms', () => {
+    expect(inFn('let s: string = match e { E::A => 1, _ => "x" };')).toEqual(['match arms have different types: int and string']);
+    expect(inFn('let v: int = match e { _ => print(1) };')).toEqual(['match expression cannot have type void']);
+    expect(inFn('let a: [int] = match e { E::A => [], _ => [1] };')).toEqual([]);
+  });
+
+  it('treats a match statement as terminating when every arm does', () => {
+    expect(fn('E::A => { return 1; } _ => { return 2; }')).toEqual([]);
+    expect(fn('E::A => { return 1; } _ => panic("no"),')).toEqual([]);
+    expect(fn('E::A => { return 1; } _ => {}')).toEqual(["function 'g' is missing a return on some paths"]);
+  });
+
+  it('scopes binders to their arm', () => {
+    expect(inFn('match e { E::B(n) => {} _ => {} }\nprint(n);')).toEqual(["undefined name 'n'"]);
+  });
+});

@@ -4,7 +4,7 @@ import { makeSource } from '../../diagnostics/source.js';
 import { lower } from '../../ir/lower.js';
 import { lex } from '../../lexer/lexer.js';
 import { parse } from '../../parser/parser.js';
-import { emitC, mangleFn, mangleLocal, stringLiteral } from './emit.js';
+import { emitC, mangleEnum, mangleFn, mangleLocal, mangleVariant, stringLiteral } from './emit.js';
 
 function cOf(text: string): string {
   const lexed = lex(makeSource('t.aster', text));
@@ -31,6 +31,11 @@ describe('mangling', () => {
     expect(mangleFn('printf')).toBe('aster_fn_printf');
     expect(mangleLocal({ id: 3, name: 'int', type: { kind: 'int' } })).toBe('l3_int');
     expect(mangleLocal({ id: 4, name: null, type: { kind: 'bool' } })).toBe('l4');
+  });
+
+  it('prefixes enum types and variant members', () => {
+    expect(mangleEnum('FILE')).toBe('aster_E_FILE');
+    expect(mangleVariant('int')).toBe('v_int');
   });
 });
 
@@ -130,5 +135,49 @@ describe('emitC', () => {
     expect(c).toContain('    *(aster_string *)aster_rt_array_push_slot(l0_a) = aster_str_1;');
     expect(c).toContain('    l2 = *(aster_string *)aster_rt_array_at(l0_a, INT64_C(1));');
     expect(c).toContain('    l3 = l0_a->len;');
+  });
+
+  it('emits payload-free enums as int64 tags and other enums as tagged unions', () => {
+    const c = cOf('struct S { e: E }\nenum E { A, B(int, S), C(E) }\nenum K { X, Y }\nfn main(): int { return 0; }');
+    expect(c).toContain(
+      [
+        'typedef struct aster_S_S *aster_S_S;',
+        'typedef struct aster_E_E *aster_E_E;',
+        'typedef int64_t aster_E_K;',
+        '',
+        'struct aster_S_S {',
+        '    aster_E_E f_e;',
+        '};',
+        '',
+        'struct aster_E_E {',
+        '    int64_t tag;',
+        '    union {',
+        '        struct { int64_t p0; aster_S_S p1; } v_B;',
+        '        struct { aster_E_E p0; } v_C;',
+        '    } u;',
+        '};',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('builds enum values and reads their tags', () => {
+    const c = cOf('enum E { A, B(int) }\nenum K { X, Y }\nfn main(): int { let e: E = E::B(7); let k: K = K::Y; if k == K::X { return 1; } return 0; }');
+    expect(c).toContain('    aster_E_E l0_e = 0;');
+    expect(c).toContain('    l2 = aster_rt_alloc(sizeof(struct aster_E_E));\n    l2->tag = INT64_C(1);\n    l2->u.v_B.p0 = INT64_C(7);');
+    expect(c).toContain('    l3 = INT64_C(1);');
+    expect(c).toContain('    l4 = l1_k;');
+  });
+
+  it('emits match as a C switch over the tag', () => {
+    const c = cOf('enum E { A, B(int) }\nfn main(): int { let e: E = E::B(4); return match e { E::B(n) => n, _ => 0 }; }');
+    expect(c).toContain('    l4 = l0_e->tag;');
+    expect(c).toContain('    switch (l4) { case 1: goto arm1; default: goto arm2; }');
+    expect(c).toContain('arm1:;\n    l1_n = l0_e->u.v_B.p0;');
+  });
+
+  it('makes the default case unreachable when every variant has an arm', () => {
+    const c = cOf('enum K { X, Y }\nfn main(): int { let k: K = K::Y; match k { K::X => { return 1; } K::Y => { return 0; } } }');
+    expect(c).toContain('    switch (l2) { case 0: goto arm1; case 1: goto arm2; default: aster_rt_unreachable(); }');
   });
 });

@@ -373,4 +373,85 @@ describe('lower', () => {
   it('omits the step block when the body can neither fall through nor continue', () => {
     expect(irOf(`${MAIN}fn f(n: int): int { for i in 0..n { return i; } return 0; }`, 'f')).not.toContain('for_step');
   });
+
+  it('lowers variant construction and payload-free enum equality through tags', () => {
+    const text = `${MAIN}enum P { A(int), B }\nenum K { X, Y }\nfn f(n: int, k: K): bool { let p: P = P::A(n + 1); let q: P = P::B; return k == K::Y; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 n: int, %1 k: K): bool',
+        '  local %2 p: P',
+        '  local %3 q: P',
+        '  local %4: int',
+        '  local %5: P',
+        '  local %6: P',
+        '  local %7: int',
+        '  local %8: K',
+        '  local %9: int',
+        '  local %10: bool',
+        'entry:',
+        '  %4 = add %0, 1',
+        '  %5 = enum_new P::A(%4)',
+        '  %2 = copy %5',
+        '  %6 = enum_new P::B',
+        '  %3 = copy %6',
+        '  %7 = enum_tag %1',
+        '  %8 = enum_new K::Y',
+        '  %9 = enum_tag %8',
+        '  %10 = eq %7, %9',
+        '  ret %10',
+      ),
+    );
+  });
+
+  it('prints enum declarations', () => {
+    expect(printIr(lowerText(`enum E { A, B(int, [E]) }\n${MAIN}`))).toContain('enum E { A, B(int, [E]) }\n');
+  });
+
+  it('lowers match to a switch on the tag, with binders read from the payload', () => {
+    const text = `${MAIN}enum E { A, B(int), C(int, string) }\nfn f(e: E): int { return match e { E::B(n) => n, E::C(_, s) => len(s), _ => 0 }; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 e: E): int',
+        '  local %1 n: int',
+        '  local %2 s: string',
+        '  local %3: int',
+        '  local %4: int',
+        '  local %5: int',
+        'entry:',
+        '  %4 = enum_tag %0',
+        '  switch %4 [1: arm1, 2: arm2], default arm3',
+        'arm1:',
+        '  %1 = enum_field %0, E::B.0',
+        '  %3 = copy %1',
+        '  jmp endmatch4',
+        'arm2:',
+        '  %2 = enum_field %0, E::C.1',
+        '  %5 = call_builtin len(%2)',
+        '  %3 = copy %5',
+        '  jmp endmatch4',
+        'arm3:',
+        '  %3 = copy 0',
+        '  jmp endmatch4',
+        'endmatch4:',
+        '  ret %3',
+      ),
+    );
+  });
+
+  it('omits the end block when every arm of a match statement returns', () => {
+    const text = `${MAIN}enum K { X, Y }\nfn f(k: K): int { match k { K::X => { return 1; } K::Y => { return 2; } } }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 k: K): int',
+        '  local %1: int',
+        'entry:',
+        '  %1 = enum_tag %0',
+        '  switch %1 [0: arm1, 1: arm2], default unreachable',
+        'arm1:',
+        '  ret 1',
+        'arm2:',
+        '  ret 2',
+      ),
+    );
+  });
 });

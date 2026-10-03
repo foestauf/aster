@@ -8,6 +8,7 @@ export type TypeExpr =
 export interface Program {
   functions: FnDecl[];
   structs: StructDecl[];
+  enums: EnumDecl[];
 }
 
 export interface FieldDecl {
@@ -21,6 +22,21 @@ export interface StructDecl {
   name: string;
   nameSpan: Span;
   fields: FieldDecl[];
+  span: Span;
+}
+
+export interface VariantDecl {
+  name: string;
+  nameSpan: Span;
+  /** Payload slot types in order; empty for a unit variant. */
+  payload: TypeExpr[];
+}
+
+export interface EnumDecl {
+  kind: 'enum';
+  name: string;
+  nameSpan: Span;
+  variants: VariantDecl[];
   span: Span;
 }
 
@@ -131,7 +147,32 @@ export interface ForEachStmt {
   span: Span;
 }
 
-export type Stmt = LetStmt | AssignStmt | IfStmt | WhileStmt | ForRangeStmt | ForEachStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
+/** A name bound by a pattern. In `Pattern.binders`, null stands for `_`. */
+export interface Binder {
+  name: string;
+  span: Span;
+}
+
+/** `_`, or `Enum::Variant` with one binder per payload slot. Patterns are flat. */
+export type Pattern =
+  | { kind: 'wildcard'; span: Span }
+  | { kind: 'variant'; enumName: string; enumSpan: Span; variant: string; variantSpan: Span; binders: (Binder | null)[]; span: Span };
+
+export interface MatchStmtArm {
+  pattern: Pattern;
+  body: Block | Expr;
+}
+
+/** `match` in statement position. `keywordSpan` is where a non-exhaustive match is reported. */
+export interface MatchStmt {
+  kind: 'match';
+  keywordSpan: Span;
+  scrutinee: Expr;
+  arms: MatchStmtArm[];
+  span: Span;
+}
+
+export type Stmt = LetStmt | AssignStmt | IfStmt | WhileStmt | ForRangeStmt | ForEachStmt | MatchStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
 
 export type UnaryOp = '-' | '!';
 export type BinaryOp = '||' | '&&' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '+' | '-' | '*' | '/' | '%';
@@ -227,5 +268,31 @@ export interface ArrayLitExpr {
   span: Span;
 }
 
+/** `Enum::Variant` or `Enum::Variant(args)`. `args` is empty when there are no parentheses (`V()` is a syntax error). */
+export interface VariantExpr {
+  kind: 'variant';
+  enumName: string;
+  enumSpan: Span;
+  variant: string;
+  variantSpan: Span;
+  args: Expr[];
+  span: Span;
+}
+
+export interface MatchExprArm {
+  pattern: Pattern;
+  body: Expr;
+}
+
+/** `match` in expression position: at least one arm, each a single expression. */
+export interface MatchExpr {
+  kind: 'matchExpr';
+  keywordSpan: Span;
+  scrutinee: Expr;
+  arms: MatchExprArm[];
+  span: Span;
+}
+
 export type Expr =
-  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr;
+  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr
+  | VariantExpr | MatchExpr;

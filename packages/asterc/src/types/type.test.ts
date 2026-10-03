@@ -18,4 +18,11 @@ describe('types', () => {
     expect(typeEquals({ kind: 'struct', name: 'P' }, { kind: 'struct', name: 'Q' })).toBe(false);
     expect(typeToString({ kind: 'array', elem: { kind: 'array', elem: { kind: 'struct', name: 'P' } } })).toBe('[[P]]');
   });
+
+  it('compares enum types by name', () => {
+    expect(typeEquals({ kind: 'enum', name: 'E' }, { kind: 'enum', name: 'E' })).toBe(true);
+    expect(typeEquals({ kind: 'enum', name: 'E' }, { kind: 'enum', name: 'F' })).toBe(false);
+    expect(typeEquals({ kind: 'enum', name: 'E' }, { kind: 'struct', name: 'E' })).toBe(false);
+    expect(typeToString({ kind: 'array', elem: { kind: 'enum', name: 'Kind' } })).toBe('[Kind]');
+  });
 });

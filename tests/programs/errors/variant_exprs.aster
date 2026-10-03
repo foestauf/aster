@@ -1,0 +1,27 @@
+// expect-error: 15:16 unknown enum 'Nope'
+// expect-error: 16:16 'S' is not an enum
+// expect-error: 17:16 'int' is not an enum
+// expect-error: 18:19 unknown variant 'Z' on 'E'
+// expect-error: 19:16 variant 'E::B' expects 1 value, got 0
+// expect-error: 20:16 variant 'E::A' expects 0 values, got 1
+// expect-error: 21:24 type mismatch: expected string, found int
+// expect-error: 22:18 type mismatch: expected int, found E
+// expect-error: 23:11 cannot print a value of type E
+// expect-error: 24:19 cannot compare 'E' values
+// expect-error: 25:19 operator '<' cannot be applied to E and E
+enum E { A, B(int), C(int, string) }
+struct S { x: int }
+fn main(): int {
+    let a: E = Nope::A;
+    let b: E = S::A;
+    let c: E = int::A;
+    let d: E = E::Z;
+    let e: E = E::B;
+    let f: E = E::A(1);
+    let g: E = E::C(1, 2);
+    let h: int = E::A;
+    print(E::A);
+    let j: bool = E::B(1) == E::B(2);
+    let k: bool = E::A < E::A;
+    return 0;
+}

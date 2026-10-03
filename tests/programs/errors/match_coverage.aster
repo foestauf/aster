@@ -1,0 +1,19 @@
+// expect-error: 11:5 non-exhaustive match: missing 'E::C'
+// expect-error: 12:5 non-exhaustive match: missing 'E::A', 'E::C'
+// expect-error: 13:23 unreachable match arm
+// expect-error: 14:26 unreachable match arm
+// expect-error: 15:57 unreachable match arm
+// expect-error: 16:21 match arms have different types: int and string
+// expect-error: 17:18 match expression cannot have type void
+enum E { A, B(int), C(int, string) }
+fn main(): int {
+    let e: E = E::A;
+    match e { E::A => {} E::B(_) => {} }
+    match e { E::B(_) => {} }
+    match e { _ => {} E::A => {} }
+    match e { E::A => {} E::A => {} _ => {} }
+    match e { E::A => {} E::B(_) => {} E::C(_, _) => {} _ => {} }
+    let s: string = match e { E::A => 1, _ => "x" };
+    let v: int = match e { _ => print(1) };
+    return 0;
+}

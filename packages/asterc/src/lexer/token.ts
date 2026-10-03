@@ -2,17 +2,18 @@ import type { Span } from '../diagnostics/source.js';
 
 export const KEYWORDS = [
   'fn', 'let', 'var', 'if', 'else', 'while', 'break', 'continue', 'return', 'true', 'false',
-  'struct', 'for', 'in',
+  'struct', 'for', 'in', 'enum', 'match',
 ] as const;
 export type Keyword = (typeof KEYWORDS)[number];
 
 export const PUNCTUATION = [
   '(', ')', '{', '}', '[', ']', ',', ':', ';', '.', '..', '=', '+', '-', '*', '/', '%', '!',
-  '<', '<=', '>', '>=', '==', '!=', '&&', '||', '+=', '-=', '*=', '/=', '%=',
+  '<', '<=', '>', '>=', '==', '!=', '&&', '||', '+=', '-=', '*=', '/=', '%=', '::', '=>',
 ] as const;
 export type Punctuation = (typeof PUNCTUATION)[number];
 
-export type TokenKind = 'int' | 'string' | 'ident' | 'eof' | Keyword | Punctuation;
+/** `_` on its own is the wildcard token; any longer word starting with `_` is an identifier. */
+export type TokenKind = 'int' | 'string' | 'ident' | 'eof' | '_' | Keyword | Punctuation;
 
 export interface Token {
   kind: TokenKind;

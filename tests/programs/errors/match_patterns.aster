@@ -1,0 +1,20 @@
+// expect-error: 12:11 cannot match on 'int' values
+// expect-error: 13:15 pattern type 'F' does not match 'E'
+// expect-error: 14:15 variant 'E::B' expects 1 value, got 2
+// expect-error: 15:23 duplicate binding 'x'
+// expect-error: 16:18 unknown variant 'Q' on 'E'
+// expect-error: 17:11 undefined name 'nope'
+// expect-error: 18:28 cannot assign to immutable variable 'n'
+enum E { A, B(int), C(int, string) }
+enum F { X }
+fn main(): int {
+    let e: E = E::A;
+    match 1 { _ => {} }
+    match e { F::X => {} _ => {} }
+    match e { E::B(x, y) => {} _ => {} }
+    match e { E::C(x, x) => {} _ => {} }
+    match e { E::Q => {} }
+    match nope { E::A => {} }
+    match e { E::B(n) => { n = 3; } _ => {} }
+    return 0;
+}

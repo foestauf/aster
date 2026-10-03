@@ -1,0 +1,8 @@
+// expect-error: 5:9 expected identifier, found '_'
+// expect-error: 6:21 expected expression, found ')'
+enum E { A }
+fn main(): int {
+    let _: int = 1;
+    let e: E = E::A();
+    return 0;
+}

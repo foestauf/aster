@@ -1,0 +1,35 @@
+// Payload-free enums are plain values compared with == and !=.
+// expect-stdout:
+// true
+// false
+// true
+// true
+// 2
+// true
+enum Color { Red, Green, Blue }
+
+struct Light { color: Color }
+
+fn next(c: Color): Color {
+    return if c == Color::Red { Color::Green } else if c == Color::Green { Color::Blue } else { Color::Red };
+}
+
+fn main(): int {
+    let c: Color = Color::Red;
+    print(c == Color::Red);
+    print(c != Color::Red);
+    print(next(next(next(c))) == c);
+    print(next(c) == Color::Green);
+    let colors: [Color] = [Color::Blue, Color::Red, Color::Blue];
+    var blues: int = 0;
+    for x in colors {
+        if x == Color::Blue {
+            blues += 1;
+        }
+    }
+    print(blues);
+    let l: Light = Light { color: Color::Green };
+    l.color = next(l.color);
+    print(l.color == Color::Blue);
+    return 0;
+}
