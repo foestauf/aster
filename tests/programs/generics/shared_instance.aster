@@ -1,0 +1,25 @@
+// One Option[int] value, inferred from its payload alone, is stored in a struct field, passed to a parameter and
+// returned: every mention of Option[int] is the same instantiation.
+// expect-stdout:
+// 9
+struct Holder { o: Option[int] }
+
+fn same(o: Option[int]): Option[int] {
+    return o;
+}
+
+fn make(n: int): Holder {
+    // The array literal has no expected type, so Option::Some(n) is inferred from n.
+    let h: Holder = Holder { o: [Option::Some(n)][0] };
+    return h;
+}
+
+fn main(): int {
+    let h: Holder = make(9);
+    let back: Option[int] = same(h.o);
+    match back {
+        Option::Some(v) => print(v),
+        Option::None => print("none"),
+    }
+    return 0;
+}

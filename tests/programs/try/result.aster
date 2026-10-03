@@ -1,0 +1,45 @@
+// `?` on Result propagates a user error enum through two levels of functions.
+// expect-stdout:
+// 7
+// empty
+// not a digit: 120
+fn digit(s: string): Result[int, ParseError] {
+    if len(s) == 0 {
+        return Result::Err(ParseError::Empty);
+    }
+    let b: int = byte_at(s, 0);
+    if b < '0' || b > '9' {
+        return Result::Err(ParseError::NotDigit(b));
+    }
+    return Result::Ok(b - '0');
+}
+
+enum ParseError { Empty, NotDigit(int) }
+
+fn plus_one(s: string): Result[int, ParseError] {
+    let d: int = digit(s)?;
+    return Result::Ok(d + 1);
+}
+
+fn twice(s: string): Result[int, ParseError] {
+    return Result::Ok(plus_one(s)? + 0);
+}
+
+fn report(r: Result[int, ParseError]) {
+    match r {
+        Result::Ok(n) => print(n),
+        Result::Err(e) => {
+            match e {
+                ParseError::Empty => print("empty"),
+                ParseError::NotDigit(b) => print("not a digit: " + int_to_string(b)),
+            }
+        }
+    }
+}
+
+fn main(): int {
+    report(twice("6"));
+    report(twice(""));
+    report(twice("x"));
+    return 0;
+}

@@ -1,0 +1,51 @@
+// A failing `?` returns before later operands and arguments are evaluated.
+// expect-stdout:
+// a
+// done
+// a
+// done
+// a
+// b
+// 3
+// a
+// b
+// 3
+fn a(ok: bool): Option[int] {
+    print("a");
+    if ok {
+        return Option::Some(1);
+    }
+    return Option::None;
+}
+
+fn b(): int {
+    print("b");
+    return 2;
+}
+
+fn add(x: int, y: int): int {
+    return x + y;
+}
+
+fn call(ok: bool): Option[int] {
+    return Option::Some(add(a(ok)?, b()));
+}
+
+fn plus(ok: bool): Option[int] {
+    return Option::Some(a(ok)? + b());
+}
+
+fn show(o: Option[int]) {
+    match o {
+        Option::Some(n) => print(n),
+        Option::None => print("done"),
+    }
+}
+
+fn main(): int {
+    show(call(false));
+    show(plus(false));
+    show(call(true));
+    show(plus(true));
+    return 0;
+}

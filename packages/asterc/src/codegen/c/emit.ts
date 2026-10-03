@@ -65,7 +65,25 @@ const BINOPS: Record<IrBinOp, (a: string, b: string) => string> = {
 
 export const mangleFn = (name: string): string => `aster_fn_${name}`;
 export const mangleStruct = (name: string): string => `aster_S_${name}`;
-export const mangleEnum = (name: string): string => `aster_E_${name}`;
+/**
+ * Non-generic enums are `aster_E_<name>`. An instantiation (its name contains `[`) is `aster_G_` followed by its type
+ * string with `_` written as `__`, `[` as `_L`, `]` as `_R` and `, ` as `_C`, so no two names collide.
+ */
+export const mangleEnum = (name: string): string => {
+  if (!name.includes('[')) return `aster_E_${name}`;
+  let out = 'aster_G_';
+  for (let i = 0; i < name.length; i++) {
+    const c = name[i];
+    if (c === '_') out += '__';
+    else if (c === '[') out += '_L';
+    else if (c === ']') out += '_R';
+    else if (c === ',') {
+      out += '_C';
+      i++; // always followed by one space
+    } else out += c;
+  }
+  return out;
+};
 export const mangleVariant = (name: string): string => `v_${name}`;
 export const mangleField = (name: string): string => `f_${name}`;
 export const mangleLocal = (local: IrLocal): string => (local.name === null ? `l${local.id}` : `l${local.id}_${local.name}`);

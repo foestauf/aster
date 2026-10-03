@@ -1,0 +1,19 @@
+enum Option[T] { None, Some(T) }
+enum Pair[A, B] { Both(A, B), Neither }
+struct Box { inner: Option[Pair[int, bool]], many: [Option[int]] }
+enum Wrap { W(Option[[int]]) }
+fn f(a: Result[[int], Option[Pair[int, bool]]]): Option[int] {
+    let x: Pair[int, [bool]] = g();
+    let y: int = -x?;
+    let z: int = f(a)?.b;
+    let w: int = x??;
+    let v: int = xs[0]?;
+    return Option::Some(1);
+}
+enum E[] { A }
+fn g(a: Option[]) { return; }
+enum F[A,] { A }
+fn h(a: Pair[int,]) { return; }
+fn i() { return ?x; }
+fn j(): Option[int { return; }
+enum K[A { A }

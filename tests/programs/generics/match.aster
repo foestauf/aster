@@ -1,0 +1,40 @@
+// Matching instantiations: binders, _ binders, an or-pattern and match expressions.
+// expect-stdout:
+// 3
+// any
+// some
+// none
+// e
+// err
+enum Pair[A, B] { P(A, B), Q }
+
+fn kind(o: Option[int]): string {
+    return match o {
+        Option::Some(_) => "some",
+        Option::None => "none",
+    };
+}
+
+fn main(): int {
+    let o: Option[int] = Option::Some(3);
+    match o {
+        Option::Some(n) => print(n),
+        Option::None => print("none"),
+    }
+    match o {
+        Option::Some(_) | Option::None => print("any"),
+    }
+    print(kind(o));
+    print(kind(Option::None));
+    let r: Result[int, string] = Result::Err("e");
+    match r {
+        Result::Ok(_) => print("ok"),
+        Result::Err(msg) => print(msg),
+    }
+    let p: Pair[string, int] = Pair::P("err", 1);
+    print(match p {
+        Pair::P(s, _) => s,
+        Pair::Q => "q",
+    });
+    return 0;
+}

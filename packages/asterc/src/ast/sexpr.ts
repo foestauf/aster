@@ -25,6 +25,8 @@ export function sexpr(e: Expr): string {
       return `(if ${sexpr(e.cond)} ${sexpr(e.then)} ${sexpr(e.else)})`;
     case 'field':
       return `(. ${sexpr(e.object)} ${e.field})`;
+    case 'try':
+      return `(? ${sexpr(e.operand)})`;
     case 'index':
       return `(index ${sexpr(e.array)} ${sexpr(e.index)})`;
     case 'arrayLit':

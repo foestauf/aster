@@ -8,6 +8,12 @@ const messages = (text: string) => run(text).diagnostics.map((d) => d.message);
 const span = (text: string) => run(text).diagnostics.map((d) => [d.span.start, d.span.end]);
 
 describe('lex', () => {
+  it('lexes ? as a punctuator', () => {
+    const { tokens, diagnostics } = run('x? ?? a?.b');
+    expect(diagnostics).toEqual([]);
+    expect(tokens.map((t) => t.kind)).toEqual(['ident', '?', '?', '?', 'ident', '?', '.', 'ident', 'eof']);
+  });
+
   it('lexes a function header', () => {
     expect(kinds('fn main(): int {')).toEqual(['fn', 'ident', '(', ')', ':', 'ident', '{', 'eof']);
   });

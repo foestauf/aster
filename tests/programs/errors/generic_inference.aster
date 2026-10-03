@@ -1,0 +1,13 @@
+// expect-error: 7:23 cannot infer type arguments for 'Option'
+// expect-error: 8:17 cannot infer type arguments for 'Result'
+// expect-error: 9:35 type mismatch: expected int, found bool
+// expect-error: 11:15 pattern type 'Result' does not match 'Option[int]'
+enum Pair[T] { P(T, T) }
+fn main(): int {
+    let a: int = len([Option::None]);
+    print(match Result::Ok(1) { Result::Ok(n) => n, Result::Err(_) => 0 });
+    let p: Pair[int] = Pair::P(1, true);
+    let o: Option[int] = Option::Some(1);
+    match o { Result::Ok(_) => {}, _ => {} }
+    return 0;
+}

@@ -1,0 +1,11 @@
+// expect-error: 6:8 expected identifier, found ']'
+// expect-error: 7:16 expected identifier, found ']'
+// expect-error: 8:10 expected identifier, found ']'
+// expect-error: 9:20 expected identifier, found ']'
+// expect-error: 10:22 expected expression, found '?'
+enum E[] { A }
+fn f(x: Option[]) {}
+enum F[T,] { A(T) }
+fn g(x: Option[int,]) {}
+fn h(): int { return ?x; }
+fn main(): int { return 0; }

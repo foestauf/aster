@@ -1,13 +1,17 @@
 import {
   binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
-  type StructLitExpr, type TypeExpr, type VariantExpr,
+  type StructLitExpr, type TypeExpr, type VariantDecl, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
-import type { Span } from '../diagnostics/source.js';
-import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
+import { makeSource, type Span } from '../diagnostics/source.js';
+import { lex } from '../lexer/lexer.js';
+import { parse } from '../parser/parser.js';
+import { BOOL, ERROR, INT, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
 import {
-  BUILTIN_SIGNATURES, READ_RESULT, isBuiltin, isSignatureBuiltin, readResultEnum, type Signature, type SignatureBuiltin,
+  BUILTIN_SIGNATURES, OPTION, PRELUDE_SOURCE, RESULT, isBuiltin, isSignatureBuiltin, type Signature,
+  type SignatureBuiltin,
 } from './builtins.js';
+import { findExpandingEnums, mentionsParam, type Template } from './generics.js';
 import type { Local, TBlock, TEnum, TExpr, TField, TFunction, TPattern, TPlace, TStmt, TStruct, TVariant, TypedProgram } from './types.js';
 
 export interface CheckResult {
@@ -20,10 +24,12 @@ interface Env {
   diagnostics: Diagnostic[];
   /** Every accepted struct, by name. Struct and enum names share the type namespace. */
   structs: Map<string, TStruct>;
-  /** Every accepted enum, by name. */
+  /** Every accepted non-generic enum and every instantiation so far, by name (`Option[int]` for an instantiation). */
   enums: Map<string, TEnum>;
-  /** Predeclared types the program mentions; only these reach the typed program. Shared by every Ctx. */
-  usedBuiltinTypes: Set<string>;
+  /** Every accepted generic enum, by name. Templates share the type namespace with structs and enums. */
+  templates: Map<string, Template>;
+  /** The instantiations the program uses, in order of first use. */
+  instances: TEnum[];
 }
 
 /** Per-function checking state. */
@@ -52,35 +58,96 @@ const report = (env: Env, message: string, span: Span): void => {
   env.diagnostics.push({ message, span });
 };
 
-/** Records a mention of `name` when it is a predeclared type. */
-const markUsed = (env: Env, name: string): void => {
-  if (name === READ_RESULT) env.usedBuiltinTypes.add(name);
-};
-
 const builtinTypeMessage = (name: string): string => `'${name}' is a builtin type and cannot be redefined`;
+
+/** Names of predeclared types, which no declaration may reuse. */
+const isBuiltinType = (name: string): boolean => name === OPTION || name === RESULT;
+
+/** 'struct' / 'enum' when `name` is already taken in the type namespace. Templates count as enums. */
+const typeKindOf = (env: Env, name: string): 'struct' | 'enum' | null =>
+  env.structs.has(name) ? 'struct' : env.enums.has(name) || env.templates.has(name) ? 'enum' : null;
 
 const isError = (t: Type): boolean => t.kind === 'error';
 
 const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
 
-function resolveType(env: Env, ref: TypeExpr): Type {
+/**
+ * Resolves a written type. `bindings` maps the type parameters in scope to their types, and `quiet` suppresses
+ * diagnostics (used when instantiating, since the template's declaration was already checked). With `instantiates`
+ * off, a valid instantiation resolves to the error type instead of being created, so validating a template's
+ * payloads registers nothing.
+ */
+function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Type>, quiet = false, instantiates = true): Type {
+  const say = (message: string, span: Span): void => {
+    if (!quiet) report(env, message, span);
+  };
   if (ref.kind === 'array') {
-    const elem = resolveType(env, ref.elem);
+    const elem = resolveType(env, ref.elem, bindings, quiet, instantiates);
     if (elem.kind === 'void') {
-      report(env, 'array element type cannot be void', ref.elem.span);
+      say('array element type cannot be void', ref.elem.span);
       return ERROR;
     }
     return isError(elem) ? ERROR : { kind: 'array', elem };
   }
-  const primitive = PRIMITIVES.get(ref.name);
-  if (primitive) return primitive;
-  if (env.structs.has(ref.name)) return { kind: 'struct', name: ref.name };
-  if (env.enums.has(ref.name)) {
-    markUsed(env, ref.name);
-    return { kind: 'enum', name: ref.name };
+  const bound = bindings?.get(ref.name);
+  if (bound !== undefined && ref.args.length > 0) {
+    say(`'${ref.name}' is not generic`, ref.span);
+    return ERROR;
   }
-  report(env, `unknown type '${ref.name}'`, ref.span);
-  return ERROR;
+  if (bound !== undefined) return bound;
+  const template = env.templates.get(ref.name);
+  if (template) {
+    const expected = template.params.length;
+    if (ref.args.length !== expected) {
+      say(`'${ref.name}' expects ${expected} type ${expected === 1 ? 'argument' : 'arguments'}, got ${ref.args.length}`, ref.span);
+      return ERROR;
+    }
+    const args = ref.args.map((arg) => {
+      const type = resolveType(env, arg, bindings, quiet, instantiates);
+      if (type.kind !== 'void') return type;
+      say('type argument cannot be void', arg.span);
+      return ERROR;
+    });
+    if (args.some(isError) || template.broken || !instantiates) return ERROR;
+    return instantiate(env, template, args);
+  }
+  let type: Type | null = PRIMITIVES.get(ref.name) ?? null;
+  if (env.structs.has(ref.name)) type = { kind: 'struct', name: ref.name };
+  if (env.enums.has(ref.name)) type = { kind: 'enum', name: ref.name };
+  if (type === null) {
+    say(`unknown type '${ref.name}'`, ref.span);
+    return ERROR;
+  }
+  if (ref.args.length > 0) {
+    say(`'${ref.name}' is not generic`, ref.span);
+    return ERROR;
+  }
+  return type;
+}
+
+/**
+ * The type of `template` instantiated with `args`. The first use creates its TEnum, registering it before resolving
+ * the payloads so recursive enums terminate; the expansion check guarantees there are finitely many instantiations.
+ */
+function instantiate(env: Env, template: Template, args: Type[]): Type {
+  const base = template.decl.name;
+  const name = instanceName(base, args);
+  const type: Type = { kind: 'enum', name, generic: { base, args } };
+  if (env.enums.has(name)) return type;
+  const enumType: TEnum = { name, payloadFree: false, variants: [] };
+  env.enums.set(name, enumType);
+  env.instances.push(enumType);
+  const bindings = new Map(template.params.map((param, i) => [param, args[i]]));
+  for (const variant of template.decl.variants) {
+    // Validating the template already reported the duplicate.
+    if (enumType.variants.some((v) => v.name === variant.name)) continue;
+    const payload = variant.payload.map((ref) => {
+      const t = resolveType(env, ref, bindings, true);
+      return t.kind === 'void' ? ERROR : t;
+    });
+    enumType.variants.push({ name: variant.name, tag: enumType.variants.length, payload });
+  }
+  return type;
 }
 
 const findField = (env: Env, struct: string, name: string): TField | undefined =>
@@ -95,16 +162,19 @@ const article = (kind: 'struct' | 'enum'): string => (kind === 'struct' ? 'a str
 /**
  * Registers every struct and enum name before resolving any field or payload type, so types can refer to each other
  * in any order. Structs and enums share the type namespace; of two colliding declarations, the later one is reported.
+ * A generic enum becomes a template: its parameters and the expansion check come before any payload is resolved, and
+ * its payloads are then resolved once, with every parameter bound to the error type, only to report its errors.
  */
 function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: TEnum[] } {
   const decls = [...program.structs, ...program.enums].toSorted((a, b) => a.span.start - b.span.start);
   const structs: { decl: StructDecl; struct: TStruct }[] = [];
   const enums: { decl: EnumDecl; enumType: TEnum }[] = [];
+  const templates: Template[] = [];
   for (const decl of decls) {
-    const previous = env.structs.has(decl.name) ? 'struct' : env.enums.has(decl.name) ? 'enum' : null;
+    const previous = typeKindOf(env, decl.name);
     if (PRIMITIVES.has(decl.name)) {
       report(env, `'${decl.name}' is a built-in type and cannot be redefined`, decl.nameSpan);
-    } else if (decl.name === READ_RESULT) {
+    } else if (isBuiltinType(decl.name)) {
       report(env, builtinTypeMessage(decl.name), decl.nameSpan);
     } else if (isBuiltin(decl.name)) {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
@@ -116,12 +186,43 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
       const struct: TStruct = { name: decl.name, fields: [] };
       env.structs.set(decl.name, struct);
       structs.push({ decl, struct });
+    } else if (decl.typeParams.length > 0) {
+      const template: Template = { decl, params: decl.typeParams.map((p) => p.name), broken: false, hasErrors: false };
+      env.templates.set(decl.name, template);
+      templates.push(template);
     } else {
       const payloadFree = decl.variants.every((v) => v.payload.length === 0);
       const enumType: TEnum = { name: decl.name, payloadFree, variants: [] };
       env.enums.set(decl.name, enumType);
       enums.push({ decl, enumType });
     }
+  }
+  for (const template of templates) {
+    const { decl } = template;
+    const before = env.diagnostics.length;
+    const seen = new Set<string>();
+    for (const param of decl.typeParams) {
+      if (seen.has(param.name)) {
+        report(env, `duplicate type parameter '${param.name}'`, param.nameSpan);
+        continue;
+      }
+      seen.add(param.name);
+      // A conflicting parameter stays bound, so the payloads that use it report nothing more.
+      if (PRIMITIVES.has(param.name) || typeKindOf(env, param.name) !== null || isBuiltin(param.name)) {
+        report(env, `type parameter '${param.name}' conflicts with a type of the same name`, param.nameSpan);
+      }
+      if (!decl.variants.some((v) => v.payload.some((ref) => mentionsParam(ref, param.name)))) {
+        report(env, `type parameter '${param.name}' is never used`, param.nameSpan);
+      }
+    }
+    if (env.diagnostics.length > before) template.hasErrors = true;
+  }
+  const expanding = findExpandingEnums(env.templates);
+  for (const template of templates) {
+    if (!expanding.has(template.decl.name)) continue;
+    report(env, `generic enum '${template.decl.name}' expands infinitely`, template.decl.nameSpan);
+    template.broken = true;
+    template.hasErrors = true;
   }
   for (const { decl, struct } of structs) {
     for (const field of decl.fields) {
@@ -152,6 +253,24 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
       enumType.variants.push({ name: variant.name, tag: enumType.variants.length, payload });
     }
   }
+  for (const template of templates) {
+    const { decl, params } = template;
+    const before = env.diagnostics.length;
+    const placeholders = new Map(params.map((param) => [param, ERROR]));
+    const names = new Set<string>();
+    for (const variant of decl.variants) {
+      if (names.has(variant.name)) {
+        report(env, `duplicate variant '${variant.name}' in '${decl.name}'`, variant.nameSpan);
+        continue;
+      }
+      names.add(variant.name);
+      for (const ref of variant.payload) {
+        const type = resolveType(env, ref, placeholders, false, false);
+        if (type.kind === 'void') report(env, 'payload cannot have type void', ref.span);
+      }
+    }
+    if (env.diagnostics.length > before) template.hasErrors = true;
+  }
   return { structs: structs.map((s) => s.struct), enums: enums.map((e) => e.enumType) };
 }
 
@@ -163,16 +282,27 @@ const isMainSignature = (sig: Signature): boolean => {
   return sig.params.length === 1 && param.kind === 'array' && param.elem.kind === 'string';
 };
 
+/** Option and Result, parsed from the prelude and registered as templates before any user declaration. */
+function preludeTemplates(): Map<string, Template> {
+  const { program } = parse(lex(makeSource('<prelude>', PRELUDE_SOURCE)).tokens);
+  return new Map(program.enums.map((decl) => [decl.name, { decl, params: decl.typeParams.map((p) => p.name), broken: false, hasErrors: false }]));
+}
+
 export function check(program: Program): CheckResult {
-  const readResult = readResultEnum();
-  const env: Env = { diagnostics: [], structs: new Map(), enums: new Map([[READ_RESULT, readResult]]), usedBuiltinTypes: new Set() };
+  const env: Env = {
+    diagnostics: [],
+    structs: new Map(),
+    enums: new Map(),
+    templates: preludeTemplates(),
+    instances: [],
+  };
   const { structs, enums } = collectTypes(env, program);
 
   // Pass 1: collect signatures so functions can be called before their declaration.
   const signatures = new Map<string, Signature>();
   const declared: { decl: FnDecl; sig: Signature }[] = [];
   for (const decl of program.functions) {
-    if (decl.name === READ_RESULT) {
+    if (isBuiltinType(decl.name)) {
       report(env, builtinTypeMessage(decl.name), decl.nameSpan);
       continue;
     }
@@ -180,7 +310,7 @@ export function check(program: Program): CheckResult {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
       continue;
     }
-    const typeKind = env.structs.has(decl.name) ? 'struct' : env.enums.has(decl.name) ? 'enum' : null;
+    const typeKind = typeKindOf(env, decl.name);
     if (typeKind !== null) {
       report(env, `'${decl.name}' is already declared as ${article(typeKind)}`, decl.nameSpan);
       continue;
@@ -209,9 +339,9 @@ export function check(program: Program): CheckResult {
 
   // Pass 2: check bodies.
   const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
-  // Checking the bodies above records which predeclared types the program mentions.
-  const allEnums = env.usedBuiltinTypes.has(READ_RESULT) ? [readResult, ...enums] : enums;
-  return { program: { structs, enums: allEnums, functions }, diagnostics: env.diagnostics };
+  // Instantiations follow the non-generic enums, in order of first use.
+  const userEnums = [...enums, ...env.instances];
+  return { program: { structs, enums: userEnums, functions }, diagnostics: env.diagnostics };
 }
 
 function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
@@ -477,6 +607,8 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     }
     case 'structLit':
       return checkStructLit(ctx, expr);
+    case 'try':
+      return checkTry(ctx, expr);
     case 'index': {
       const array = checkExpr(ctx, expr.array);
       const index = checkExpr(ctx, expr.index);
@@ -494,28 +626,87 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     case 'arrayLit':
       return checkArrayLit(ctx, expr, expected);
     case 'variant':
-      return checkVariantExpr(ctx, expr);
+      return checkVariantExpr(ctx, expr, expected);
   }
+}
+
+/** `t`'s instance name, base and type arguments when it is an `Option` or `Result` instantiation, else null. */
+const tryable = (t: Type): { name: string; base: string; args: Type[] } | null =>
+  t.kind === 'enum' && t.generic !== undefined && (t.generic.base === OPTION || t.generic.base === RESULT)
+    ? { name: t.name, ...t.generic }
+    : null;
+
+/** `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function. */
+function checkTry(ctx: Ctx, expr: Extract<Expr, { kind: 'try' }>): TExpr {
+  const operand = checkExpr(ctx, expr.operand);
+  if (isError(operand.type)) return errorExpr();
+  const op = tryable(operand.type);
+  if (op === null) {
+    report(ctx, `'?' applies to Option or Result, not '${typeToString(operand.type)}'`, expr.span);
+    return errorExpr();
+  }
+  const isResult = op.base === RESULT;
+  const opEnum = ctx.enums.get(op.name);
+  if (!opEnum) throw new Error(`internal: missing instantiation ${op.name}`);
+  const [ok, fail] = opEnum.variants;
+  const type = ok.payload[0];
+  const failPayloadType = isResult ? fail.payload[0] : null;
+  const ret = tryable(ctx.returnType);
+  const node = (returnFailVariant: string, returnFailTag: number): TExpr => ({
+    kind: 'try',
+    type,
+    operand,
+    okVariant: ok.name,
+    okTag: ok.tag,
+    failVariant: fail.name,
+    failTag: fail.tag,
+    returnType: ctx.returnType,
+    returnEnum: ctx.returnType.kind === 'enum' ? ctx.returnType.name : '',
+    returnFailVariant,
+    returnFailTag,
+    failPayloadType,
+  });
+  // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`); only lowering is unreachable then.
+  if (isError(ctx.returnType)) return node(fail.name, fail.tag);
+  if (ret === null || ret.base !== op.base) {
+    const kind = isResult ? 'a Result' : 'an Option';
+    report(ctx, `'?' needs the function to return ${kind}, but it returns '${typeToString(ctx.returnType)}'`, expr.span);
+    return errorExpr();
+  }
+  if (isResult && !typeEquals(op.args[1], ret.args[1])) {
+    const [mine, theirs] = [op.args[1], ret.args[1]].map(typeToString);
+    report(ctx, `'?' error type '${mine}' does not match the function's error type '${theirs}'`, expr.span);
+    return errorExpr();
+  }
+  // The signature resolved the return type, so its instantiation exists.
+  const retFail = ctx.enums.get(ret.name)?.variants[1];
+  if (!retFail) throw new Error(`internal: missing instantiation ${ret.name}`);
+  return node(retFail.name, retFail.tag);
 }
 
 const variantArityMessage = (enumName: string, variant: string, expected: number, found: number): string =>
   `variant '${enumName}::${variant}' expects ${expected} ${expected === 1 ? 'value' : 'values'}, got ${found}`;
 
+/** A resolved `E::V`: a variant of a non-generic enum, or a variant of a generic enum's template. */
+type FoundVariant = { enumType: TEnum; variant: TVariant } | { template: Template; variantDecl: VariantDecl };
+
 /** Resolves `E::V`, reporting an unknown enum, a non-enum type or an unknown variant. */
-function resolveVariant(
-  env: Env,
-  enumName: string,
-  enumSpan: Span,
-  variantName: string,
-  variantSpan: Span,
-): { enumType: TEnum; variant: TVariant } | null {
+function resolveVariant(env: Env, enumName: string, enumSpan: Span, variantName: string, variantSpan: Span): FoundVariant | null {
+  const template = env.templates.get(enumName);
+  if (template) {
+    const variantDecl = template.decl.variants.find((v) => v.name === variantName);
+    if (!variantDecl) {
+      report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
+      return null;
+    }
+    return { template, variantDecl };
+  }
   const enumType = env.enums.get(enumName);
   if (!enumType) {
     const isType = env.structs.has(enumName) || PRIMITIVES.has(enumName);
     report(env, isType ? `'${enumName}' is not an enum` : `unknown enum '${enumName}'`, enumSpan);
     return null;
   }
-  markUsed(env, enumName);
   const variant = enumType.variants.find((v) => v.name === variantName);
   if (!variant) {
     report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
@@ -524,13 +715,14 @@ function resolveVariant(
   return { enumType, variant };
 }
 
-function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
+function checkVariantExpr(ctx: Ctx, expr: VariantExpr, expected: Type | undefined): TExpr {
   const found = resolveVariant(ctx, expr.enumName, expr.enumSpan, expr.variant, expr.variantSpan);
   if (found === null) {
     // Still check the values for their own errors; the `error` type keeps `[]` from being reported as uninferable.
     for (const a of expr.args) checkExpr(ctx, a, ERROR);
     return errorExpr();
   }
+  if ('template' in found) return checkGenericVariantExpr(ctx, expr, found.template, found.variantDecl, expected);
   const { enumType, variant } = found;
   const args = expr.args.map((a, i) => checkExpr(ctx, a, variant.payload[i] ?? ERROR));
   if (args.length !== variant.payload.length) {
@@ -540,6 +732,73 @@ function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
   args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
   return { kind: 'variant', type: { kind: 'enum', name: enumType.name }, enum: enumType.name, variant: variant.name, tag: variant.tag, args };
 }
+
+/**
+ * Checks `E::V(...)` for a generic `E`, inferring its type arguments (spec §3.5): first from an expected
+ * instantiation of `E`, then from the values left to right. Each value takes its slot type as context once every
+ * parameter the slot mentions is known, and its type then fixes the parameters still unknown.
+ */
+function checkGenericVariantExpr(ctx: Ctx, expr: VariantExpr, template: Template, variantDecl: VariantDecl, expected: Type | undefined): TExpr {
+  const base = template.decl.name;
+  if (template.broken || template.hasErrors) {
+    // The declaration was already reported.
+    for (const a of expr.args) checkExpr(ctx, a, ERROR);
+    return errorExpr();
+  }
+  const bindings = new Map<string, Type>();
+  if (expected?.kind === 'enum' && expected.generic?.base === base) {
+    expected.generic.args.forEach((arg, i) => bindings.set(template.params[i], arg));
+  }
+  const slots = variantDecl.payload;
+  const args = expr.args.map((a, i) => {
+    const slot = slots.at(i);
+    if (slot === undefined) return checkExpr(ctx, a, ERROR);
+    const known = template.params.every((p) => bindings.has(p) || !mentionsParam(slot, p));
+    const value = checkExpr(ctx, a, known ? resolveType(ctx, slot, bindings, true) : undefined);
+    unify(template.params, slot, value.type, bindings);
+    return value;
+  });
+  if (args.length !== slots.length) {
+    report(ctx, variantArityMessage(base, variantDecl.name, slots.length, args.length), expr.span);
+    return errorExpr();
+  }
+  const typeArgs = template.params.map((p) => bindings.get(p));
+  if (typeArgs.includes(undefined)) {
+    // An unknown parameter that an error-typed value or context would have fixed was already reported.
+    const reported = (expected !== undefined && isError(expected)) || args.some((a) => isError(a.type));
+    if (!reported) report(ctx, `cannot infer type arguments for '${base}'`, expr.span);
+    return errorExpr();
+  }
+  const type = instantiate(ctx, template, typeArgs.filter((t) => t !== undefined));
+  const name = typeToString(type);
+  const variant = ctx.enums.get(name)?.variants.find((v) => v.name === variantDecl.name);
+  if (variant === undefined) throw new Error(`internal: instantiation '${name}' has no variant '${variantDecl.name}'`);
+  args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
+  return { kind: 'variant', type, enum: name, variant: variant.name, tag: variant.tag, args };
+}
+
+/**
+ * Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
+ * bare parameter takes the whole type, and arrays and instantiations of the same template are matched part by part.
+ * Error and void types bind nothing.
+ */
+function unify(params: readonly string[], slot: TypeExpr, actual: Type, bindings: Map<string, Type>): void {
+  if (isError(actual) || actual.kind === 'void') return;
+  if (slot.kind === 'array') {
+    if (actual.kind === 'array') unify(params, slot.elem, actual.elem, bindings);
+    return;
+  }
+  if (params.includes(slot.name)) {
+    if (slot.args.length === 0 && !bindings.has(slot.name)) bindings.set(slot.name, actual);
+    return;
+  }
+  if (actual.kind !== 'enum' || actual.generic?.base !== slot.name || actual.generic.args.length !== slot.args.length) return;
+  const actualArgs = actual.generic.args;
+  slot.args.forEach((arg, i) => unify(params, arg, actualArgs[i], bindings));
+}
+
+/** The name an enum's patterns and diagnostics write: an instantiation's generic enum, or the enum itself. */
+const enumBaseName = (t: Type): string => (t.kind === 'enum' ? (t.generic?.base ?? t.name) : typeToString(t));
 
 type MatchCategory = 'enum' | 'int' | 'bool' | 'string';
 
@@ -589,7 +848,7 @@ function checkMatch(
       resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
       if (resolved.includes(null)) allResolved = false;
       if (pattern.kind === 'wildcard') {
-        if (wildcardSeen || missingValues(category, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+        if (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
       } else {
         fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
         for (const r of fresh) covered.add(r.key);
@@ -606,7 +865,7 @@ function checkMatch(
   }
 
   if (category !== null && allResolved && !wildcardSeen) {
-    const missing = missingValues(category, decl, covered);
+    const missing = missingValues(category, st, decl, covered);
     if (missing === null) report(ctx, "non-exhaustive match: add a '_' arm", keywordSpan);
     else if (missing.length > 0) report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
   }
@@ -620,11 +879,11 @@ function checkMatch(
 function resolveAlternative(ctx: Ctx, st: Type, decl: TEnum | null, alt: Alternative): ResolvedAlternative | null {
   if (alt.kind === 'variant') {
     if (decl !== null) {
-      const variant = resolvePatternVariant(ctx, decl, alt);
+      const variant = resolvePatternVariant(ctx, st, decl, alt);
       return variant === null ? null : { key: `tag:${variant.tag}`, kind: 'variant', variant };
     }
     // Only the enum name matters here: any variant of it is the wrong type.
-    if (ctx.enums.has(alt.enumName)) {
+    if (ctx.enums.has(alt.enumName) || ctx.templates.has(alt.enumName)) {
       report(ctx, `pattern type '${alt.enumName}' does not match '${typeToString(st)}'`, alt.enumSpan);
     } else {
       resolveVariant(ctx, alt.enumName, alt.enumSpan, alt.variant, alt.variantSpan);
@@ -681,10 +940,10 @@ function checkReachability(
  * The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; null
  * for int and string, whose values can never all be covered.
  */
-function missingValues(category: MatchCategory, decl: TEnum | null, covered: ReadonlySet<string>): string[] | null {
+function missingValues(category: MatchCategory, st: Type, decl: TEnum | null, covered: ReadonlySet<string>): string[] | null {
   switch (category) {
     case 'enum':
-      return (decl?.variants ?? []).filter((v) => !covered.has(`tag:${v.tag}`)).map((v) => `'${decl?.name}::${v.name}'`);
+      return (decl?.variants ?? []).filter((v) => !covered.has(`tag:${v.tag}`)).map((v) => `'${enumBaseName(st)}::${v.name}'`);
     case 'bool':
       return ['true', 'false'].filter((b) => !covered.has(`bool:${b}`)).map((b) => `'${b}'`);
     case 'int':
@@ -746,16 +1005,21 @@ function typedPattern(pattern: Pattern, category: MatchCategory | null, fresh: r
  * Resolves `F::V(...)` against the scrutinee's enum. Returns null after reporting an unknown or wrong enum or an
  * unknown variant. A wrong binder count is reported, but the variant is still returned, so it still counts as covered.
  */
-function resolvePatternVariant(ctx: Ctx, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
-  const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
-  if (found === null) return null;
-  if (found.enumType.name !== decl.name) {
-    report(ctx, `pattern type '${found.enumType.name}' does not match '${decl.name}'`, pattern.enumSpan);
+function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
+  // Patterns never carry type arguments, so a pattern names an instantiation by its generic enum's name.
+  const enumName = enumBaseName(st);
+  if (pattern.enumName !== enumName) {
+    const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
+    if (found !== null) report(ctx, `pattern type '${pattern.enumName}' does not match '${typeToString(st)}'`, pattern.enumSpan);
     return null;
   }
-  const { variant } = found;
+  const variant = decl.variants.find((v) => v.name === pattern.variant);
+  if (!variant) {
+    report(ctx, `unknown variant '${pattern.variant}' on '${enumName}'`, pattern.variantSpan);
+    return null;
+  }
   if (pattern.binders.length !== variant.payload.length) {
-    report(ctx, variantArityMessage(decl.name, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
+    report(ctx, variantArityMessage(enumName, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
   }
   return variant;
 }
@@ -969,10 +1233,11 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
-  if (builtin === 'read_file') markUsed(ctx, READ_RESULT);
+  const returnType =
+    builtin === 'read_file' ? instantiate(ctx, ctx.templates.get(RESULT)!, [STRING, STRING]) : sig.returnType;
   return builtin
-    ? { kind: 'builtin', type: sig.returnType, builtin, args }
-    : { kind: 'call', type: sig.returnType, fn: name, args };
+    ? { kind: 'builtin', type: returnType, builtin, args }
+    : { kind: 'call', type: returnType, fn: name, args };
 }
 
 function checkPrint(ctx: Ctx, expr: CallExpr, name: 'print' | 'eprint', args: TExpr[]): TExpr {

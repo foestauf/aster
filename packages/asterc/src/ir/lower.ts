@@ -1,5 +1,4 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
-import { READ_RESULT, READ_RESULT_TYPE } from '../check/builtins.js';
 import type { TBlock, TEnum, TExpr, TFunction, TPattern, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, INT, STRING, type Type } from '../types/type.js';
 import type {
@@ -449,7 +448,7 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     }
     case 'builtin': {
       const args = e.args.map((a) => lowerValue(st, a));
-      if (e.builtin === 'read_file') return lowerReadFile(st, args[0]);
+      if (e.builtin === 'read_file') return lowerReadFile(st, args[0], e.type as Extract<Type, { kind: 'enum' }>);
       if (e.builtin === 'push') {
         emit(st, { kind: 'array_push', array: args[0], value: args[1] });
         return null;
@@ -520,6 +519,33 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       const dst = newTemp(st, irType(BOOL));
       emit(st, { kind: 'binop', dst, op: e.op === '==' ? 'eq' : 'ne', left, right });
       return { kind: 'local', id: dst };
+    }
+    case 'try': {
+      // `operand?`: branch on the tag; the failure path builds the return enum's failure value and returns it.
+      if (e.operand.type.kind !== 'enum') throw new Error('internal: ? on a non-enum operand');
+      const operandEnum = e.operand.type.name;
+      const value = lowerValue(st, e.operand);
+      const tag = enumTag(st, value);
+      const isOk = newTemp(st, irType(BOOL));
+      emit(st, { kind: 'binop', dst: isOk, op: 'eq', left: tag, right: { kind: 'int', value: BigInt(e.okTag) } });
+      const okLabel = newLabel(st, 'try_ok');
+      const failLabel = newLabel(st, 'try_fail');
+      terminate(st, { kind: 'br', cond: ref(isOk), then: okLabel, else: failLabel });
+      startBlock(st, failLabel);
+      const args: Operand[] = [];
+      if (e.failPayloadType !== null) {
+        const payload = newTemp(st, irType(e.failPayloadType));
+        emit(st, { kind: 'enum_field', dst: payload, value, enum: operandEnum, variant: e.failVariant, tag: e.failTag, index: 0 });
+        args.push(ref(payload));
+      }
+      const failValue = newTemp(st, irType(e.returnType));
+      emit(st, { kind: 'enum_new', dst: failValue, enum: e.returnEnum, variant: e.returnFailVariant, tag: e.returnFailTag, args });
+      terminate(st, { kind: 'ret', value: ref(failValue) });
+      // The fail block is terminated, so opening the ok block adds no fall-through jump.
+      startBlock(st, okLabel);
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'enum_field', dst, value, enum: operandEnum, variant: e.okVariant, tag: e.okTag, index: 0 });
+      return ref(dst);
     }
     case 'structLit': {
       // Evaluate in written order, then hand the values over in declaration order. Reordering operands is safe
@@ -594,11 +620,11 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
   }
 }
 
-/** `read_file(p)`: the runtime fills an ok flag and a string, then each outcome builds its ReadResult variant. */
-function lowerReadFile(st: FnState, path: Operand): Operand {
+/** `read_file(p)`: the runtime fills an ok flag and a string, then each outcome builds its Result variant. */
+function lowerReadFile(st: FnState, path: Operand, resultType: Extract<Type, { kind: 'enum' }>): Operand {
   const ok = newTemp(st, irType(BOOL));
   const text = newTemp(st, irType(STRING));
-  const dst = newTemp(st, irType(READ_RESULT_TYPE));
+  const dst = newTemp(st, irType(resultType));
   emit(st, { kind: 'read_file', ok, text, path });
   const okLabel = newLabel(st, 'read_ok');
   const errLabel = newLabel(st, 'read_err');
@@ -606,7 +632,7 @@ function lowerReadFile(st: FnState, path: Operand): Operand {
   terminate(st, { kind: 'br', cond: { kind: 'local', id: ok }, then: okLabel, else: errLabel });
   for (const [label, variant, tag] of [[okLabel, 'Ok', 0], [errLabel, 'Err', 1]] as const) {
     startBlock(st, label);
-    emit(st, { kind: 'enum_new', dst, enum: READ_RESULT, variant, tag, args: [{ kind: 'local', id: text }] });
+    emit(st, { kind: 'enum_new', dst, enum: resultType.name, variant, tag, args: [{ kind: 'local', id: text }] });
     terminate(st, { kind: 'jmp', target: endLabel });
   }
   startBlock(st, endLabel);

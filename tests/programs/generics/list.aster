@@ -1,0 +1,41 @@
+// A recursive generic list: built from 1, 2, 3, printed and summed recursively.
+// expect-stdout:
+// 1
+// 2
+// 3
+// 6
+// 3
+enum List[T] { Cons(T, List[T]), Nil }
+
+fn sum(l: List[int]): int {
+    return match l {
+        List::Cons(head, tail) => head + sum(tail),
+        List::Nil => 0,
+    };
+}
+
+fn show(l: List[int]) {
+    match l {
+        List::Cons(head, tail) => {
+            print(head);
+            show(tail);
+        }
+        List::Nil => {}
+    }
+}
+
+fn count(l: List[string]): int {
+    return match l {
+        List::Cons(_, tail) => 1 + count(tail),
+        List::Nil => 0,
+    };
+}
+
+fn main(): int {
+    let l: List[int] = List::Cons(1, List::Cons(2, List::Cons(3, List::Nil)));
+    show(l);
+    print(sum(l));
+    // Without context, the head fixes T and the tail is checked against List[string].
+    print(count(List::Cons("a", List::Cons("b", List::Cons("c", List::Nil)))));
+    return 0;
+}

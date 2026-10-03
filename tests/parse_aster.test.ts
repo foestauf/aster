@@ -46,7 +46,11 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
   };
 
   const type = (d: number, t: TypeExpr): void => {
-    if (t.kind === 'named') return emit(d, `type ${sp(t.span)} ${t.name}`);
+    if (t.kind === 'named') {
+      emit(d, `type ${sp(t.span)} ${t.name}`);
+      for (const a of t.args) type(d + 1, a);
+      return;
+    }
     emit(d, `array-type ${sp(t.span)}`);
     type(d + 1, t.elem);
   };
@@ -114,6 +118,9 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
           expr(d + 2, f.value);
         }
         return;
+      case 'try':
+        emit(d, `try ${head}`);
+        return expr(d + 1, e.operand);
       case 'index':
         emit(d, `index ${head}`);
         expr(d + 1, e.array);
@@ -224,6 +231,7 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
 
   const enumDecl = (e: EnumDecl): void => {
     emit(0, `enum ${sp(e.span)} ${e.name} ${sp(e.nameSpan)}`);
+    for (const p of e.typeParams) emit(1, `type-param ${sp(p.nameSpan)} ${p.name}`);
     for (const v of e.variants) {
       emit(1, `variant ${sp(v.nameSpan)} ${v.name}`);
       for (const t of v.payload) type(2, t);
@@ -259,7 +267,7 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
-    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'lex_bom', 'lex_chars']) {
+    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'parse_generics', 'lex_question', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
   });

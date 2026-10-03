@@ -3,10 +3,10 @@
 // fixtures: Is a directory
 // fixtures/a: invalid path
 // ok
-fn show(r: ReadResult) {
+fn show(r: Result[string, string]) {
     match r {
-        ReadResult::Ok(_) => print("ok"),
-        ReadResult::Err(e) => print(e),
+        Result::Ok(_) => print("ok"),
+        Result::Err(e) => print(e),
     }
 }
 

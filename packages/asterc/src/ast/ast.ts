@@ -1,8 +1,8 @@
 import type { Span } from '../diagnostics/source.js';
 
-/** A type as written: a name (`int`, `Point`) or an array (`[T]`). */
+/** A type as written: a name (`int`, `Point`), optionally applied to type arguments (`Option[int]`), or an array (`[T]`). */
 export type TypeExpr =
-  | { kind: 'named'; name: string; span: Span }
+  | { kind: 'named'; name: string; args: TypeExpr[]; span: Span }
   | { kind: 'array'; elem: TypeExpr; span: Span };
 
 export interface Program {
@@ -36,6 +36,7 @@ export interface EnumDecl {
   kind: 'enum';
   name: string;
   nameSpan: Span;
+  typeParams: { name: string; nameSpan: Span }[];
   variants: VariantDecl[];
   span: Span;
 }
@@ -279,6 +280,13 @@ export interface IndexExpr {
   span: Span;
 }
 
+/** `operand?`: unwraps a `Result`/`Option`, or returns early from the enclosing function. */
+export interface TryExpr {
+  kind: 'try';
+  operand: Expr;
+  span: Span;
+}
+
 export interface ArrayLitExpr {
   kind: 'arrayLit';
   elements: Expr[];
@@ -312,4 +320,4 @@ export interface MatchExpr {
 
 export type Expr =
   | IntExpr | CharExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr
-  | VariantExpr | MatchExpr;
+  | VariantExpr | MatchExpr | TryExpr;

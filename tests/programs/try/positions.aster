@@ -1,0 +1,85 @@
+// `?` as a short-circuit operand, in an if-expression branch and as a match-expression arm value, on both paths.
+// expect-stdout:
+// call
+// and: some true
+// call
+// and: some false
+// and: some false
+// call
+// and: none
+// or: some true
+// call
+// or: some true
+// call
+// or: none
+// call
+// if: some 5
+// if: some 0
+// call
+// if: none
+// call
+// match: some 7
+// match: some 0
+// call
+// match: none
+fn f(o: Option[bool]): Option[bool] {
+    print("call");
+    return o;
+}
+
+fn g(o: Option[int]): Option[int] {
+    print("call");
+    return o;
+}
+
+fn and_op(c: bool, o: Option[bool]): Option[bool] {
+    return Option::Some(c && f(o)?);
+}
+
+fn or_op(c: bool, o: Option[bool]): Option[bool] {
+    return Option::Some(c || f(o)?);
+}
+
+fn in_if(c: bool, o: Option[int]): Option[int] {
+    let v: int = if c { g(o)? } else { 0 };
+    return Option::Some(v);
+}
+
+fn in_match(k: int, o: Option[int]): Option[int] {
+    let v: int = match k {
+        1 => g(o)?,
+        _ => 0,
+    };
+    return Option::Some(v);
+}
+
+fn show_b(label: string, o: Option[bool]) {
+    match o {
+        Option::Some(b) => print(label + ": some " + (if b { "true" } else { "false" })),
+        Option::None => print(label + ": none"),
+    }
+}
+
+fn show_i(label: string, o: Option[int]) {
+    match o {
+        Option::Some(n) => print(label + ": some " + int_to_string(n)),
+        Option::None => print(label + ": none"),
+    }
+}
+
+fn main(): int {
+    show_b("and", and_op(true, Option::Some(true)));
+    show_b("and", and_op(true, Option::Some(false)));
+    show_b("and", and_op(false, Option::None));
+    show_b("and", and_op(true, Option::None));
+    show_b("or", or_op(true, Option::None));
+    show_b("or", or_op(false, Option::Some(true)));
+    show_b("or", or_op(false, Option::None));
+    show_i("if", in_if(true, Option::Some(5)));
+    show_i("if", in_if(false, Option::None));
+    show_i("if", in_if(true, Option::None));
+    show_i("match", in_match(1, Option::Some(7)));
+    show_i("match", in_match(2, Option::Some(7)));
+    show_i("match", in_match(1, Option::None));
+    return 0;
+}

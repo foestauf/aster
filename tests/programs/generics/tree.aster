@@ -1,0 +1,17 @@
+// The generic tree from the v0.5 design.
+// expect-stdout:
+// 12
+enum Tree[T] { Node(Tree[T], T, Tree[T]), Leaf }
+
+fn total(t: Tree[int]): int {
+    return match t {
+        Tree::Node(l, v, r) => total(l) + v + total(r),
+        Tree::Leaf => 0,
+    };
+}
+
+fn main(): int {
+    let leaf: Tree[int] = Tree::Leaf;
+    print(total(Tree::Node(leaf, 5, Tree::Node(leaf, 7, leaf))));
+    return 0;
+}

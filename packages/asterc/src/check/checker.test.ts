@@ -3,7 +3,7 @@ import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
-import { typeToString } from '../types/type.js';
+import { INT, STRING, typeToString, type Type } from '../types/type.js';
 import { check } from './checker.js';
 
 const MAIN = 'fn main(): int { return 0; }\n';
@@ -466,34 +466,16 @@ describe('check: literal matches', () => {
   });
 });
 
-describe('check: ReadResult', () => {
-  const STR = { kind: 'string' };
-
-  it('is a predeclared enum, included in the program only when mentioned', () => {
+describe('check: read_file', () => {
+  it('returns Result[string, string], instantiated on first use', () => {
+    const { program } = checkText('fn main(): int { let r: Result[string, string] = read_file("x"); return 0; }');
+    expect(program.enums.map((e) => e.name)).toEqual(['Result[string, string]']);
     expect(checkText(MAIN).program.enums).toEqual([]);
-    const { program } = checkText('fn main(): int { let r: ReadResult = ReadResult::Err("e"); return 0; }');
-    expect(program.enums).toEqual([
-      {
-        name: 'ReadResult',
-        payloadFree: false,
-        variants: [
-          { name: 'Ok', tag: 0, payload: [STR] },
-          { name: 'Err', tag: 1, payload: [STR] },
-        ],
-      },
-    ]);
   });
 
-  it('counts a variant expression alone as a mention, and comes before user enums', () => {
-    const { program } = checkText('enum A { X }\nfn main(): int { let a: A = A::X; ReadResult::Ok("x"); return 0; }');
-    expect(program.enums.map((e) => e.name)).toEqual(['ReadResult', 'A']);
-  });
-
-  it('cannot be redefined', () => {
-    const bad = "'ReadResult' is a builtin type and cannot be redefined";
-    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([bad]);
-    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([bad]);
-    expect(messages(`${MAIN}fn ReadResult() { }`)).toEqual([bad]);
+  it('leaves ReadResult as an ordinary free name', () => {
+    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([]);
+    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([]);
   });
 });
 
@@ -515,5 +497,156 @@ describe('eprint and exit', () => {
     const m = declared;
     expect(m('eprint')).toEqual(["'eprint' is a builtin function and cannot be redefined"]);
     expect(m('exit')).toEqual(["'exit' is a builtin function and cannot be redefined"]);
+  });
+});
+
+const conflict = (n: string) => `type parameter '${n}' conflicts with a type of the same name`;
+
+describe('generic enums', () => {
+  const LIST = 'enum List[T] { Cons(T, List[T]), Nil }\n';
+
+  it('instantiates a recursive generic enum once, by its type string', () => {
+    const { program, diagnostics } = checkText(`${LIST}fn f(x: List[int]) {}\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    const listInt: Type = { kind: 'enum', name: 'List[int]', generic: { base: 'List', args: [INT] } };
+    expect(program.enums).toEqual([
+      {
+        name: 'List[int]',
+        payloadFree: false,
+        variants: [
+          { name: 'Cons', tag: 0, payload: [INT, listInt] },
+          { name: 'Nil', tag: 1, payload: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('produces no enum for an unused template or the instantiations inside it', () => {
+    const { program, diagnostics } = checkText(`${LIST}enum W[T] { A(T, Option[int]) }\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    expect(program.enums).toEqual([]);
+  });
+
+  it('lists non-generic enums first, then instantiations in first-use order', () => {
+    const { program } = checkText(`enum E { A }\nfn f(x: Option[bool], y: List[int]) {}\n${LIST}enum F { B(Result[int, string]) }\n${MAIN}`);
+    expect(program.enums.map((e) => e.name)).toEqual(['E', 'F', 'Result[int, string]', 'Option[bool]', 'List[int]']);
+  });
+
+  it('reports errors in a generic enum once, however often it is instantiated', () => {
+    const { diagnostics } = checkText(`enum B[T] { A(T, Nope) }\nfn f(a: B[int], b: B[bool], c: B[int]) {}\n${MAIN}`);
+    expect(diagnostics.map((d) => d.message)).toEqual(["unknown type 'Nope'"]);
+  });
+
+  it('types nested instantiations and type parameters bound to arrays', () => {
+    const { program, diagnostics } = checkText(`fn f(x: Option[Option[[int]]]) {}\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    expect(program.enums.map((e) => e.name)).toEqual(['Option[[int]]', 'Option[Option[[int]]]']);
+    expect(program.functions[0].params[0].type).toEqual({
+      kind: 'enum',
+      name: 'Option[Option[[int]]]',
+      generic: { base: 'Option', args: [{ kind: 'enum', name: 'Option[[int]]', generic: { base: 'Option', args: [{ kind: 'array', elem: INT }] } }] },
+    });
+  });
+
+  it('rejects type parameters that clash with builtin functions and templates', () => {
+    expect(messages(`enum E[len] { A(len) }\n${MAIN}`)).toEqual([conflict('len')]);
+    expect(messages(`${LIST}enum E[List] { A(List) }\n${MAIN}`)).toEqual([conflict('List')]);
+    expect(messages(`enum E[Result] { A(Result) }\n${MAIN}`)).toEqual([conflict('Result')]);
+  });
+
+  it('shares the type namespace between templates, structs, enums and functions', () => {
+    expect(messages(`enum G[T] { A(T) }\nstruct G { x: int }\n${MAIN}`)).toEqual(["'G' is already declared as an enum"]);
+    expect(messages(`enum G[T] { A(T) }\nfn G() {}\n${MAIN}`)).toEqual(["'G' is already declared as an enum"]);
+    expect(messages(`enum G[T] { A(T) }\nenum G[U] { B(U) }\n${MAIN}`)).toEqual(["duplicate enum 'G'"]);
+    expect(messages(`struct Result { x: int }\n${MAIN}`)).toEqual(["'Result' is a builtin type and cannot be redefined"]);
+  });
+
+  it('reports expansion through a type argument nested in an array', () => {
+    expect(messages(`enum N[T] { A([N[Option[T]]]), B(T) }\n${MAIN}`)).toEqual(["generic enum 'N' expands infinitely"]);
+    expect(messages(`enum N[T, U] { A(N[U, T]), B(T, U) }\n${MAIN}`)).toEqual([]);
+  });
+
+  const optionInt: Type = { kind: 'enum', name: 'Option[int]', generic: { base: 'Option', args: [INT] } };
+
+  it('types a variant expression by its instantiation, inferred from its values', () => {
+    const { program, diagnostics } = checkText('fn main(): int {\nmatch Option::Some(1) { _ => {} }\nreturn 0;\n}');
+    expect(diagnostics).toEqual([]);
+    const stmt = program.functions[0].body.statements[0];
+    expect(stmt.kind === 'match' ? stmt.scrutinee : null).toMatchObject({ kind: 'variant', type: optionInt, enum: 'Option[int]', variant: 'Some', tag: 0 });
+  });
+
+  it('infers type arguments from context before checking the values', () => {
+    expect(inMain('let a: Option[[int]] = Option::Some([]);\nlet b: Result[int, string] = Result::Ok(1);')).toEqual([]);
+    expect(inMain('let a: Option[int] = Option::Some(true);')).toEqual(['type mismatch: expected int, found bool']);
+    expect(inMain('let a: int = Option::Some(1);')).toEqual(['type mismatch: expected int, found Option[int]']);
+  });
+
+  it('fixes a parameter from an earlier value and checks later values against it', () => {
+    expect(messages(`enum Pair[T] { P(T, T) }\nfn main(): int {\nlet p: [Pair[int]] = [Pair::P(1, 2)];\nmatch Pair::P(1, true) { _ => {} }\nreturn 0;\n}`)).toEqual([
+      'type mismatch: expected int, found bool',
+    ]);
+    expect(messages(`${LIST}fn main(): int {\nmatch List::Cons([1], List::Cons([], List::Nil)) { _ => {} }\nreturn 0;\n}`)).toEqual([]);
+  });
+
+  it('reports a parameter it cannot infer, unless something was already reported', () => {
+    expect(inMain('match Option::None { _ => {} }')).toEqual(["cannot infer type arguments for 'Option'"]);
+    expect(inMain('match Result::Err("e") { _ => {} }')).toEqual(["cannot infer type arguments for 'Result'"]);
+    expect(inMain('match Option::Some(nope) { _ => {} }')).toEqual(["undefined name 'nope'"]);
+    expect(inMain('let x: Nope = Option::None;')).toEqual(["unknown type 'Nope'"]);
+    expect(inMain('let x: Option[int] = Option::Some(1, 2);')).toEqual(["variant 'Option::Some' expects 1 value, got 2"]);
+    expect(inMain('let x: Option[int] = Option::Nope;')).toEqual(["unknown variant 'Nope' on 'Option'"]);
+  });
+
+  it('shares one instantiation between every mention of it', () => {
+    const { program, diagnostics } = checkText(
+      'struct H { o: Option[int] }\nfn f(o: Option[int]): Option[int] { return o; }\nfn main(): int {\nlet h: H = H { o: [Option::Some(1)][0] };\nlet b: Option[int] = f(h.o);\nreturn 0;\n}',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(program.enums.map((e) => e.name)).toEqual(['Option[int]']);
+  });
+
+  it('types binders by the scrutinee instantiation and checks patterns by base name', () => {
+    const { program, diagnostics } = checkText('fn main(): int {\nlet o: Option[string] = Option::None;\nmatch o { Option::Some(s) => print(s), Option::None => {} }\nreturn 0;\n}');
+    expect(diagnostics).toEqual([]);
+    expect(program.functions[0].locals.find((l) => l.name === 's')?.type).toEqual(STRING);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Result::Ok(_) => {}, _ => {} }')).toEqual(["pattern type 'Result' does not match 'Option[int]'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Option::Some(_) => {} }')).toEqual(["non-exhaustive match: missing 'Option::None'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Option::Nope => {}, _ => {} }')).toEqual(["unknown variant 'Nope' on 'Option'"]);
+    expect(inMain('match 1 { Option::None => {}, _ => {} }')).toEqual(["pattern type 'Option' does not match 'int'"]);
+  });
+
+  it('types ? on Option and Result by the ok payload and records both failure variants', () => {
+    const { program, diagnostics } = checkText(
+      `fn f(r: Result[string, int]): Result[bool, int] {\nlet s: string = r?;\nreturn Result::Ok(true);\n}\n${MAIN}`,
+    );
+    expect(diagnostics).toEqual([]);
+    const stmt = program.functions[0].body.statements[0];
+    expect(stmt.kind === 'let' ? stmt.init : null).toMatchObject({
+      kind: 'try', type: STRING, okVariant: 'Ok', okTag: 0, failVariant: 'Err', failTag: 1,
+      returnEnum: 'Result[bool, int]', returnFailVariant: 'Err', returnFailTag: 1, failPayloadType: INT,
+    });
+    const opt = checkText(`fn g(o: Option[int]): Option[string] {\no?;\nreturn Option::None;\n}\n${MAIN}`);
+    expect(opt.diagnostics).toEqual([]);
+    const s2 = opt.program.functions[0].body.statements[0];
+    expect(s2.kind === 'expr' ? s2.expr : null).toMatchObject({
+      kind: 'try', type: INT, okVariant: 'Some', failVariant: 'None', returnEnum: 'Option[string]', returnFailVariant: 'None', returnFailTag: 1, failPayloadType: null,
+    });
+  });
+
+  it('reports ? on a non-Option/Result, in the wrong kind of function, and with a different error type', () => {
+    expect(messages(`fn f(x: int): Option[int] { return Option::Some(x?); }\n${MAIN}`)).toEqual(["'?' applies to Option or Result, not 'int'"]);
+    expect(messages(`fn f(o: Option[int]) { o?; }\n${MAIN}`)).toEqual(["'?' needs the function to return an Option, but it returns 'void'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nlet x: int = o?;')).toEqual(["'?' needs the function to return an Option, but it returns 'int'"]);
+    expect(messages(`fn f(r: Result[int, int]): Option[int] { return Option::Some(r?); }\n${MAIN}`)).toEqual([
+      "'?' needs the function to return a Result, but it returns 'Option[int]'",
+    ]);
+    expect(messages(`fn f(r: Result[int, int]): Result[int, string] { return Result::Ok(r?); }\n${MAIN}`)).toEqual([
+      "'?' error type 'int' does not match the function's error type 'string'",
+    ]);
+    expect(messages(`fn f(): Option[int] { return Option::Some(nope?); }\n${MAIN}`)).toEqual(["undefined name 'nope'"]);
+  });
+
+  it('does not let ? end a control path', () => {
+    expect(messages(`fn f(o: Option[int]): Option[int] { o?; }\n${MAIN}`)).toEqual(["function 'f' is missing a return on some paths"]);
   });
 });

@@ -1,0 +1,31 @@
+// A user generic enum holding an int and a string, built from context and from its values, then matched.
+// expect-stdout:
+// 7
+// empty
+// s
+// empty
+enum Box[T] { Full(T), Empty }
+
+fn show_int(b: Box[int]) {
+    match b {
+        Box::Full(n) => print(n),
+        Box::Empty => print("empty"),
+    }
+}
+
+fn show_string(b: Box[string]) {
+    match b {
+        Box::Full(s) => print(s),
+        Box::Empty => print("empty"),
+    }
+}
+
+fn main(): int {
+    let a: Box[int] = Box::Full(7);
+    let b: Box[int] = Box::Empty;
+    show_int(a);
+    show_int(b);
+    show_string(Box::Full("s"));
+    show_string(Box::Empty);
+    return 0;
+}

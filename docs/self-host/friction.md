@@ -1,9 +1,9 @@
 # Self-hosting friction log
 
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
-(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 language spec, and entries 4 to 6 are now resolved.
+(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 and v0.5 language specs. Entries 1 and 3 and entries 4 to 6 are now resolved.
 
-Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which is 1,797 lines (it grew with v0.4 support)
+Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5)
 and has byte-for-byte parity with the TypeScript parser.
 
 ## Entries
@@ -20,10 +20,15 @@ if p.failed {
 }
 ```
 
-`parse.aster` has **100** of these. A single missed check doesn't crash. It changes which tokens the parser consumes,
+`parse.aster` has **100** of these (110 `p.failed` occurrences counting the field declaration and the resets). A single missed check doesn't crash. It changes which tokens the parser consumes,
 so the diagnostics drift and only the conformance suite notices. This is the biggest cost to readability and correctness.
 
 **Workaround:** a `failed` flag on the parser, plus placeholder return values (entry 3).
+
+**Resolved in v0.5.** Parse functions return `Option[X]` and propagate failure with `?`. `parse.aster` went from 1,847 to
+1,501 lines. `p.failed` went from 110 occurrences to 0, and `?` went from 0 uses to 116. The five `return Option::None`
+left are real failure points, each straight after a `fail`. The two recovery points (the statement loop in `parse_block`
+and the item loop in `parse_program`) `match` on the `Option` and resynchronise on `None`.
 
 ### 2. No modules or includes (costly)
 
@@ -40,6 +45,11 @@ null, a function that bails out still has to return *something* of its type, whi
 (`bad_expr`, `bad_type`, `bad_block`, `bad_stmt`, `bad_pattern`, `bad_item`).
 
 **Workaround:** one hand-written `Maybe*` enum per type, and placeholder values that are never printed.
+
+**Resolved in v0.5.** `Option[T]` and `Result[T, E]` are predeclared generic enums, and users can declare their own. In
+`parse.aster` the `Maybe*` enums went from 2 to 0, the `bad_*` placeholders from 111 occurrences to 0, and the `failed`
+field is gone. `Else` stays, since it isn't an option. `read_file` returns `Result[string, string]` and `ReadResult` is
+removed.
 
 ### 4. Diagnostics can only go to stdout (costly for a real compiler)
 
@@ -116,6 +126,16 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building v0.5
+
+- **No `defer` or `finally`.** `parse.aster` saves and restores `no_struct_lit` around some sub-parses. With `?` an early
+  return skips the restore, so five sites needed split-out helpers: the inner function does the fallible work and
+  returns an `Option`, and the outer one restores the flag before it propagates. Each such site now has two names for one
+  value.
+- **Wrapping success is noisy.** About 35 `return Option::Some(...)` wraps remain. A cheap way to lift a value into an
+  `Option` would help, but it isn't a gap that justifies new syntax yet.
+- Inference never needed an annotation, and `unwrap_or` and `?` in `main` were never wanted.
+
 ## Found while building v0.4
 
 - Error recovery in pattern syntax hides later errors in the same function, so the error fixtures use one pattern error
@@ -123,14 +143,13 @@ type count and adds a `.node` to every match.
 
 ## Shortlist (ranked)
 
-Items 4 to 6 were done in v0.4. Items 1 to 3 remain.
+Items 1 and 3 were done in v0.5 and items 4 to 6 in v0.4. Item 2 remains.
 
-1. **Error propagation**: a built-in `Result`-style return with a `?`-like operator, or exceptions. It removes the
-   100 checks from entry 1. It likely needs generics or a predeclared generic enum (see 3). Planned for v0.5, together
-   with 3.
+1. ~~**Error propagation**~~: entry 1. Done in v0.5 (`?` on `Option` and `Result`). It removed the 110 `p.failed`
+   checks and uses.
 2. **Modules or file includes**: entry 2. Without them the checker can't be written without copying 1,600 lines.
    Planned for v0.6.
-3. **Generic enums** (at least `Option[T]`/`Result[T, E]`): entry 3, and the foundation for 1. Planned for v0.5.
+3. ~~**Generic enums**~~: entry 3. Done in v0.5 (`Option[T]`, `Result[T, E]` and user-declared generic enums).
 4. ~~**Writing to stderr and exiting with a code**~~: entry 4. Done in v0.4 (`eprint`, `exit`).
 5. ~~**`match` on string and int values**~~: entries 5 and 8. Done in v0.4.
 6. ~~**Character literals**~~: entry 6. Done in v0.4.

@@ -1,0 +1,67 @@
+// `?` inside while and for bodies and a match arm returns from the middle of the loop.
+// expect-stdout:
+// 0
+// 1
+// stopped
+// 1
+// 2
+// 3
+// 6
+// x
+// stopped
+// 4
+// stopped
+fn half(n: int): Option[int] {
+    if n % 2 == 0 {
+        return Option::Some(n / 2);
+    }
+    return Option::None;
+}
+
+fn count_while(xs: [int]): Option[int] {
+    var i: int = 0;
+    while i < len(xs) {
+        let h: int = half(xs[i])?;
+        print(h);
+        i = i + 1;
+    }
+    return Option::Some(i);
+}
+
+fn sum_for(xs: [Option[int]]): Option[int] {
+    var total: int = 0;
+    for x in xs {
+        let v: int = x?;
+        print(v);
+        total = total + v;
+    }
+    return Option::Some(total);
+}
+
+fn arm(xs: [int]): Option[int] {
+    for x in xs {
+        match x {
+            0 => print("x"),
+            _ => {
+                return Option::Some(half(x)?);
+            }
+        }
+    }
+    return Option::None;
+}
+
+fn show(o: Option[int]) {
+    match o {
+        Option::Some(n) => print(n),
+        Option::None => print("stopped"),
+    }
+}
+
+fn main(): int {
+    show(count_while([0, 2, 3, 4]));
+    show(sum_for([Option::Some(1), Option::Some(2), Option::Some(3)]));
+    show(arm([0, 3]));
+    show(arm([8]));
+    show(sum_for([Option::None]));
+    return 0;
+}

@@ -37,13 +37,19 @@ describe('mangling', () => {
     expect(mangleEnum('FILE')).toBe('aster_E_FILE');
     expect(mangleVariant('int')).toBe('v_int');
   });
+
+  it('mangles instantiations apart from each other and from non-generic enums', () => {
+    expect(mangleEnum('Option[int]')).toBe('aster_G_Option_Lint_R');
+    expect(mangleEnum('Result[[string], My_E]')).toBe('aster_G_Result_L_Lstring_R_CMy__E_R');
+    expect(mangleEnum('A_L')).toBe('aster_E_A_L');
+  });
 });
 
 describe('emitC', () => {
   it('reads files through the runtime into an ok flag and a text local', () => {
-    const c = cOf('fn main(): int { let r: ReadResult = read_file("x"); return 0; }');
+    const c = cOf('fn main(): int { let r: Result[string, string] = read_file("x"); return 0; }');
     expect(c).toMatch(/l\d+ = aster_rt_read_file\(aster_str_0, &l\d+\);/);
-    expect(c).toContain('typedef struct aster_E_ReadResult *aster_E_ReadResult;');
+    expect(c).toContain('typedef struct aster_G_Result_Lstring_Cstring_R *aster_G_Result_Lstring_Cstring_R;');
   });
 
   it('passes the arguments to a main that takes them', () => {

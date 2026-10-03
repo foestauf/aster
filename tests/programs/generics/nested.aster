@@ -1,0 +1,41 @@
+// Nested instantiations: Option[Option[int]] in all three shapes, and a Result over an array and a struct.
+// expect-stdout:
+// 1
+// some none
+// none
+// a
+// b
+// 3
+struct Point { x: int, y: int }
+
+fn show(o: Option[Option[int]]) {
+    match o {
+        Option::Some(inner) => {
+            match inner {
+                Option::Some(n) => print(n),
+                Option::None => print("some none"),
+            }
+        }
+        Option::None => print("none"),
+    }
+}
+
+fn show_result(r: Result[[string], Point]) {
+    match r {
+        Result::Ok(words) => {
+            for w in words {
+                print(w);
+            }
+        }
+        Result::Err(p) => print(p.x + p.y),
+    }
+}
+
+fn main(): int {
+    show(Option::Some(Option::Some(1)));
+    show(Option::Some(Option::None));
+    show(Option::None);
+    show_result(Result::Ok(["a", "b"]));
+    show_result(Result::Err(Point { x: 1, y: 2 }));
+    return 0;
+}

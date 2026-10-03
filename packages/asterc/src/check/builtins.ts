@@ -1,5 +1,5 @@
 import { INT, STRING, VOID, type Type } from '../types/type.js';
-import type { BuiltinName, TEnum } from './types.js';
+import type { BuiltinName } from './types.js';
 
 export interface Signature {
   params: Type[];
@@ -12,9 +12,11 @@ const SPECIAL_BUILTINS: ReadonlySet<string> = new Set<SpecialBuiltin>(['print', 
 
 export type SignatureBuiltin = Exclude<BuiltinName, SpecialBuiltin>;
 
-/** The predeclared `enum ReadResult { Ok(string), Err(string) }` that `read_file` returns. */
-export const READ_RESULT = 'ReadResult';
-export const READ_RESULT_TYPE: Type = { kind: 'enum', name: READ_RESULT };
+/** The predeclared generic enums. Their names are reserved. */
+export const OPTION = 'Option';
+export const RESULT = 'Result';
+/** Checked as if every program began with it. */
+export const PRELUDE_SOURCE = 'enum Option[T] { Some(T), None }\nenum Result[T, E] { Ok(T), Err(E) }\n';
 
 export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   byte_at: { params: [STRING, INT], returnType: INT },
@@ -23,7 +25,8 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   panic: { params: [STRING], returnType: VOID },
   exit: { params: [INT], returnType: VOID },
   read_stdin: { params: [], returnType: STRING },
-  read_file: { params: [STRING], returnType: READ_RESULT_TYPE },
+  // The checker types read_file's call as Result[string, string].
+  read_file: { params: [STRING], returnType: VOID },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
@@ -32,16 +35,4 @@ export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
 
 export function isBuiltin(name: string): name is BuiltinName {
   return SPECIAL_BUILTINS.has(name) || isSignatureBuiltin(name);
-}
-
-/** A fresh copy of ReadResult's declaration, for one program's enum table. */
-export function readResultEnum(): TEnum {
-  return {
-    name: READ_RESULT,
-    payloadFree: false,
-    variants: [
-      { name: 'Ok', tag: 0, payload: [STRING] },
-      { name: 'Err', tag: 1, payload: [STRING] },
-    ],
-  };
 }

@@ -1,0 +1,29 @@
+// expect-stdout:
+// ok: data
+// err: bad input
+// held: ok
+fn describe(r: Result[string, string]): string {
+    return match r {
+        Result::Ok(s) => "ok: " + s,
+        Result::Err(e) => "err: " + e,
+    };
+}
+
+fn fail(msg: string): Result[string, string] {
+    return Result::Err(msg);
+}
+
+struct Holder {
+    result: Result[string, string],
+}
+
+fn main(): int {
+    print(describe(Result::Ok("data")));
+    print(describe(fail("bad input")));
+    let h: Holder = Holder { result: Result::Ok("") };
+    match h.result {
+        Result::Ok(_) => print("held: ok"),
+        Result::Err(_) => print("held: err"),
+    }
+    return 0;
+}
