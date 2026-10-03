@@ -1,4 +1,5 @@
-import type { BuiltinName, Type } from './types.js';
+import { INT, STRING, VOID, type Type } from '../types/type.js';
+import type { BuiltinName } from './types.js';
 
 export interface Signature {
   params: Type[];
@@ -9,11 +10,11 @@ export interface Signature {
 export type SignatureBuiltin = Exclude<BuiltinName, 'print'>;
 
 export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
-  len: { params: ['string'], returnType: 'int' },
-  byte_at: { params: ['string', 'int'], returnType: 'int' },
-  substring: { params: ['string', 'int', 'int'], returnType: 'string' },
-  int_to_string: { params: ['int'], returnType: 'string' },
-  panic: { params: ['string'], returnType: 'void' },
+  len: { params: [STRING], returnType: INT },
+  byte_at: { params: [STRING, INT], returnType: INT },
+  substring: { params: [STRING, INT, INT], returnType: STRING },
+  int_to_string: { params: [INT], returnType: STRING },
+  panic: { params: [STRING], returnType: VOID },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {

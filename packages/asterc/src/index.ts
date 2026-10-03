@@ -2,6 +2,7 @@ export const VERSION = '0.0.0';
 
 export * from './diagnostics/source.js';
 export * from './diagnostics/diagnostic.js';
+export * from './types/type.js';
 export * from './lexer/token.js';
 export * from './lexer/lexer.js';
 export type * from './ast/ast.js';

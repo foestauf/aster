@@ -3,6 +3,7 @@ import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
+import { typeToString } from '../types/type.js';
 import { check } from './checker.js';
 
 const MAIN = 'fn main(): int { return 0; }\n';
@@ -91,7 +92,7 @@ describe('check: variables and scopes', () => {
     const { program } = checkText(`${MAIN}fn f(a: int): int { let b: int = a; { let b: int = 2; } return b; }`);
     const f = program.functions[1];
     expect(f.params.map((l) => l.id)).toEqual([0]);
-    expect(f.locals.map((l) => [l.id, l.name, l.type, l.mutable])).toEqual([
+    expect(f.locals.map((l) => [l.id, l.name, typeToString(l.type), l.mutable])).toEqual([
       [0, 'a', 'int', false],
       [1, 'b', 'int', false],
       [2, 'b', 'int', false],

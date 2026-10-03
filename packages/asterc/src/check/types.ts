@@ -1,7 +1,5 @@
 import type { BinaryOp, UnaryOp } from '../ast/ast.js';
-
-/** `error` marks an expression whose type could not be determined; rules involving it are suppressed. */
-export type Type = 'int' | 'bool' | 'string' | 'void' | 'error';
+import type { Type } from '../types/type.js';
 
 export type BuiltinName = 'print' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic';
 

@@ -1,5 +1,6 @@
 import type { BinaryOp } from '../ast/ast.js';
-import type { TBlock, TExpr, TFunction, TStmt, Type, TypedProgram } from '../check/types.js';
+import type { TBlock, TExpr, TFunction, TStmt, TypedProgram } from '../check/types.js';
+import { BOOL, type Type } from '../types/type.js';
 import type { BasicBlock, Instr, IrBinOp, IrBuiltin, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from './ir.js';
 
 interface StringTable {
@@ -43,7 +44,7 @@ export function lower(program: TypedProgram): IrProgram {
 }
 
 function irType(t: Type): IrType {
-  if (t === 'error') throw new Error('internal: error type reached lowering');
+  if (t.kind === 'error') throw new Error('internal: error type reached lowering');
   return t;
 }
 
@@ -58,7 +59,7 @@ function lowerFunction(fn: TFunction, strings: StringTable): IrFunction {
   };
   lowerBlock(st, fn.body);
   // The checker guarantees non-void functions never fall off the end.
-  terminate(st, fn.returnType === 'void' ? { kind: 'ret', value: null } : { kind: 'unreachable' });
+  terminate(st, fn.returnType.kind === 'void' ? { kind: 'ret', value: null } : { kind: 'unreachable' });
   return {
     name: fn.name,
     paramCount: fn.params.length,
@@ -216,13 +217,13 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     }
     case 'call': {
       const args = e.args.map((a) => lowerValue(st, a));
-      const dst = e.type === 'void' ? null : newTemp(st, irType(e.type));
+      const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call', dst, fn: e.fn, args });
       return dst === null ? null : { kind: 'local', id: dst };
     }
     case 'builtin': {
       const args = e.args.map((a) => lowerValue(st, a));
-      const dst = e.type === 'void' ? null : newTemp(st, irType(e.type));
+      const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
       if (e.builtin === 'panic') terminate(st, { kind: 'unreachable' });
       return dst === null ? null : { kind: 'local', id: dst };
@@ -250,7 +251,7 @@ function lowerShortCircuit(st: FnState, op: '&&' | '||', left: TExpr, right: TEx
   const l = lowerValue(st, left);
   const rhs = newLabel(st, op === '&&' ? 'and_rhs' : 'or_rhs');
   const end = newLabel(st, op === '&&' ? 'and_end' : 'or_end');
-  const dst = newTemp(st, 'bool');
+  const dst = newTemp(st, irType(BOOL));
   emit(st, { kind: 'copy', dst, src: l });
   terminate(
     st,
@@ -265,7 +266,7 @@ function lowerShortCircuit(st: FnState, op: '&&' | '||', left: TExpr, right: TEx
 
 function binOp(op: BinaryOp, operandType: Type): IrBinOp {
   if (op === '&&' || op === '||') throw new Error('internal: short-circuit operator in binOp');
-  if (operandType === 'string') {
+  if (operandType.kind === 'string') {
     if (op === '+') return 'concat';
     if (op === '==') return 'str_eq';
     if (op === '!=') return 'str_ne';
@@ -275,6 +276,6 @@ function binOp(op: BinaryOp, operandType: Type): IrBinOp {
 
 function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
   if (e.builtin !== 'print') return e.builtin;
-  const t = e.args[0].type;
+  const t = e.args[0].type.kind;
   return t === 'int' ? 'print_int' : t === 'bool' ? 'print_bool' : 'print_string';
 }

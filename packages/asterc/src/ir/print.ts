@@ -1,4 +1,5 @@
 import type { Instr, IrFunction, IrLocal, IrProgram, Operand, Terminator } from './ir.js';
+import { typeToString } from '../types/type.js';
 
 export function printIr(program: IrProgram): string {
   const parts: string[] = [];
@@ -12,7 +13,7 @@ export function printIr(program: IrProgram): string {
 export function printIrFunction(fn: IrFunction): string {
   const lines: string[] = [];
   const params = fn.locals.slice(0, fn.paramCount).map(localDecl).join(', ');
-  lines.push(`fn ${fn.name}(${params}): ${fn.returnType}`);
+  lines.push(`fn ${fn.name}(${params}): ${typeToString(fn.returnType)}`);
   for (const local of fn.locals.slice(fn.paramCount)) lines.push(`  local ${localDecl(local)}`);
   for (const block of fn.blocks) {
     lines.push(`${block.label}:`);
@@ -22,7 +23,7 @@ export function printIrFunction(fn: IrFunction): string {
   return lines.join('\n') + '\n';
 }
 
-const localDecl = (l: IrLocal): string => `%${l.id}${l.name === null ? '' : ` ${l.name}`}: ${l.type}`;
+const localDecl = (l: IrLocal): string => `%${l.id}${l.name === null ? '' : ` ${l.name}`}: ${typeToString(l.type)}`;
 
 function operand(o: Operand): string {
   switch (o.kind) {

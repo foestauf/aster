@@ -1,8 +1,32 @@
 import type { Instr, IrBinOp, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from '../../ir/ir.js';
 
-const C_TYPES: Record<IrType, string> = { int: 'int64_t', bool: 'bool', string: 'aster_string', void: 'void' };
-const ZERO_VALUES: Record<IrType, string> = { int: '0', bool: 'false', string: '{0}', void: '' };
 const INT64_MIN = -(2n ** 63n);
+
+function cType(t: IrType): string {
+  switch (t.kind) {
+    case 'int':
+      return 'int64_t';
+    case 'bool':
+      return 'bool';
+    case 'string':
+      return 'aster_string';
+    case 'void':
+      return 'void';
+  }
+}
+
+function zeroValue(t: IrType): string {
+  switch (t.kind) {
+    case 'int':
+      return '0';
+    case 'bool':
+      return 'false';
+    case 'string':
+      return '{0}';
+    case 'void':
+      return '';
+  }
+}
 
 const BINOPS: Record<IrBinOp, (a: string, b: string) => string> = {
   add: (a, b) => `aster_rt_add(${a}, ${b})`,
@@ -54,14 +78,14 @@ export function stringLiteral(value: string): string {
 }
 
 function signature(fn: IrFunction): string {
-  const params = fn.locals.slice(0, fn.paramCount).map((l) => `${C_TYPES[l.type]} ${mangleLocal(l)}`);
-  return `${C_TYPES[fn.returnType]} ${mangleFn(fn.name)}(${params.length > 0 ? params.join(', ') : 'void'})`;
+  const params = fn.locals.slice(0, fn.paramCount).map((l) => `${cType(l.type)} ${mangleLocal(l)}`);
+  return `${cType(fn.returnType)} ${mangleFn(fn.name)}(${params.length > 0 ? params.join(', ') : 'void'})`;
 }
 
 function emitFunction(fn: IrFunction): string[] {
   const lines = [`${signature(fn)} {`];
   const locals = fn.locals.slice(fn.paramCount);
-  for (const l of locals) lines.push(`    ${C_TYPES[l.type]} ${mangleLocal(l)} = ${ZERO_VALUES[l.type]};`);
+  for (const l of locals) lines.push(`    ${cType(l.type)} ${mangleLocal(l)} = ${zeroValue(l.type)};`);
   for (const l of locals) lines.push(`    (void)${mangleLocal(l)};`);
   fn.blocks.forEach((block, i) => {
     // The entry block is never a jump target, so it gets no label (avoids -Wunused-label).

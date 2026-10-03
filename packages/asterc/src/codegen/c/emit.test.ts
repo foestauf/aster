@@ -29,8 +29,8 @@ describe('stringLiteral', () => {
 describe('mangling', () => {
   it('prefixes functions and numbers locals', () => {
     expect(mangleFn('printf')).toBe('aster_fn_printf');
-    expect(mangleLocal({ id: 3, name: 'int', type: 'int' })).toBe('l3_int');
-    expect(mangleLocal({ id: 4, name: null, type: 'bool' })).toBe('l4');
+    expect(mangleLocal({ id: 3, name: 'int', type: { kind: 'int' } })).toBe('l3_int');
+    expect(mangleLocal({ id: 4, name: null, type: { kind: 'bool' } })).toBe('l4');
   });
 });
 

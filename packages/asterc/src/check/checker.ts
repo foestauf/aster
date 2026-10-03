@@ -1,20 +1,22 @@
 import type { BinaryExpr, BinaryOp, Block, CallExpr, Expr, FnDecl, IfStmt, Program, Stmt, TypeRef } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
+import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
 import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
-import type { Local, TBlock, TExpr, TFunction, TStmt, Type, TypedProgram } from './types.js';
+import type { Local, TBlock, TExpr, TFunction, TStmt, TypedProgram } from './types.js';
 
 export interface CheckResult {
   program: TypedProgram;
   diagnostics: Diagnostic[];
 }
 
-interface Sink {
+/** State shared by the whole program check. */
+interface Env {
   diagnostics: Diagnostic[];
 }
 
 /** Per-function checking state. */
-interface Ctx extends Sink {
+interface Ctx extends Env {
   signatures: Map<string, Signature>;
   returnType: Type;
   locals: Local[];
@@ -28,61 +30,69 @@ interface Checked<T> {
   diverges: boolean;
 }
 
-const TYPE_NAMES: ReadonlySet<string> = new Set(['int', 'bool', 'string', 'void']);
+const PRIMITIVES: ReadonlyMap<string, Type> = new Map<string, Type>([
+  ['int', INT],
+  ['bool', BOOL],
+  ['string', STRING],
+  ['void', VOID],
+]);
 
-const report = (sink: Sink, message: string, span: Span): void => {
-  sink.diagnostics.push({ message, span });
+const report = (env: Env, message: string, span: Span): void => {
+  env.diagnostics.push({ message, span });
 };
 
-const errorExpr = (): TExpr => ({ kind: 'int', type: 'error', value: 0n });
+const isError = (t: Type): boolean => t.kind === 'error';
 
-function resolveType(sink: Sink, ref: TypeRef): Type {
-  if (TYPE_NAMES.has(ref.name)) return ref.name as Type;
-  report(sink, `unknown type '${ref.name}'`, ref.span);
-  return 'error';
+const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
+
+function resolveType(env: Env, ref: TypeRef): Type {
+  const primitive = PRIMITIVES.get(ref.name);
+  if (primitive) return primitive;
+  report(env, `unknown type '${ref.name}'`, ref.span);
+  return ERROR;
 }
 
 export function check(program: Program): CheckResult {
-  const sink: Sink = { diagnostics: [] };
+  const env: Env = { diagnostics: [] };
 
   // Pass 1: collect signatures so functions can be called before their declaration.
   const signatures = new Map<string, Signature>();
   const declared: { decl: FnDecl; sig: Signature }[] = [];
   for (const decl of program.functions) {
     if (isBuiltin(decl.name)) {
-      report(sink, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
+      report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
       continue;
     }
     if (signatures.has(decl.name)) {
-      report(sink, `duplicate function '${decl.name}'`, decl.nameSpan);
+      report(env, `duplicate function '${decl.name}'`, decl.nameSpan);
       continue;
     }
     const params = decl.params.map((p) => {
-      const type = resolveType(sink, p.type);
-      if (type !== 'void') return type;
-      report(sink, 'parameter cannot have type void', p.type.span);
-      return 'error';
+      const type = resolveType(env, p.type);
+      if (type.kind !== 'void') return type;
+      report(env, 'parameter cannot have type void', p.type.span);
+      return ERROR;
     });
-    const sig: Signature = { params, returnType: decl.returnType ? resolveType(sink, decl.returnType) : 'void' };
+    const sig: Signature = { params, returnType: decl.returnType ? resolveType(env, decl.returnType) : VOID };
     signatures.set(decl.name, sig);
     declared.push({ decl, sig });
   }
 
   const main = declared.find((d) => d.decl.name === 'main');
   if (!main) {
-    report(sink, "missing 'fn main(): int'", { start: 0, end: 0 });
-  } else if (main.sig.params.length !== 0 || main.sig.returnType !== 'int') {
-    report(sink, "'main' must have signature 'fn main(): int'", main.decl.nameSpan);
+    report(env, "missing 'fn main(): int'", { start: 0, end: 0 });
+  } else if (main.sig.params.length !== 0 || main.sig.returnType.kind !== 'int') {
+    report(env, "'main' must have signature 'fn main(): int'", main.decl.nameSpan);
   }
 
   // Pass 2: check bodies.
-  const functions = declared.map(({ decl, sig }) => checkFunction(sink, signatures, decl, sig));
-  return { program: { functions }, diagnostics: sink.diagnostics };
+  const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
+  return { program: { functions }, diagnostics: env.diagnostics };
 }
 
-function checkFunction(sink: Sink, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
+function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
   const ctx: Ctx = {
-    diagnostics: sink.diagnostics,
+    ...env,
     signatures,
     returnType: sig.returnType,
     locals: [],
@@ -91,7 +101,7 @@ function checkFunction(sink: Sink, signatures: Map<string, Signature>, decl: FnD
   };
   const params = decl.params.map((p, i) => declare(ctx, p.name, p.nameSpan, sig.params[i], false));
   const body = checkBlock(ctx, decl.body);
-  if (!body.diverges && sig.returnType !== 'void' && sig.returnType !== 'error') {
+  if (!body.diverges && sig.returnType.kind !== 'void' && !isError(sig.returnType)) {
     report(ctx, `function '${decl.name}' is missing a return on some paths`, decl.nameSpan);
   }
   return { name: decl.name, params, locals: ctx.locals, returnType: sig.returnType, body: body.node };
@@ -117,13 +127,15 @@ function lookup(ctx: Ctx, name: string): Local | undefined {
 const isFunctionName = (ctx: Ctx, name: string): boolean => ctx.signatures.has(name) || isBuiltin(name);
 
 function expectType(ctx: Ctx, expected: Type, actual: TExpr, span: Span): void {
-  if (expected === 'error' || actual.type === 'error' || expected === actual.type) return;
-  report(ctx, `type mismatch: expected ${expected}, found ${actual.type}`, span);
+  if (isError(expected) || isError(actual.type) || typeEquals(expected, actual.type)) return;
+  report(ctx, `type mismatch: expected ${typeToString(expected)}, found ${typeToString(actual.type)}`, span);
 }
 
 function checkCondition(ctx: Ctx, expr: Expr): TExpr {
   const cond = checkExpr(ctx, expr);
-  if (cond.type !== 'bool' && cond.type !== 'error') report(ctx, `condition must be bool, found ${cond.type}`, expr.span);
+  if (cond.type.kind !== 'bool' && !isError(cond.type)) {
+    report(ctx, `condition must be bool, found ${typeToString(cond.type)}`, expr.span);
+  }
   return cond;
 }
 
@@ -146,9 +158,9 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
   switch (stmt.kind) {
     case 'let': {
       let type = resolveType(ctx, stmt.type);
-      if (type === 'void') {
+      if (type.kind === 'void') {
         report(ctx, 'variable cannot have type void', stmt.type.span);
-        type = 'error';
+        type = ERROR;
       }
       const init = checkExpr(ctx, stmt.init);
       expectType(ctx, type, init, stmt.init.span);
@@ -189,13 +201,13 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
     }
     case 'return': {
       if (stmt.value === null) {
-        if (ctx.returnType !== 'void' && ctx.returnType !== 'error') {
-          report(ctx, `missing return value: expected ${ctx.returnType}`, stmt.span);
+        if (ctx.returnType.kind !== 'void' && !isError(ctx.returnType)) {
+          report(ctx, `missing return value: expected ${typeToString(ctx.returnType)}`, stmt.span);
         }
         return { node: { kind: 'return', value: null }, diverges: true };
       }
       const value = checkExpr(ctx, stmt.value);
-      if (ctx.returnType === 'void') report(ctx, 'void function cannot return a value', stmt.value.span);
+      if (ctx.returnType.kind === 'void') report(ctx, 'void function cannot return a value', stmt.value.span);
       else expectType(ctx, ctx.returnType, value, stmt.value.span);
       return { node: { kind: 'return', value }, diverges: true };
     }
@@ -233,11 +245,11 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
 function checkExpr(ctx: Ctx, expr: Expr): TExpr {
   switch (expr.kind) {
     case 'int':
-      return { kind: 'int', type: 'int', value: expr.value };
+      return { kind: 'int', type: INT, value: expr.value };
     case 'string':
-      return { kind: 'string', type: 'string', value: expr.value };
+      return { kind: 'string', type: STRING, value: expr.value };
     case 'bool':
-      return { kind: 'bool', type: 'bool', value: expr.value };
+      return { kind: 'bool', type: BOOL, value: expr.value };
     case 'name': {
       const local = lookup(ctx, expr.name);
       if (local) return { kind: 'local', type: local.type, local };
@@ -249,10 +261,10 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
     }
     case 'unary': {
       const operand = checkExpr(ctx, expr.operand);
-      if (operand.type === 'error') return errorExpr();
-      const want: Type = expr.op === '-' ? 'int' : 'bool';
-      if (operand.type !== want) {
-        report(ctx, `operator '${expr.op}' cannot be applied to ${operand.type}`, expr.span);
+      if (isError(operand.type)) return errorExpr();
+      const want = expr.op === '-' ? INT : BOOL;
+      if (!typeEquals(operand.type, want)) {
+        report(ctx, `operator '${expr.op}' cannot be applied to ${typeToString(operand.type)}`, expr.span);
         return errorExpr();
       }
       return { kind: 'unary', type: want, op: expr.op, operand };
@@ -265,12 +277,12 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
       const cond = checkCondition(ctx, expr.cond);
       const then = checkExpr(ctx, expr.then);
       const other = checkExpr(ctx, expr.else);
-      if (then.type === 'error' || other.type === 'error') return errorExpr();
-      if (then.type !== other.type) {
-        report(ctx, `if branches have different types: ${then.type} and ${other.type}`, expr.span);
+      if (isError(then.type) || isError(other.type)) return errorExpr();
+      if (!typeEquals(then.type, other.type)) {
+        report(ctx, `if branches have different types: ${typeToString(then.type)} and ${typeToString(other.type)}`, expr.span);
         return errorExpr();
       }
-      if (then.type === 'void') {
+      if (then.type.kind === 'void') {
         report(ctx, 'if expression cannot have type void', expr.span);
         return errorExpr();
       }
@@ -280,35 +292,40 @@ function checkExpr(ctx: Ctx, expr: Expr): TExpr {
 }
 
 function binaryResultType(op: BinaryOp, left: Type, right: Type): Type | null {
+  const same = typeEquals(left, right);
   switch (op) {
     case '+':
-      return left === right && (left === 'int' || left === 'string') ? left : null;
+      return same && (left.kind === 'int' || left.kind === 'string') ? left : null;
     case '-':
     case '*':
     case '/':
     case '%':
-      return left === 'int' && right === 'int' ? 'int' : null;
+      return left.kind === 'int' && right.kind === 'int' ? INT : null;
     case '<':
     case '<=':
     case '>':
     case '>=':
-      return left === 'int' && right === 'int' ? 'bool' : null;
+      return left.kind === 'int' && right.kind === 'int' ? BOOL : null;
     case '==':
     case '!=':
-      return left === right && left !== 'void' ? 'bool' : null;
+      return same && left.kind !== 'void' ? BOOL : null;
     case '&&':
     case '||':
-      return left === 'bool' && right === 'bool' ? 'bool' : null;
+      return left.kind === 'bool' && right.kind === 'bool' ? BOOL : null;
   }
 }
 
 function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   const left = checkExpr(ctx, expr.left);
   const right = checkExpr(ctx, expr.right);
-  if (left.type === 'error' || right.type === 'error') return errorExpr();
+  if (isError(left.type) || isError(right.type)) return errorExpr();
   const type = binaryResultType(expr.op, left.type, right.type);
   if (type === null) {
-    report(ctx, `operator '${expr.op}' cannot be applied to ${left.type} and ${right.type}`, expr.span);
+    report(
+      ctx,
+      `operator '${expr.op}' cannot be applied to ${typeToString(left.type)} and ${typeToString(right.type)}`,
+      expr.span,
+    );
     return errorExpr();
   }
   return { kind: 'binary', type, op: expr.op, left, right };
@@ -331,8 +348,8 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
       report(ctx, `function 'print' expects 1 argument, found ${args.length}`, expr.span);
       return errorExpr();
     }
-    if (args[0].type === 'void') report(ctx, 'cannot print a value of type void', expr.args[0].span);
-    return { kind: 'builtin', type: 'void', builtin: 'print', args };
+    if (args[0].type.kind === 'void') report(ctx, 'cannot print a value of type void', expr.args[0].span);
+    return { kind: 'builtin', type: VOID, builtin: 'print', args };
   }
 
   let sig: Signature | undefined;

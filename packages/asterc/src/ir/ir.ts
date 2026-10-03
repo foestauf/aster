@@ -1,10 +1,12 @@
+import type { Type } from '../types/type.js';
 /**
  * A deliberately non-SSA IR: every value lives in a typed, mutable local slot
  * (maps 1:1 onto LLVM alloca/load/store later), and control flow is explicit
  * basic blocks ending in exactly one terminator.
  */
 
-export type IrType = 'int' | 'bool' | 'string' | 'void';
+/** Every Aster type except the checker-only `error`. */
+export type IrType = Exclude<Type, { kind: 'error' }>;
 
 export interface IrLocal {
   id: number;
