@@ -79,7 +79,7 @@ fn utf8_len(c: int): int {
 fn is_keyword(w: string): bool {
     return match w {
         "fn" | "let" | "var" | "if" | "else" | "while" | "break" | "continue" | "return" | "true" | "false"
-            | "struct" | "for" | "in" | "enum" | "match" => true,
+            | "struct" | "for" | "in" | "enum" | "match" | "import" => true,
         _ => false,
     };
 }
@@ -303,10 +303,18 @@ struct EnumDecl {
     variants: [VariantDecl],
 }
 
+struct ImportDecl {
+    start: int,
+    end: int,
+    path_start: int,
+    path_end: int,
+}
+
 enum Item {
     Fn(FnDecl),
     Struct(StructDecl),
     Enum(EnumDecl),
+    Import(ImportDecl),
 }
 
 struct Block {
@@ -458,7 +466,7 @@ fn eat(p: Parser, kind: string): bool {
 }
 
 fn at_item(p: Parser): bool {
-    return at(p, "fn") || at(p, "struct") || at(p, "enum");
+    return at(p, "fn") || at(p, "struct") || at(p, "enum") || at(p, "import");
 }
 
 fn text(p: Parser, t: Token): string {
@@ -497,6 +505,8 @@ fn expect(p: Parser, kind: string): Option[Token] {
     var what: string = "'" + kind + "'";
     if kind == "ident" {
         what = "identifier";
+    } else if kind == "string" {
+        what = "string literal";
     }
     let t: Token = peek(p);
     fail(p, "expected " + what + ", found " + describe(p, t), t);
@@ -539,7 +549,7 @@ fn parse_program(p: Parser): [Item] {
     while !at(p, "eof") {
         if !at_item(p) {
             let t: Token = peek(p);
-            error_at(p, "expected 'fn', 'struct' or 'enum', found " + describe(p, t), t.start, t.end);
+            error_at(p, "expected 'fn', 'struct', 'enum' or 'import', found " + describe(p, t), t.start, t.end);
             sync_to_item(p);
             continue;
         }
@@ -547,8 +557,10 @@ fn parse_program(p: Parser): [Item] {
             parse_function(p)
         } else if at(p, "struct") {
             parse_struct(p)
-        } else {
+        } else if at(p, "enum") {
             parse_enum(p)
+        } else {
+            parse_import(p)
         };
         match item {
             Option::Some(i) => push(items, i),
@@ -558,7 +570,7 @@ fn parse_program(p: Parser): [Item] {
     return items;
 }
 
-// Skips to the next `fn`, `struct`, `enum` or EOF. Consumes at least one token unless already at an item.
+// Skips to the next `fn`, `struct`, `enum`, `import` or EOF. Consumes at least one token unless already at an item.
 fn sync_to_item(p: Parser) {
     if !at_item(p) {
         advance(p);
@@ -645,6 +657,14 @@ fn parse_enum(p: Parser): Option[Item] {
     }
     let close: Token = expect(p, "}")?;
     return Option::Some(Item::Enum(EnumDecl { start: kw.start, end: close.end, name: ident_of(p, name), params: params, variants: variants }));
+}
+
+// `import "path";`
+fn parse_import(p: Parser): Option[Item] {
+    let kw: Token = expect(p, "import")?;
+    let path: Token = expect(p, "string")?;
+    let semi: Token = expect(p, ";")?;
+    return Option::Some(Item::Import(ImportDecl { start: kw.start, end: semi.end, path_start: path.start, path_end: path.end }));
 }
 
 fn parse_type(p: Parser): Option[TypeExpr] {
@@ -1450,6 +1470,9 @@ fn print_item(src: string, item: Item) {
             for field in s.fields {
                 print_typed("field", 1, field);
             }
+        }
+        Item::Import(i) => {
+            line(0, "import " + span(i.start, i.end) + " " + substring(src, i.path_start, i.path_end));
         }
         Item::Enum(e) => {
             line(0, "enum " + span(e.start, e.end) + " " + named(e.name));

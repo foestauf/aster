@@ -1,0 +1,15 @@
+import "before.aster";
+fn main() {
+}
+import "a\tb.aster";
+struct P {
+    x: int,
+}
+import "between.aster";
+enum E {
+    A,
+}
+import;
+import x;
+import "last.aster";
+import "a"

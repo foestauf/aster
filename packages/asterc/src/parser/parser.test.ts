@@ -186,7 +186,7 @@ describe('statements and functions', () => {
 
   it('recovers from junk at the top level', () => {
     const r = parseText('let x: int = 1;\nfn main(): int { return 0; }');
-    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', 'struct' or 'enum', found 'let'"]);
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', 'struct', 'enum' or 'import', found 'let'"]);
     expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
   });
 

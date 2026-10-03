@@ -109,7 +109,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
     const imports: ImportDecl[] = [];
     while (!at('eof')) {
       if (!atItem()) {
-        diagnostics.push({ message: `expected 'fn', 'struct' or 'enum', found ${describe(peek())}`, span: peek().span });
+        diagnostics.push({ message: `expected 'fn', 'struct', 'enum' or 'import', found ${describe(peek())}`, span: peek().span });
         syncToItem();
         continue;
       }

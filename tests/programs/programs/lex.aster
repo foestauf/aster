@@ -97,7 +97,7 @@ fn utf8_len(c: int): int {
 fn is_keyword(w: string): bool {
     return match w {
         "fn" | "let" | "var" | "if" | "else" | "while" | "break" | "continue" | "return" | "true" | "false"
-            | "struct" | "for" | "in" | "enum" | "match" => true,
+            | "struct" | "for" | "in" | "enum" | "match" | "import" => true,
         _ => false,
     };
 }
