@@ -1,0 +1,7 @@
+// expect-error: 4:6 'Option' is a builtin type and cannot be redefined
+// expect-error: 5:8 'Result' is a builtin type and cannot be redefined
+// expect-error: 6:4 'Option' is a builtin type and cannot be redefined
+enum Option { A }
+struct Result { x: int }
+fn Option(): int { return 0; }
+fn main(): int { return 0; }

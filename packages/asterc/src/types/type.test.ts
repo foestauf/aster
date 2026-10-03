@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString } from './type.js';
+import { BOOL, ERROR, INT, STRING, VOID, instanceName, typeEquals, typeToString } from './type.js';
 
 describe('types', () => {
   it('compares primitive types by kind', () => {
@@ -24,5 +24,10 @@ describe('types', () => {
     expect(typeEquals({ kind: 'enum', name: 'E' }, { kind: 'enum', name: 'F' })).toBe(false);
     expect(typeEquals({ kind: 'enum', name: 'E' }, { kind: 'struct', name: 'E' })).toBe(false);
     expect(typeToString({ kind: 'array', elem: { kind: 'enum', name: 'Kind' } })).toBe('[Kind]');
+  });
+
+  it('names instantiations by their type string', () => {
+    expect(instanceName('Result', [{ kind: 'array', elem: INT }, { kind: 'struct', name: 'P' }])).toBe('Result[[int], P]');
+    expect(instanceName('Option', [INT])).toBe('Option[int]');
   });
 });

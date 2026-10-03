@@ -1,0 +1,16 @@
+// expect-error: 9:18 'T' is not generic
+// expect-error: 10:9 'Option' expects 1 type argument, got 2
+// expect-error: 11:9 'Result' expects 2 type arguments, got 1
+// expect-error: 12:9 'Option' expects 1 type argument, got 0
+// expect-error: 13:9 'Point' is not generic
+// expect-error: 14:9 'int' is not generic
+// expect-error: 15:16 type argument cannot be void
+struct Point { x: int }
+enum Wrap[T] { W(T[int]) }
+fn a(x: Option[int, bool]) {}
+fn b(x: Result[int]) {}
+fn c(x: Option) {}
+fn d(x: Point[int]) {}
+fn e(x: int[bool]) {}
+fn f(x: Option[void]) {}
+fn main(): int { return 0; }

@@ -16,6 +16,12 @@ export type SignatureBuiltin = Exclude<BuiltinName, SpecialBuiltin>;
 export const READ_RESULT = 'ReadResult';
 export const READ_RESULT_TYPE: Type = { kind: 'enum', name: READ_RESULT };
 
+/** The predeclared generic enums. Their names are reserved like ReadResult's. */
+export const OPTION = 'Option';
+export const RESULT = 'Result';
+/** Checked as if every program began with it. */
+export const PRELUDE_SOURCE = 'enum Option[T] { Some(T), None }\nenum Result[T, E] { Ok(T), Err(E) }\n';
+
 export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   byte_at: { params: [STRING, INT], returnType: INT },
   substring: { params: [STRING, INT, INT], returnType: STRING },

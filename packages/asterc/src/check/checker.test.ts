@@ -3,7 +3,7 @@ import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
-import { typeToString } from '../types/type.js';
+import { INT, typeToString, type Type } from '../types/type.js';
 import { check } from './checker.js';
 
 const MAIN = 'fn main(): int { return 0; }\n';
@@ -515,5 +515,72 @@ describe('eprint and exit', () => {
     const m = declared;
     expect(m('eprint')).toEqual(["'eprint' is a builtin function and cannot be redefined"]);
     expect(m('exit')).toEqual(["'exit' is a builtin function and cannot be redefined"]);
+  });
+});
+
+const conflict = (n: string) => `type parameter '${n}' conflicts with a type of the same name`;
+
+describe('generic enums', () => {
+  const LIST = 'enum List[T] { Cons(T, List[T]), Nil }\n';
+
+  it('instantiates a recursive generic enum once, by its type string', () => {
+    const { program, diagnostics } = checkText(`${LIST}fn f(x: List[int]) {}\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    const listInt: Type = { kind: 'enum', name: 'List[int]', generic: { base: 'List', args: [INT] } };
+    expect(program.enums).toEqual([
+      {
+        name: 'List[int]',
+        payloadFree: false,
+        variants: [
+          { name: 'Cons', tag: 0, payload: [INT, listInt] },
+          { name: 'Nil', tag: 1, payload: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('produces no enum for an unused template or the instantiations inside it', () => {
+    const { program, diagnostics } = checkText(`${LIST}enum W[T] { A(T, Option[int]) }\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    expect(program.enums).toEqual([]);
+  });
+
+  it('lists non-generic enums first, then instantiations in first-use order', () => {
+    const { program } = checkText(`enum E { A }\nfn f(x: Option[bool], y: List[int]) {}\n${LIST}enum F { B(Result[int, string]) }\n${MAIN}`);
+    expect(program.enums.map((e) => e.name)).toEqual(['E', 'F', 'Result[int, string]', 'Option[bool]', 'List[int]']);
+  });
+
+  it('reports errors in a generic enum once, however often it is instantiated', () => {
+    const { diagnostics } = checkText(`enum B[T] { A(T, Nope) }\nfn f(a: B[int], b: B[bool], c: B[int]) {}\n${MAIN}`);
+    expect(diagnostics.map((d) => d.message)).toEqual(["unknown type 'Nope'"]);
+  });
+
+  it('types nested instantiations and type parameters bound to arrays', () => {
+    const { program, diagnostics } = checkText(`fn f(x: Option[Option[[int]]]) {}\n${MAIN}`);
+    expect(diagnostics).toEqual([]);
+    expect(program.enums.map((e) => e.name)).toEqual(['Option[[int]]', 'Option[Option[[int]]]']);
+    expect(program.functions[0].params[0].type).toEqual({
+      kind: 'enum',
+      name: 'Option[Option[[int]]]',
+      generic: { base: 'Option', args: [{ kind: 'enum', name: 'Option[[int]]', generic: { base: 'Option', args: [{ kind: 'array', elem: INT }] } }] },
+    });
+  });
+
+  it('rejects type parameters that clash with builtin functions and templates', () => {
+    expect(messages(`enum E[len] { A(len) }\n${MAIN}`)).toEqual([conflict('len')]);
+    expect(messages(`${LIST}enum E[List] { A(List) }\n${MAIN}`)).toEqual([conflict('List')]);
+    expect(messages(`enum E[ReadResult] { A(ReadResult) }\n${MAIN}`)).toEqual([conflict('ReadResult')]);
+  });
+
+  it('shares the type namespace between templates, structs, enums and functions', () => {
+    expect(messages(`enum G[T] { A(T) }\nstruct G { x: int }\n${MAIN}`)).toEqual(["'G' is already declared as an enum"]);
+    expect(messages(`enum G[T] { A(T) }\nfn G() {}\n${MAIN}`)).toEqual(["'G' is already declared as an enum"]);
+    expect(messages(`enum G[T] { A(T) }\nenum G[U] { B(U) }\n${MAIN}`)).toEqual(["duplicate enum 'G'"]);
+    expect(messages(`struct Result { x: int }\n${MAIN}`)).toEqual(["'Result' is a builtin type and cannot be redefined"]);
+  });
+
+  it('reports expansion through a type argument nested in an array', () => {
+    expect(messages(`enum N[T] { A([N[Option[T]]]), B(T) }\n${MAIN}`)).toEqual(["generic enum 'N' expands infinitely"]);
+    expect(messages(`enum N[T, U] { A(N[U, T]), B(T, U) }\n${MAIN}`)).toEqual([]);
   });
 });

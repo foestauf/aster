@@ -1,0 +1,18 @@
+// expect-error: 10:13 duplicate type parameter 'T'
+// expect-error: 11:11 type parameter 'int' conflicts with a type of the same name
+// expect-error: 12:13 type parameter 'Point' conflicts with a type of the same name
+// expect-error: 13:10 type parameter 'Option' conflicts with a type of the same name
+// expect-error: 14:16 type parameter 'U' is never used
+// expect-error: 15:23 unknown type 'Nope'
+// expect-error: 15:32 payload cannot have type void
+// expect-error: 17:15 unknown type 'T'
+struct Point { x: int }
+enum Dup[T, T] { A(T) }
+enum Prim[int] { A(int) }
+enum Shadow[Point] { A(Point) }
+enum Opt[Option] { A(Option) }
+enum Unused[T, U] { A(T) }
+enum Broken[T] { A(T, Nope), B(void) }
+fn uses_broken(a: Broken[int], b: Broken[bool]) {}
+fn outside(x: T) {}
+fn main(): int { return 0; }
