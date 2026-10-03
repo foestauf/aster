@@ -1,0 +1,7 @@
+// expect-error: 4:5 function 'read_stdin' expects 0 arguments, found 1
+// expect-error: 5:18 type mismatch: expected int, found string
+fn main(): int {
+    read_stdin(1);
+    let n: int = read_stdin();
+    return n;
+}

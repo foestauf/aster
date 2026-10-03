@@ -44,7 +44,7 @@ export type IrUnOp = 'neg' | 'not';
 
 export type IrBuiltin =
   | 'print_int' | 'print_bool' | 'print_string'
-  | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic';
+  | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'read_stdin';
 
 export type Instr =
   | { kind: 'copy'; dst: number; src: Operand }
@@ -69,7 +69,9 @@ export type Instr =
   /** Reads an enum value's tag as an int. */
   | { kind: 'enum_tag'; dst: number; value: Operand }
   /** Reads payload slot `index` of a value whose tag is known to be `tag`. */
-  | { kind: 'enum_field'; dst: number; value: Operand; enum: string; variant: string; tag: number; index: number };
+  | { kind: 'enum_field'; dst: number; value: Operand; enum: string; variant: string; tag: number; index: number }
+  /** Reads the file at `path`. Sets `ok`, and sets `text` to the contents when `ok` is true, else to the error message. */
+  | { kind: 'read_file'; ok: number; text: number; path: Operand };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }

@@ -5,7 +5,9 @@ import {
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
 import { BOOL, ERROR, INT, STRING, VOID, typeEquals, typeToString, type Type } from '../types/type.js';
-import { BUILTIN_SIGNATURES, isBuiltin, isSignatureBuiltin, type Signature, type SignatureBuiltin } from './builtins.js';
+import {
+  BUILTIN_SIGNATURES, READ_RESULT, isBuiltin, isSignatureBuiltin, readResultEnum, type Signature, type SignatureBuiltin,
+} from './builtins.js';
 import type { Local, TBlock, TEnum, TExpr, TField, TFunction, TPattern, TPlace, TStmt, TStruct, TVariant, TypedProgram } from './types.js';
 
 export interface CheckResult {
@@ -20,6 +22,8 @@ interface Env {
   structs: Map<string, TStruct>;
   /** Every accepted enum, by name. */
   enums: Map<string, TEnum>;
+  /** Predeclared types the program mentions; only these reach the typed program. Shared by every Ctx. */
+  usedBuiltinTypes: Set<string>;
 }
 
 /** Per-function checking state. */
@@ -48,6 +52,13 @@ const report = (env: Env, message: string, span: Span): void => {
   env.diagnostics.push({ message, span });
 };
 
+/** Records a mention of `name` when it is a predeclared type. */
+const markUsed = (env: Env, name: string): void => {
+  if (name === READ_RESULT) env.usedBuiltinTypes.add(name);
+};
+
+const builtinTypeMessage = (name: string): string => `'${name}' is a builtin type and cannot be redefined`;
+
 const isError = (t: Type): boolean => t.kind === 'error';
 
 const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
@@ -64,7 +75,10 @@ function resolveType(env: Env, ref: TypeExpr): Type {
   const primitive = PRIMITIVES.get(ref.name);
   if (primitive) return primitive;
   if (env.structs.has(ref.name)) return { kind: 'struct', name: ref.name };
-  if (env.enums.has(ref.name)) return { kind: 'enum', name: ref.name };
+  if (env.enums.has(ref.name)) {
+    markUsed(env, ref.name);
+    return { kind: 'enum', name: ref.name };
+  }
   report(env, `unknown type '${ref.name}'`, ref.span);
   return ERROR;
 }
@@ -90,6 +104,8 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
     const previous = env.structs.has(decl.name) ? 'struct' : env.enums.has(decl.name) ? 'enum' : null;
     if (PRIMITIVES.has(decl.name)) {
       report(env, `'${decl.name}' is a built-in type and cannot be redefined`, decl.nameSpan);
+    } else if (decl.name === READ_RESULT) {
+      report(env, builtinTypeMessage(decl.name), decl.nameSpan);
     } else if (isBuiltin(decl.name)) {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
     } else if (previous === decl.kind) {
@@ -139,14 +155,27 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
   return { structs: structs.map((s) => s.struct), enums: enums.map((e) => e.enumType) };
 }
 
+/** `fn main(): int`, or `fn main(args: [string]): int` with any parameter name. */
+const isMainSignature = (sig: Signature): boolean => {
+  if (sig.returnType.kind !== 'int') return false;
+  if (sig.params.length === 0) return true;
+  const [param] = sig.params;
+  return sig.params.length === 1 && param.kind === 'array' && param.elem.kind === 'string';
+};
+
 export function check(program: Program): CheckResult {
-  const env: Env = { diagnostics: [], structs: new Map(), enums: new Map() };
+  const readResult = readResultEnum();
+  const env: Env = { diagnostics: [], structs: new Map(), enums: new Map([[READ_RESULT, readResult]]), usedBuiltinTypes: new Set() };
   const { structs, enums } = collectTypes(env, program);
 
   // Pass 1: collect signatures so functions can be called before their declaration.
   const signatures = new Map<string, Signature>();
   const declared: { decl: FnDecl; sig: Signature }[] = [];
   for (const decl of program.functions) {
+    if (decl.name === READ_RESULT) {
+      report(env, builtinTypeMessage(decl.name), decl.nameSpan);
+      continue;
+    }
     if (isBuiltin(decl.name)) {
       report(env, `'${decl.name}' is a builtin function and cannot be redefined`, decl.nameSpan);
       continue;
@@ -174,13 +203,15 @@ export function check(program: Program): CheckResult {
   const main = declared.find((d) => d.decl.name === 'main');
   if (!main) {
     report(env, "missing 'fn main(): int'", { start: 0, end: 0 });
-  } else if (main.sig.params.length !== 0 || main.sig.returnType.kind !== 'int') {
-    report(env, "'main' must have signature 'fn main(): int'", main.decl.nameSpan);
+  } else if (!isMainSignature(main.sig)) {
+    report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", main.decl.nameSpan);
   }
 
   // Pass 2: check bodies.
   const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
-  return { program: { structs, enums, functions }, diagnostics: env.diagnostics };
+  // Checking the bodies above records which predeclared types the program mentions.
+  const allEnums = env.usedBuiltinTypes.has(READ_RESULT) ? [readResult, ...enums] : enums;
+  return { program: { structs, enums: allEnums, functions }, diagnostics: env.diagnostics };
 }
 
 function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
@@ -482,6 +513,7 @@ function resolveVariant(
     report(env, isType ? `'${enumName}' is not an enum` : `unknown enum '${enumName}'`, enumSpan);
     return null;
   }
+  markUsed(env, enumName);
   const variant = enumType.variants.find((v) => v.name === variantName);
   if (!variant) {
     report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
@@ -803,6 +835,7 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
+  if (builtin === 'read_file') markUsed(ctx, READ_RESULT);
   return builtin
     ? { kind: 'builtin', type: sig.returnType, builtin, args }
     : { kind: 'call', type: sig.returnType, fn: name, args };

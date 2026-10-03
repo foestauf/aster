@@ -1,0 +1,10 @@
+// expect-error: 6:11 cannot print a value of type ReadResult
+// expect-error: 7:19 cannot compare 'ReadResult' values
+// expect-error: 8:5 non-exhaustive match: missing 'ReadResult::Err'
+fn main(): int {
+    let r: ReadResult = ReadResult::Ok("x");
+    print(r);
+    let b: bool = r == r;
+    match r { ReadResult::Ok(_) => {} }
+    return 0;
+}

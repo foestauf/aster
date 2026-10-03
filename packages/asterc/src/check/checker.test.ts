@@ -38,8 +38,15 @@ describe('check: whole programs', () => {
   });
 
   it('checks the signature of main', () => {
-    expect(messages('fn main() { }')).toEqual(["'main' must have signature 'fn main(): int'"]);
-    expect(messages('fn main(a: int): int { return 0; }')).toEqual(["'main' must have signature 'fn main(): int'"]);
+    const bad = "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'";
+    expect(messages('fn main(args: [string]): int { return 0; }')).toEqual([]);
+    expect(messages('fn main(argv: [string]): int { return 0; }')).toEqual([]);
+    expect(messages('fn main() { }')).toEqual([bad]);
+    expect(messages('fn main(a: int): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: [int]): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: string): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(a: [string], b: int): int { return 0; }')).toEqual([bad]);
+    expect(messages('fn main(args: [string]) { }')).toEqual([bad]);
   });
 
   it('rejects duplicate and builtin-named functions', () => {
@@ -348,5 +355,36 @@ describe('check: match', () => {
 
   it('scopes binders to their arm', () => {
     expect(inFn('match e { E::B(n) => {} _ => {} }\nprint(n);')).toEqual(["undefined name 'n'"]);
+  });
+});
+
+describe('check: ReadResult', () => {
+  const STR = { kind: 'string' };
+
+  it('is a predeclared enum, included in the program only when mentioned', () => {
+    expect(checkText(MAIN).program.enums).toEqual([]);
+    const { program } = checkText('fn main(): int { let r: ReadResult = ReadResult::Err("e"); return 0; }');
+    expect(program.enums).toEqual([
+      {
+        name: 'ReadResult',
+        payloadFree: false,
+        variants: [
+          { name: 'Ok', tag: 0, payload: [STR] },
+          { name: 'Err', tag: 1, payload: [STR] },
+        ],
+      },
+    ]);
+  });
+
+  it('counts a variant expression alone as a mention, and comes before user enums', () => {
+    const { program } = checkText('enum A { X }\nfn main(): int { let a: A = A::X; ReadResult::Ok("x"); return 0; }');
+    expect(program.enums.map((e) => e.name)).toEqual(['ReadResult', 'A']);
+  });
+
+  it('cannot be redefined', () => {
+    const bad = "'ReadResult' is a builtin type and cannot be redefined";
+    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([bad]);
+    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([bad]);
+    expect(messages(`${MAIN}fn ReadResult() { }`)).toEqual([bad]);
   });
 });

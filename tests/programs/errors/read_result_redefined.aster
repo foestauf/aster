@@ -1,0 +1,9 @@
+// expect-error: 4:8 'ReadResult' is a builtin type and cannot be redefined
+// expect-error: 5:6 'ReadResult' is a builtin type and cannot be redefined
+// expect-error: 6:4 'ReadResult' is a builtin type and cannot be redefined
+struct ReadResult {}
+enum ReadResult { A }
+fn ReadResult() { }
+fn main(): int {
+    return 0;
+}

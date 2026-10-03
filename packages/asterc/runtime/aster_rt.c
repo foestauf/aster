@@ -1,5 +1,6 @@
 #include "aster_rt.h"
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,33 @@ static char *alloc_bytes(int64_t n) {
     char *p = malloc(n > 0 ? (size_t)n : 1);
     if (p == NULL) aster_rt_panic_cstr("out of memory");
     return p;
+}
+
+/* The text for a failed I/O call's saved errno. A stream can report an error without setting errno. */
+static const char *io_reason(int err) {
+    return err != 0 ? strerror(err) : "I/O error";
+}
+
+/*
+ * Reads `f` to EOF into a buffer that doubles as it fills, so it works whether or not the stream's size is known.
+ * Sets *ok to false when the stream reports an error; errno then holds the reason.
+ */
+static aster_string read_all(FILE *f, bool *ok) {
+    int64_t cap = 4096;
+    int64_t len = 0;
+    char *buf = alloc_bytes(cap);
+    for (;;) {
+        len += (int64_t)fread(buf + len, 1, (size_t)(cap - len), f);
+        if (len < cap) break; /* a short read means EOF or an error */
+        /* Doubling past SIZE_MAX would wrap; only reachable where size_t is narrower than 64 bits. */
+        if ((uint64_t)cap > SIZE_MAX / 2) aster_rt_panic_cstr("out of memory");
+        cap *= 2;
+        buf = realloc(buf, (size_t)cap);
+        if (buf == NULL) aster_rt_panic_cstr("out of memory");
+    }
+    *ok = !ferror(f);
+    aster_string s = { buf, len };
+    return s;
 }
 
 void *aster_rt_alloc(int64_t size) {
@@ -121,4 +149,64 @@ aster_string aster_rt_concat(aster_string a, aster_string b) {
 
 bool aster_rt_str_eq(aster_string a, aster_string b) {
     return a.len == b.len && (a.len == 0 || memcmp(a.ptr, b.ptr, (size_t)a.len) == 0);
+}
+
+aster_array aster_rt_args(int argc, char **argv) {
+    int64_t n = argc > 1 ? (int64_t)argc - 1 : 0;
+    aster_array a = aster_rt_array_new((int64_t)sizeof(aster_string), n);
+    for (int64_t i = 0; i < n; i++) {
+        const char *s = argv[i + 1];
+        aster_string arg = { s, (int64_t)strlen(s) };
+        *(aster_string *)aster_rt_array_at(a, i) = arg;
+    }
+    return a;
+}
+
+aster_string aster_rt_read_stdin(void) {
+    bool ok = true;
+    errno = 0;
+    aster_string s = read_all(stdin, &ok);
+    if (!ok) {
+        char msg[256];
+        snprintf(msg, sizeof msg, "cannot read stdin: %s", io_reason(errno));
+        aster_rt_panic_cstr(msg);
+    }
+    return s;
+}
+
+/* "<path>: <reason>", with the path cut at `path_len` bytes. */
+static aster_string path_error(aster_string path, int64_t path_len, const char *reason) {
+    int64_t reason_len = (int64_t)strlen(reason);
+    int64_t len = path_len + 2 + reason_len;
+    char *buf = alloc_bytes(len);
+    if (path_len > 0) memcpy(buf, path.ptr, (size_t)path_len);
+    memcpy(buf + path_len, ": ", 2);
+    memcpy(buf + path_len + 2, reason, (size_t)reason_len);
+    aster_string s = { buf, len };
+    return s;
+}
+
+aster_string aster_rt_read_file(aster_string path, bool *ok) {
+    const char *nul = path.len > 0 ? memchr(path.ptr, '\0', (size_t)path.len) : NULL;
+    if (nul != NULL) {
+        *ok = false;
+        return path_error(path, (int64_t)(nul - path.ptr), "invalid path");
+    }
+    char *cpath = alloc_bytes(path.len + 1);
+    if (path.len > 0) memcpy(cpath, path.ptr, (size_t)path.len);
+    cpath[path.len] = '\0';
+    errno = 0;
+    FILE *f = fopen(cpath, "rb");
+    int open_err = errno; /* before free(), which C11 allows to change errno */
+    free(cpath);
+    if (f == NULL) {
+        *ok = false;
+        return path_error(path, path.len, io_reason(open_err));
+    }
+    errno = 0;
+    aster_string contents = read_all(f, ok);
+    int err = errno;
+    fclose(f);
+    if (!*ok) return path_error(path, path.len, io_reason(err));
+    return contents;
 }

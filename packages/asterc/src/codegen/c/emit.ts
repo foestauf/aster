@@ -94,7 +94,12 @@ export function emitC(program: IrProgram): string {
   for (const fn of program.functions) out.push(`${signature(fn)};`);
   out.push('');
   for (const fn of program.functions) out.push(...emitFunction(fn, enums), '');
-  out.push('int main(void) {', '    return (int)aster_fn_main();', '}', '');
+  const mainTakesArgs = program.functions.some((fn) => fn.name === 'main' && fn.paramCount === 1);
+  if (mainTakesArgs) {
+    out.push('int main(int argc, char **argv) {', '    return (int)aster_fn_main(aster_rt_args(argc, argv));', '}', '');
+  } else {
+    out.push('int main(void) {', '    return (int)aster_fn_main();', '}', '');
+  }
   return out.join('\n');
 }
 
@@ -242,6 +247,8 @@ function emitInstr(fn: IrFunction, enums: EnumTable, instr: Instr): string {
       return assign(instr.dst, enumOf(fn, enums, instr.value).payloadFree ? op(instr.value) : `${op(instr.value)}->tag`);
     case 'array_pop':
       return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_pop_slot(${op(instr.array)})`));
+    case 'read_file':
+      return `${mangleLocal(fn.locals[instr.text])} = aster_rt_read_file(${op(instr.path)}, &${mangleLocal(fn.locals[instr.ok])});`;
   }
 }
 

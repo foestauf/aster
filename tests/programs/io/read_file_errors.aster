@@ -1,0 +1,19 @@
+// expect-stdout:
+// fixtures/missing.txt: No such file or directory
+// fixtures: Is a directory
+// fixtures/a: invalid path
+// ok
+fn show(r: ReadResult) {
+    match r {
+        ReadResult::Ok(_) => print("ok"),
+        ReadResult::Err(e) => print(e),
+    }
+}
+
+fn main(): int {
+    show(read_file("fixtures/missing.txt"));
+    show(read_file("fixtures"));
+    show(read_file("fixtures/a\0b"));
+    show(read_file("fixtures/empty.txt"));
+    return 0;
+}

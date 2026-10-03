@@ -40,6 +40,18 @@ describe('mangling', () => {
 });
 
 describe('emitC', () => {
+  it('reads files through the runtime into an ok flag and a text local', () => {
+    const c = cOf('fn main(): int { let r: ReadResult = read_file("x"); return 0; }');
+    expect(c).toMatch(/l\d+ = aster_rt_read_file\(aster_str_0, &l\d+\);/);
+    expect(c).toContain('typedef struct aster_E_ReadResult *aster_E_ReadResult;');
+  });
+
+  it('passes the arguments to a main that takes them', () => {
+    const c = cOf('fn main(args: [string]): int { return len(args); }');
+    expect(c).toContain('int main(int argc, char **argv) {\n    return (int)aster_fn_main(aster_rt_args(argc, argv));\n}\n');
+    expect(c).not.toContain('int main(void)');
+  });
+
   it('emits a complete translation unit', () => {
     expect(cOf('fn main(): int { let x: int = 10; print(x + 1); return 0; }')).toBe(
       [

@@ -1,4 +1,4 @@
-# Aster v0.2 Language Reference
+# Aster v0.3 Language Reference
 
 Aster is a small, statically typed, compiled language. It compiles to C and then to a native executable.
 
@@ -54,6 +54,8 @@ There are no implicit conversions. Array types are equal when their element type
 Structs and arrays are heap-allocated **references**. Assigning one, passing it to a function or returning it shares the same object, so a change made through one reference is visible through every other. There is no null: every struct literal sets every field. Nothing is freed; memory is reclaimed when the process exits.
 
 An **enum** declares variants, each with zero or more positional payload values: `enum Expr { Num(int), Add(Expr, Expr) }`. If no variant has a payload, the enum is *payload-free*: its values are plain tags that can be compared with `==`. Otherwise its values are heap-allocated references like structs, and a payload struct or array is shared, not copied. Enum types are equal when their names are equal.
+
+`ReadResult` is a predeclared enum, as if every program declared `enum ReadResult { Ok(string), Err(string) }`. It is what `read_file` returns, and it can be used like any other enum.
 
 ## Grammar
 
@@ -129,10 +131,10 @@ Notes:
 
 **Functions, structs and enums**
 - Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs and enums may refer to themselves and to each other.
-- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin.
+- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin. `ReadResult` is a builtin type and cannot be redefined.
 - Struct and enum names live in the type namespace. A local variable may share a struct's or enum's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
-- `fn main(): int` with no parameters must exist. Its return value is the process exit code (truncated to the platform's exit-status range by the OS).
+- `main` must exist with the signature `fn main(): int` or `fn main(args: [string]): int` (any parameter name). `args` holds the command-line arguments without the program name, as a fresh array. The return value is the process exit code (truncated to the platform's exit-status range by the OS).
 - Parameters are immutable bindings.
 - A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false, and every `for` loop as possibly running zero times. An expression statement that calls `panic` ends its path, and a `match` statement ends a path when all of its arms do.
 - `return e;` in a `void` function and `return;` in a non-`void` function are errors. `return e;` requires `e` to match the declared return type.
@@ -198,6 +200,8 @@ Builtins are special-cased in the checker. There is no overloading or generics i
 | `byte_at` | `(s: string, i: int): int` | Byte value 0–255 at index `i`. Panics if `i < 0` or `i >= len(s)`. |
 | `substring` | `(s: string, start: int, end: int): string` | Bytes `[start, end)`. Panics unless `0 <= start <= end <= len(s)`. |
 | `int_to_string` | `(n: int): string` | Decimal representation. |
+| `read_file` | `(path: string): ReadResult` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
+| `read_stdin` | `(): string` | Reads stdin to EOF. Later calls return `""`. |
 | `panic` | `(msg: string): void` | Writes `panic: <msg>` to stderr and exits with code 101. |
 
 ## Runtime panics
@@ -208,8 +212,9 @@ A runtime panic writes `panic: <message>` plus a newline to stderr and exits wit
 - An invalid `substring` range (`substring out of bounds: <start>..<end>, length <n>`).
 - `pop` on an empty array (`pop from empty array`).
 - Running out of memory (`out of memory`).
+- A read error on stdin (`cannot read stdin: <reason>`).
 - `panic(msg)`.
 
-## Not in v0.2
+## Not in v0.3
 
-Nested patterns, matching on `int`/`bool`/`string` values, match guards, file and stdin input (v0.3), generics, methods, null, equality on structs, arrays or enums with payloads, printing structs, arrays or enums, modules, freeing memory, and C-style `for` loops.
+Writing files, writing to stderr or stdout without a newline, line-at-a-time stdin, environment variables, nested patterns, matching on `int`/`bool`/`string` values, match guards, generics, methods, null, equality on structs, arrays or enums with payloads, printing structs, arrays or enums, modules, freeing memory, and C-style `for` loops.

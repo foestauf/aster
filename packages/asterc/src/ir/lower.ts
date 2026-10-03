@@ -1,6 +1,7 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
+import { READ_RESULT, READ_RESULT_TYPE } from '../check/builtins.js';
 import type { TBlock, TEnum, TExpr, TFunction, TPattern, TStmt, TStruct, TypedProgram } from '../check/types.js';
-import { BOOL, INT, type Type } from '../types/type.js';
+import { BOOL, INT, STRING, type Type } from '../types/type.js';
 import type {
   BasicBlock, Instr, IrBinOp, IrBuiltin, IrEnum, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
 } from './ir.js';
@@ -412,6 +413,7 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     }
     case 'builtin': {
       const args = e.args.map((a) => lowerValue(st, a));
+      if (e.builtin === 'read_file') return lowerReadFile(st, args[0]);
       if (e.builtin === 'push') {
         emit(st, { kind: 'array_push', array: args[0], value: args[1] });
         return null;
@@ -545,7 +547,28 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
     case 'push':
     case 'pop':
       throw new Error(`internal: ${e.builtin} is lowered to an array instruction`);
+    case 'read_file':
+      throw new Error('internal: read_file is lowered to a read_file instruction');
     default:
       return e.builtin;
   }
+}
+
+/** `read_file(p)`: the runtime fills an ok flag and a string, then each outcome builds its ReadResult variant. */
+function lowerReadFile(st: FnState, path: Operand): Operand {
+  const ok = newTemp(st, irType(BOOL));
+  const text = newTemp(st, irType(STRING));
+  const dst = newTemp(st, irType(READ_RESULT_TYPE));
+  emit(st, { kind: 'read_file', ok, text, path });
+  const okLabel = newLabel(st, 'read_ok');
+  const errLabel = newLabel(st, 'read_err');
+  const endLabel = newLabel(st, 'read_end');
+  terminate(st, { kind: 'br', cond: { kind: 'local', id: ok }, then: okLabel, else: errLabel });
+  for (const [label, variant, tag] of [[okLabel, 'Ok', 0], [errLabel, 'Err', 1]] as const) {
+    startBlock(st, label);
+    emit(st, { kind: 'enum_new', dst, enum: READ_RESULT, variant, tag, args: [{ kind: 'local', id: text }] });
+    terminate(st, { kind: 'jmp', target: endLabel });
+  }
+  startBlock(st, endLabel);
+  return { kind: 'local', id: dst };
 }

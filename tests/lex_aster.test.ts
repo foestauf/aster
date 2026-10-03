@@ -1,0 +1,57 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildExecutable, compileToC, formatDiagnostic, lex, makeSource } from '../packages/asterc/src/index.js';
+
+// Checks tests/programs/programs/lex.aster, the Aster lexer written in Aster, against the compiler's own lexer.
+const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
+const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
+  .filter((f) => f.endsWith('.aster') || /fixtures[\\/]lex_[a-z]+\.txt$/.test(f))
+  .toSorted();
+
+/**
+ * The TypeScript lexer's output in lex.aster's line format, with UTF-16 offsets converted to byte offsets in the raw
+ * file. `makeSource` strips a leading BOM before lexing, so spans are shifted past its 3 bytes.
+ */
+function expected(text: string): { stdout: string; status: number } {
+  const bom = text.startsWith('\uFEFF') ? 3 : 0;
+  const body = bom > 0 ? text.slice(1) : text;
+  const { tokens, diagnostics } = lex(makeSource('corpus', text));
+  const byte = (offset: number): number => bom + Buffer.byteLength(body.slice(0, offset), 'utf8');
+  const lines = tokens.map((t) =>
+    t.kind === 'eof' ? `eof ${byte(t.span.start)} ${byte(t.span.end)}` : `${t.kind} ${byte(t.span.start)} ${byte(t.span.end)} ${t.text}`,
+  );
+  for (const d of diagnostics) lines.push(`error ${byte(d.span.start)} ${byte(d.span.end)} ${d.message}`);
+  return { stdout: lines.map((l) => `${l}\n`).join(''), status: diagnostics.length > 0 ? 1 : 0 };
+}
+
+const workDir = mkdtempSync(join(tmpdir(), 'aster-lex-'));
+const exe = join(workDir, 'lex');
+afterAll(() => rmSync(workDir, { recursive: true, force: true }));
+
+beforeAll(() => {
+  const source = makeSource('lex.aster', readFileSync(join(PROGRAMS_DIR, 'programs', 'lex.aster'), 'utf8'));
+  const compiled = compileToC(source);
+  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(source, d)).join('\n'));
+  const built = buildExecutable(compiled.c, exe, ['-Werror']);
+  if (!built.ok) throw new Error(built.message);
+});
+
+describe('lex.aster matches the TypeScript lexer', () => {
+  it('has a corpus that includes itself and the error fixture', () => {
+    expect(corpus).toContain(join('programs', 'lex.aster'));
+    expect(corpus).toContain(join('programs', 'fixtures', 'lex_errors.txt'));
+    expect(corpus).toContain(join('programs', 'fixtures', 'lex_bom.txt'));
+  });
+
+  it.each(corpus)('%s', (file) => {
+    const path = join(PROGRAMS_DIR, file);
+    // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
+    const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
+    expect({ stdout: run.stdout, status: run.status }).toEqual(expected(text));
+  });
+});

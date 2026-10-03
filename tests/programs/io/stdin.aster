@@ -1,0 +1,14 @@
+// expect-stdin:
+// hello
+// wörld
+// expect-stdout:
+// 13
+// hello
+// 0
+fn main(): int {
+    let s: string = read_stdin();
+    print(len(s));
+    print(substring(s, 0, 5));
+    print(len(read_stdin()));
+    return 0;
+}

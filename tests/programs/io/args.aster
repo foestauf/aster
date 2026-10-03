@@ -1,0 +1,19 @@
+// expect-args: one two -3 é
+// expect-stdout:
+// 4
+// one
+// two
+// -3
+// é
+// 5
+// extra
+fn main(args: [string]): int {
+    print(len(args));
+    for a in args {
+        print(a);
+    }
+    push(args, "extra");
+    print(len(args));
+    print(args[4]);
+    return 0;
+}

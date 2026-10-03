@@ -1,0 +1,33 @@
+// expect-stdout:
+// 13
+// hello
+// wörld
+// 0
+// 3
+// 0
+// 10000
+// 57
+fn read(path: string): string {
+    match read_file(path) {
+        ReadResult::Ok(s) => {
+            return s;
+        }
+        ReadResult::Err(e) => {
+            panic(e);
+        }
+    }
+}
+
+fn main(): int {
+    let text: string = read("fixtures/hello.txt");
+    print(len(text));
+    print(substring(text, 0, len(text) - 1));
+    print(len(read("fixtures/empty.txt")));
+    let bin: string = read("fixtures/nul.bin");
+    print(len(bin));
+    print(byte_at(bin, 1));
+    let big: string = read("fixtures/big.txt");
+    print(len(big));
+    print(byte_at(big, len(big) - 1));
+    return 0;
+}

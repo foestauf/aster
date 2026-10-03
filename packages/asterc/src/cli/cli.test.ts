@@ -114,6 +114,19 @@ describe('build --emit', () => {
 });
 
 describe('build and run', () => {
+  it('passes everything after -- to the program', () => {
+    const f = file('args.aster', 'fn main(args: [string]): int { for a in args { print(a); } return len(args); }');
+    expect(cli('run', f, '--', 'a', '-b', '--')).toEqual({ code: 3, stdout: 'a\n-b\n--\n', stderr: '' });
+    expect(cli('run', f, '--')).toEqual({ code: 0, stdout: '', stderr: '' });
+  });
+
+  it('accepts -- only with run', () => {
+    const f = file('args2.aster', 'fn main(): int { return 0; }');
+    const r = cli('build', f, '--', 'x');
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("error: '--' is only valid with 'run'");
+  });
+
   it('builds an executable at -o', () => {
     const out = join(dir, 'hello-bin');
     expect(cli('build', file('b.aster', HELLO), '-o', out)).toEqual({ code: 0, stdout: '', stderr: '' });
