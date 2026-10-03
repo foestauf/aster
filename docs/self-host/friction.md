@@ -3,7 +3,7 @@
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
 (`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 and v0.5 language specs. Entries 1 and 3 and entries 4 to 6 are now resolved.
 
-Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,501 after v0.5)
+Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5)
 and has byte-for-byte parity with the TypeScript parser.
 
 ## Entries
@@ -20,7 +20,7 @@ if p.failed {
 }
 ```
 
-`parse.aster` has **100** of these. A single missed check doesn't crash. It changes which tokens the parser consumes,
+`parse.aster` has **100** of these (110 `p.failed` occurrences counting the field declaration and the resets). A single missed check doesn't crash. It changes which tokens the parser consumes,
 so the diagnostics drift and only the conformance suite notices. This is the biggest cost to readability and correctness.
 
 **Workaround:** a `failed` flag on the parser, plus placeholder return values (entry 3).

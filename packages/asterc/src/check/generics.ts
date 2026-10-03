@@ -6,6 +6,8 @@ export interface Template {
   params: string[];
   /** Set when the declaration was rejected (it expands infinitely); a broken template resolves to the error type. */
   broken: boolean;
+  /** Set when validating the declaration reported a diagnostic; uses then stay quiet instead of cascading. */
+  hasErrors: boolean;
 }
 
 /** True when the type parameter `param` occurs anywhere in `ref`. */

@@ -187,7 +187,7 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
       env.structs.set(decl.name, struct);
       structs.push({ decl, struct });
     } else if (decl.typeParams.length > 0) {
-      const template: Template = { decl, params: decl.typeParams.map((p) => p.name), broken: false };
+      const template: Template = { decl, params: decl.typeParams.map((p) => p.name), broken: false, hasErrors: false };
       env.templates.set(decl.name, template);
       templates.push(template);
     } else {
@@ -197,7 +197,9 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
       enums.push({ decl, enumType });
     }
   }
-  for (const { decl } of templates) {
+  for (const template of templates) {
+    const { decl } = template;
+    const before = env.diagnostics.length;
     const seen = new Set<string>();
     for (const param of decl.typeParams) {
       if (seen.has(param.name)) {
@@ -213,12 +215,14 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
         report(env, `type parameter '${param.name}' is never used`, param.nameSpan);
       }
     }
+    if (env.diagnostics.length > before) template.hasErrors = true;
   }
   const expanding = findExpandingEnums(env.templates);
   for (const template of templates) {
     if (!expanding.has(template.decl.name)) continue;
     report(env, `generic enum '${template.decl.name}' expands infinitely`, template.decl.nameSpan);
     template.broken = true;
+    template.hasErrors = true;
   }
   for (const { decl, struct } of structs) {
     for (const field of decl.fields) {
@@ -249,7 +253,9 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
       enumType.variants.push({ name: variant.name, tag: enumType.variants.length, payload });
     }
   }
-  for (const { decl, params } of templates) {
+  for (const template of templates) {
+    const { decl, params } = template;
+    const before = env.diagnostics.length;
     const placeholders = new Map(params.map((param) => [param, ERROR]));
     const names = new Set<string>();
     for (const variant of decl.variants) {
@@ -263,6 +269,7 @@ function collectTypes(env: Env, program: Program): { structs: TStruct[]; enums: 
         if (type.kind === 'void') report(env, 'payload cannot have type void', ref.span);
       }
     }
+    if (env.diagnostics.length > before) template.hasErrors = true;
   }
   return { structs: structs.map((s) => s.struct), enums: enums.map((e) => e.enumType) };
 }
@@ -278,7 +285,7 @@ const isMainSignature = (sig: Signature): boolean => {
 /** Option and Result, parsed from the prelude and registered as templates before any user declaration. */
 function preludeTemplates(): Map<string, Template> {
   const { program } = parse(lex(makeSource('<prelude>', PRELUDE_SOURCE)).tokens);
-  return new Map(program.enums.map((decl) => [decl.name, { decl, params: decl.typeParams.map((p) => p.name), broken: false }]));
+  return new Map(program.enums.map((decl) => [decl.name, { decl, params: decl.typeParams.map((p) => p.name), broken: false, hasErrors: false }]));
 }
 
 export function check(program: Program): CheckResult {
@@ -659,7 +666,7 @@ function checkTry(ctx: Ctx, expr: Extract<Expr, { kind: 'try' }>): TExpr {
     returnFailTag,
     failPayloadType,
   });
-  // Unreachable, since signatures resolve before bodies; lowering never runs when there are errors.
+  // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`); only lowering is unreachable then.
   if (isError(ctx.returnType)) return node(fail.name, fail.tag);
   if (ret === null || ret.base !== op.base) {
     const kind = isResult ? 'a Result' : 'an Option';
@@ -733,7 +740,7 @@ function checkVariantExpr(ctx: Ctx, expr: VariantExpr, expected: Type | undefine
  */
 function checkGenericVariantExpr(ctx: Ctx, expr: VariantExpr, template: Template, variantDecl: VariantDecl, expected: Type | undefined): TExpr {
   const base = template.decl.name;
-  if (template.broken) {
+  if (template.broken || template.hasErrors) {
     // The declaration was already reported.
     for (const a of expr.args) checkExpr(ctx, a, ERROR);
     return errorExpr();

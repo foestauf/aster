@@ -25,7 +25,8 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   panic: { params: [STRING], returnType: VOID },
   exit: { params: [INT], returnType: VOID },
   read_stdin: { params: [], returnType: STRING },
-  read_file: { params: [STRING], returnType: VOID }  // the checker types read_file's call as Result[string, string],
+  // The checker types read_file's call as Result[string, string].
+  read_file: { params: [STRING], returnType: VOID },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
