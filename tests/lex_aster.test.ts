@@ -45,6 +45,7 @@ describe('lex.aster matches the TypeScript lexer', () => {
     expect(corpus).toContain(join('programs', 'lex.aster'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_errors.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_bom.txt'));
+    expect(corpus).toContain(join('programs', 'fixtures', 'lex_chars.txt'));
   });
 
   it.each(corpus)('%s', (file) => {

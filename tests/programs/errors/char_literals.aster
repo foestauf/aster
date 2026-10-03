@@ -1,0 +1,14 @@
+// expect-error: 8:18 empty character literal
+// expect-error: 9:18 character literal must be a single ASCII character
+// expect-error: 10:18 character literal must be a single ASCII character
+// expect-error: 11:19 invalid escape sequence '\q'
+// expect-error: 12:18 unterminated character literal
+// expect-error: 13:5 expected ';', found 'return'
+fn main(): int {
+    let a: int = '';
+    let b: int = 'ab';
+    let c: int = 'é';
+    let d: int = '\q';
+    let e: int = 'x;
+    return 0;
+}

@@ -256,7 +256,7 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
-    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'lex_bom']) {
+    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
   });

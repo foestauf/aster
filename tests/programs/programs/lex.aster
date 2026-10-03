@@ -72,9 +72,9 @@ fn is_ident_part(c: int): bool {
     return is_ident_start(c) || is_digit(c);
 }
 
-// The escapes \n \t \\ \" \0.
+// The escapes \n \t \\ \" \0 \r \'.
 fn is_escape(c: int): bool {
-    return c == 110 || c == 116 || c == 92 || c == 34 || c == 48;
+    return c == 110 || c == 116 || c == 92 || c == 34 || c == 48 || c == 114 || c == 39;
 }
 
 // Byte length of the UTF-8 sequence that starts with byte c.
@@ -107,7 +107,7 @@ fn is_keyword(w: string): bool {
 
 fn is_punct(p: string): bool {
     return contains(["(", ")", "{", "}", "[", "]", ",", ":", ";", ".", "..", "=", "+", "-", "*", "/", "%", "!",
-        "<", "<=", ">", ">=", "==", "!=", "&&", "||", "+=", "-=", "*=", "/=", "%=", "::", "=>"], p);
+        "<", "<=", ">", ">=", "==", "!=", "&&", "||", "+=", "-=", "*=", "/=", "%=", "::", "=>", "|"], p);
 }
 
 // The byte `offset` places past the current position, or -1 past the end.
@@ -165,6 +165,53 @@ fn lex_string(lx: Lexer) {
     push_token(lx, "string", start);
 }
 
+// Lexes a character literal starting at the opening quote. It scans to the closing quote on the same line, honouring
+// backslash escapes, so an error spans the whole literal; then reports at most one error. Offsets are bytes, but the
+// checks agree with the compiler's UTF-16 lexer: a body that is one non-ASCII character is several bytes here and one
+// code unit there, and both call it not a single ASCII character.
+fn lex_char(lx: Lexer) {
+    let src: string = lx.src;
+    let start: int = lx.pos;
+    lx.pos += 1;
+    var terminated: bool = false;
+    while lx.pos < len(src) && byte_at(src, lx.pos) != 10 {
+        let c: int = byte_at(src, lx.pos);
+        if c == 92 && lx.pos + 1 < len(src) && byte_at(src, lx.pos + 1) != 10 {
+            lx.pos += 2;
+            continue;
+        }
+        lx.pos += 1;
+        if c == 39 {
+            terminated = true;
+            break;
+        }
+    }
+    var body_len: int = lx.pos - start - 1;
+    if terminated {
+        body_len -= 1;
+    }
+    let single: string = "character literal must be a single ASCII character";
+    if !terminated {
+        add_error(lx, start, lx.pos, "unterminated character literal");
+    } else if body_len == 0 {
+        add_error(lx, start, lx.pos, "empty character literal");
+    } else if byte_at(src, start + 1) == 92 {
+        // A backslash and one more character: a valid escape, or an invalid one quoted whole. A character outside the
+        // Basic Multilingual Plane (4 bytes) is two UTF-16 units, so the compiler sees a longer body.
+        let next: int = byte_at(src, start + 2);
+        let width: int = utf8_len(next);
+        let valid: bool = body_len == 2 && is_escape(next);
+        if !valid && width < 4 && body_len == 1 + width {
+            add_error(lx, start + 1, start + 2 + width, "invalid escape sequence '" + substring(src, start + 1, start + 2 + width) + "'");
+        } else if !valid {
+            add_error(lx, start, lx.pos, single);
+        }
+    } else if body_len != 1 || byte_at(src, start + 1) < 32 || byte_at(src, start + 1) > 126 {
+        add_error(lx, start, lx.pos, single);
+    }
+    push_token(lx, "char", start);
+}
+
 // The length of a leading UTF-8 byte order mark, which the compiler skips; offsets still count its bytes.
 fn bom_len(src: string): int {
     if len(src) >= 3 && byte_at(src, 0) == 239 && byte_at(src, 1) == 187 && byte_at(src, 2) == 191 {
@@ -201,6 +248,8 @@ fn lex(src: string): Lexer {
             }
         } else if c == 34 {
             lex_string(lx);
+        } else if c == 39 {
+            lex_char(lx);
         } else if start + 2 <= len(src) && is_punct(substring(src, start, start + 2)) {
             lx.pos += 2;
             push_token(lx, substring(src, start, lx.pos), start);

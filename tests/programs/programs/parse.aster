@@ -53,9 +53,9 @@ fn is_ident_part(c: int): bool {
     return is_ident_start(c) || is_digit(c);
 }
 
-// The escapes \n \t \\ \" \0.
+// The escapes \n \t \\ \" \0 \r \'.
 fn is_escape(c: int): bool {
-    return c == 110 || c == 116 || c == 92 || c == 34 || c == 48;
+    return c == 110 || c == 116 || c == 92 || c == 34 || c == 48 || c == 114 || c == 39;
 }
 
 // Byte length of the UTF-8 sequence that starts with byte c.
@@ -88,7 +88,7 @@ fn is_keyword(w: string): bool {
 
 fn is_punct(p: string): bool {
     return contains(["(", ")", "{", "}", "[", "]", ",", ":", ";", ".", "..", "=", "+", "-", "*", "/", "%", "!",
-        "<", "<=", ">", ">=", "==", "!=", "&&", "||", "+=", "-=", "*=", "/=", "%=", "::", "=>"], p);
+        "<", "<=", ">", ">=", "==", "!=", "&&", "||", "+=", "-=", "*=", "/=", "%=", "::", "=>", "|"], p);
 }
 
 // The byte `offset` places past the current position, or -1 past the end.
@@ -146,6 +146,53 @@ fn lex_string(lx: Lexer) {
     push_token(lx, "string", start);
 }
 
+// Lexes a character literal starting at the opening quote. It scans to the closing quote on the same line, honouring
+// backslash escapes, so an error spans the whole literal; then reports at most one error. Offsets are bytes, but the
+// checks agree with the compiler's UTF-16 lexer: a body that is one non-ASCII character is several bytes here and one
+// code unit there, and both call it not a single ASCII character.
+fn lex_char(lx: Lexer) {
+    let src: string = lx.src;
+    let start: int = lx.pos;
+    lx.pos += 1;
+    var terminated: bool = false;
+    while lx.pos < len(src) && byte_at(src, lx.pos) != 10 {
+        let c: int = byte_at(src, lx.pos);
+        if c == 92 && lx.pos + 1 < len(src) && byte_at(src, lx.pos + 1) != 10 {
+            lx.pos += 2;
+            continue;
+        }
+        lx.pos += 1;
+        if c == 39 {
+            terminated = true;
+            break;
+        }
+    }
+    var body_len: int = lx.pos - start - 1;
+    if terminated {
+        body_len -= 1;
+    }
+    let single: string = "character literal must be a single ASCII character";
+    if !terminated {
+        add_error(lx, start, lx.pos, "unterminated character literal");
+    } else if body_len == 0 {
+        add_error(lx, start, lx.pos, "empty character literal");
+    } else if byte_at(src, start + 1) == 92 {
+        // A backslash and one more character: a valid escape, or an invalid one quoted whole. A character outside the
+        // Basic Multilingual Plane (4 bytes) is two UTF-16 units, so the compiler sees a longer body.
+        let next: int = byte_at(src, start + 2);
+        let width: int = utf8_len(next);
+        let valid: bool = body_len == 2 && is_escape(next);
+        if !valid && width < 4 && body_len == 1 + width {
+            add_error(lx, start + 1, start + 2 + width, "invalid escape sequence '" + substring(src, start + 1, start + 2 + width) + "'");
+        } else if !valid {
+            add_error(lx, start, lx.pos, single);
+        }
+    } else if body_len != 1 || byte_at(src, start + 1) < 32 || byte_at(src, start + 1) > 126 {
+        add_error(lx, start, lx.pos, single);
+    }
+    push_token(lx, "char", start);
+}
+
 // The length of a leading UTF-8 byte order mark, which the compiler skips; offsets still count its bytes.
 fn bom_len(src: string): int {
     if len(src) >= 3 && byte_at(src, 0) == 239 && byte_at(src, 1) == 187 && byte_at(src, 2) == 191 {
@@ -182,6 +229,8 @@ fn lex(src: string): Lexer {
             }
         } else if c == 34 {
             lex_string(lx);
+        } else if c == 39 {
+            lex_char(lx);
         } else if start + 2 <= len(src) && is_punct(substring(src, start, start + 2)) {
             lx.pos += 2;
             push_token(lx, substring(src, start, lx.pos), start);
@@ -302,10 +351,11 @@ struct Expr {
     node: ExprNode,
 }
 
-// `Int` holds the canonical decimal value. A `Str` literal's text is read from the source by its span. `Bad` is what a
-// failed parse returns; it never reaches the printer.
+// `Int` holds the canonical decimal value and `Char` the literal's source text. A `Str` literal's text is read from the
+// source by its span. `Bad` is what a failed parse returns; it never reaches the printer.
 enum ExprNode {
     Int(string),
+    Char(string),
     Str,
     Bool(bool),
     Name(string),
@@ -338,9 +388,16 @@ struct Pattern {
     node: PatternNode,
 }
 
+// An `Or` holds two or more alternatives, none of them `Wildcard` or `Or`. The literal patterns hold their source text,
+// with a negative integer's `-` joined to its digits.
 enum PatternNode {
     Wildcard,
     Variant(Ident, Ident, [Binder]),
+    Or([Pattern]),
+    IntPat(string),
+    CharPat(string),
+    StringPat(string),
+    BoolPat(bool),
 }
 
 enum Binder {
@@ -458,6 +515,9 @@ fn describe(p: Parser, t: Token): string {
     }
     if t.kind == "string" {
         return "string literal";
+    }
+    if t.kind == "char" {
+        return "character literal";
     }
     return "'" + text(p, t) + "'";
 }
@@ -965,11 +1025,74 @@ fn parse_match_stmt(p: Parser): Stmt {
     return Stmt { start: kw.start, end: close.end, node: StmtNode::Match(ident_of(p, kw), scrutinee, arms) };
 }
 
+// `_`, or one or more alternatives separated by `|`.
 fn parse_pattern(p: Parser): Pattern {
     if at(p, "_") {
         let w: Token = advance(p);
         return Pattern { start: w.start, end: w.end, node: PatternNode::Wildcard };
     }
+    let first: Pattern = parse_alternative(p);
+    if p.failed {
+        return bad_pattern();
+    }
+    let alternatives: [Pattern] = [first];
+    while eat(p, "|") {
+        let alt: Pattern = parse_alternative(p);
+        if p.failed {
+            return bad_pattern();
+        }
+        push(alternatives, alt);
+    }
+    if len(alternatives) == 1 {
+        return first;
+    }
+    let last: Pattern = alternatives[len(alternatives) - 1];
+    return Pattern { start: first.start, end: last.end, node: PatternNode::Or(alternatives) };
+}
+
+// A literal (an integer, optionally negated, a character, a string, `true` or `false`) or an enum variant.
+fn parse_alternative(p: Parser): Pattern {
+    let t: Token = peek(p);
+    let k: string = t.kind;
+    if k == "int" {
+        advance(p);
+        if !fits(canonical_digits(text(p, t)), false) {
+            error_at(p, "integer literal out of range", t.start, t.end);
+        }
+        return Pattern { start: t.start, end: t.end, node: PatternNode::IntPat(text(p, t)) };
+    }
+    if k == "-" {
+        advance(p);
+        let literal: Token = expect(p, "int");
+        if p.failed {
+            return bad_pattern();
+        }
+        if !fits(canonical_digits(text(p, literal)), true) {
+            error_at(p, "integer literal out of range", t.start, literal.end);
+        }
+        return Pattern { start: t.start, end: literal.end, node: PatternNode::IntPat("-" + text(p, literal)) };
+    }
+    if k == "char" {
+        advance(p);
+        return Pattern { start: t.start, end: t.end, node: PatternNode::CharPat(text(p, t)) };
+    }
+    if k == "string" {
+        advance(p);
+        return Pattern { start: t.start, end: t.end, node: PatternNode::StringPat(text(p, t)) };
+    }
+    if k == "true" || k == "false" {
+        advance(p);
+        return Pattern { start: t.start, end: t.end, node: PatternNode::BoolPat(k == "true") };
+    }
+    if k == "ident" {
+        return parse_variant_pattern(p);
+    }
+    fail(p, "expected pattern, found " + describe(p, t), t);
+    return bad_pattern();
+}
+
+// `Enum::Variant`, with an optional parenthesised list of binders.
+fn parse_variant_pattern(p: Parser): Pattern {
     let enum_name: Token = expect(p, "ident");
     if p.failed {
         return bad_pattern();
@@ -1176,6 +1299,10 @@ fn parse_primary(p: Parser): Expr {
             error_at(p, "integer literal out of range", t.start, t.end);
         }
         return Expr { start: t.start, end: t.end, node: ExprNode::Int(digits) };
+    }
+    if k == "char" {
+        advance(p);
+        return Expr { start: t.start, end: t.end, node: ExprNode::Char(text(p, t)) };
     }
     if k == "string" {
         advance(p);
@@ -1417,6 +1544,22 @@ fn print_pattern(d: int, pat: Pattern) {
                 }
             }
         }
+        PatternNode::Or(alternatives) => {
+            line(d, "or-pattern " + span(pat.start, pat.end));
+            for alt in alternatives {
+                print_pattern(d + 1, alt);
+            }
+        }
+        PatternNode::IntPat(raw) => line(d, "int-pattern " + span(pat.start, pat.end) + " " + raw),
+        PatternNode::CharPat(raw) => line(d, "char-pattern " + span(pat.start, pat.end) + " " + raw),
+        PatternNode::StringPat(raw) => line(d, "string-pattern " + span(pat.start, pat.end) + " " + raw),
+        PatternNode::BoolPat(value) => {
+            if value {
+                line(d, "bool-pattern " + span(pat.start, pat.end) + " true");
+            } else {
+                line(d, "bool-pattern " + span(pat.start, pat.end) + " false");
+            }
+        }
     }
 }
 
@@ -1441,6 +1584,7 @@ fn print_expr(src: string, d: int, e: Expr) {
     let head: string = span(e.start, e.end);
     match e.node {
         ExprNode::Int(value) => line(d, "int " + head + " " + value),
+        ExprNode::Char(raw) => line(d, "char " + head + " " + raw),
         ExprNode::Str => line(d, "string " + head + " " + substring(src, e.start, e.end)),
         ExprNode::Bool(value) => {
             if value {
