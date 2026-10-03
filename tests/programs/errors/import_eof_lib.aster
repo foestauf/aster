@@ -1,0 +1,3 @@
+// expect-library
+fn open_block() {
+    print(1);

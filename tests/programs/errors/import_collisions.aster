@@ -1,0 +1,14 @@
+// Declarations in an imported file that collide with the root's are reported at the import's declaration.
+// expect-error: import_collisions_lib.aster:2:4 duplicate function 'f'
+// expect-error: import_collisions_lib.aster:3:8 duplicate struct 'S'
+// expect-error: import_collisions_lib.aster:4:6 duplicate enum 'E'
+// expect-error: import_collisions_lib.aster:5:8 duplicate struct 'Both'
+// expect-error: import_collisions_lib.aster:6:6 'Both' is already declared as a struct
+import "import_collisions_lib.aster";
+
+fn f() {}
+struct S { x: int }
+enum E { A }
+struct Both { x: int }
+
+fn main(): int { return 0; }

@@ -1,0 +1,9 @@
+// A file importing itself is a no-op.
+// expect-stdout:
+// ok
+import "self_import.aster";
+
+fn main(): int {
+    print("ok");
+    return 0;
+}

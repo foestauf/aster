@@ -1,0 +1,23 @@
+// A generic enum from a library, with `?` on its Option across files.
+// expect-stdout:
+// 7
+// none
+// full 3
+import "generic_lib.aster";
+
+fn show(b: Box[int]) {
+    match b {
+        Box::Full(n) => print("full " + int_to_string(n)),
+        Box::Empty => print("empty"),
+    }
+}
+
+fn main(): int {
+    print(first_plus(Option::Some(3), 4));
+    match half_checked(Option::None) {
+        Option::Some(n) => print(n),
+        Option::None => print("none"),
+    }
+    show(Box::Full(3));
+    return 0;
+}

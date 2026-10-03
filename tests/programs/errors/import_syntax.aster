@@ -1,0 +1,8 @@
+// A syntax error in an imported file is reported with that file's path, and nothing after it.
+// expect-error: import_syntax_lib.aster:2:29 expected expression, found '+'
+import "import_syntax_lib.aster";
+
+fn main(): int {
+    let x: int = "not an int";
+    return 0;
+}

@@ -85,6 +85,16 @@ describe('check', () => {
       stderr: `${bad}:2:12: error: type mismatch: expected int, found string\n      return "s";\n             ^^^\n`,
     });
   });
+
+  it('reports an error in an imported file with that file\'s path', () => {
+    const lib = file('lib.aster', 'fn bad(): int {\n    return "s";\n}\n');
+    const root = file('uses_lib.aster', 'import "lib.aster";\nfn main(): int { return bad(); }\n');
+    expect(cli('check', root)).toEqual({
+      code: 1,
+      stdout: '',
+      stderr: `${lib}:2:12: error: type mismatch: expected int, found string\n      return "s";\n             ^^^\n`,
+    });
+  });
 });
 
 describe('build --emit', () => {

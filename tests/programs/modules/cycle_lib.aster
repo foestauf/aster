@@ -1,0 +1,7 @@
+// expect-library
+import "cycle.aster";
+
+fn pong(n: int) {
+    print("pong " + int_to_string(n));
+    ping(n - 1);
+}

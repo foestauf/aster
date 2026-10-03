@@ -19,20 +19,23 @@ const programs = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' }
 const workDir = mkdtempSync(join(tmpdir(), 'aster-golden-'));
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// Library files are only compiled as part of the program that imports them.
+const roots = programs.filter((p) => !p.expected.library);
+
 describe('golden programs: compile errors', () => {
-  it.each(programs.filter((p) => p.expected.errors.length > 0))('$file', ({ file, text, expected }) => {
-    const source = makeSource(file, text);
+  it.each(roots.filter((p) => p.expected.errors.length > 0))('$file', ({ file, text, expected }) => {
+    const source = makeSource(join(PROGRAMS_DIR, file), text);
     const compiled = compileToC(source);
-    const actual = compiled.ok ? [] : compiled.diagnostics.map((d) => formatShort(source, d));
+    const actual = compiled.ok ? [] : compiled.diagnostics.map((d) => formatShort(compiled.map, d));
     expect(actual).toEqual(expected.errors);
   });
 });
 
 describe('golden programs: run', () => {
-  it.each(programs.filter((p) => p.expected.errors.length === 0))('$file', ({ file, text, expected }) => {
-    const source = makeSource(file, text);
+  it.each(roots.filter((p) => p.expected.errors.length === 0))('$file', ({ file, text, expected }) => {
+    const source = makeSource(join(PROGRAMS_DIR, file), text);
     const compiled = compileToC(source);
-    if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(source, d)).join('\n'));
+    if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
     const exe = join(workDir, file.replace(/[\\/]/g, '__').replace(/\.aster$/, ''));
     const built = buildExecutable(compiled.c, exe, ['-Werror']);
     if (!built.ok) throw new Error(built.message);

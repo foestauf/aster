@@ -1,0 +1,16 @@
+// Functions, a struct and an enum from an imported library; the root uses one before the import line.
+// expect-stdout:
+// 12
+// 3
+// 4
+// green
+fn main(): int {
+    print(double(6));
+    let p: Pair = make_pair(3, 4);
+    print(p.a);
+    print(p.b);
+    print(name(Color::Green));
+    return 0;
+}
+
+import "basic_lib.aster";

@@ -1,0 +1,23 @@
+// expect-library
+enum Box[T] { Full(T), Empty }
+
+fn first_plus(o: Option[int], k: int): int {
+    return unwrap_or(add_opt(o, k), 0);
+}
+
+fn add_opt(o: Option[int], k: int): Option[int] {
+    let n: int = o?;
+    return Option::Some(n + k);
+}
+
+fn unwrap_or(o: Option[int], d: int): int {
+    return match o {
+        Option::Some(n) => n,
+        Option::None => d,
+    };
+}
+
+fn half_checked(o: Option[int]): Option[int] {
+    let n: int = o?;
+    return Option::Some(n / 2);
+}

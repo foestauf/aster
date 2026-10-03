@@ -1,0 +1,4 @@
+// expect-error: import_main_lib.aster:2:4 'main' must be declared in the root file
+import "import_main_lib.aster";
+
+fn main(): int { return 0; }

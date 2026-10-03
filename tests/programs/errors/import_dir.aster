@@ -1,0 +1,4 @@
+// expect-error: 2:8 cannot import '.': Is a directory
+import ".";
+
+fn main(): int { return 0; }

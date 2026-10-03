@@ -1,0 +1,10 @@
+// Imports resolve relative to the importing file's directory.
+// expect-stdout:
+// outer
+// inner
+import "sub/outer.aster";
+
+fn main(): int {
+    outer();
+    return 0;
+}

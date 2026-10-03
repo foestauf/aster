@@ -12,7 +12,7 @@ describe('parseExpectations', () => {
       '// expect-stderr: panic: x',
       'fn main(): int { return 3; }',
     ].join('\n');
-    expect(parseExpectations(text)).toEqual({ stdout: '1\n\ntwo words\n', stderr: 'panic: x\n', exitCode: 3, errors: [], args: [], stdin: '' });
+    expect(parseExpectations(text)).toEqual({ stdout: '1\n\ntwo words\n', stderr: 'panic: x\n', exitCode: 3, errors: [], args: [], stdin: '', library: false });
   });
 
   it('collects repeated expect-error lines', () => {
@@ -21,7 +21,7 @@ describe('parseExpectations', () => {
   });
 
   it('defaults to empty output and exit 0', () => {
-    expect(parseExpectations('fn main(): int { return 0; }')).toEqual({ stdout: '', stderr: '', exitCode: 0, errors: [], args: [], stdin: '' });
+    expect(parseExpectations('fn main(): int { return 0; }')).toEqual({ stdout: '', stderr: '', exitCode: 0, errors: [], args: [], stdin: '', library: false });
   });
 
   it('ignores plain comments and stops at the first code line', () => {
@@ -41,6 +41,7 @@ describe('parseExpectations', () => {
       errors: [],
       args: [],
       stdin: '',
+      library: false,
     });
   });
 
@@ -66,5 +67,12 @@ describe('parseExpectations', () => {
 
   it('treats an empty expect-args as no arguments', () => {
     expect(parseExpectations('// expect-args:\nfn').args).toEqual([]);
+  });
+
+  it('marks a library file and rejects other directives alongside it', () => {
+    expect(parseExpectations('// expect-library\nfn f() {}').library).toBe(true);
+    expect(parseExpectations('fn f() {}').library).toBe(false);
+    expect(() => parseExpectations('// expect-library\n// expect-stdout:\n// x\nfn f() {}')).toThrow('expect-library');
+    expect(() => parseExpectations('// expect-exit: 1\n// expect-library\nfn f() {}')).toThrow('expect-library');
   });
 });
