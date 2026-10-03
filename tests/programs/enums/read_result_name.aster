@@ -1,0 +1,12 @@
+// expect-stdout:
+// b
+enum ReadResult { A, B }
+
+fn main(): int {
+    let r: ReadResult = ReadResult::B;
+    match r {
+        ReadResult::A => print("a"),
+        ReadResult::B => print("b"),
+    }
+    return 0;
+}

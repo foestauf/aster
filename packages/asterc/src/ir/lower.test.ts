@@ -25,21 +25,21 @@ function irOf(text: string, fnName: string): string {
 const lines = (...ls: string[]) => ls.join('\n') + '\n';
 
 describe('lower', () => {
-  it('lowers read_file to the read instruction and a branch that builds ReadResult', () => {
-    expect(irOf(`${MAIN}fn f(p: string): ReadResult { return read_file(p); }`, 'f')).toBe(
+  it('lowers read_file to the read instruction and a branch that builds Result', () => {
+    expect(irOf(`${MAIN}fn f(p: string): Result[string, string] { return read_file(p); }`, 'f')).toBe(
       lines(
-        'fn f(%0 p: string): ReadResult',
+        'fn f(%0 p: string): Result[string, string]',
         '  local %1: bool',
         '  local %2: string',
-        '  local %3: ReadResult',
+        '  local %3: Result[string, string]',
         'entry:',
         '  %1, %2 = read_file %0',
         '  br %1, read_ok1, read_err2',
         'read_ok1:',
-        '  %3 = enum_new ReadResult::Ok(%2)',
+        '  %3 = enum_new Result[string, string]::Ok(%2)',
         '  jmp read_end3',
         'read_err2:',
-        '  %3 = enum_new ReadResult::Err(%2)',
+        '  %3 = enum_new Result[string, string]::Err(%2)',
         '  jmp read_end3',
         'read_end3:',
         '  ret %3',

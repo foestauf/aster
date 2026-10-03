@@ -8,7 +8,7 @@ import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
 import { BOOL, ERROR, INT, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
 import {
-  BUILTIN_SIGNATURES, OPTION, PRELUDE_SOURCE, READ_RESULT, RESULT, isBuiltin, isSignatureBuiltin, readResultEnum, type Signature,
+  BUILTIN_SIGNATURES, OPTION, PRELUDE_SOURCE, RESULT, isBuiltin, isSignatureBuiltin, type Signature,
   type SignatureBuiltin,
 } from './builtins.js';
 import { findExpandingEnums, mentionsParam, type Template } from './generics.js';
@@ -30,8 +30,6 @@ interface Env {
   templates: Map<string, Template>;
   /** The instantiations the program uses, in order of first use. */
   instances: TEnum[];
-  /** Predeclared types the program mentions; only these reach the typed program. Shared by every Ctx. */
-  usedBuiltinTypes: Set<string>;
 }
 
 /** Per-function checking state. */
@@ -60,15 +58,10 @@ const report = (env: Env, message: string, span: Span): void => {
   env.diagnostics.push({ message, span });
 };
 
-/** Records a mention of `name` when it is a predeclared type. */
-const markUsed = (env: Env, name: string): void => {
-  if (name === READ_RESULT) env.usedBuiltinTypes.add(name);
-};
-
 const builtinTypeMessage = (name: string): string => `'${name}' is a builtin type and cannot be redefined`;
 
 /** Names of predeclared types, which no declaration may reuse. */
-const isBuiltinType = (name: string): boolean => name === READ_RESULT || name === OPTION || name === RESULT;
+const isBuiltinType = (name: string): boolean => name === OPTION || name === RESULT;
 
 /** 'struct' / 'enum' when `name` is already taken in the type namespace. Templates count as enums. */
 const typeKindOf = (env: Env, name: string): 'struct' | 'enum' | null =>
@@ -129,7 +122,6 @@ function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Typ
     say(`'${ref.name}' is not generic`, ref.span);
     return ERROR;
   }
-  if (instantiates) markUsed(env, ref.name);
   return type;
 }
 
@@ -290,14 +282,12 @@ function preludeTemplates(): Map<string, Template> {
 }
 
 export function check(program: Program): CheckResult {
-  const readResult = readResultEnum();
   const env: Env = {
     diagnostics: [],
     structs: new Map(),
-    enums: new Map([[READ_RESULT, readResult]]),
+    enums: new Map(),
     templates: preludeTemplates(),
     instances: [],
-    usedBuiltinTypes: new Set(),
   };
   const { structs, enums } = collectTypes(env, program);
 
@@ -342,11 +332,9 @@ export function check(program: Program): CheckResult {
 
   // Pass 2: check bodies.
   const functions = declared.map(({ decl, sig }) => checkFunction(env, signatures, decl, sig));
-  // Checking the bodies above records which predeclared types the program mentions.
   // Instantiations follow the non-generic enums, in order of first use.
   const userEnums = [...enums, ...env.instances];
-  const allEnums = env.usedBuiltinTypes.has(READ_RESULT) ? [readResult, ...userEnums] : userEnums;
-  return { program: { structs, enums: allEnums, functions }, diagnostics: env.diagnostics };
+  return { program: { structs, enums: userEnums, functions }, diagnostics: env.diagnostics };
 }
 
 function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDecl, sig: Signature): TFunction {
@@ -660,7 +648,6 @@ function resolveVariant(env: Env, enumName: string, enumSpan: Span, variantName:
     report(env, isType ? `'${enumName}' is not an enum` : `unknown enum '${enumName}'`, enumSpan);
     return null;
   }
-  markUsed(env, enumName);
   const variant = enumType.variants.find((v) => v.name === variantName);
   if (!variant) {
     report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
@@ -967,7 +954,6 @@ function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract
     if (found !== null) report(ctx, `pattern type '${pattern.enumName}' does not match '${typeToString(st)}'`, pattern.enumSpan);
     return null;
   }
-  markUsed(ctx, enumName);
   const variant = decl.variants.find((v) => v.name === pattern.variant);
   if (!variant) {
     report(ctx, `unknown variant '${pattern.variant}' on '${enumName}'`, pattern.variantSpan);
@@ -1188,10 +1174,11 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
-  if (builtin === 'read_file') markUsed(ctx, READ_RESULT);
+  const returnType =
+    builtin === 'read_file' ? instantiate(ctx, ctx.templates.get(RESULT)!, [STRING, STRING]) : sig.returnType;
   return builtin
-    ? { kind: 'builtin', type: sig.returnType, builtin, args }
-    : { kind: 'call', type: sig.returnType, fn: name, args };
+    ? { kind: 'builtin', type: returnType, builtin, args }
+    : { kind: 'call', type: returnType, fn: name, args };
 }
 
 function checkPrint(ctx: Ctx, expr: CallExpr, name: 'print' | 'eprint', args: TExpr[]): TExpr {

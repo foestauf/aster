@@ -466,34 +466,16 @@ describe('check: literal matches', () => {
   });
 });
 
-describe('check: ReadResult', () => {
-  const STR = { kind: 'string' };
-
-  it('is a predeclared enum, included in the program only when mentioned', () => {
+describe('check: read_file', () => {
+  it('returns Result[string, string], instantiated on first use', () => {
+    const { program } = checkText('fn main(): int { let r: Result[string, string] = read_file("x"); return 0; }');
+    expect(program.enums.map((e) => e.name)).toEqual(['Result[string, string]']);
     expect(checkText(MAIN).program.enums).toEqual([]);
-    const { program } = checkText('fn main(): int { let r: ReadResult = ReadResult::Err("e"); return 0; }');
-    expect(program.enums).toEqual([
-      {
-        name: 'ReadResult',
-        payloadFree: false,
-        variants: [
-          { name: 'Ok', tag: 0, payload: [STR] },
-          { name: 'Err', tag: 1, payload: [STR] },
-        ],
-      },
-    ]);
   });
 
-  it('counts a variant expression alone as a mention, and comes before user enums', () => {
-    const { program } = checkText('enum A { X }\nfn main(): int { let a: A = A::X; ReadResult::Ok("x"); return 0; }');
-    expect(program.enums.map((e) => e.name)).toEqual(['ReadResult', 'A']);
-  });
-
-  it('cannot be redefined', () => {
-    const bad = "'ReadResult' is a builtin type and cannot be redefined";
-    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([bad]);
-    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([bad]);
-    expect(messages(`${MAIN}fn ReadResult() { }`)).toEqual([bad]);
+  it('leaves ReadResult as an ordinary free name', () => {
+    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([]);
+    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([]);
   });
 });
 
@@ -569,7 +551,7 @@ describe('generic enums', () => {
   it('rejects type parameters that clash with builtin functions and templates', () => {
     expect(messages(`enum E[len] { A(len) }\n${MAIN}`)).toEqual([conflict('len')]);
     expect(messages(`${LIST}enum E[List] { A(List) }\n${MAIN}`)).toEqual([conflict('List')]);
-    expect(messages(`enum E[ReadResult] { A(ReadResult) }\n${MAIN}`)).toEqual([conflict('ReadResult')]);
+    expect(messages(`enum E[Result] { A(Result) }\n${MAIN}`)).toEqual([conflict('Result')]);
   });
 
   it('shares the type namespace between templates, structs, enums and functions', () => {

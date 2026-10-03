@@ -9,10 +9,10 @@
 // 57
 fn read(path: string): string {
     match read_file(path) {
-        ReadResult::Ok(s) => {
+        Result::Ok(s) => {
             return s;
         }
-        ReadResult::Err(e) => {
+        Result::Err(e) => {
             panic(e);
         }
     }

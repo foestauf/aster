@@ -290,11 +290,11 @@ fn main(args: [string]): int {
         exit(2);
     }
     match read_file(args[0]) {
-        ReadResult::Ok(src) => {
+        Result::Ok(src) => {
             report(lex(src));
             return 0;
         }
-        ReadResult::Err(msg) => {
+        Result::Err(msg) => {
             eprint(msg);
             exit(2);
         }
