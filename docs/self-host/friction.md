@@ -3,7 +3,7 @@
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
 (`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 language spec, and entries 4 to 6 are now resolved.
 
-Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which is 1,646 lines
+Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which is 1,797 lines (it grew with v0.4 support)
 and has byte-for-byte parity with the TypeScript parser.
 
 ## Entries

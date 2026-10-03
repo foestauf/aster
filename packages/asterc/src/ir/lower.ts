@@ -339,7 +339,10 @@ function lowerFor(st: FnState, body: TBlock, counter: number, parts: { cond: () 
 
 /**
  * The shape of a match:
- *   entry:    t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+ *   enum:     entry: t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+ *   int/bool: entry: switch s [value: armN, ...], default <the `_` arm, or unreachable>
+ *   string:   entry: a chain of `str_eq s, "lit"` tests, each br armN / next test, in arm order;
+ *             a `_` arm ends the chain with a jmp, otherwise the chain ends in unreachable
  *   armN:     binder = enum_field s, Enum::Variant.slot (for each binder); body; jmp endmatch
  *   endmatch: (only when some arm falls through; an unused label would warn)
  * The scrutinee is evaluated once, and binders are read before the body runs.

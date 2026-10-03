@@ -41,7 +41,7 @@ Run it with `pnpm build && pnpm aster run example.aster`.
   - `character literal must be a single ASCII character` for two or more characters, or a non-ASCII or control character.
   - `invalid escape sequence '<text>'` for an unknown escape.
 
-  An erroneous literal still produces a token (with value 0), so it doesn't cause follow-on parse errors. A `'` inside a comment or a string literal does not start a character literal.
+  An erroneous literal that is properly closed (for example an empty or multi-character one) still produces a token (with value 0), so it doesn't cause follow-on parse errors; an unterminated literal consumes the rest of the line, including any `;`, so a follow-on parse error may appear. A `'` inside a comment or a string literal does not start a character literal.
 - Punctuation: `( ) { } [ ] , : ; . .. = + - * / % ! < <= > >= == != && || | += -= *= /= %= :: =>`. `||` is one token, so `a || b` is unchanged and `|` appears only in patterns.
 - `_` on its own is the wildcard token, not an identifier. Names that merely start with `_` (`_x`) are ordinary identifiers.
 
