@@ -16,11 +16,14 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/](lex|parse)_\w+\.txt$/.test(f))
   .toSorted();
 
+const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
+
 /**
  * The TypeScript lexer and parser's output in parse.aster's format, with UTF-16 offsets converted to byte offsets in
- * the raw file. `makeSource` strips a leading BOM before lexing, so spans are shifted past its 3 bytes.
+ * the raw file: the tree for stdout and errors (lexer first, then parser) for stderr. `makeSource` strips a leading
+ * BOM before lexing, so spans are shifted past its 3 bytes.
  */
-function expected(text: string): { stdout: string; status: number } {
+function expected(text: string): { stdout: string; stderr: string; status: number } {
   const bom = text.startsWith('﻿') ? 3 : 0;
   const body = bom > 0 ? text.slice(1) : text;
   // byteAt[i] is the byte offset of UTF-16 index i of body.
@@ -237,8 +240,8 @@ function expected(text: string): { stdout: string; status: number } {
     else enumDecl(item);
   }
   const diagnostics = [...lexed.diagnostics, ...parsed.diagnostics];
-  for (const d of diagnostics) lines.push(`error ${sp(d.span)} ${d.message}`);
-  return { stdout: lines.map((l) => `${l}\n`).join(''), status: diagnostics.length > 0 ? 1 : 0 };
+  const errors = diagnostics.map((d) => `error ${sp(d.span)} ${d.message}`);
+  return { stdout: toOutput(lines), stderr: toOutput(errors), status: diagnostics.length > 0 ? 1 : 0 };
 }
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-parse-'));
@@ -266,6 +269,6 @@ describe('parse.aster matches the TypeScript parser', () => {
     // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
     const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
-    expect({ stdout: run.stdout, status: run.status }).toEqual(expected(text));
+    expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(text));
   });
 });
