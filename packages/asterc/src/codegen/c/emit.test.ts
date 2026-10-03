@@ -4,7 +4,7 @@ import { makeSource } from '../../diagnostics/source.js';
 import { lower } from '../../ir/lower.js';
 import { lex } from '../../lexer/lexer.js';
 import { parse } from '../../parser/parser.js';
-import { emitC, mangleFn, mangleLocal, stringLiteral } from './emit.js';
+import { emitC, mangleEnum, mangleFn, mangleLocal, mangleVariant, stringLiteral } from './emit.js';
 
 function cOf(text: string): string {
   const lexed = lex(makeSource('t.aster', text));
@@ -31,6 +31,11 @@ describe('mangling', () => {
     expect(mangleFn('printf')).toBe('aster_fn_printf');
     expect(mangleLocal({ id: 3, name: 'int', type: { kind: 'int' } })).toBe('l3_int');
     expect(mangleLocal({ id: 4, name: null, type: { kind: 'bool' } })).toBe('l4');
+  });
+
+  it('prefixes enum types and variant members', () => {
+    expect(mangleEnum('FILE')).toBe('aster_E_FILE');
+    expect(mangleVariant('int')).toBe('v_int');
   });
 });
 

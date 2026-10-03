@@ -13,6 +13,8 @@ function cType(t: Type): string {
       return 'aster_string';
     case 'struct':
       return mangleStruct(t.name);
+    case 'enum':
+      return mangleEnum(t.name);
     case 'array':
       return 'aster_array';
     case 'void':
@@ -30,6 +32,9 @@ function zeroValue(t: IrType): string {
       return 'false';
     case 'string':
       return '{0}';
+    case 'enum':
+      // A null pointer constant for heap enums and tag 0 for payload-free ones.
+      return '0';
     case 'struct':
     case 'array':
       return 'NULL';
@@ -58,6 +63,8 @@ const BINOPS: Record<IrBinOp, (a: string, b: string) => string> = {
 
 export const mangleFn = (name: string): string => `aster_fn_${name}`;
 export const mangleStruct = (name: string): string => `aster_S_${name}`;
+export const mangleEnum = (name: string): string => `aster_E_${name}`;
+export const mangleVariant = (name: string): string => `v_${name}`;
 export const mangleField = (name: string): string => `f_${name}`;
 export const mangleLocal = (local: IrLocal): string => (local.name === null ? `l${local.id}` : `l${local.id}_${local.name}`);
 
