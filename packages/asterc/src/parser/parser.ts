@@ -1,5 +1,5 @@
 import type {
-  AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
+  Alternative, AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -333,6 +333,45 @@ export function parse(tokens: readonly Token[]): ParseResult {
   function parsePattern(): Pattern {
     const wildcard = eat('_');
     if (wildcard) return { kind: 'wildcard', span: wildcard.span };
+    const alternatives = [parseAlternative()];
+    while (eat('|')) alternatives.push(parseAlternative());
+    if (alternatives.length === 1) return alternatives[0];
+    return { kind: 'or', alternatives, span: join(alternatives[0].span, alternatives[alternatives.length - 1].span) };
+  }
+
+  function parseAlternative(): Alternative {
+    const t = peek();
+    switch (t.kind) {
+      case 'int':
+        advance();
+        checkIntRange(t.intValue as bigint, t.span);
+        return { kind: 'intPat', value: t.intValue as bigint, raw: t.text, span: t.span };
+      case '-': {
+        advance();
+        const literal = expect('int');
+        const value = -(literal.intValue as bigint);
+        const span = join(t.span, literal.span);
+        checkIntRange(value, span);
+        return { kind: 'intPat', value, raw: `-${literal.text}`, span };
+      }
+      case 'char':
+        advance();
+        return { kind: 'charPat', value: t.intValue as bigint, raw: t.text, span: t.span };
+      case 'string':
+        advance();
+        return { kind: 'stringPat', value: t.stringValue as string, raw: t.text, span: t.span };
+      case 'true':
+      case 'false':
+        advance();
+        return { kind: 'boolPat', value: t.kind === 'true', span: t.span };
+      case 'ident':
+        return parseVariantPattern();
+      default:
+        return fail(`expected pattern, found ${describe(t)}`, t.span);
+    }
+  }
+
+  function parseVariantPattern(): Alternative {
     const enumName = expect('ident');
     expect('::');
     const variant = expect('ident');
@@ -430,6 +469,9 @@ export function parse(tokens: readonly Token[]): ParseResult {
         checkIntRange(value, t.span);
         return { kind: 'int', value, span: t.span };
       }
+      case 'char':
+        advance();
+        return { kind: 'char', value: t.intValue as bigint, raw: t.text, span: t.span };
       case 'string':
         advance();
         return { kind: 'string', value: t.stringValue as string, span: t.span };

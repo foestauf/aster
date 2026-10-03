@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildExecutable, compileToC, formatDiagnostic, lex, makeSource, parse,
-  type Block, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
+  type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
 } from '../packages/asterc/src/index.js';
 
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
@@ -48,10 +48,27 @@ function expected(text: string): { stdout: string; status: number } {
     type(d + 1, t.elem);
   };
 
+  const alternative = (d: number, a: Alternative): void => {
+    switch (a.kind) {
+      case 'variant':
+        emit(d, `pattern ${sp(a.span)} ${a.enumName} ${sp(a.enumSpan)} ${a.variant} ${sp(a.variantSpan)}`);
+        for (const b of a.binders) emit(d + 1, b === null ? '_' : `bind ${sp(b.span)} ${b.name}`);
+        return;
+      case 'intPat':
+        return emit(d, `int-pattern ${sp(a.span)} ${a.raw}`);
+      case 'charPat':
+        return emit(d, `char-pattern ${sp(a.span)} ${a.raw}`);
+      case 'stringPat':
+        return emit(d, `string-pattern ${sp(a.span)} ${a.raw}`);
+      case 'boolPat':
+        return emit(d, `bool-pattern ${sp(a.span)} ${a.value}`);
+    }
+  };
   const pattern = (d: number, p: Pattern): void => {
     if (p.kind === 'wildcard') return emit(d, `wildcard ${sp(p.span)}`);
-    emit(d, `pattern ${sp(p.span)} ${p.enumName} ${sp(p.enumSpan)} ${p.variant} ${sp(p.variantSpan)}`);
-    for (const b of p.binders) emit(d + 1, b === null ? '_' : `bind ${sp(b.span)} ${b.name}`);
+    if (p.kind !== 'or') return alternative(d, p);
+    emit(d, `or-pattern ${sp(p.span)}`);
+    for (const a of p.alternatives) alternative(d + 1, a);
   };
 
   const expr = (d: number, e: Expr): void => {
@@ -59,6 +76,8 @@ function expected(text: string): { stdout: string; status: number } {
     switch (e.kind) {
       case 'int':
         return emit(d, `int ${head} ${e.value}`);
+      case 'char':
+        return emit(d, `char ${head} ${e.raw}`);
       case 'string':
         return emit(d, `string ${head} ${body.slice(e.span.start, e.span.end)}`);
       case 'bool':

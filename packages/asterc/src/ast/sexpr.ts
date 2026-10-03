@@ -5,6 +5,8 @@ export function sexpr(e: Expr): string {
   switch (e.kind) {
     case 'int':
       return e.value.toString();
+    case 'char':
+      return e.raw;
     case 'string':
       return JSON.stringify(e.value);
     case 'bool':
@@ -36,9 +38,22 @@ export function sexpr(e: Expr): string {
   }
 }
 
-/** Renders a pattern: `_`, `E::V`, or `(E::V x _)` with binders. */
+/** Renders a pattern: `_`, `E::V`, `(E::V x _)` with binders, a literal by its source text, or `(| a b c)`. */
 export function patternText(p: Pattern): string {
-  if (p.kind === 'wildcard') return '_';
-  const head = `${p.enumName}::${p.variant}`;
-  return p.binders.length === 0 ? head : `(${[head, ...p.binders.map((b) => b?.name ?? '_')].join(' ')})`;
+  switch (p.kind) {
+    case 'wildcard':
+      return '_';
+    case 'or':
+      return `(| ${p.alternatives.map(patternText).join(' ')})`;
+    case 'variant': {
+      const head = `${p.enumName}::${p.variant}`;
+      return p.binders.length === 0 ? head : `(${[head, ...p.binders.map((b) => b?.name ?? '_')].join(' ')})`;
+    }
+    case 'intPat':
+    case 'charPat':
+    case 'stringPat':
+      return p.raw;
+    case 'boolPat':
+      return String(p.value);
+  }
 }

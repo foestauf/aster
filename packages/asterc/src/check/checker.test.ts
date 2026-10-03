@@ -23,6 +23,11 @@ const messages = (text: string) => checkText(text).diagnostics.map((d) => d.mess
 const inMain = (body: string) => messages(`fn main(): int {\n${body}\nreturn 0;\n}`);
 
 describe('check: whole programs', () => {
+  it('types character literals as int', () => {
+    expect(inMain("let c: int = 'a';\nprint(c);")).toEqual([]);
+    expect(inMain("let s: string = 'a';")).toEqual(['type mismatch: expected string, found int']);
+  });
+
   it('accepts the example program', () => {
     expect(inMain('let x: int = 10;\nlet y: int = 20;\nprint(x + y);')).toEqual([]);
   });

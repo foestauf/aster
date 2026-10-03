@@ -419,6 +419,8 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
   switch (expr.kind) {
     case 'int':
       return { kind: 'int', type: INT, value: expr.value };
+    case 'char':
+      return { kind: 'int', type: INT, value: expr.value };
     case 'string':
       return { kind: 'string', type: STRING, value: expr.value };
     case 'bool':
@@ -566,6 +568,8 @@ function checkMatch(
   for (const [index, pattern] of patterns.entries()) {
     let variant: TVariant | null = null;
     let slots: readonly Type[] | null = null;
+    // Interim: literal and or-patterns are unresolved until the checker learns them.
+    if (pattern.kind !== 'wildcard' && pattern.kind !== 'variant') allResolved = false;
     if (decl !== null) {
       if (pattern.kind === 'variant') {
         variant = resolvePatternVariant(ctx, decl, pattern);
