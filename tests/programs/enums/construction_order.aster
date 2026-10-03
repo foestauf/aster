@@ -1,0 +1,19 @@
+// Payload values are evaluated left to right, and [] infers its type from the payload slot.
+// expect-stdout:
+// a
+// b
+// c
+// built
+enum Pair { Two(int, [int]), Three(int, int, int) }
+
+fn say(s: string, n: int): int {
+    print(s);
+    return n;
+}
+
+fn main(): int {
+    let p: Pair = Pair::Three(say("a", 1), say("b", 2), say("c", 3));
+    let q: Pair = Pair::Two(4, []);
+    print("built");
+    return 0;
+}

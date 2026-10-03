@@ -1,0 +1,20 @@
+// expect-error: 10:6 'int' is a built-in type and cannot be redefined
+// expect-error: 11:6 'print' is a builtin function and cannot be redefined
+// expect-error: 13:6 'P' is already declared as a struct
+// expect-error: 14:16 duplicate variant 'A' in 'E'
+// expect-error: 15:6 duplicate enum 'E'
+// expect-error: 16:4 'E' is already declared as an enum
+// expect-error: 17:12 unknown type 'Nope'
+// expect-error: 17:21 payload cannot have type void
+// expect-error: 19:8 'G' is already declared as an enum
+enum int { A }
+enum print { A }
+struct P { x: int }
+enum P { A }
+enum E { A, B, A }
+enum E { C }
+fn E() { }
+enum F { A(Nope), B(void) }
+enum G { A }
+struct G { x: int }
+fn main(): int { return 0; }

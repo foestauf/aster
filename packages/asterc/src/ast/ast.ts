@@ -8,6 +8,7 @@ export type TypeExpr =
 export interface Program {
   functions: FnDecl[];
   structs: StructDecl[];
+  enums: EnumDecl[];
 }
 
 export interface FieldDecl {
@@ -21,6 +22,21 @@ export interface StructDecl {
   name: string;
   nameSpan: Span;
   fields: FieldDecl[];
+  span: Span;
+}
+
+export interface VariantDecl {
+  name: string;
+  nameSpan: Span;
+  /** Payload slot types in order; empty for a unit variant. */
+  payload: TypeExpr[];
+}
+
+export interface EnumDecl {
+  kind: 'enum';
+  name: string;
+  nameSpan: Span;
+  variants: VariantDecl[];
   span: Span;
 }
 
@@ -227,5 +243,17 @@ export interface ArrayLitExpr {
   span: Span;
 }
 
+/** `Enum::Variant` or `Enum::Variant(args)`. `args` is empty when there are no parentheses (`V()` is a syntax error). */
+export interface VariantExpr {
+  kind: 'variant';
+  enumName: string;
+  enumSpan: Span;
+  variant: string;
+  variantSpan: Span;
+  args: Expr[];
+  span: Span;
+}
+
 export type Expr =
-  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr;
+  | IntExpr | StringExpr | BoolExpr | NameExpr | UnaryExpr | BinaryExpr | CallExpr | IfExpr | FieldExpr | StructLitExpr | IndexExpr | ArrayLitExpr
+  | VariantExpr;

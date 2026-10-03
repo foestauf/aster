@@ -1,8 +1,8 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
-import type { TBlock, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
+import type { TBlock, TEnum, TExpr, TFunction, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, INT, type Type } from '../types/type.js';
 import type {
-  BasicBlock, Instr, IrBinOp, IrBuiltin, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
+  BasicBlock, Instr, IrBinOp, IrBuiltin, IrEnum, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
 } from './ir.js';
 
 interface StringTable {
@@ -46,12 +46,18 @@ export function lower(program: TypedProgram): IrProgram {
   const strings: StringTable = { values: [], index: new Map() };
   const structs = new Map(program.structs.map((s) => [s.name, s]));
   const functions = program.functions.map((fn) => lowerFunction(fn, strings, structs));
-  return { structs: program.structs.map(irStruct), functions, strings: strings.values };
+  return { structs: program.structs.map(irStruct), enums: program.enums.map(irEnum), functions, strings: strings.values };
 }
 
 const irStruct = (s: TStruct): IrStruct => ({
   name: s.name,
   fields: s.fields.map((f) => ({ name: f.name, type: irType(f.type) })),
+});
+
+const irEnum = (e: TEnum): IrEnum => ({
+  name: e.name,
+  payloadFree: e.payloadFree,
+  variants: e.variants.map((v) => ({ name: v.name, tag: v.tag, payload: v.payload.map(irType) })),
 });
 
 function irType(t: Type): IrType {
@@ -419,6 +425,19 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       emit(st, { kind: 'array_new', dst, elem: irType(type.elem), elements });
       return { kind: 'local', id: dst };
     }
+    case 'variant': {
+      const args = e.args.map((a) => lowerValue(st, a));
+      const dst = newTemp(st, irType(e.type));
+      emit(st, { kind: 'enum_new', dst, enum: e.enum, variant: e.variant, tag: e.tag, args });
+      return { kind: 'local', id: dst };
+    }
+    case 'enumCompare': {
+      const left = enumTag(st, lowerValue(st, e.left));
+      const right = enumTag(st, lowerValue(st, e.right));
+      const dst = newTemp(st, irType(BOOL));
+      emit(st, { kind: 'binop', dst, op: e.op === '==' ? 'eq' : 'ne', left, right });
+      return { kind: 'local', id: dst };
+    }
     case 'structLit': {
       // Evaluate in written order, then hand the values over in declaration order. Reordering operands is safe
       // because no Aster expression can assign to a local.
@@ -453,6 +472,13 @@ function lowerShortCircuit(st: FnState, op: '&&' | '||', left: TExpr, right: TEx
   terminate(st, { kind: 'jmp', target: end });
   startBlock(st, end);
   return { kind: 'local', id: dst };
+}
+
+/** Reads the tag of an enum value into a new int temporary. */
+function enumTag(st: FnState, value: Operand): Operand {
+  const dst = newTemp(st, irType(INT));
+  emit(st, { kind: 'enum_tag', dst, value });
+  return ref(dst);
 }
 
 function binOp(op: BinaryOp, operandType: Type): IrBinOp {

@@ -373,4 +373,37 @@ describe('lower', () => {
   it('omits the step block when the body can neither fall through nor continue', () => {
     expect(irOf(`${MAIN}fn f(n: int): int { for i in 0..n { return i; } return 0; }`, 'f')).not.toContain('for_step');
   });
+
+  it('lowers variant construction and payload-free enum equality through tags', () => {
+    const text = `${MAIN}enum P { A(int), B }\nenum K { X, Y }\nfn f(n: int, k: K): bool { let p: P = P::A(n + 1); let q: P = P::B; return k == K::Y; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 n: int, %1 k: K): bool',
+        '  local %2 p: P',
+        '  local %3 q: P',
+        '  local %4: int',
+        '  local %5: P',
+        '  local %6: P',
+        '  local %7: int',
+        '  local %8: K',
+        '  local %9: int',
+        '  local %10: bool',
+        'entry:',
+        '  %4 = add %0, 1',
+        '  %5 = enum_new P::A(%4)',
+        '  %2 = copy %5',
+        '  %6 = enum_new P::B',
+        '  %3 = copy %6',
+        '  %7 = enum_tag %1',
+        '  %8 = enum_new K::Y',
+        '  %9 = enum_tag %8',
+        '  %10 = eq %7, %9',
+        '  ret %10',
+      ),
+    );
+  });
+
+  it('prints enum declarations', () => {
+    expect(printIr(lowerText(`enum E { A, B(int, [E]) }\n${MAIN}`))).toContain('enum E { A, B(int, [E]) }\n');
+  });
 });

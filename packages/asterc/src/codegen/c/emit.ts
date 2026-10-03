@@ -1,5 +1,7 @@
 import type { Type } from '../../types/type.js';
-import type { Instr, IrBinOp, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from '../../ir/ir.js';
+import type { Instr, IrBinOp, IrEnum, IrFunction, IrLocal, IrProgram, IrType, Operand, Terminator } from '../../ir/ir.js';
+
+type EnumTable = ReadonlyMap<string, IrEnum>;
 
 const INT64_MIN = -(2n ** 63n);
 
@@ -70,9 +72,10 @@ export const mangleLocal = (local: IrLocal): string => (local.name === null ? `l
 
 export function emitC(program: IrProgram): string {
   const out: string[] = ['#include "aster_rt.h"', ''];
-  if (program.structs.length > 0) {
-    // Every typedef comes first, so struct bodies can refer to any struct, including themselves.
+  if (program.structs.length > 0 || program.enums.length > 0) {
+    // Every typedef comes first, so struct and enum bodies can refer to any type, including themselves.
     for (const s of program.structs) out.push(`typedef struct ${mangleStruct(s.name)} *${mangleStruct(s.name)};`);
+    for (const e of program.enums) out.push(enumTypedef(e));
     out.push('');
     for (const s of program.structs) {
       out.push(`struct ${mangleStruct(s.name)} {`);
@@ -80,17 +83,38 @@ export function emitC(program: IrProgram): string {
       for (const f of s.fields) out.push(`    ${cType(f.type)} ${mangleField(f.name)};`);
       out.push('};', '');
     }
+    for (const e of program.enums) if (!e.payloadFree) out.push(...enumDefinition(e), '');
   }
   if (program.strings.length > 0) {
     // Not static: an unused static const would trip -Wunused-const-variable.
     program.strings.forEach((s, i) => out.push(`const aster_string aster_str_${i} = ${stringLiteral(s)};`));
     out.push('');
   }
+  const enums: EnumTable = new Map(program.enums.map((e) => [e.name, e]));
   for (const fn of program.functions) out.push(`${signature(fn)};`);
   out.push('');
-  for (const fn of program.functions) out.push(...emitFunction(fn), '');
+  for (const fn of program.functions) out.push(...emitFunction(fn, enums), '');
   out.push('int main(void) {', '    return (int)aster_fn_main();', '}', '');
   return out.join('\n');
+}
+
+/** Payload-free enums are plain int64 tags; every other enum is a pointer to a tagged union. */
+const enumTypedef = (e: IrEnum): string =>
+  e.payloadFree ? `typedef int64_t ${mangleEnum(e.name)};` : `typedef struct ${mangleEnum(e.name)} *${mangleEnum(e.name)};`;
+
+/**
+ * The tagged union behind a heap enum. Only payload variants get a union member, and a heap enum has at least one
+ * payload variant (otherwise it would be payload-free), so the union is never empty.
+ */
+function enumDefinition(e: IrEnum): string[] {
+  const lines = [`struct ${mangleEnum(e.name)} {`, '    int64_t tag;', '    union {'];
+  for (const v of e.variants) {
+    if (v.payload.length === 0) continue;
+    const slots = v.payload.map((t, i) => `${cType(t)} p${i};`).join(' ');
+    lines.push(`        struct { ${slots} } ${mangleVariant(v.name)};`);
+  }
+  lines.push('    } u;', '};');
+  return lines;
 }
 
 /** A C initializer for an aster_string holding `value` as UTF-8. */
@@ -112,7 +136,7 @@ function signature(fn: IrFunction): string {
   return `${cType(fn.returnType)} ${mangleFn(fn.name)}(${params.length > 0 ? params.join(', ') : 'void'})`;
 }
 
-function emitFunction(fn: IrFunction): string[] {
+function emitFunction(fn: IrFunction, enums: EnumTable): string[] {
   const lines = [`${signature(fn)} {`];
   const locals = fn.locals.slice(fn.paramCount);
   for (const l of locals) lines.push(`    ${cType(l.type)} ${mangleLocal(l)} = ${zeroValue(l.type)};`);
@@ -120,7 +144,7 @@ function emitFunction(fn: IrFunction): string[] {
   fn.blocks.forEach((block, i) => {
     // The entry block is never a jump target, so it gets no label (avoids -Wunused-label).
     if (i > 0) lines.push(`${block.label}:;`);
-    for (const instr of block.instrs) lines.push(`    ${emitInstr(fn, instr)}`);
+    for (const instr of block.instrs) lines.push(`    ${emitInstr(fn, enums, instr)}`);
     lines.push(`    ${emitTerminator(fn, block.term)}`);
   });
   lines.push('}');
@@ -151,7 +175,15 @@ function elemCType(fn: IrFunction, array: Operand): string {
   return cType(t.elem);
 }
 
-function emitInstr(fn: IrFunction, instr: Instr): string {
+/** The declaration of an enum-typed operand. Enum values are never constants, so the operand is a local. */
+function enumOf(fn: IrFunction, enums: EnumTable, o: Operand): IrEnum {
+  const t = o.kind === 'local' ? fn.locals[o.id].type : null;
+  const decl = t !== null && t.kind === 'enum' ? enums.get(t.name) : undefined;
+  if (decl === undefined) throw new Error('internal: enum operand is not an enum local');
+  return decl;
+}
+
+function emitInstr(fn: IrFunction, enums: EnumTable, instr: Instr): string {
   const op = (o: Operand) => operand(fn, o);
   const assign = (dst: number | null, value: string) => (dst === null ? `${value};` : `${mangleLocal(fn.locals[dst])} = ${value};`);
   switch (instr.kind) {
@@ -192,6 +224,20 @@ function emitInstr(fn: IrFunction, instr: Instr): string {
       return assign(instr.dst, `${op(instr.array)}->len`);
     case 'array_push':
       return `${slot(elemCType(fn, instr.array), `aster_rt_array_push_slot(${op(instr.array)})`)} = ${op(instr.value)};`;
+    case 'enum_new': {
+      const decl = enums.get(instr.enum);
+      if (decl === undefined) throw new Error(`internal: unknown enum ${instr.enum}`);
+      const target = mangleLocal(fn.locals[instr.dst]);
+      if (decl.payloadFree) return `${target} = INT64_C(${instr.tag});`;
+      const member = `${target}->u.${mangleVariant(instr.variant)}`;
+      return [
+        `${target} = aster_rt_alloc(sizeof(struct ${mangleEnum(instr.enum)}));`,
+        `${target}->tag = INT64_C(${instr.tag});`,
+        ...instr.args.map((a, i) => `${member}.p${i} = ${op(a)};`),
+      ].join('\n    ');
+    }
+    case 'enum_tag':
+      return assign(instr.dst, enumOf(fn, enums, instr.value).payloadFree ? op(instr.value) : `${op(instr.value)}->tag`);
     case 'array_pop':
       return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_pop_slot(${op(instr.array)})`));
   }

@@ -136,4 +136,36 @@ describe('emitC', () => {
     expect(c).toContain('    l2 = *(aster_string *)aster_rt_array_at(l0_a, INT64_C(1));');
     expect(c).toContain('    l3 = l0_a->len;');
   });
+
+  it('emits payload-free enums as int64 tags and other enums as tagged unions', () => {
+    const c = cOf('struct S { e: E }\nenum E { A, B(int, S), C(E) }\nenum K { X, Y }\nfn main(): int { return 0; }');
+    expect(c).toContain(
+      [
+        'typedef struct aster_S_S *aster_S_S;',
+        'typedef struct aster_E_E *aster_E_E;',
+        'typedef int64_t aster_E_K;',
+        '',
+        'struct aster_S_S {',
+        '    aster_E_E f_e;',
+        '};',
+        '',
+        'struct aster_E_E {',
+        '    int64_t tag;',
+        '    union {',
+        '        struct { int64_t p0; aster_S_S p1; } v_B;',
+        '        struct { aster_E_E p0; } v_C;',
+        '    } u;',
+        '};',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('builds enum values and reads their tags', () => {
+    const c = cOf('enum E { A, B(int) }\nenum K { X, Y }\nfn main(): int { let e: E = E::B(7); let k: K = K::Y; if k == K::X { return 1; } return 0; }');
+    expect(c).toContain('    aster_E_E l0_e = 0;');
+    expect(c).toContain('    l2 = aster_rt_alloc(sizeof(struct aster_E_E));\n    l2->tag = INT64_C(1);\n    l2->u.v_B.p0 = INT64_C(7);');
+    expect(c).toContain('    l3 = INT64_C(1);');
+    expect(c).toContain('    l4 = l1_k;');
+  });
 });

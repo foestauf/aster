@@ -1,5 +1,5 @@
 import type {
-  AssignOp, BinaryOp, Block, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeExpr,
+  AssignOp, BinaryOp, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, Param, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -65,7 +65,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
   };
   const eat = (kind: TokenKind): Token | null => (at(kind) ? advance() : null);
 
-  const atItem = (): boolean => at('fn') || at('struct');
+  const atItem = (): boolean => at('fn') || at('struct') || at('enum');
 
   /** True while parsing an `if`/`while`/`for` header, where `Name {` starts the body rather than a struct literal. */
   let noStructLit = false;
@@ -103,24 +103,26 @@ export function parse(tokens: readonly Token[]): ParseResult {
   function parseProgram(): Program {
     const functions: FnDecl[] = [];
     const structs: StructDecl[] = [];
+    const enums: EnumDecl[] = [];
     while (!at('eof')) {
       if (!atItem()) {
-        diagnostics.push({ message: `expected 'fn' or 'struct', found ${describe(peek())}`, span: peek().span });
+        diagnostics.push({ message: `expected 'fn', 'struct' or 'enum', found ${describe(peek())}`, span: peek().span });
         syncToItem();
         continue;
       }
       try {
         if (at('fn')) functions.push(parseFunction());
-        else structs.push(parseStruct());
+        else if (at('struct')) structs.push(parseStruct());
+        else enums.push(parseEnum());
       } catch (e) {
         if (e !== SYNC) throw e;
         syncToItem();
       }
     }
-    return { functions, structs };
+    return { functions, structs, enums };
   }
 
-  /** Skips to the next `fn`, `struct` or EOF. Consumes at least one token unless already at an item. */
+  /** Skips to the next `fn`, `struct`, `enum` or EOF. Consumes at least one token unless already at an item. */
   function syncToItem(): void {
     if (!atItem()) advance();
     while (!atItem() && !at('eof')) advance();
@@ -157,6 +159,27 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
     const close = expect('}');
     return { kind: 'struct', name: name.text, nameSpan: name.span, fields, span: join(kw.span, close.span) };
+  }
+
+  /** `enum Name { V, W(T, U), }`: at least one variant; payload lists take no trailing comma. */
+  function parseEnum(): EnumDecl {
+    const kw = expect('enum');
+    const name = expect('ident');
+    expect('{');
+    const variants: VariantDecl[] = [];
+    for (;;) {
+      const variantName = expect('ident');
+      const payload: TypeExpr[] = [];
+      if (eat('(')) {
+        do payload.push(parseType());
+        while (eat(','));
+        expect(')');
+      }
+      variants.push({ name: variantName.text, nameSpan: variantName.span, payload });
+      if (!eat(',') || at('}')) break;
+    }
+    const close = expect('}');
+    return { kind: 'enum', name: name.text, nameSpan: name.span, variants, span: join(kw.span, close.span) };
   }
 
   function parseType(): TypeExpr {
@@ -361,6 +384,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
         return { kind: 'bool', value: t.kind === 'true', span: t.span };
       case 'ident':
         advance();
+        if (at('::')) return parseVariantExpr(t);
         if (at('{') && !noStructLit) return parseStructLit(t);
         return { kind: 'name', name: t.text, span: t.span };
       case '[': {
@@ -401,6 +425,29 @@ export function parse(tokens: readonly Token[]): ParseResult {
     });
     const close = expect('}');
     return { kind: 'structLit', name: name.text, nameSpan: name.span, fields, span: join(name.span, close.span) };
+  }
+
+  function parseVariantExpr(enumName: Token): VariantExpr {
+    expect('::');
+    const variant = expect('ident');
+    const args: Expr[] = [];
+    let end = variant.span;
+    if (eat('(')) {
+      withStructLits(true, () => {
+        do args.push(parseExpr());
+        while (eat(','));
+      });
+      end = expect(')').span;
+    }
+    return {
+      kind: 'variant',
+      enumName: enumName.text,
+      enumSpan: enumName.span,
+      variant: variant.text,
+      variantSpan: variant.span,
+      args,
+      span: join(enumName.span, end),
+    };
   }
 
   function parseIfExpr(): IfExpr {

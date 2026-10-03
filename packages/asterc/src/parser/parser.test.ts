@@ -128,7 +128,7 @@ describe('statements and functions', () => {
   });
 
   it('parses an empty file to an empty program', () => {
-    expect(parseText('')).toEqual({ program: { functions: [], structs: [] }, diagnostics: [] });
+    expect(parseText('')).toEqual({ program: { functions: [], structs: [], enums: [] }, diagnostics: [] });
   });
 
   it('records statement spans from first to last token', () => {
@@ -148,7 +148,7 @@ describe('statements and functions', () => {
 
   it('recovers from junk at the top level', () => {
     const r = parseText('let x: int = 1;\nfn main(): int { return 0; }');
-    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn' or 'struct', found 'let'"]);
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', 'struct' or 'enum', found 'let'"]);
     expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
   });
 
@@ -222,5 +222,43 @@ describe('structs', () => {
     expect(r.diagnostics.map((d) => d.message)).toEqual(["expected '}', found 'struct'"]);
     expect(r.program.structs.map((s) => s.name)).toEqual(['S']);
     expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
+  });
+});
+
+describe('enums', () => {
+  it('parses enum declarations with payloads and an optional trailing comma', () => {
+    const { program, diagnostics } = parseText('enum E { A, B(int), C([int], E), }\nenum K { X }');
+    expect(diagnostics).toEqual([]);
+    expect(program.enums.map((e) => [e.name, e.variants.map((v) => `${v.name}(${v.payload.map(typeText).join(', ')})`)])).toEqual([
+      ['E', ['A()', 'B(int)', 'C([int], E)']],
+      ['K', ['X()']],
+    ]);
+  });
+
+  it('rejects empty enums, empty payload parentheses and trailing commas in payloads', () => {
+    expect(errors('enum E {}')).toEqual(["expected identifier, found '}'"]);
+    expect(errors('enum E { A() }')).toEqual(["expected identifier, found ')'"]);
+    expect(errors('enum E { A(int,) }')).toEqual(["expected identifier, found ')'"]);
+  });
+
+  it('parses variant expressions with and without values', () => {
+    expect(expr('E::A')).toBe('E::A');
+    expect(expr('E::B(1, F::C)')).toBe('(E::B 1 F::C)');
+    expect(expr('E::B(P { x: 1 }).y')).toBe('(. (E::B (struct P (x 1))) y)');
+    expect(errors('fn f() { E::A(); }')).toEqual(["expected expression, found ')'"]);
+  });
+
+  it('reads Name:: in a header as a variant, not a struct literal', () => {
+    expect(parseText('fn f() { if k == K::A { } while k != K::B { } }').diagnostics).toEqual([]);
+  });
+
+  it('recovers at an enum after an unclosed function', () => {
+    const r = parseText('fn f() {\n  let x: int = 1;\nenum E { A }\nfn main(): int { return 0; }');
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected '}', found 'enum'"]);
+    expect(r.program.enums.map((e) => e.name)).toEqual(['E']);
+  });
+
+  it('rejects _ as a name', () => {
+    expect(errors('fn f() { let _: int = 1; }')).toEqual(["expected identifier, found '_'"]);
   });
 });

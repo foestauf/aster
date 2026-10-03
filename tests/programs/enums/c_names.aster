@@ -1,0 +1,17 @@
+// Enum and variant names that are C keywords or libc names compile like any other names.
+// expect-stdout:
+// true
+// true
+// false
+enum FILE { int, double, NULL }
+enum size_t { char(int), long(FILE) }
+
+fn main(): int {
+    let f: FILE = FILE::NULL;
+    let s: size_t = size_t::long(FILE::int);
+    let t: size_t = size_t::char(1);
+    print(f == FILE::NULL);
+    print(f != FILE::double);
+    print(FILE::int == f);
+    return 0;
+}

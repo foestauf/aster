@@ -258,3 +258,38 @@ describe('check: arrays', () => {
     expect(messages(`${MAIN}fn f() { return []; }`)).toEqual(['void function cannot return a value']);
   });
 });
+
+describe('check: enums', () => {
+  it('records variants with tags and payload types, and whether the enum is payload-free', () => {
+    const { program, diagnostics } = checkText(`${MAIN}enum E { A, B(int, [E]) }\nenum K { X, Y }`);
+    expect(diagnostics).toEqual([]);
+    expect(
+      program.enums.map((e) => [e.name, e.payloadFree, e.variants.map((v) => `${v.tag}:${v.name}(${v.payload.map(typeToString).join(', ')})`)]),
+    ).toEqual([
+      ['E', false, ['0:A()', '1:B(int, [E])']],
+      ['K', true, ['0:X()', '1:Y()']],
+    ]);
+  });
+
+  it('lets structs and enums refer to each other in any order', () => {
+    expect(messages(`${MAIN}struct Node { next: Opt }\nenum Opt { None, Some(Node) }`)).toEqual([]);
+  });
+
+  it('keeps enum names apart from local variable names', () => {
+    expect(messages('enum K { X }\nfn main(): int {\nlet K: int = 1;\nlet k: K = K::X;\nreturn K;\n}')).toEqual([]);
+  });
+
+  it('infers [] from a payload slot', () => {
+    expect(messages(`enum E { A([int]) }\n${MAIN}fn f(): E { return E::A([]); }`)).toEqual([]);
+  });
+
+  it('compares payload-free enums only', () => {
+    const text = `enum K { X, Y }\nenum E { A, B(int) }\n${MAIN}fn f(k: K): bool { return k == K::X && k != K::Y; }\nfn g(e: E): bool { return e == E::A; }`;
+    expect(messages(text)).toEqual(["cannot compare 'E' values"]);
+  });
+
+  it('does not cascade from an unknown enum or variant', () => {
+    expect(inMain('let x: int = Nope::A([]) + 1;')).toEqual(["unknown enum 'Nope'"]);
+    expect(messages('enum E { A }\nfn main(): int { let e: E = E::Z(1); return 0; }')).toEqual(["unknown variant 'Z' on 'E'"]);
+  });
+});

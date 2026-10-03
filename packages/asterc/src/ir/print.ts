@@ -1,4 +1,4 @@
-import type { Instr, IrFunction, IrLocal, IrProgram, Operand, Terminator } from './ir.js';
+import type { Instr, IrEnum, IrFunction, IrLocal, IrProgram, Operand, Terminator } from './ir.js';
 import { typeToString } from '../types/type.js';
 
 const braces = (items: string[]): string => (items.length === 0 ? '{}' : `{ ${items.join(', ')} }`);
@@ -9,6 +9,9 @@ export function printIr(program: IrProgram): string {
     parts.push(
       program.structs.map((s) => `struct ${s.name} ${braces(s.fields.map((f) => `${f.name}: ${typeToString(f.type)}`))}\n`).join(''),
     );
+  }
+  if (program.enums.length > 0) {
+    parts.push(program.enums.map((e) => `enum ${e.name} ${braces(e.variants.map(variantDecl))}\n`).join(''));
   }
   if (program.strings.length > 0) {
     parts.push(program.strings.map((s, i) => `string #${i} = ${JSON.stringify(s)}\n`).join(''));
@@ -29,6 +32,9 @@ export function printIrFunction(fn: IrFunction): string {
   }
   return lines.join('\n') + '\n';
 }
+
+const variantDecl = (v: IrEnum['variants'][number]): string =>
+  v.payload.length === 0 ? v.name : `${v.name}(${v.payload.map(typeToString).join(', ')})`;
 
 const localDecl = (l: IrLocal): string => `%${l.id}${l.name === null ? '' : ` ${l.name}`}: ${typeToString(l.type)}`;
 
@@ -75,6 +81,10 @@ function printInstr(i: Instr): string {
       return `%${i.dst} = array_len ${operand(i.array)}`;
     case 'array_push':
       return `array_push ${operand(i.array)}, ${operand(i.value)}`;
+    case 'enum_new':
+      return `%${i.dst} = enum_new ${i.enum}::${i.variant}${i.args.length === 0 ? '' : `(${i.args.map(operand).join(', ')})`}`;
+    case 'enum_tag':
+      return `%${i.dst} = enum_tag ${operand(i.value)}`;
     case 'array_pop':
       return `%${i.dst} = array_pop ${operand(i.array)}`;
   }

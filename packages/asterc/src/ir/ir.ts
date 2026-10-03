@@ -21,6 +21,14 @@ export interface IrStruct {
   fields: { name: string; type: IrType }[];
 }
 
+export interface IrEnum {
+  name: string;
+  /** True when no variant has a payload: values are plain int64 tags, not heap objects. */
+  payloadFree: boolean;
+  /** In declaration order; variants[i].tag === i. */
+  variants: { name: string; tag: number; payload: IrType[] }[];
+}
+
 export type Operand =
   | { kind: 'local'; id: number }
   | { kind: 'int'; value: bigint }
@@ -55,7 +63,11 @@ export type Instr =
   | { kind: 'array_len'; dst: number; array: Operand }
   | { kind: 'array_push'; array: Operand; value: Operand }
   /** Panics when the array is empty. */
-  | { kind: 'array_pop'; dst: number; array: Operand };
+  | { kind: 'array_pop'; dst: number; array: Operand }
+  /** Builds a variant value; `args` are its payload values in slot order, already evaluated left to right. */
+  | { kind: 'enum_new'; dst: number; enum: string; variant: string; tag: number; args: Operand[] }
+  /** Reads an enum value's tag as an int. */
+  | { kind: 'enum_tag'; dst: number; value: Operand };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }
@@ -82,6 +94,7 @@ export interface IrFunction {
 
 export interface IrProgram {
   structs: IrStruct[];
+  enums: IrEnum[];
   functions: IrFunction[];
   /** Interned string literals, referenced by index. */
   strings: string[];

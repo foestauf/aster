@@ -22,8 +22,24 @@ export interface TStruct {
   fields: TField[];
 }
 
+export interface TVariant {
+  name: string;
+  /** The variant's index in declaration order. */
+  tag: number;
+  payload: Type[];
+}
+
+export interface TEnum {
+  name: string;
+  /** True when no variant has a payload; such enums are plain integer tags at runtime. */
+  payloadFree: boolean;
+  /** In declaration order, so variants[i].tag === i. */
+  variants: TVariant[];
+}
+
 export interface TypedProgram {
   structs: TStruct[];
+  enums: TEnum[];
   functions: TFunction[];
 }
 
@@ -74,4 +90,8 @@ export type TExpr =
   | { kind: 'index'; type: Type; array: TExpr; index: TExpr }
   | { kind: 'arrayLit'; type: Type; elements: TExpr[] }
   /** Initialisers in the order written; lowering evaluates them in this order. */
-  | { kind: 'structLit'; type: Type; struct: string; fields: { field: string; value: TExpr }[] };
+  | { kind: 'structLit'; type: Type; struct: string; fields: { field: string; value: TExpr }[] }
+  /** Builds the variant `tag` of `enum`; `args` are its payload values in slot order. */
+  | { kind: 'variant'; type: Type; enum: string; variant: string; tag: number; args: TExpr[] }
+  /** `==` / `!=` on a payload-free enum: compares tags. */
+  | { kind: 'enumCompare'; type: Type; op: '==' | '!='; left: TExpr; right: TExpr };

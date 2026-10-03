@@ -25,6 +25,10 @@ export function sexpr(e: Expr): string {
       return `(index ${sexpr(e.array)} ${sexpr(e.index)})`;
     case 'arrayLit':
       return `(${['array', ...e.elements.map(sexpr)].join(' ')})`;
+    case 'variant': {
+      const head = `${e.enumName}::${e.variant}`;
+      return e.args.length === 0 ? head : `(${[head, ...e.args.map(sexpr)].join(' ')})`;
+    }
     case 'structLit':
       return `(struct ${[e.name, ...e.fields.map((f) => `(${f.name} ${sexpr(f.value)})`)].join(' ')})`;
   }
