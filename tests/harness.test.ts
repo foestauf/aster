@@ -12,7 +12,7 @@ describe('parseExpectations', () => {
       '// expect-stderr: panic: x',
       'fn main(): int { return 3; }',
     ].join('\n');
-    expect(parseExpectations(text)).toEqual({ stdout: '1\n\ntwo words\n', stderr: 'panic: x\n', exitCode: 3, errors: [] });
+    expect(parseExpectations(text)).toEqual({ stdout: '1\n\ntwo words\n', stderr: 'panic: x\n', exitCode: 3, errors: [], args: [], stdin: '' });
   });
 
   it('collects repeated expect-error lines', () => {
@@ -21,7 +21,7 @@ describe('parseExpectations', () => {
   });
 
   it('defaults to empty output and exit 0', () => {
-    expect(parseExpectations('fn main(): int { return 0; }')).toEqual({ stdout: '', stderr: '', exitCode: 0, errors: [] });
+    expect(parseExpectations('fn main(): int { return 0; }')).toEqual({ stdout: '', stderr: '', exitCode: 0, errors: [], args: [], stdin: '' });
   });
 
   it('ignores plain comments and stops at the first code line', () => {
@@ -39,6 +39,28 @@ describe('parseExpectations', () => {
       stderr: '',
       exitCode: 2,
       errors: [],
+      args: [],
+      stdin: '',
     });
+  });
+
+  it('reads program arguments and a stdin block', () => {
+    const text = [
+      '// expect-args: one  -two é',
+      '// expect-stdin:',
+      '// line 1',
+      '//',
+      '// expect-stdout:',
+      '// out',
+      'fn main(): int { return 0; }',
+    ].join('\n');
+    const e = parseExpectations(text);
+    expect(e.args).toEqual(['one', '-two', 'é']);
+    expect(e.stdin).toBe('line 1\n\n');
+    expect(e.stdout).toBe('out\n');
+  });
+
+  it('treats an empty expect-args as no arguments', () => {
+    expect(parseExpectations('// expect-args:\nfn').args).toEqual([]);
   });
 });
