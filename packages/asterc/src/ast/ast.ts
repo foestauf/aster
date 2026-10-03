@@ -9,6 +9,15 @@ export interface Program {
   functions: FnDecl[];
   structs: StructDecl[];
   enums: EnumDecl[];
+  imports: ImportDecl[];
+}
+
+/** `import "path";`; span runs from `import` through `;`. */
+export interface ImportDecl {
+  kind: 'import';
+  path: string;
+  pathSpan: Span;
+  span: Span;
 }
 
 export interface FieldDecl {
