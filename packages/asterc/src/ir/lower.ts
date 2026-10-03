@@ -346,19 +346,16 @@ function lowerFor(st: FnState, body: TBlock, counter: number, parts: { cond: () 
  */
 function lowerMatch(st: FnState, scrutinee: TExpr, patterns: readonly TPattern[], lowerBody: (index: number) => void): void {
   const value = lowerValue(st, scrutinee);
-  if (scrutinee.type.kind !== 'enum') throw new Error('internal: match on a non-enum value');
-  const enumName = scrutinee.type.name;
-  const tag = enumTag(st, value);
   const labels = patterns.map(() => newLabel(st, 'arm'));
   const end = newLabel(st, 'endmatch');
-  const cases: { value: number; target: string }[] = [];
-  let fallback: string | null = null;
-  for (const [i, p] of patterns.entries()) {
-    if (p.kind === 'wildcard') fallback = labels[i];
-    else if (p.kind === 'variants') for (const v of p.variants) cases.push({ value: v.tag, target: labels[i] });
-    else throw new Error('internal: literal pattern on an enum match');
+  const enumName = scrutinee.type.kind === 'enum' ? scrutinee.type.name : '';
+  if (scrutinee.type.kind === 'enum') {
+    lowerSwitch(st, enumTag(st, value), patterns, labels);
+  } else if (scrutinee.type.kind === 'string') {
+    lowerStringTests(st, value, patterns, labels);
+  } else {
+    lowerSwitch(st, value, patterns, labels);
   }
-  terminate(st, { kind: 'switch', value: tag, cases, default: fallback });
   let reachesEnd = false;
   for (const [i, p] of patterns.entries()) {
     startBlock(st, labels[i]);
@@ -374,6 +371,38 @@ function lowerMatch(st: FnState, scrutinee: TExpr, patterns: readonly TPattern[]
     terminate(st, { kind: 'jmp', target: end });
   }
   if (reachesEnd) startBlock(st, end);
+}
+
+/** Terminates the current block with a switch on an enum tag, an int or a bool. */
+function lowerSwitch(st: FnState, on: Operand, patterns: readonly TPattern[], labels: readonly string[]): void {
+  const cases: { value: bigint; target: string }[] = [];
+  let fallback: string | null = null;
+  for (const [i, p] of patterns.entries()) {
+    if (p.kind === 'wildcard') fallback = labels[i];
+    else if (p.kind === 'variants') for (const v of p.variants) cases.push({ value: BigInt(v.tag), target: labels[i] });
+    else if (p.kind === 'ints') for (const v of p.values) cases.push({ value: v, target: labels[i] });
+    else throw new Error('internal: string pattern on a non-string match');
+  }
+  terminate(st, { kind: 'switch', value: on, cases, default: fallback });
+}
+
+/** A string match is a chain of equality tests, in arm order; a `_` arm ends it. */
+function lowerStringTests(st: FnState, on: Operand, patterns: readonly TPattern[], labels: readonly string[]): void {
+  for (const [i, p] of patterns.entries()) {
+    if (p.kind === 'wildcard') {
+      terminate(st, { kind: 'jmp', target: labels[i] });
+      return;
+    }
+    if (p.kind !== 'strings') throw new Error('internal: non-string pattern on a string match');
+    for (const v of p.values) {
+      const test = newTemp(st, { kind: 'bool' });
+      emit(st, { kind: 'binop', dst: test, op: 'str_eq', left: on, right: { kind: 'string', index: internString(st.strings, v) } });
+      const next = newLabel(st, 'test');
+      terminate(st, { kind: 'br', cond: ref(test), then: labels[i], else: next });
+      startBlock(st, next);
+    }
+  }
+  terminate(st, { kind: 'unreachable' });
 }
 
 // ---- expressions

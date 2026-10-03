@@ -77,7 +77,7 @@ export type Terminator =
   | { kind: 'jmp'; target: string }
   | { kind: 'br'; cond: Operand; then: string; else: string }
   /** Jumps to the case whose value equals `value` (an int), else to `default`. A null default means no other value can occur. */
-  | { kind: 'switch'; value: Operand; cases: { value: number; target: string }[]; default: string | null }
+  | { kind: 'switch'; value: Operand; cases: { value: bigint; target: string }[]; default: string | null }
   | { kind: 'ret'; value: Operand | null }
   | { kind: 'unreachable' };
 

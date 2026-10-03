@@ -476,4 +476,42 @@ describe('lower', () => {
       ),
     );
   });
+
+  it('lowers an int match to a switch on the value itself', () => {
+    const text = `${MAIN}fn f(x: int): int { return match x { 1 | 2 => 10, -3 => 20, _ => 30 }; }`;
+    expect(irOf(text, 'f')).toContain('entry:\n  switch %0 [1: arm1, 2: arm1, -3: arm2], default arm3\n');
+  });
+
+  it('makes the default unreachable for an exhaustive bool match', () => {
+    const text = `${MAIN}fn f(b: bool): int { return match b { true => 1, false => 0 }; }`;
+    expect(irOf(text, 'f')).toContain('entry:\n  switch %0 [1: arm1, 0: arm2], default unreachable\n');
+  });
+
+  it('lowers a string match to a chain of str_eq tests', () => {
+    const text = `${MAIN}fn f(s: string): int { return match s { "a" | "b" => 1, _ => 2 }; }`;
+    expect(irOf(text, 'f')).toBe(
+      lines(
+        'fn f(%0 s: string): int',
+        '  local %1: int',
+        '  local %2: bool',
+        '  local %3: bool',
+        'entry:',
+        '  %2 = str_eq %0, str#0',
+        '  br %2, arm1, test4',
+        'test4:',
+        '  %3 = str_eq %0, str#1',
+        '  br %3, arm1, test5',
+        'test5:',
+        '  jmp arm2',
+        'arm1:',
+        '  %1 = copy 1',
+        '  jmp endmatch3',
+        'arm2:',
+        '  %1 = copy 2',
+        '  jmp endmatch3',
+        'endmatch3:',
+        '  ret %1',
+      ),
+    );
+  });
 });

@@ -1,0 +1,37 @@
+// Or-patterns on enums and chars.
+// expect-stdout:
+// dot-or-rect
+// dot-or-rect
+// circle
+// 1
+// 1
+// 1
+// 1
+// 0
+enum Shape { Dot, Rect(int, int), Circle(int) }
+
+fn describe(s: Shape): string {
+    return match s {
+        Shape::Dot | Shape::Rect(_, _) => "dot-or-rect",
+        Shape::Circle(r) => "circle",
+    };
+}
+
+fn is_space(c: int): int {
+    return match c {
+        ' ' | '\t' | '\r' | '\n' => 1,
+        _ => 0,
+    };
+}
+
+fn main(): int {
+    print(describe(Shape::Dot));
+    print(describe(Shape::Rect(1, 2)));
+    print(describe(Shape::Circle(3)));
+    print(is_space(byte_at(" ", 0)));
+    print(is_space(byte_at("\t", 0)));
+    print(is_space(byte_at("\r", 0)));
+    print(is_space(byte_at("\n", 0)));
+    print(is_space(byte_at("x", 0)));
+    return 0;
+}

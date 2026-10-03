@@ -1,0 +1,40 @@
+// String matches compare full bytes: shared prefixes, the empty string and a quote inside a string.
+// expect-stdout:
+// assign
+// eq
+// empty
+// quote
+// none
+// 1
+// 2
+// 3
+fn kind(s: string): string {
+    return match s {
+        "=" => "assign",
+        "==" => "eq",
+        "" => "empty",
+        "it's" => "quote",
+        _ => "none",
+    };
+}
+
+fn prec(op: string): int {
+    return match op {
+        "*" | "/" => 3,
+        "+" | "-" => 2,
+        "==" | "<" => 1,
+        _ => 0,
+    };
+}
+
+fn main(): int {
+    print(kind("="));
+    print(kind("=="));
+    print(kind(""));
+    print(kind("it's"));
+    print(kind("==="));
+    print(prec("=="));
+    print(prec("-"));
+    print(prec("/"));
+    return 0;
+}

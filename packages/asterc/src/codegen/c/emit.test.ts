@@ -184,12 +184,22 @@ describe('emitC', () => {
   it('emits match as a C switch over the tag', () => {
     const c = cOf('enum E { A, B(int) }\nfn main(): int { let e: E = E::B(4); return match e { E::B(n) => n, _ => 0 }; }');
     expect(c).toContain('    l4 = l0_e->tag;');
-    expect(c).toContain('    switch (l4) { case 1: goto arm1; default: goto arm2; }');
+    expect(c).toContain('    switch (l4) { case INT64_C(1): goto arm1; default: goto arm2; }');
     expect(c).toContain('arm1:;\n    l1_n = l0_e->u.v_B.p0;');
   });
 
   it('makes the default case unreachable when every variant has an arm', () => {
     const c = cOf('enum K { X, Y }\nfn main(): int { let k: K = K::Y; match k { K::X => { return 1; } K::Y => { return 0; } } }');
-    expect(c).toContain('    switch (l2) { case 0: goto arm1; case 1: goto arm2; default: aster_rt_unreachable(); }');
+    expect(c).toContain('    switch (l2) { case INT64_C(0): goto arm1; case INT64_C(1): goto arm2; default: aster_rt_unreachable(); }');
+  });
+
+  it('emits int matches as a C switch over the value, spelling INT64_MIN specially', () => {
+    const c = cOf('fn f(x: int): int { return match x { 1 | -2 => 10, -9223372036854775808 => 20, _ => 30 }; }\nfn main(): int { return f(1); }');
+    expect(c).toContain('switch (l0_x) { case INT64_C(1): goto arm1; case INT64_C(-2): goto arm1; case INT64_MIN: goto arm2; default: goto arm3; }');
+  });
+
+  it('casts a bool switch condition to int64_t', () => {
+    const c = cOf('fn f(b: bool): int { return match b { true => 1, false => 0 }; }\nfn main(): int { return f(true); }');
+    expect(c).toContain('switch ((int64_t)l0_b) { case INT64_C(1): goto arm1; case INT64_C(0): goto arm2; default: aster_rt_unreachable(); }');
   });
 });
