@@ -357,3 +357,34 @@ describe('check: match', () => {
     expect(inFn('match e { E::B(n) => {} _ => {} }\nprint(n);')).toEqual(["undefined name 'n'"]);
   });
 });
+
+describe('check: ReadResult', () => {
+  const STR = { kind: 'string' };
+
+  it('is a predeclared enum, included in the program only when mentioned', () => {
+    expect(checkText(MAIN).program.enums).toEqual([]);
+    const { program } = checkText('fn main(): int { let r: ReadResult = ReadResult::Err("e"); return 0; }');
+    expect(program.enums).toEqual([
+      {
+        name: 'ReadResult',
+        payloadFree: false,
+        variants: [
+          { name: 'Ok', tag: 0, payload: [STR] },
+          { name: 'Err', tag: 1, payload: [STR] },
+        ],
+      },
+    ]);
+  });
+
+  it('counts a variant expression alone as a mention, and comes before user enums', () => {
+    const { program } = checkText('enum A { X }\nfn main(): int { let a: A = A::X; ReadResult::Ok("x"); return 0; }');
+    expect(program.enums.map((e) => e.name)).toEqual(['ReadResult', 'A']);
+  });
+
+  it('cannot be redefined', () => {
+    const bad = "'ReadResult' is a builtin type and cannot be redefined";
+    expect(messages(`${MAIN}struct ReadResult { }`)).toEqual([bad]);
+    expect(messages(`${MAIN}enum ReadResult { A }`)).toEqual([bad]);
+    expect(messages(`${MAIN}fn ReadResult() { }`)).toEqual([bad]);
+  });
+});

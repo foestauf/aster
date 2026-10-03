@@ -1,5 +1,5 @@
 import { INT, STRING, VOID, type Type } from '../types/type.js';
-import type { BuiltinName } from './types.js';
+import type { BuiltinName, TEnum } from './types.js';
 
 export interface Signature {
   params: Type[];
@@ -26,4 +26,20 @@ export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
 
 export function isBuiltin(name: string): name is BuiltinName {
   return SPECIAL_BUILTINS.has(name) || isSignatureBuiltin(name);
+}
+
+/** The predeclared `enum ReadResult { Ok(string), Err(string) }` that `read_file` returns. */
+export const READ_RESULT = 'ReadResult';
+export const READ_RESULT_TYPE: Type = { kind: 'enum', name: READ_RESULT };
+
+/** A fresh copy of ReadResult's declaration, for one program's enum table. */
+export function readResultEnum(): TEnum {
+  return {
+    name: READ_RESULT,
+    payloadFree: false,
+    variants: [
+      { name: 'Ok', tag: 0, payload: [STRING] },
+      { name: 'Err', tag: 1, payload: [STRING] },
+    ],
+  };
 }
