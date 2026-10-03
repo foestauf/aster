@@ -1,0 +1,10 @@
+// An operator with too few operands pops an empty stack.
+// expect-stderr: panic: pop from empty array
+// expect-exit: 101
+fn main(): int {
+    let stack: [int] = [1];
+    let b: int = pop(stack);
+    let a: int = pop(stack);
+    print(a + b);
+    return 0;
+}

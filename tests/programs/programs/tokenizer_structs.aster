@@ -1,0 +1,78 @@
+// The v0 tokenizer again, now collecting Token structs into an array.
+// expect-stdout:
+// ident let
+// ident x1
+// punct :
+// ident int
+// punct =
+// int 42
+// punct +
+// ident y
+// punct ;
+// 9 tokens: 4 ident, 1 int, 4 punct
+struct Token { kind: string, text: string }
+
+fn is_digit(c: int): bool {
+    return c >= 48 && c <= 57;
+}
+
+fn is_alpha(c: int): bool {
+    return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95;
+}
+
+fn is_space(c: int): bool {
+    return c == 32 || c == 9 || c == 10;
+}
+
+fn tokenize(src: string): [Token] {
+    let tokens: [Token] = [];
+    var i: int = 0;
+    let n: int = len(src);
+    while i < n {
+        let c: int = byte_at(src, i);
+        if is_space(c) {
+            i += 1;
+            continue;
+        }
+        let start: int = i;
+        var kind: string = "punct";
+        if is_digit(c) {
+            kind = "int";
+            while i < n && is_digit(byte_at(src, i)) {
+                i += 1;
+            }
+        } else if is_alpha(c) {
+            kind = "ident";
+            while i < n && (is_alpha(byte_at(src, i)) || is_digit(byte_at(src, i))) {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+        push(tokens, Token { kind: kind, text: substring(src, start, i) });
+    }
+    return tokens;
+}
+
+fn count(tokens: [Token], kind: string): int {
+    var n: int = 0;
+    for t in tokens {
+        if t.kind == kind {
+            n += 1;
+        }
+    }
+    return n;
+}
+
+fn main(): int {
+    let tokens: [Token] = tokenize("let x1: int = 42 + y;");
+    for t in tokens {
+        print(t.kind + " " + t.text);
+    }
+    var summary: string = int_to_string(len(tokens)) + " tokens: ";
+    summary += int_to_string(count(tokens, "ident")) + " ident, ";
+    summary += int_to_string(count(tokens, "int")) + " int, ";
+    summary += int_to_string(count(tokens, "punct")) + " punct";
+    print(summary);
+    return 0;
+}

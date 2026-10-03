@@ -10,6 +10,7 @@ Requirements: Node 24+, pnpm, and a C compiler (`cc`, or set `ASTER_CC`).
 pnpm install
 pnpm build
 pnpm aster run tests/programs/basics/hello.aster      # prints 30
+pnpm aster run tests/programs/programs/rpn.aster      # an RPN calculator using structs, arrays and for
 ```
 
 ## CLI
@@ -34,6 +35,7 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 
 - Language reference: [`docs/spec/language.md`](docs/spec/language.md)
 - v0 design: [`docs/superpowers/specs/2026-10-01-aster-v0-design.md`](docs/superpowers/specs/2026-10-01-aster-v0-design.md)
+- v0.1 design (structs, arrays, compound assignment, `for`): [`docs/superpowers/specs/2026-10-01-aster-v0.1-design.md`](docs/superpowers/specs/2026-10-01-aster-v0.1-design.md)
 
 ## Tests
 

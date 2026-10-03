@@ -1,0 +1,63 @@
+// A stack-based RPN calculator: split the input into words, then evaluate with a [int] stack.
+// expect-stdout:
+// 3 4 + 2 * = 14
+// 5 1 2 + 4 * + 3 - = 14
+// 2 3 4 * + 10 / = 1
+fn split(src: string): [string] {
+    let words: [string] = [];
+    var start: int = 0;
+    for i in 0..len(src) + 1 {
+        if i == len(src) || byte_at(src, i) == 32 {
+            if i > start {
+                push(words, substring(src, start, i));
+            }
+            start = i + 1;
+        }
+    }
+    return words;
+}
+
+fn parse_int(s: string): int {
+    var n: int = 0;
+    for i in 0..len(s) {
+        n = n * 10 + (byte_at(s, i) - 48);
+    }
+    return n;
+}
+
+fn eval(src: string): int {
+    let stack: [int] = [];
+    for w in split(src) {
+        if w == "+" || w == "-" || w == "*" || w == "/" {
+            let b: int = pop(stack);
+            let a: int = pop(stack);
+            if w == "+" {
+                push(stack, a + b);
+            } else if w == "-" {
+                push(stack, a - b);
+            } else if w == "*" {
+                push(stack, a * b);
+            } else {
+                push(stack, a / b);
+            }
+        } else {
+            push(stack, parse_int(w));
+        }
+    }
+    let result: int = pop(stack);
+    if len(stack) != 0 {
+        panic("leftover operands");
+    }
+    return result;
+}
+
+fn show(src: string) {
+    print(src + " = " + int_to_string(eval(src)));
+}
+
+fn main(): int {
+    show("3 4 + 2 *");
+    show("5 1 2 + 4 * + 3 -");
+    show("2 3 4 * + 10 /");
+    return 0;
+}
