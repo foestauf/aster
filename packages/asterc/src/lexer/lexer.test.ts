@@ -79,4 +79,19 @@ describe('lex', () => {
   it('lexes an empty file to a single eof token', () => {
     expect(kinds('')).toEqual(['eof']);
   });
+
+  it('lexes the v0.1 keywords and punctuation', () => {
+    expect(kinds('struct for in')).toEqual(['struct', 'for', 'in', 'eof']);
+    expect(kinds('a.b[c] .. += -= *= /= %=')).toEqual([
+      'ident', '.', 'ident', '[', 'ident', ']', '..', '+=', '-=', '*=', '/=', '%=', 'eof',
+    ]);
+  });
+
+  it('lexes a range without spaces as three tokens', () => {
+    expect(kinds('1..5')).toEqual(['int', '..', 'int', 'eof']);
+  });
+
+  it('still lexes a line comment rather than /=', () => {
+    expect(kinds('x //= y')).toEqual(['ident', 'eof']);
+  });
 });

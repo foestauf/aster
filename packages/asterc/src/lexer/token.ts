@@ -2,12 +2,13 @@ import type { Span } from '../diagnostics/source.js';
 
 export const KEYWORDS = [
   'fn', 'let', 'var', 'if', 'else', 'while', 'break', 'continue', 'return', 'true', 'false',
+  'struct', 'for', 'in',
 ] as const;
 export type Keyword = (typeof KEYWORDS)[number];
 
 export const PUNCTUATION = [
-  '(', ')', '{', '}', ',', ':', ';', '=', '+', '-', '*', '/', '%', '!',
-  '<', '<=', '>', '>=', '==', '!=', '&&', '||',
+  '(', ')', '{', '}', '[', ']', ',', ':', ';', '.', '..', '=', '+', '-', '*', '/', '%', '!',
+  '<', '<=', '>', '>=', '==', '!=', '&&', '||', '+=', '-=', '*=', '/=', '%=',
 ] as const;
 export type Punctuation = (typeof PUNCTUATION)[number];
 
