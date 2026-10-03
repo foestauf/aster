@@ -20,14 +20,19 @@ const REASONS: Record<string, string> = {
   ENOENT: 'No such file or directory',
   EISDIR: 'Is a directory',
   EACCES: 'Permission denied',
+  ENOTDIR: 'Not a directory',
+  ELOOP: 'Too many levels of symbolic links',
+  ENAMETOOLONG: 'File name too long',
 };
 
 function reasonOf(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   const code = (error as NodeJS.ErrnoException).code;
   if (code !== undefined && code in REASONS) return REASONS[code];
-  // Node prefixes system errors with their code: "ENOTDIR: not a directory, open '…'".
-  return code !== undefined && error.message.startsWith(`${code}: `) ? error.message.slice(code.length + 2) : error.message;
+  // Node's message is "ENOTDIR: not a directory, open '…'": drop the code prefix and the syscall/path tail.
+  const prefix = code === undefined ? '' : `${code}: `;
+  const message = (error.message.startsWith(prefix) ? error.message.slice(prefix.length) : error.message).split(', ')[0];
+  return message.charAt(0).toUpperCase() + message.slice(1);
 }
 
 export const nodeHost: LoadHost = {

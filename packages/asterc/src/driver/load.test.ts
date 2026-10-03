@@ -146,6 +146,7 @@ describe('nodeHost', () => {
     expect(nodeHost.readFile(join(dir, 'x.aster'))).toEqual({ ok: true, text: 'hello' });
     expect(nodeHost.readFile(join(dir, 'missing'))).toEqual({ ok: false, reason: 'No such file or directory' });
     expect(nodeHost.readFile(join(dir, 'd'))).toEqual({ ok: false, reason: 'Is a directory' });
+    expect(nodeHost.readFile(join(dir, 'x.aster', 'y'))).toEqual({ ok: false, reason: 'Not a directory' });
     expect(nodeHost.readFile(join(dir, 'x\0y'))).toEqual({ ok: false, reason: 'invalid path' });
   });
 
