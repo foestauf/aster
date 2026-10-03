@@ -12,6 +12,7 @@ pnpm build
 pnpm aster run tests/programs/basics/hello.aster      # prints 30
 pnpm aster run tests/programs/programs/rpn.aster      # an RPN calculator using structs, arrays and for
 pnpm aster run tests/programs/programs/calc.aster     # a tokenizer, parser and evaluator using enums and match
+pnpm aster run tests/programs/programs/lex.aster -- tests/programs/basics/hello.aster   # the Aster lexer, written in Aster
 ```
 
 ## CLI
@@ -19,10 +20,10 @@ pnpm aster run tests/programs/programs/calc.aster     # a tokenizer, parser and 
 ```
 aster check <file.aster>                                   # type-check only
 aster build <file.aster> [-o <out>] [--emit=tokens|ast|ir|c]
-aster run   <file.aster>                                   # build to a temp dir and run
+aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
 ```
 
-Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code.
+Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through.
 
 ## How it works
 
@@ -38,7 +39,8 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - v0 design: [`docs/superpowers/specs/2026-10-01-aster-v0-design.md`](docs/superpowers/specs/2026-10-01-aster-v0-design.md)
 - v0.1 design (structs, arrays, compound assignment, `for`): [`docs/superpowers/specs/2026-10-01-aster-v0.1-design.md`](docs/superpowers/specs/2026-10-01-aster-v0.1-design.md)
 - v0.2 design (enums and `match`): [`docs/superpowers/specs/2026-10-02-aster-v0.2-design.md`](docs/superpowers/specs/2026-10-02-aster-v0.2-design.md)
+- v0.3 design (file and stdin input, program arguments): [`docs/superpowers/specs/2026-10-02-aster-v0.3-design.md`](docs/superpowers/specs/2026-10-02-aster-v0.3-design.md)
 
 ## Tests
 
-`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged.
+`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program.
