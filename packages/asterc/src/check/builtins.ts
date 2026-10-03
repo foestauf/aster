@@ -12,12 +12,17 @@ const SPECIAL_BUILTINS: ReadonlySet<string> = new Set<SpecialBuiltin>(['print', 
 
 export type SignatureBuiltin = Exclude<BuiltinName, SpecialBuiltin>;
 
+/** The predeclared `enum ReadResult { Ok(string), Err(string) }` that `read_file` returns. */
+export const READ_RESULT = 'ReadResult';
+export const READ_RESULT_TYPE: Type = { kind: 'enum', name: READ_RESULT };
+
 export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   byte_at: { params: [STRING, INT], returnType: INT },
   substring: { params: [STRING, INT, INT], returnType: STRING },
   int_to_string: { params: [INT], returnType: STRING },
   panic: { params: [STRING], returnType: VOID },
   read_stdin: { params: [], returnType: STRING },
+  read_file: { params: [STRING], returnType: READ_RESULT_TYPE },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
@@ -27,10 +32,6 @@ export function isSignatureBuiltin(name: string): name is SignatureBuiltin {
 export function isBuiltin(name: string): name is BuiltinName {
   return SPECIAL_BUILTINS.has(name) || isSignatureBuiltin(name);
 }
-
-/** The predeclared `enum ReadResult { Ok(string), Err(string) }` that `read_file` returns. */
-export const READ_RESULT = 'ReadResult';
-export const READ_RESULT_TYPE: Type = { kind: 'enum', name: READ_RESULT };
 
 /** A fresh copy of ReadResult's declaration, for one program's enum table. */
 export function readResultEnum(): TEnum {

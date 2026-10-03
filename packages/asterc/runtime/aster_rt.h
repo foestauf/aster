@@ -85,4 +85,10 @@ aster_array aster_rt_args(int argc, char **argv);
 /* Reads stdin to EOF. Panics with "cannot read stdin: <reason>" on a read error. */
 aster_string aster_rt_read_stdin(void);
 
+/*
+ * Reads the whole file at `path`. On success sets *ok and returns the contents; on failure clears *ok and returns
+ * "<path>: <reason>". A path containing a NUL byte fails with the reason "invalid path".
+ */
+aster_string aster_rt_read_file(aster_string path, bool *ok);
+
 #endif

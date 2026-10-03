@@ -166,3 +166,38 @@ aster_string aster_rt_read_stdin(void) {
     }
     return s;
 }
+
+/* "<path>: <reason>", with the path cut at `path_len` bytes. */
+static aster_string path_error(aster_string path, int64_t path_len, const char *reason) {
+    int64_t reason_len = (int64_t)strlen(reason);
+    int64_t len = path_len + 2 + reason_len;
+    char *buf = alloc_bytes(len);
+    if (path_len > 0) memcpy(buf, path.ptr, (size_t)path_len);
+    memcpy(buf + path_len, ": ", 2);
+    memcpy(buf + path_len + 2, reason, (size_t)reason_len);
+    aster_string s = { buf, len };
+    return s;
+}
+
+aster_string aster_rt_read_file(aster_string path, bool *ok) {
+    const char *nul = path.len > 0 ? memchr(path.ptr, '\0', (size_t)path.len) : NULL;
+    if (nul != NULL) {
+        *ok = false;
+        return path_error(path, (int64_t)(nul - path.ptr), "invalid path");
+    }
+    char *cpath = alloc_bytes(path.len + 1);
+    if (path.len > 0) memcpy(cpath, path.ptr, (size_t)path.len);
+    cpath[path.len] = '\0';
+    FILE *f = fopen(cpath, "rb");
+    free(cpath);
+    if (f == NULL) {
+        *ok = false;
+        return path_error(path, path.len, strerror(errno));
+    }
+    errno = 0;
+    aster_string contents = read_all(f, ok);
+    int err = errno;
+    fclose(f);
+    if (!*ok) return path_error(path, path.len, strerror(err));
+    return contents;
+}

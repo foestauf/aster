@@ -835,6 +835,7 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
+  if (builtin === 'read_file') markUsed(ctx, READ_RESULT);
   return builtin
     ? { kind: 'builtin', type: sig.returnType, builtin, args }
     : { kind: 'call', type: sig.returnType, fn: name, args };
