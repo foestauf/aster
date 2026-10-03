@@ -115,7 +115,7 @@ binder      = IDENT | "_" ;
 Notes:
 - All binary operators are left-associative. Comparison and equality operators are non-associative: `a < b < c` is a parse error.
 - A statement beginning with `if` is always parsed as `ifStmt`. An `if` in expression position (after `=`, as an argument, as an operand, after `return`) is parsed as `ifExpr`.
-- **Struct literals in headers.** In the condition of an `if` or `while`, and in a `for` header, `Name {` starts the body rather than a struct literal. To use a struct literal there, wrap it in parentheses: `if (Point { x: 1, y: 2 }).x == p.x { ... }`. Inside `( )`, `[ ]`, call arguments and struct literal fields, struct literals are allowed again.
+- **Struct literals in headers.** In the condition of an `if` or `while`, and in a `for` header, `Name {` starts the body rather than a struct literal. To use a struct literal there, wrap it in parentheses: `if (Point { x: 1, y: 2 }).x == p.x { ... }`. Inside `( )`, `[ ]`, call arguments, struct literal fields, variant arguments and `match` arms (expression arms and block arms alike), struct literals are allowed again.
 - In an assignment, the left-hand side must be a place: a variable, a field `e.f` or an element `e[i]`, nested as deep as needed (`a[i].kids[j] = n;`). Anything else is the error `invalid assignment target`.
 - `..` appears only in `for` headers.
 - Omitting `: type` on a function means `void`.
@@ -123,14 +123,14 @@ Notes:
 - The parser is hand-written: recursive descent for statements, precedence climbing (Pratt) for expressions.
 - A statement beginning with `match` is always a `matchStmt`; a `match` anywhere else is a `matchExpr`. In a `matchStmt`, an expression arm needs a trailing `,` unless it is the last arm. The scrutinee follows the struct-literal rule for headers.
 - An enum needs at least one variant. `V()` with empty parentheses is a syntax error, in a declaration, a value or a pattern.
-- Trailing commas are allowed in struct declarations, struct literals and array literals. They remain disallowed in parameter lists and call arguments.
+- Trailing commas are allowed in struct declarations, struct literals, array literals, enum variant lists and `match` arms (in both forms). They remain disallowed in parameter lists, call arguments, payload type lists, variant argument lists and binder lists.
 
 ## Semantics and type rules
 
-**Functions and structs**
-- Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs may refer to themselves and to each other.
+**Functions, structs and enums**
+- Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs and enums may refer to themselves and to each other.
 - Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin.
-- Struct names live in the type namespace. A local variable may share a struct's name.
+- Struct and enum names live in the type namespace. A local variable may share a struct's or enum's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
 - `fn main(): int` with no parameters must exist. Its return value is the process exit code (truncated to the platform's exit-status range by the OS).
 - Parameters are immutable bindings.
@@ -151,7 +151,7 @@ Notes:
 **Structs and arrays**
 - A struct literal `Name { f: e, ... }` must set every field exactly once, in any order. Initialisers run in the order written. Mistakes are reported as `missing field '<f>' in '<Name>'`, `duplicate field '<f>'` and `unknown field '<f>' on '<Name>'`.
 - `e.f` reads a field. `e[i]` reads an element, where `i` must be an `int`. Indexing outside `[0, len)` panics. Strings cannot be indexed; use `byte_at`.
-- An array literal `[e1, e2]` takes its element type from the context it appears in, or else from its first element. An empty `[]` needs that context: a `let`/`var` type, an assignment target, a parameter, a return type, a field, `push`'s second argument, an enclosing array literal, or an `if`-expression branch in one of those positions. Anywhere else, `[]` is the error `cannot infer type of empty array`.
+- An array literal `[e1, e2]` takes its element type from the context it appears in, or else from its first element. An empty `[]` needs that context: a `let`/`var` type, an assignment target, a parameter, a return type, a field, a variant payload value (`Opt::Some([])`), `push`'s second argument, an enclosing array literal, or an `if`-expression or `match`-expression arm in one of those positions. Anywhere else, `[]` is the error `cannot infer type of empty array`.
 - `==` and `!=` are not defined on structs or arrays (`cannot compare '<T>' values`). `print` accepts only `int`, `bool` and `string`.
 
 **Enums and match**
