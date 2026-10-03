@@ -3,7 +3,7 @@ import { formatShort } from '../diagnostics/diagnostic.js';
 import { makeSource } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
-import { INT, typeToString, type Type } from '../types/type.js';
+import { INT, STRING, typeToString, type Type } from '../types/type.js';
 import { check } from './checker.js';
 
 const MAIN = 'fn main(): int { return 0; }\n';
@@ -582,5 +582,54 @@ describe('generic enums', () => {
   it('reports expansion through a type argument nested in an array', () => {
     expect(messages(`enum N[T] { A([N[Option[T]]]), B(T) }\n${MAIN}`)).toEqual(["generic enum 'N' expands infinitely"]);
     expect(messages(`enum N[T, U] { A(N[U, T]), B(T, U) }\n${MAIN}`)).toEqual([]);
+  });
+
+  const optionInt: Type = { kind: 'enum', name: 'Option[int]', generic: { base: 'Option', args: [INT] } };
+
+  it('types a variant expression by its instantiation, inferred from its values', () => {
+    const { program, diagnostics } = checkText('fn main(): int {\nmatch Option::Some(1) { _ => {} }\nreturn 0;\n}');
+    expect(diagnostics).toEqual([]);
+    const stmt = program.functions[0].body.statements[0];
+    expect(stmt.kind === 'match' ? stmt.scrutinee : null).toMatchObject({ kind: 'variant', type: optionInt, enum: 'Option[int]', variant: 'Some', tag: 0 });
+  });
+
+  it('infers type arguments from context before checking the values', () => {
+    expect(inMain('let a: Option[[int]] = Option::Some([]);\nlet b: Result[int, string] = Result::Ok(1);')).toEqual([]);
+    expect(inMain('let a: Option[int] = Option::Some(true);')).toEqual(['type mismatch: expected int, found bool']);
+    expect(inMain('let a: int = Option::Some(1);')).toEqual(['type mismatch: expected int, found Option[int]']);
+  });
+
+  it('fixes a parameter from an earlier value and checks later values against it', () => {
+    expect(messages(`enum Pair[T] { P(T, T) }\nfn main(): int {\nlet p: [Pair[int]] = [Pair::P(1, 2)];\nmatch Pair::P(1, true) { _ => {} }\nreturn 0;\n}`)).toEqual([
+      'type mismatch: expected int, found bool',
+    ]);
+    expect(messages(`${LIST}fn main(): int {\nmatch List::Cons([1], List::Cons([], List::Nil)) { _ => {} }\nreturn 0;\n}`)).toEqual([]);
+  });
+
+  it('reports a parameter it cannot infer, unless something was already reported', () => {
+    expect(inMain('match Option::None { _ => {} }')).toEqual(["cannot infer type arguments for 'Option'"]);
+    expect(inMain('match Result::Err("e") { _ => {} }')).toEqual(["cannot infer type arguments for 'Result'"]);
+    expect(inMain('match Option::Some(nope) { _ => {} }')).toEqual(["undefined name 'nope'"]);
+    expect(inMain('let x: Nope = Option::None;')).toEqual(["unknown type 'Nope'"]);
+    expect(inMain('let x: Option[int] = Option::Some(1, 2);')).toEqual(["variant 'Option::Some' expects 1 value, got 2"]);
+    expect(inMain('let x: Option[int] = Option::Nope;')).toEqual(["unknown variant 'Nope' on 'Option'"]);
+  });
+
+  it('shares one instantiation between every mention of it', () => {
+    const { program, diagnostics } = checkText(
+      'struct H { o: Option[int] }\nfn f(o: Option[int]): Option[int] { return o; }\nfn main(): int {\nlet h: H = H { o: [Option::Some(1)][0] };\nlet b: Option[int] = f(h.o);\nreturn 0;\n}',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(program.enums.map((e) => e.name)).toEqual(['Option[int]']);
+  });
+
+  it('types binders by the scrutinee instantiation and checks patterns by base name', () => {
+    const { program, diagnostics } = checkText('fn main(): int {\nlet o: Option[string] = Option::None;\nmatch o { Option::Some(s) => print(s), Option::None => {} }\nreturn 0;\n}');
+    expect(diagnostics).toEqual([]);
+    expect(program.functions[0].locals.find((l) => l.name === 's')?.type).toEqual(STRING);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Result::Ok(_) => {}, _ => {} }')).toEqual(["pattern type 'Result' does not match 'Option[int]'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Option::Some(_) => {} }')).toEqual(["non-exhaustive match: missing 'Option::None'"]);
+    expect(inMain('let o: Option[int] = Option::None;\nmatch o { Option::Nope => {}, _ => {} }')).toEqual(["unknown variant 'Nope' on 'Option'"]);
+    expect(inMain('match 1 { Option::None => {}, _ => {} }')).toEqual(["pattern type 'Option' does not match 'int'"]);
   });
 });

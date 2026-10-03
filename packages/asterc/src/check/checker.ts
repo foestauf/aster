@@ -1,6 +1,6 @@
 import {
   binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
-  type StructLitExpr, type TypeExpr, type VariantExpr,
+  type StructLitExpr, type TypeExpr, type VariantDecl, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import { makeSource, type Span } from '../diagnostics/source.js';
@@ -633,21 +633,27 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
     case 'arrayLit':
       return checkArrayLit(ctx, expr, expected);
     case 'variant':
-      return checkVariantExpr(ctx, expr);
+      return checkVariantExpr(ctx, expr, expected);
   }
 }
 
 const variantArityMessage = (enumName: string, variant: string, expected: number, found: number): string =>
   `variant '${enumName}::${variant}' expects ${expected} ${expected === 1 ? 'value' : 'values'}, got ${found}`;
 
+/** A resolved `E::V`: a variant of a non-generic enum, or a variant of a generic enum's template. */
+type FoundVariant = { enumType: TEnum; variant: TVariant } | { template: Template; variantDecl: VariantDecl };
+
 /** Resolves `E::V`, reporting an unknown enum, a non-enum type or an unknown variant. */
-function resolveVariant(
-  env: Env,
-  enumName: string,
-  enumSpan: Span,
-  variantName: string,
-  variantSpan: Span,
-): { enumType: TEnum; variant: TVariant } | null {
+function resolveVariant(env: Env, enumName: string, enumSpan: Span, variantName: string, variantSpan: Span): FoundVariant | null {
+  const template = env.templates.get(enumName);
+  if (template) {
+    const variantDecl = template.decl.variants.find((v) => v.name === variantName);
+    if (!variantDecl) {
+      report(env, `unknown variant '${variantName}' on '${enumName}'`, variantSpan);
+      return null;
+    }
+    return { template, variantDecl };
+  }
   const enumType = env.enums.get(enumName);
   if (!enumType) {
     const isType = env.structs.has(enumName) || PRIMITIVES.has(enumName);
@@ -663,13 +669,14 @@ function resolveVariant(
   return { enumType, variant };
 }
 
-function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
+function checkVariantExpr(ctx: Ctx, expr: VariantExpr, expected: Type | undefined): TExpr {
   const found = resolveVariant(ctx, expr.enumName, expr.enumSpan, expr.variant, expr.variantSpan);
   if (found === null) {
     // Still check the values for their own errors; the `error` type keeps `[]` from being reported as uninferable.
     for (const a of expr.args) checkExpr(ctx, a, ERROR);
     return errorExpr();
   }
+  if ('template' in found) return checkGenericVariantExpr(ctx, expr, found.template, found.variantDecl, expected);
   const { enumType, variant } = found;
   const args = expr.args.map((a, i) => checkExpr(ctx, a, variant.payload[i] ?? ERROR));
   if (args.length !== variant.payload.length) {
@@ -679,6 +686,73 @@ function checkVariantExpr(ctx: Ctx, expr: VariantExpr): TExpr {
   args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
   return { kind: 'variant', type: { kind: 'enum', name: enumType.name }, enum: enumType.name, variant: variant.name, tag: variant.tag, args };
 }
+
+/**
+ * Checks `E::V(...)` for a generic `E`, inferring its type arguments (spec §3.5): first from an expected
+ * instantiation of `E`, then from the values left to right. Each value takes its slot type as context once every
+ * parameter the slot mentions is known, and its type then fixes the parameters still unknown.
+ */
+function checkGenericVariantExpr(ctx: Ctx, expr: VariantExpr, template: Template, variantDecl: VariantDecl, expected: Type | undefined): TExpr {
+  const base = template.decl.name;
+  if (template.broken) {
+    // The declaration was already reported.
+    for (const a of expr.args) checkExpr(ctx, a, ERROR);
+    return errorExpr();
+  }
+  const bindings = new Map<string, Type>();
+  if (expected?.kind === 'enum' && expected.generic?.base === base) {
+    expected.generic.args.forEach((arg, i) => bindings.set(template.params[i], arg));
+  }
+  const slots = variantDecl.payload;
+  const args = expr.args.map((a, i) => {
+    const slot = slots.at(i);
+    if (slot === undefined) return checkExpr(ctx, a, ERROR);
+    const known = template.params.every((p) => bindings.has(p) || !mentionsParam(slot, p));
+    const value = checkExpr(ctx, a, known ? resolveType(ctx, slot, bindings, true) : undefined);
+    unify(template.params, slot, value.type, bindings);
+    return value;
+  });
+  if (args.length !== slots.length) {
+    report(ctx, variantArityMessage(base, variantDecl.name, slots.length, args.length), expr.span);
+    return errorExpr();
+  }
+  const typeArgs = template.params.map((p) => bindings.get(p));
+  if (typeArgs.includes(undefined)) {
+    // An unknown parameter that an error-typed value or context would have fixed was already reported.
+    const reported = (expected !== undefined && isError(expected)) || args.some((a) => isError(a.type));
+    if (!reported) report(ctx, `cannot infer type arguments for '${base}'`, expr.span);
+    return errorExpr();
+  }
+  const type = instantiate(ctx, template, typeArgs.filter((t) => t !== undefined));
+  const name = typeToString(type);
+  const variant = ctx.enums.get(name)?.variants.find((v) => v.name === variantDecl.name);
+  if (variant === undefined) throw new Error(`internal: instantiation '${name}' has no variant '${variantDecl.name}'`);
+  args.forEach((arg, i) => expectType(ctx, variant.payload[i], arg, expr.args[i].span));
+  return { kind: 'variant', type, enum: name, variant: variant.name, tag: variant.tag, args };
+}
+
+/**
+ * Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
+ * bare parameter takes the whole type, and arrays and instantiations of the same template are matched part by part.
+ * Error and void types bind nothing.
+ */
+function unify(params: readonly string[], slot: TypeExpr, actual: Type, bindings: Map<string, Type>): void {
+  if (isError(actual) || actual.kind === 'void') return;
+  if (slot.kind === 'array') {
+    if (actual.kind === 'array') unify(params, slot.elem, actual.elem, bindings);
+    return;
+  }
+  if (params.includes(slot.name)) {
+    if (slot.args.length === 0 && !bindings.has(slot.name)) bindings.set(slot.name, actual);
+    return;
+  }
+  if (actual.kind !== 'enum' || actual.generic?.base !== slot.name || actual.generic.args.length !== slot.args.length) return;
+  const actualArgs = actual.generic.args;
+  slot.args.forEach((arg, i) => unify(params, arg, actualArgs[i], bindings));
+}
+
+/** The name an enum's patterns and diagnostics write: an instantiation's generic enum, or the enum itself. */
+const enumBaseName = (t: Type): string => (t.kind === 'enum' ? (t.generic?.base ?? t.name) : typeToString(t));
 
 type MatchCategory = 'enum' | 'int' | 'bool' | 'string';
 
@@ -728,7 +802,7 @@ function checkMatch(
       resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
       if (resolved.includes(null)) allResolved = false;
       if (pattern.kind === 'wildcard') {
-        if (wildcardSeen || missingValues(category, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+        if (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
       } else {
         fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
         for (const r of fresh) covered.add(r.key);
@@ -745,7 +819,7 @@ function checkMatch(
   }
 
   if (category !== null && allResolved && !wildcardSeen) {
-    const missing = missingValues(category, decl, covered);
+    const missing = missingValues(category, st, decl, covered);
     if (missing === null) report(ctx, "non-exhaustive match: add a '_' arm", keywordSpan);
     else if (missing.length > 0) report(ctx, `non-exhaustive match: missing ${missing.join(', ')}`, keywordSpan);
   }
@@ -759,11 +833,11 @@ function checkMatch(
 function resolveAlternative(ctx: Ctx, st: Type, decl: TEnum | null, alt: Alternative): ResolvedAlternative | null {
   if (alt.kind === 'variant') {
     if (decl !== null) {
-      const variant = resolvePatternVariant(ctx, decl, alt);
+      const variant = resolvePatternVariant(ctx, st, decl, alt);
       return variant === null ? null : { key: `tag:${variant.tag}`, kind: 'variant', variant };
     }
     // Only the enum name matters here: any variant of it is the wrong type.
-    if (ctx.enums.has(alt.enumName)) {
+    if (ctx.enums.has(alt.enumName) || ctx.templates.has(alt.enumName)) {
       report(ctx, `pattern type '${alt.enumName}' does not match '${typeToString(st)}'`, alt.enumSpan);
     } else {
       resolveVariant(ctx, alt.enumName, alt.enumSpan, alt.variant, alt.variantSpan);
@@ -820,10 +894,10 @@ function checkReachability(
  * The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; null
  * for int and string, whose values can never all be covered.
  */
-function missingValues(category: MatchCategory, decl: TEnum | null, covered: ReadonlySet<string>): string[] | null {
+function missingValues(category: MatchCategory, st: Type, decl: TEnum | null, covered: ReadonlySet<string>): string[] | null {
   switch (category) {
     case 'enum':
-      return (decl?.variants ?? []).filter((v) => !covered.has(`tag:${v.tag}`)).map((v) => `'${decl?.name}::${v.name}'`);
+      return (decl?.variants ?? []).filter((v) => !covered.has(`tag:${v.tag}`)).map((v) => `'${enumBaseName(st)}::${v.name}'`);
     case 'bool':
       return ['true', 'false'].filter((b) => !covered.has(`bool:${b}`)).map((b) => `'${b}'`);
     case 'int':
@@ -885,16 +959,22 @@ function typedPattern(pattern: Pattern, category: MatchCategory | null, fresh: r
  * Resolves `F::V(...)` against the scrutinee's enum. Returns null after reporting an unknown or wrong enum or an
  * unknown variant. A wrong binder count is reported, but the variant is still returned, so it still counts as covered.
  */
-function resolvePatternVariant(ctx: Ctx, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
-  const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
-  if (found === null) return null;
-  if (found.enumType.name !== decl.name) {
-    report(ctx, `pattern type '${found.enumType.name}' does not match '${decl.name}'`, pattern.enumSpan);
+function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract<Pattern, { kind: 'variant' }>): TVariant | null {
+  // Patterns never carry type arguments, so a pattern names an instantiation by its generic enum's name.
+  const enumName = enumBaseName(st);
+  if (pattern.enumName !== enumName) {
+    const found = resolveVariant(ctx, pattern.enumName, pattern.enumSpan, pattern.variant, pattern.variantSpan);
+    if (found !== null) report(ctx, `pattern type '${pattern.enumName}' does not match '${typeToString(st)}'`, pattern.enumSpan);
     return null;
   }
-  const { variant } = found;
+  markUsed(ctx, enumName);
+  const variant = decl.variants.find((v) => v.name === pattern.variant);
+  if (!variant) {
+    report(ctx, `unknown variant '${pattern.variant}' on '${enumName}'`, pattern.variantSpan);
+    return null;
+  }
   if (pattern.binders.length !== variant.payload.length) {
-    report(ctx, variantArityMessage(decl.name, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
+    report(ctx, variantArityMessage(enumName, variant.name, variant.payload.length, pattern.binders.length), pattern.span);
   }
   return variant;
 }

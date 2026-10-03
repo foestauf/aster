@@ -1,0 +1,12 @@
+// expect-error: 6:11 cannot print a value of type Option[int]
+// expect-error: 7:19 cannot compare 'Option[int]' values
+// expect-error: 8:5 non-exhaustive match: missing 'Option::None'
+fn main(): int {
+    let o: Option[int] = Option::Some(1);
+    print(o);
+    let b: bool = o == o;
+    match o {
+        Option::Some(n) => print(n),
+    }
+    return 0;
+}

@@ -1,0 +1,43 @@
+// A two-parameter generic enum, and every variant of the predeclared Option and Result.
+// expect-stdout:
+// 1
+// r
+// 2
+// true
+// none
+// 3
+// bad
+enum Either[L, R] { Left(L), Right(R) }
+
+fn show(e: Either[int, string]) {
+    match e {
+        Either::Left(n) => print(n),
+        Either::Right(s) => print(s),
+    }
+}
+
+fn show_option(o: Option[bool]) {
+    match o {
+        Option::Some(b) => print(b),
+        Option::None => print("none"),
+    }
+}
+
+fn show_result(r: Result[int, string]) {
+    match r {
+        Result::Ok(n) => print(n),
+        Result::Err(e) => print(e),
+    }
+}
+
+fn main(): int {
+    show(Either::Left(1));
+    show(Either::Right("r"));
+    let l: Either[int, string] = Either::Left(2);
+    show(l);
+    show_option(Option::Some(true));
+    show_option(Option::None);
+    show_result(Result::Ok(3));
+    show_result(Result::Err("bad"));
+    return 0;
+}

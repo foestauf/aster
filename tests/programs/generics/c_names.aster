@@ -1,0 +1,29 @@
+// Instantiation C names can't collide with each other or with non-generic enums that contain underscores.
+// expect-stdout:
+// 1
+// 2
+// 3
+enum A_L { X(int) }
+enum A[T] { Y(T) }
+enum My_E { Z(int) }
+
+fn main(): int {
+    let a: A_L = A_L::X(1);
+    let b: A[int] = A::Y(2);
+    let c: Option[My_E] = Option::Some(My_E::Z(3));
+    match a {
+        A_L::X(n) => print(n),
+    }
+    match b {
+        A::Y(n) => print(n),
+    }
+    match c {
+        Option::Some(e) => {
+            match e {
+                My_E::Z(n) => print(n),
+            }
+        }
+        Option::None => print("none"),
+    }
+    return 0;
+}

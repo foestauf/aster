@@ -37,6 +37,12 @@ describe('mangling', () => {
     expect(mangleEnum('FILE')).toBe('aster_E_FILE');
     expect(mangleVariant('int')).toBe('v_int');
   });
+
+  it('mangles instantiations apart from each other and from non-generic enums', () => {
+    expect(mangleEnum('Option[int]')).toBe('aster_G_Option_Lint_R');
+    expect(mangleEnum('Result[[string], My_E]')).toBe('aster_G_Result_L_Lstring_R_CMy__E_R');
+    expect(mangleEnum('A_L')).toBe('aster_E_A_L');
+  });
 });
 
 describe('emitC', () => {

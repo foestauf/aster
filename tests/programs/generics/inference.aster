@@ -1,0 +1,62 @@
+// Every context that types a variant expression of a generic enum.
+// expect-stdout:
+// 0
+// 0
+// 0
+// 0
+// 0
+// 1
+// 2
+// 5
+// 0
+// 3
+// 0
+struct Wrap { o: Option[int] }
+
+fn get(o: Option[int]): int {
+    return match o {
+        Option::Some(n) => n,
+        Option::None => 0,
+    };
+}
+
+fn none(): Option[int] {
+    return Option::None;
+}
+
+fn main(): int {
+    let a: Option[int] = Option::None;
+    print(get(a));
+    var b: Option[int] = Option::Some(1);
+    b = Option::None;
+    print(get(b));
+    print(get(Option::None));
+    print(get(none()));
+    let w: Wrap = Wrap { o: Option::None };
+    print(get(w.o));
+    let x: Option[Option[int]] = Option::Some(Option::None);
+    match x {
+        Option::Some(inner) => print(get(inner) + 1),
+        Option::None => print(-1),
+    }
+    var xs: [Option[int]] = [];
+    push(xs, Option::None);
+    push(xs, Option::Some(2));
+    print(get(xs[0]) + get(xs[1]));
+    let ys: [Option[int]] = [Option::None, Option::Some(5)];
+    print(get(ys[1]));
+    let c: bool = len(ys) > 5;
+    let z: Option[int] = if c { Option::Some(2) } else { Option::None };
+    print(get(z));
+    let m: Option[int] = match len(ys) {
+        2 => Option::Some(3),
+        _ => Option::None,
+    };
+    print(get(m));
+    let e: Option[[int]] = Option::Some([]);
+    match e {
+        Option::Some(items) => print(len(items)),
+        Option::None => print(-1),
+    }
+    return 0;
+}

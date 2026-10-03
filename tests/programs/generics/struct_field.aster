@@ -1,0 +1,36 @@
+// Instantiations as struct fields and array elements, with push and a for loop.
+// expect-stdout:
+// 4
+// -1
+// 8
+// x
+// -
+// y
+struct Slot { v: Option[int] }
+
+fn get(s: Slot): int {
+    return match s.v {
+        Option::Some(n) => n,
+        Option::None => -1,
+    };
+}
+
+fn main(): int {
+    let a: Slot = Slot { v: Option::Some(4) };
+    let b: Slot = Slot { v: Option::None };
+    print(get(a));
+    print(get(b));
+    b.v = Option::Some(8);
+    print(get(b));
+    var names: [Option[string]] = [];
+    push(names, Option::Some("x"));
+    push(names, Option::None);
+    push(names, Option::Some("y"));
+    for n in names {
+        match n {
+            Option::Some(s) => print(s),
+            Option::None => print("-"),
+        }
+    }
+    return 0;
+}
