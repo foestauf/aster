@@ -79,6 +79,14 @@ type count and adds a `.node` to every match.
 - **No string repeat.** Indentation is a `for _i in 0..depth { pad += "  "; }` loop.
 - **No `match` on ints.** The binary-operator table `level_ops(level)` is an `if` chain.
 
+### 9. Bugs the self-hosted side found in the bootstrap compiler
+
+- **Fixed:** the TypeScript lexer advanced by two on a one-character punctuator at the very end of the file, so
+  `fn main() {}` with no trailing newline gave `}` a span past the end of the file. `parse.aster`'s lexer had the
+  right bounds check. The fix is in its own commit, and `fixtures/parse_no_newline.txt` pins it.
+- **Open:** for an invalid escape followed by an astral character (`"\😀"`), the TypeScript lexer's message quotes half
+  of a surrogate pair. `lex.aster` and `parse.aster` quote the whole character. Spans agree, and no fixture covers it.
+
 ## What worked well
 
 - Recursive enums and structs, with references, model the AST directly. The 1,646-line file type-checked on its first

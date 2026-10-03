@@ -13,7 +13,7 @@ import {
 // parser. Both sides render the AST in the indented-tree format of docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md §3.
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
 const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
-  .filter((f) => f.endsWith('.aster') || /fixtures[\\/](lex|parse)_[a-z]+\.txt$/.test(f))
+  .filter((f) => f.endsWith('.aster') || /fixtures[\\/](lex|parse)_\w+\.txt$/.test(f))
   .toSorted();
 
 /**
@@ -30,7 +30,12 @@ function expected(text: string): { stdout: string; status: number } {
     const width = code < 0x80 ? 1 : code < 0x800 ? 2 : code >= 0xd800 && code <= 0xdbff ? 4 : code >= 0xdc00 && code <= 0xdfff ? 0 : 3;
     byteAt.push(byteAt[i] + width);
   }
-  const sp = (s: Span): string => `${byteAt[s.start]} ${byteAt[s.end]}`;
+  const byte = (offset: number): number => {
+    const b = byteAt[offset];
+    if (b === undefined) throw new Error(`span offset ${offset} is outside the ${body.length}-unit source`);
+    return b;
+  };
+  const sp = (s: Span): string => `${byte(s.start)} ${byte(s.end)}`;
 
   const lines: string[] = [];
   const emit = (depth: number, line: string): void => {
