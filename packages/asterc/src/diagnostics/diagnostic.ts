@@ -1,4 +1,5 @@
-import { lineCol, lineText, type SourceFile, type Span } from './source.js';
+import { dirname, relative, sep } from 'node:path';
+import { lineCol, lineText, sourceAt, type SourceFile, type SourceMap, type Span } from './source.js';
 
 export interface Diagnostic {
   message: string;
@@ -18,16 +19,24 @@ export function sortDiagnostics(diagnostics: readonly Diagnostic[]): Diagnostic[
     });
 }
 
-export function formatDiagnostic(source: SourceFile, d: Diagnostic): string {
-  const { line, col } = lineCol(source, d.span.start);
+export function formatDiagnostic(where: SourceFile | SourceMap, d: Diagnostic): string {
+  const source = sourceAt(where, d.span.start);
+  const { line, col } = lineCol(where, d.span.start);
   const text = lineText(source, line);
   const padding = text.slice(0, col - 1).replace(/[^\t]/g, ' ');
   const width = Math.max(1, Math.min(d.span.end - d.span.start, text.length - (col - 1)));
   return `${source.path}:${line}:${col}: error: ${d.message}\n  ${text}\n  ${padding}${'^'.repeat(width)}`;
 }
 
-/** Compact `line:col message` form used by golden tests. */
-export function formatShort(source: SourceFile, d: Diagnostic): string {
-  const { line, col } = lineCol(source, d.span.start);
-  return `${line}:${col} ${d.message}`;
+/**
+ * Compact form used by golden tests: `line:col message` for the root file (the map's first file),
+ * `relPath:line:col message` for others, with relPath relative to the root's directory.
+ */
+export function formatShort(where: SourceFile | SourceMap, d: Diagnostic): string {
+  const source = sourceAt(where, d.span.start);
+  const { line, col } = lineCol(where, d.span.start);
+  const root = 'files' in where ? where.files[0] : where;
+  if (source === root) return `${line}:${col} ${d.message}`;
+  const rel = relative(dirname(root.path), source.path).split(sep).join('/');
+  return `${rel}:${line}:${col} ${d.message}`;
 }

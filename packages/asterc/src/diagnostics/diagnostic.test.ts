@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatDiagnostic, formatShort, sortDiagnostics } from './diagnostic.js';
-import { lineCol, lineText, makeSource } from './source.js';
+import { lineCol, lineText, makeSource, nextBase, sourceMapOf } from './source.js';
 
 describe('lineCol', () => {
   const src = makeSource('t.aster', 'ab\ncd\n\nef');
@@ -64,6 +64,34 @@ describe('formatShort', () => {
   it('prints line:col and message', () => {
     const src = makeSource('x.aster', 'a\nbc');
     expect(formatShort(src, { message: 'oops', span: { start: 3, end: 4 } })).toBe('2:2 oops');
+  });
+});
+
+const mk = (rootPath: string, libPath: string) => {
+  const a = makeSource(rootPath, 'fn a() {}\n');
+  const b = makeSource(libPath, 'x\ny', nextBase(a));
+  return { a, b, map: sourceMapOf([a, b]) };
+};
+
+describe('multi-file formatting', () => {
+  it('formatShort omits the path for the root and relativises others', () => {
+    const { b, map } = mk('/r/main.aster', '/r/lib/b.aster');
+    expect(formatShort(map, { message: 'm', span: { start: b.base, end: b.base + 1 } })).toBe('lib/b.aster:1:1 m');
+    expect(formatShort(map, { message: 'm', span: { start: 0, end: 1 } })).toBe('1:1 m');
+  });
+
+  it('formatShort works with relative paths and parent directories', () => {
+    const { b, map } = mk('prog/main.aster', 'prog/lib.aster');
+    expect(formatShort(map, { message: 'm', span: { start: b.base + 2, end: b.base + 3 } })).toBe('lib.aster:2:1 m');
+    const up = mk('/r/sub/main.aster', '/r/lib.aster');
+    expect(formatShort(up.map, { message: 'm', span: { start: up.b.base, end: up.b.base } })).toBe('../lib.aster:1:1 m');
+  });
+
+  it('formatDiagnostic prints the containing file path and its own line', () => {
+    const { b, map } = mk('/r/main.aster', '/r/lib/b.aster');
+    expect(formatDiagnostic(map, { message: 'm', span: { start: b.base + 2, end: b.base + 3 } })).toBe(
+      '/r/lib/b.aster:2:1: error: m\n  y\n  ^',
+    );
   });
 });
 
