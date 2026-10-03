@@ -2,6 +2,16 @@
 // node per line, indented two spaces per level: `<tag> <start> <end> <attributes>`, with `-` for an absent optional
 // child. Then it prints one line per lexical or syntax error, `error <start> <end> <message>`. Offsets are in bytes.
 // tests/parse_aster.test.ts checks it against the compiler's own parser on every golden program.
+// expect-args: fixtures/parse_small.txt
+// expect-stdout:
+// fn 0 45 main 3 7
+//   type 11 14 int
+//   block 15 45
+//     let 17 33 x 21 22
+//       type 24 27 int
+//       int 30 32 10
+//     return 34 43
+//       name 41 42 x
 
 // ---- lexer (a copy of lex.aster's; Aster has no modules yet)
 
@@ -187,6 +197,1426 @@ fn lex(src: string): Lexer {
     return lx;
 }
 
+// ---- syntax tree. Each node that has a span is a struct holding `start`, `end` and an enum `node`, so a span can be
+// read without matching on the kind.
+
+struct Ident {
+    name: string,
+    start: int,
+    end: int,
+}
+
+struct TypeExpr {
+    start: int,
+    end: int,
+    node: TypeNode,
+}
+
+enum TypeNode {
+    Named(string),
+    Array(TypeExpr),
+}
+
+enum MaybeType {
+    None,
+    Some(TypeExpr),
+}
+
+// A parameter or a struct field.
+struct Typed {
+    name: Ident,
+    ty: TypeExpr,
+}
+
+struct VariantDecl {
+    name: Ident,
+    payload: [TypeExpr],
+}
+
+struct FnDecl {
+    start: int,
+    end: int,
+    name: Ident,
+    params: [Typed],
+    ret: MaybeType,
+    body: Block,
+}
+
+struct StructDecl {
+    start: int,
+    end: int,
+    name: Ident,
+    fields: [Typed],
+}
+
+struct EnumDecl {
+    start: int,
+    end: int,
+    name: Ident,
+    variants: [VariantDecl],
+}
+
+enum Item {
+    Fn(FnDecl),
+    Struct(StructDecl),
+    Enum(EnumDecl),
+}
+
+struct Block {
+    start: int,
+    end: int,
+    stmts: [Stmt],
+}
+
+struct Stmt {
+    start: int,
+    end: int,
+    node: StmtNode,
+}
+
+// `Let` is true for `var`. `Match` holds the keyword as an Ident for its span.
+enum StmtNode {
+    Let(bool, Ident, TypeExpr, Expr),
+    Assign(string, Expr, Expr),
+    If(Expr, Block, Else),
+    While(Expr, Block),
+    ForRange(Ident, Expr, Expr, Block),
+    ForEach(Ident, Expr, Block),
+    Match(Ident, Expr, [Arm]),
+    Break,
+    Continue,
+    Return(MaybeExpr),
+    Block(Block),
+    Expr(Expr),
+}
+
+enum Else {
+    None,
+    Block(Block),
+    If(Stmt),
+}
+
+struct Expr {
+    start: int,
+    end: int,
+    node: ExprNode,
+}
+
+// `Int` holds the canonical decimal value. A `Str` literal's text is read from the source by its span. `Bad` is what a
+// failed parse returns; it never reaches the printer.
+enum ExprNode {
+    Int(string),
+    Str,
+    Bool(bool),
+    Name(string),
+    Unary(string, Expr),
+    Binary(string, Expr, Expr),
+    Call(Expr, [Expr]),
+    If(Expr, Expr, Expr),
+    Field(Expr, Ident),
+    StructLit(Ident, [FieldInit]),
+    Index(Expr, Expr),
+    ArrayLit([Expr]),
+    Variant(Ident, Ident, [Expr]),
+    Match(Ident, Expr, [Arm]),
+    Bad,
+}
+
+struct FieldInit {
+    name: Ident,
+    value: Expr,
+}
+
+enum MaybeExpr {
+    None,
+    Some(Expr),
+}
+
+struct Pattern {
+    start: int,
+    end: int,
+    node: PatternNode,
+}
+
+enum PatternNode {
+    Wildcard,
+    Variant(Ident, Ident, [Binder]),
+}
+
+enum Binder {
+    Wild,
+    Named(Ident),
+}
+
+struct Arm {
+    pattern: Pattern,
+    body: ArmBody,
+}
+
+enum ArmBody {
+    Block(Block),
+    Expr(Expr),
+}
+
+// Placeholders returned once `failed` is set. The statement or item they belong to is dropped, so none is printed.
+fn bad_expr(): Expr {
+    return Expr { start: 0, end: 0, node: ExprNode::Bad };
+}
+
+fn bad_type(): TypeExpr {
+    return TypeExpr { start: 0, end: 0, node: TypeNode::Named("") };
+}
+
+fn bad_block(): Block {
+    return Block { start: 0, end: 0, stmts: [] };
+}
+
+fn bad_stmt(): Stmt {
+    return Stmt { start: 0, end: 0, node: StmtNode::Expr(bad_expr()) };
+}
+
+fn bad_pattern(): Pattern {
+    return Pattern { start: 0, end: 0, node: PatternNode::Wildcard };
+}
+
+fn bad_item(): Item {
+    return Item::Struct(StructDecl { start: 0, end: 0, name: Ident { name: "", start: 0, end: 0 }, fields: [] });
+}
+
+// ---- parser. A port of packages/asterc/src/parser/parser.ts, function by function. The TypeScript parser throws on a
+// syntax error and catches at statement and item boundaries. Aster has no exceptions, so `fail` sets `failed` instead,
+// every function returns a placeholder as soon as it sees `failed` after a call, and parse_block and parse_program
+// clear it and resynchronise.
+
+struct Parser {
+    src: string,
+    tokens: [Token],
+    pos: int,
+    errors: [LexError],
+    // True while parsing an `if`/`while`/`for`/`match` header, where `Name {` starts the body, not a struct literal.
+    no_struct_lit: bool,
+    failed: bool,
+}
+
+fn peek_at(p: Parser, offset: int): Token {
+    return p.tokens[min(p.pos + offset, len(p.tokens) - 1)];
+}
+
+fn peek(p: Parser): Token {
+    return peek_at(p, 0);
+}
+
+fn previous(p: Parser): Token {
+    if p.pos > 0 {
+        return p.tokens[p.pos - 1];
+    }
+    return p.tokens[0];
+}
+
+fn at(p: Parser, kind: string): bool {
+    return peek(p).kind == kind;
+}
+
+fn advance(p: Parser): Token {
+    let t: Token = peek(p);
+    if t.kind != "eof" {
+        p.pos += 1;
+    }
+    return t;
+}
+
+fn eat(p: Parser, kind: string): bool {
+    if at(p, kind) {
+        advance(p);
+        return true;
+    }
+    return false;
+}
+
+fn at_item(p: Parser): bool {
+    return at(p, "fn") || at(p, "struct") || at(p, "enum");
+}
+
+fn text(p: Parser, t: Token): string {
+    return substring(p.src, t.start, t.end);
+}
+
+fn ident_of(p: Parser, t: Token): Ident {
+    return Ident { name: text(p, t), start: t.start, end: t.end };
+}
+
+// How a token is named in error messages.
+fn describe(p: Parser, t: Token): string {
+    if t.kind == "eof" {
+        return "end of file";
+    }
+    if t.kind == "ident" {
+        return "identifier '" + text(p, t) + "'";
+    }
+    if t.kind == "int" {
+        return "integer '" + text(p, t) + "'";
+    }
+    if t.kind == "string" {
+        return "string literal";
+    }
+    return "'" + text(p, t) + "'";
+}
+
+fn error_at(p: Parser, message: string, start: int, end: int) {
+    push(p.errors, LexError { start: start, end: end, message: message });
+}
+
+fn fail(p: Parser, message: string, t: Token) {
+    error_at(p, message, t.start, t.end);
+    p.failed = true;
+}
+
+// Consumes a token of `kind`, or fails and returns the current token.
+fn expect(p: Parser, kind: string): Token {
+    if at(p, kind) {
+        return advance(p);
+    }
+    var what: string = "'" + kind + "'";
+    if kind == "ident" {
+        what = "identifier";
+    }
+    let t: Token = peek(p);
+    fail(p, "expected " + what + ", found " + describe(p, t), t);
+    return t;
+}
+
+// Integer literal digits without leading zeros, keeping a lone `0`.
+fn canonical_digits(s: string): string {
+    var i: int = 0;
+    while i < len(s) - 1 && byte_at(s, i) == 48 {
+        i += 1;
+    }
+    return substring(s, i, len(s));
+}
+
+// Whether canonical `digits` fit in an int, as a magnitude: up to 2^63 - 1, or 2^63 when negated. Aster has no wider
+// integer and no string ordering, so this compares lengths, then bytes.
+fn fits(digits: string, negative: bool): bool {
+    var limit: string = "9223372036854775807";
+    if negative {
+        limit = "9223372036854775808";
+    }
+    if len(digits) != len(limit) {
+        return len(digits) < len(limit);
+    }
+    for i in 0..len(digits) {
+        let a: int = byte_at(digits, i);
+        let b: int = byte_at(limit, i);
+        if a != b {
+            return a < b;
+        }
+    }
+    return true;
+}
+
+// ---- declarations
+
+fn parse_program(p: Parser): [Item] {
+    let items: [Item] = [];
+    while !at(p, "eof") {
+        if !at_item(p) {
+            let t: Token = peek(p);
+            error_at(p, "expected 'fn', 'struct' or 'enum', found " + describe(p, t), t.start, t.end);
+            sync_to_item(p);
+            continue;
+        }
+        var item: Item = bad_item();
+        if at(p, "fn") {
+            item = parse_function(p);
+        } else if at(p, "struct") {
+            item = parse_struct(p);
+        } else {
+            item = parse_enum(p);
+        }
+        if p.failed {
+            p.failed = false;
+            sync_to_item(p);
+        } else {
+            push(items, item);
+        }
+    }
+    return items;
+}
+
+// Skips to the next `fn`, `struct`, `enum` or EOF. Consumes at least one token unless already at an item.
+fn sync_to_item(p: Parser) {
+    if !at_item(p) {
+        advance(p);
+    }
+    while !at_item(p) && !at(p, "eof") {
+        advance(p);
+    }
+}
+
+fn parse_function(p: Parser): Item {
+    let kw: Token = expect(p, "fn");
+    let name: Token = expect(p, "ident");
+    if p.failed {
+        return bad_item();
+    }
+    expect(p, "(");
+    if p.failed {
+        return bad_item();
+    }
+    let params: [Typed] = [];
+    if !at(p, ")") {
+        var more: bool = true;
+        while more {
+            let param: Token = expect(p, "ident");
+            if p.failed {
+                return bad_item();
+            }
+            expect(p, ":");
+            if p.failed {
+                return bad_item();
+            }
+            let ty: TypeExpr = parse_type(p);
+            if p.failed {
+                return bad_item();
+            }
+            push(params, Typed { name: ident_of(p, param), ty: ty });
+            more = eat(p, ",");
+        }
+    }
+    expect(p, ")");
+    if p.failed {
+        return bad_item();
+    }
+    var ret: MaybeType = MaybeType::None;
+    if eat(p, ":") {
+        let ty: TypeExpr = parse_type(p);
+        if p.failed {
+            return bad_item();
+        }
+        ret = MaybeType::Some(ty);
+    }
+    let body: Block = parse_block(p);
+    if p.failed {
+        return bad_item();
+    }
+    return Item::Fn(FnDecl { start: kw.start, end: body.end, name: ident_of(p, name), params: params, ret: ret, body: body });
+}
+
+fn parse_struct(p: Parser): Item {
+    let kw: Token = expect(p, "struct");
+    let name: Token = expect(p, "ident");
+    if p.failed {
+        return bad_item();
+    }
+    expect(p, "{");
+    if p.failed {
+        return bad_item();
+    }
+    let fields: [Typed] = [];
+    while !at(p, "}") {
+        let field: Token = expect(p, "ident");
+        if p.failed {
+            return bad_item();
+        }
+        expect(p, ":");
+        if p.failed {
+            return bad_item();
+        }
+        let ty: TypeExpr = parse_type(p);
+        if p.failed {
+            return bad_item();
+        }
+        push(fields, Typed { name: ident_of(p, field), ty: ty });
+        if !eat(p, ",") {
+            break;
+        }
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_item();
+    }
+    return Item::Struct(StructDecl { start: kw.start, end: close.end, name: ident_of(p, name), fields: fields });
+}
+
+// `enum Name { V, W(T, U), }`: at least one variant; payload lists take no trailing comma.
+fn parse_enum(p: Parser): Item {
+    let kw: Token = expect(p, "enum");
+    let name: Token = expect(p, "ident");
+    if p.failed {
+        return bad_item();
+    }
+    expect(p, "{");
+    if p.failed {
+        return bad_item();
+    }
+    let variants: [VariantDecl] = [];
+    while true {
+        let variant: Token = expect(p, "ident");
+        if p.failed {
+            return bad_item();
+        }
+        let payload: [TypeExpr] = [];
+        if eat(p, "(") {
+            var more: bool = true;
+            while more {
+                let ty: TypeExpr = parse_type(p);
+                if p.failed {
+                    return bad_item();
+                }
+                push(payload, ty);
+                more = eat(p, ",");
+            }
+            expect(p, ")");
+            if p.failed {
+                return bad_item();
+            }
+        }
+        push(variants, VariantDecl { name: ident_of(p, variant), payload: payload });
+        if !eat(p, ",") || at(p, "}") {
+            break;
+        }
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_item();
+    }
+    return Item::Enum(EnumDecl { start: kw.start, end: close.end, name: ident_of(p, name), variants: variants });
+}
+
+fn parse_type(p: Parser): TypeExpr {
+    if at(p, "[") {
+        let open: Token = advance(p);
+        let elem: TypeExpr = parse_type(p);
+        if p.failed {
+            return bad_type();
+        }
+        let close: Token = expect(p, "]");
+        if p.failed {
+            return bad_type();
+        }
+        return TypeExpr { start: open.start, end: close.end, node: TypeNode::Array(elem) };
+    }
+    let t: Token = expect(p, "ident");
+    if p.failed {
+        return bad_type();
+    }
+    return TypeExpr { start: t.start, end: t.end, node: TypeNode::Named(text(p, t)) };
+}
+
+// ---- statements
+
+fn parse_block(p: Parser): Block {
+    let open: Token = expect(p, "{");
+    if p.failed {
+        return bad_block();
+    }
+    let stmts: [Stmt] = [];
+    while !at(p, "}") && !at(p, "eof") && !at_item(p) {
+        let s: Stmt = parse_statement(p);
+        if p.failed {
+            p.failed = false;
+            sync_statement(p);
+        } else {
+            push(stmts, s);
+        }
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_block();
+    }
+    return Block { start: open.start, end: close.end, stmts: stmts };
+}
+
+// Skips past the next `;`, or up to (not past) a `}`, `fn`, `struct`, `enum`, `match` or EOF.
+fn sync_statement(p: Parser) {
+    while !at(p, "eof") && !at(p, "}") && !at_item(p) && !at(p, "match") {
+        if advance(p).kind == ";" {
+            return;
+        }
+    }
+}
+
+fn parse_statement(p: Parser): Stmt {
+    let t: Token = peek(p);
+    let k: string = t.kind;
+    if k == "let" || k == "var" {
+        advance(p);
+        let name: Token = expect(p, "ident");
+        if p.failed {
+            return bad_stmt();
+        }
+        expect(p, ":");
+        if p.failed {
+            return bad_stmt();
+        }
+        let ty: TypeExpr = parse_type(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        expect(p, "=");
+        if p.failed {
+            return bad_stmt();
+        }
+        let init: Expr = parse_expr(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        let semi: Token = expect(p, ";");
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: t.start, end: semi.end, node: StmtNode::Let(k == "var", ident_of(p, name), ty, init) };
+    }
+    if k == "match" {
+        return parse_match_stmt(p);
+    }
+    if k == "if" {
+        return parse_if_stmt(p);
+    }
+    if k == "for" {
+        return parse_for(p);
+    }
+    if k == "while" {
+        advance(p);
+        let cond: Expr = parse_header_expr(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        let body: Block = parse_block(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: t.start, end: body.end, node: StmtNode::While(cond, body) };
+    }
+    if k == "break" || k == "continue" {
+        advance(p);
+        let semi: Token = expect(p, ";");
+        if p.failed {
+            return bad_stmt();
+        }
+        if k == "break" {
+            return Stmt { start: t.start, end: semi.end, node: StmtNode::Break };
+        }
+        return Stmt { start: t.start, end: semi.end, node: StmtNode::Continue };
+    }
+    if k == "return" {
+        advance(p);
+        var value: MaybeExpr = MaybeExpr::None;
+        if !at(p, ";") {
+            let e: Expr = parse_expr(p);
+            if p.failed {
+                return bad_stmt();
+            }
+            value = MaybeExpr::Some(e);
+        }
+        let semi: Token = expect(p, ";");
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: t.start, end: semi.end, node: StmtNode::Return(value) };
+    }
+    if k == "{" {
+        let b: Block = parse_block(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: b.start, end: b.end, node: StmtNode::Block(b) };
+    }
+    return parse_simple_statement(p);
+}
+
+fn is_assign_op(k: string): bool {
+    return contains(["=", "+=", "-=", "*=", "/=", "%="], k);
+}
+
+// An assignment `place op= e;` or an expression statement `e;`.
+fn parse_simple_statement(p: Parser): Stmt {
+    let e: Expr = parse_expr(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    let op: string = peek(p).kind;
+    if is_assign_op(op) {
+        advance(p);
+        let value: Expr = parse_expr(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        let semi: Token = expect(p, ";");
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: e.start, end: semi.end, node: StmtNode::Assign(op, e, value) };
+    }
+    let semi: Token = expect(p, ";");
+    if p.failed {
+        return bad_stmt();
+    }
+    return Stmt { start: e.start, end: semi.end, node: StmtNode::Expr(e) };
+}
+
+fn parse_for(p: Parser): Stmt {
+    let kw: Token = expect(p, "for");
+    let name: Token = expect(p, "ident");
+    if p.failed {
+        return bad_stmt();
+    }
+    expect(p, "in");
+    if p.failed {
+        return bad_stmt();
+    }
+    let first: Expr = parse_header_expr(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    if eat(p, "..") {
+        let end: Expr = parse_header_expr(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        let body: Block = parse_block(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        return Stmt { start: kw.start, end: body.end, node: StmtNode::ForRange(ident_of(p, name), first, end, body) };
+    }
+    let body: Block = parse_block(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    return Stmt { start: kw.start, end: body.end, node: StmtNode::ForEach(ident_of(p, name), first, body) };
+}
+
+fn parse_if_stmt(p: Parser): Stmt {
+    let kw: Token = expect(p, "if");
+    let cond: Expr = parse_header_expr(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    let then: Block = parse_block(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    var els: Else = Else::None;
+    var end: int = then.end;
+    if eat(p, "else") {
+        if at(p, "if") {
+            let s: Stmt = parse_if_stmt(p);
+            if p.failed {
+                return bad_stmt();
+            }
+            els = Else::If(s);
+            end = s.end;
+        } else {
+            let b: Block = parse_block(p);
+            if p.failed {
+                return bad_stmt();
+            }
+            els = Else::Block(b);
+            end = b.end;
+        }
+    }
+    return Stmt { start: kw.start, end: end, node: StmtNode::If(cond, then, els) };
+}
+
+// Arms are `pattern => block [,]` or `pattern => expr ,`; the comma after the last expression arm is optional.
+fn parse_match_stmt(p: Parser): Stmt {
+    let kw: Token = expect(p, "match");
+    let scrutinee: Expr = parse_header_expr(p);
+    if p.failed {
+        return bad_stmt();
+    }
+    expect(p, "{");
+    if p.failed {
+        return bad_stmt();
+    }
+    let arms: [Arm] = [];
+    while !at(p, "}") && !at(p, "eof") {
+        let pattern: Pattern = parse_pattern(p);
+        if p.failed {
+            return bad_stmt();
+        }
+        expect(p, "=>");
+        if p.failed {
+            return bad_stmt();
+        }
+        if at(p, "{") {
+            let b: Block = parse_block(p);
+            if p.failed {
+                return bad_stmt();
+            }
+            push(arms, Arm { pattern: pattern, body: ArmBody::Block(b) });
+            eat(p, ",");
+        } else {
+            let e: Expr = parse_expr_with_struct_lits(p);
+            if p.failed {
+                return bad_stmt();
+            }
+            push(arms, Arm { pattern: pattern, body: ArmBody::Expr(e) });
+            if !eat(p, ",") {
+                break;
+            }
+        }
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_stmt();
+    }
+    return Stmt { start: kw.start, end: close.end, node: StmtNode::Match(ident_of(p, kw), scrutinee, arms) };
+}
+
+fn parse_pattern(p: Parser): Pattern {
+    if at(p, "_") {
+        let w: Token = advance(p);
+        return Pattern { start: w.start, end: w.end, node: PatternNode::Wildcard };
+    }
+    let enum_name: Token = expect(p, "ident");
+    if p.failed {
+        return bad_pattern();
+    }
+    expect(p, "::");
+    if p.failed {
+        return bad_pattern();
+    }
+    let variant: Token = expect(p, "ident");
+    if p.failed {
+        return bad_pattern();
+    }
+    let binders: [Binder] = [];
+    var end: int = variant.end;
+    if eat(p, "(") {
+        var more: bool = true;
+        while more {
+            if eat(p, "_") {
+                push(binders, Binder::Wild);
+            } else {
+                let name: Token = expect(p, "ident");
+                if p.failed {
+                    return bad_pattern();
+                }
+                push(binders, Binder::Named(ident_of(p, name)));
+            }
+            more = eat(p, ",");
+        }
+        let close: Token = expect(p, ")");
+        if p.failed {
+            return bad_pattern();
+        }
+        end = close.end;
+    }
+    return Pattern { start: enum_name.start, end: end, node: PatternNode::Variant(ident_of(p, enum_name), ident_of(p, variant), binders) };
+}
+
+// ---- expressions
+
+fn parse_expr(p: Parser): Expr {
+    return parse_binary(p, 0);
+}
+
+// The TypeScript parser's withStructLits(false, parseExpr). The flag is restored before the caller checks `failed`,
+// which is what the TypeScript `finally` does.
+fn parse_header_expr(p: Parser): Expr {
+    let saved: bool = p.no_struct_lit;
+    p.no_struct_lit = true;
+    let e: Expr = parse_expr(p);
+    p.no_struct_lit = saved;
+    return e;
+}
+
+// withStructLits(true, parseExpr).
+fn parse_expr_with_struct_lits(p: Parser): Expr {
+    let saved: bool = p.no_struct_lit;
+    p.no_struct_lit = false;
+    let e: Expr = parse_expr(p);
+    p.no_struct_lit = saved;
+    return e;
+}
+
+// Binary operator levels, loosest first.
+fn level_ops(level: int): [string] {
+    if level == 0 {
+        return ["||"];
+    }
+    if level == 1 {
+        return ["&&"];
+    }
+    if level == 2 {
+        return ["==", "!="];
+    }
+    if level == 3 {
+        return ["<", "<=", ">", ">="];
+    }
+    if level == 4 {
+        return ["+", "-"];
+    }
+    return ["*", "/", "%"];
+}
+
+fn level_chainable(level: int): bool {
+    return level != 2 && level != 3;
+}
+
+fn parse_binary(p: Parser, level: int): Expr {
+    if level == 6 {
+        return parse_unary(p);
+    }
+    let ops: [string] = level_ops(level);
+    var left: Expr = parse_binary(p, level + 1);
+    if p.failed {
+        return bad_expr();
+    }
+    while contains(ops, peek(p).kind) {
+        let op: string = advance(p).kind;
+        let right: Expr = parse_binary(p, level + 1);
+        if p.failed {
+            return bad_expr();
+        }
+        left = Expr { start: left.start, end: right.end, node: ExprNode::Binary(op, left, right) };
+        if !level_chainable(level) && contains(ops, peek(p).kind) {
+            fail(p, "comparison operators cannot be chained", peek(p));
+            return bad_expr();
+        }
+    }
+    return left;
+}
+
+fn parse_unary(p: Parser): Expr {
+    let t: Token = peek(p);
+    if t.kind != "-" && t.kind != "!" {
+        return parse_postfix(p);
+    }
+    advance(p);
+    if t.kind == "-" && at(p, "int") {
+        // Folding here is what lets -9223372036854775808 be written as a literal.
+        let literal: Token = advance(p);
+        let digits: string = canonical_digits(text(p, literal));
+        if !fits(digits, true) {
+            error_at(p, "integer literal out of range", t.start, literal.end);
+        }
+        var value: string = digits;
+        if digits != "0" {
+            value = "-" + digits;
+        }
+        return Expr { start: t.start, end: literal.end, node: ExprNode::Int(value) };
+    }
+    let operand: Expr = parse_unary(p);
+    if p.failed {
+        return bad_expr();
+    }
+    return Expr { start: t.start, end: operand.end, node: ExprNode::Unary(t.kind, operand) };
+}
+
+// Comma-separated expressions with struct literals allowed, up to (not including) the closing token. With
+// `allow_empty`, an immediately closing token yields no expressions; `trailing` allows a comma before it.
+fn parse_expr_list(p: Parser, close: string, allow_empty: bool, trailing: bool): [Expr] {
+    let saved: bool = p.no_struct_lit;
+    p.no_struct_lit = false;
+    let exprs: [Expr] = [];
+    if !(allow_empty && at(p, close)) {
+        while true {
+            let e: Expr = parse_expr(p);
+            if p.failed {
+                break;
+            }
+            push(exprs, e);
+            if !eat(p, ",") || (trailing && at(p, close)) {
+                break;
+            }
+        }
+    }
+    p.no_struct_lit = saved;
+    return exprs;
+}
+
+fn parse_postfix(p: Parser): Expr {
+    var e: Expr = parse_primary(p);
+    if p.failed {
+        return bad_expr();
+    }
+    while true {
+        if eat(p, "(") {
+            let args: [Expr] = parse_expr_list(p, ")", true, false);
+            if p.failed {
+                return bad_expr();
+            }
+            let close: Token = expect(p, ")");
+            if p.failed {
+                return bad_expr();
+            }
+            e = Expr { start: e.start, end: close.end, node: ExprNode::Call(e, args) };
+        } else if eat(p, ".") {
+            let field: Token = expect(p, "ident");
+            if p.failed {
+                return bad_expr();
+            }
+            e = Expr { start: e.start, end: field.end, node: ExprNode::Field(e, ident_of(p, field)) };
+        } else if eat(p, "[") {
+            let index: Expr = parse_expr_with_struct_lits(p);
+            if p.failed {
+                return bad_expr();
+            }
+            let close: Token = expect(p, "]");
+            if p.failed {
+                return bad_expr();
+            }
+            e = Expr { start: e.start, end: close.end, node: ExprNode::Index(e, index) };
+        } else {
+            return e;
+        }
+    }
+}
+
+fn parse_primary(p: Parser): Expr {
+    let t: Token = peek(p);
+    let k: string = t.kind;
+    if k == "int" {
+        advance(p);
+        let digits: string = canonical_digits(text(p, t));
+        if !fits(digits, false) {
+            error_at(p, "integer literal out of range", t.start, t.end);
+        }
+        return Expr { start: t.start, end: t.end, node: ExprNode::Int(digits) };
+    }
+    if k == "string" {
+        advance(p);
+        return Expr { start: t.start, end: t.end, node: ExprNode::Str };
+    }
+    if k == "true" || k == "false" {
+        advance(p);
+        return Expr { start: t.start, end: t.end, node: ExprNode::Bool(k == "true") };
+    }
+    if k == "ident" {
+        advance(p);
+        if at(p, "::") {
+            return parse_variant_expr(p, t);
+        }
+        if at(p, "{") && !p.no_struct_lit {
+            return parse_struct_lit(p, t);
+        }
+        return Expr { start: t.start, end: t.end, node: ExprNode::Name(text(p, t)) };
+    }
+    if k == "[" {
+        advance(p);
+        // The TypeScript loop is `while (!at(']'))`, so `[` at EOF reports a missing expression, as here.
+        let elements: [Expr] = parse_expr_list(p, "]", true, true);
+        if p.failed {
+            return bad_expr();
+        }
+        let close: Token = expect(p, "]");
+        if p.failed {
+            return bad_expr();
+        }
+        return Expr { start: t.start, end: close.end, node: ExprNode::ArrayLit(elements) };
+    }
+    if k == "(" {
+        advance(p);
+        let inner: Expr = parse_expr_with_struct_lits(p);
+        if p.failed {
+            return bad_expr();
+        }
+        expect(p, ")");
+        if p.failed {
+            return bad_expr();
+        }
+        return inner;
+    }
+    if k == "if" {
+        return parse_if_expr(p);
+    }
+    if k == "match" {
+        return parse_match_expr(p);
+    }
+    fail(p, "expected expression, found " + describe(p, t), t);
+    return bad_expr();
+}
+
+fn parse_struct_lit(p: Parser, name: Token): Expr {
+    expect(p, "{");
+    let saved: bool = p.no_struct_lit;
+    p.no_struct_lit = false;
+    let fields: [FieldInit] = [];
+    while !at(p, "}") {
+        let field: Token = expect(p, "ident");
+        if p.failed {
+            break;
+        }
+        expect(p, ":");
+        if p.failed {
+            break;
+        }
+        let value: Expr = parse_expr(p);
+        if p.failed {
+            break;
+        }
+        push(fields, FieldInit { name: ident_of(p, field), value: value });
+        if !eat(p, ",") {
+            break;
+        }
+    }
+    p.no_struct_lit = saved;
+    if p.failed {
+        return bad_expr();
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_expr();
+    }
+    return Expr { start: name.start, end: close.end, node: ExprNode::StructLit(ident_of(p, name), fields) };
+}
+
+fn parse_variant_expr(p: Parser, enum_name: Token): Expr {
+    expect(p, "::");
+    let variant: Token = expect(p, "ident");
+    if p.failed {
+        return bad_expr();
+    }
+    var args: [Expr] = [];
+    var end: int = variant.end;
+    if eat(p, "(") {
+        args = parse_expr_list(p, ")", false, false);
+        if p.failed {
+            return bad_expr();
+        }
+        let close: Token = expect(p, ")");
+        if p.failed {
+            return bad_expr();
+        }
+        end = close.end;
+    }
+    return Expr { start: enum_name.start, end: end, node: ExprNode::Variant(ident_of(p, enum_name), ident_of(p, variant), args) };
+}
+
+fn parse_if_expr(p: Parser): Expr {
+    let kw: Token = expect(p, "if");
+    let cond: Expr = parse_header_expr(p);
+    if p.failed {
+        return bad_expr();
+    }
+    let then: Expr = parse_expr_block(p);
+    if p.failed {
+        return bad_expr();
+    }
+    if !at(p, "else") {
+        fail(p, "if expression requires an else branch", peek(p));
+        return bad_expr();
+    }
+    advance(p);
+    var els: Expr = bad_expr();
+    if at(p, "if") {
+        els = parse_if_expr(p);
+    } else {
+        els = parse_expr_block(p);
+    }
+    if p.failed {
+        return bad_expr();
+    }
+    return Expr { start: kw.start, end: previous(p).end, node: ExprNode::If(cond, then, els) };
+}
+
+fn parse_match_expr(p: Parser): Expr {
+    let kw: Token = expect(p, "match");
+    let scrutinee: Expr = parse_header_expr(p);
+    if p.failed {
+        return bad_expr();
+    }
+    expect(p, "{");
+    if p.failed {
+        return bad_expr();
+    }
+    let saved: bool = p.no_struct_lit;
+    p.no_struct_lit = false;
+    let arms: [Arm] = [];
+    while true {
+        let pattern: Pattern = parse_pattern(p);
+        if p.failed {
+            break;
+        }
+        expect(p, "=>");
+        if p.failed {
+            break;
+        }
+        let body: Expr = parse_expr(p);
+        if p.failed {
+            break;
+        }
+        push(arms, Arm { pattern: pattern, body: ArmBody::Expr(body) });
+        if !eat(p, ",") || at(p, "}") {
+            break;
+        }
+    }
+    p.no_struct_lit = saved;
+    if p.failed {
+        return bad_expr();
+    }
+    let close: Token = expect(p, "}");
+    if p.failed {
+        return bad_expr();
+    }
+    return Expr { start: kw.start, end: close.end, node: ExprNode::Match(ident_of(p, kw), scrutinee, arms) };
+}
+
+fn parse_expr_block(p: Parser): Expr {
+    expect(p, "{");
+    if p.failed {
+        return bad_expr();
+    }
+    let e: Expr = parse_expr_with_struct_lits(p);
+    if p.failed {
+        return bad_expr();
+    }
+    expect(p, "}");
+    if p.failed {
+        return bad_expr();
+    }
+    return e;
+}
+
+// ---- printer: one line per node, indented two spaces per level
+
+fn line(depth: int, s: string) {
+    var pad: string = "";
+    for _i in 0..depth {
+        pad += "  ";
+    }
+    print(pad + s);
+}
+
+fn span(start: int, end: int): string {
+    return int_to_string(start) + " " + int_to_string(end);
+}
+
+// `name start end`, the form an Ident takes after a node's own span.
+fn named(i: Ident): string {
+    return i.name + " " + span(i.start, i.end);
+}
+
+// `start end name`, the form a node takes when the Ident is the node.
+fn ident_node(tag: string, i: Ident): string {
+    return tag + " " + span(i.start, i.end) + " " + i.name;
+}
+
+fn print_type(d: int, t: TypeExpr) {
+    match t.node {
+        TypeNode::Named(name) => line(d, "type " + span(t.start, t.end) + " " + name),
+        TypeNode::Array(elem) => {
+            line(d, "array-type " + span(t.start, t.end));
+            print_type(d + 1, elem);
+        }
+    }
+}
+
+fn print_pattern(d: int, pat: Pattern) {
+    match pat.node {
+        PatternNode::Wildcard => line(d, "wildcard " + span(pat.start, pat.end)),
+        PatternNode::Variant(enum_name, variant, binders) => {
+            line(d, "pattern " + span(pat.start, pat.end) + " " + named(enum_name) + " " + named(variant));
+            for b in binders {
+                match b {
+                    Binder::Wild => line(d + 1, "_"),
+                    Binder::Named(name) => line(d + 1, ident_node("bind", name)),
+                }
+            }
+        }
+    }
+}
+
+fn print_arms(src: string, d: int, arms: [Arm]) {
+    for arm in arms {
+        line(d, "arm");
+        print_pattern(d + 1, arm.pattern);
+        match arm.body {
+            ArmBody::Block(b) => print_block(src, d + 1, b),
+            ArmBody::Expr(e) => print_expr(src, d + 1, e),
+        }
+    }
+}
+
+fn print_exprs(src: string, d: int, exprs: [Expr]) {
+    for e in exprs {
+        print_expr(src, d, e);
+    }
+}
+
+fn print_expr(src: string, d: int, e: Expr) {
+    let head: string = span(e.start, e.end);
+    match e.node {
+        ExprNode::Int(value) => line(d, "int " + head + " " + value),
+        ExprNode::Str => line(d, "string " + head + " " + substring(src, e.start, e.end)),
+        ExprNode::Bool(value) => {
+            if value {
+                line(d, "bool " + head + " true");
+            } else {
+                line(d, "bool " + head + " false");
+            }
+        }
+        ExprNode::Name(name) => line(d, "name " + head + " " + name),
+        ExprNode::Unary(op, operand) => {
+            line(d, "unary " + head + " " + op);
+            print_expr(src, d + 1, operand);
+        }
+        ExprNode::Binary(op, left, right) => {
+            line(d, "binary " + head + " " + op);
+            print_expr(src, d + 1, left);
+            print_expr(src, d + 1, right);
+        }
+        ExprNode::Call(callee, args) => {
+            line(d, "call " + head);
+            print_expr(src, d + 1, callee);
+            print_exprs(src, d + 1, args);
+        }
+        ExprNode::If(cond, then, els) => {
+            line(d, "if-expr " + head);
+            print_expr(src, d + 1, cond);
+            print_expr(src, d + 1, then);
+            print_expr(src, d + 1, els);
+        }
+        ExprNode::Field(object, field) => {
+            line(d, "get " + head + " " + named(field));
+            print_expr(src, d + 1, object);
+        }
+        ExprNode::StructLit(name, fields) => {
+            line(d, "struct-lit " + head + " " + named(name));
+            for f in fields {
+                line(d + 1, ident_node("init", f.name));
+                print_expr(src, d + 2, f.value);
+            }
+        }
+        ExprNode::Index(array, index) => {
+            line(d, "index " + head);
+            print_expr(src, d + 1, array);
+            print_expr(src, d + 1, index);
+        }
+        ExprNode::ArrayLit(elements) => {
+            line(d, "array-lit " + head);
+            print_exprs(src, d + 1, elements);
+        }
+        ExprNode::Variant(enum_name, variant, args) => {
+            line(d, "variant-lit " + head + " " + named(enum_name) + " " + named(variant));
+            print_exprs(src, d + 1, args);
+        }
+        ExprNode::Match(kw, scrutinee, arms) => {
+            line(d, "match-expr " + head + " " + span(kw.start, kw.end));
+            print_expr(src, d + 1, scrutinee);
+            print_arms(src, d + 1, arms);
+        }
+        ExprNode::Bad => panic("placeholder expression reached the printer"),
+    }
+}
+
+fn print_block(src: string, d: int, b: Block) {
+    line(d, "block " + span(b.start, b.end));
+    for s in b.stmts {
+        print_stmt(src, d + 1, s);
+    }
+}
+
+fn print_stmt(src: string, d: int, s: Stmt) {
+    let head: string = span(s.start, s.end);
+    match s.node {
+        StmtNode::Let(mutable, name, ty, init) => {
+            var tag: string = "let ";
+            if mutable {
+                tag = "var ";
+            }
+            line(d, tag + head + " " + named(name));
+            print_type(d + 1, ty);
+            print_expr(src, d + 1, init);
+        }
+        StmtNode::Assign(op, target, value) => {
+            line(d, "assign " + head + " " + op);
+            print_expr(src, d + 1, target);
+            print_expr(src, d + 1, value);
+        }
+        StmtNode::If(cond, then, els) => {
+            line(d, "if " + head);
+            print_expr(src, d + 1, cond);
+            print_block(src, d + 1, then);
+            match els {
+                Else::None => line(d + 1, "-"),
+                Else::Block(b) => print_block(src, d + 1, b),
+                Else::If(next) => print_stmt(src, d + 1, next),
+            }
+        }
+        StmtNode::While(cond, body) => {
+            line(d, "while " + head);
+            print_expr(src, d + 1, cond);
+            print_block(src, d + 1, body);
+        }
+        StmtNode::ForRange(name, start, end, body) => {
+            line(d, "for-range " + head + " " + named(name));
+            print_expr(src, d + 1, start);
+            print_expr(src, d + 1, end);
+            print_block(src, d + 1, body);
+        }
+        StmtNode::ForEach(name, iterable, body) => {
+            line(d, "for-each " + head + " " + named(name));
+            print_expr(src, d + 1, iterable);
+            print_block(src, d + 1, body);
+        }
+        StmtNode::Match(kw, scrutinee, arms) => {
+            line(d, "match " + head + " " + span(kw.start, kw.end));
+            print_expr(src, d + 1, scrutinee);
+            print_arms(src, d + 1, arms);
+        }
+        StmtNode::Break => line(d, "break " + head),
+        StmtNode::Continue => line(d, "continue " + head),
+        StmtNode::Return(value) => {
+            line(d, "return " + head);
+            match value {
+                MaybeExpr::None => line(d + 1, "-"),
+                MaybeExpr::Some(e) => print_expr(src, d + 1, e),
+            }
+        }
+        StmtNode::Block(b) => print_block(src, d, b),
+        StmtNode::Expr(e) => {
+            line(d, "expr " + head);
+            print_expr(src, d + 1, e);
+        }
+    }
+}
+
+fn print_typed(tag: string, d: int, t: Typed) {
+    line(d, ident_node(tag, t.name));
+    print_type(d + 1, t.ty);
+}
+
+fn print_item(src: string, item: Item) {
+    match item {
+        Item::Fn(f) => {
+            line(0, "fn " + span(f.start, f.end) + " " + named(f.name));
+            for param in f.params {
+                print_typed("param", 1, param);
+            }
+            match f.ret {
+                MaybeType::None => line(1, "-"),
+                MaybeType::Some(ty) => print_type(1, ty),
+            }
+            print_block(src, 1, f.body);
+        }
+        Item::Struct(s) => {
+            line(0, "struct " + span(s.start, s.end) + " " + named(s.name));
+            for field in s.fields {
+                print_typed("field", 1, field);
+            }
+        }
+        Item::Enum(e) => {
+            line(0, "enum " + span(e.start, e.end) + " " + named(e.name));
+            for v in e.variants {
+                line(1, ident_node("variant", v.name));
+                for ty in v.payload {
+                    print_type(2, ty);
+                }
+            }
+        }
+    }
+}
+
+fn print_errors(errors: [LexError]) {
+    for e in errors {
+        print("error " + span(e.start, e.end) + " " + e.message);
+    }
+}
+
 // ---- driver
 
 fn main(args: [string]): int {
@@ -197,10 +1627,13 @@ fn main(args: [string]): int {
     match read_file(args[0]) {
         ReadResult::Ok(src) => {
             let lx: Lexer = lex(src);
-            for e in lx.errors {
-                print("error " + int_to_string(e.start) + " " + int_to_string(e.end) + " " + e.message);
+            let p: Parser = Parser { src: src, tokens: lx.tokens, pos: 0, errors: [], no_struct_lit: false, failed: false };
+            for item in parse_program(p) {
+                print_item(src, item);
             }
-            if len(lx.errors) > 0 {
+            print_errors(lx.errors);
+            print_errors(p.errors);
+            if len(lx.errors) + len(p.errors) > 0 {
                 return 1;
             }
             return 0;
