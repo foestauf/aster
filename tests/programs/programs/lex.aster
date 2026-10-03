@@ -1,7 +1,7 @@
 // The Aster lexer, written in Aster. It lexes the file named by its only argument and prints one line per token,
 // `<kind> <start> <end> <text>`, ending with `eof <n> <n>`, and writes one line per lexical error to stderr,
-// `error <start> <end> <message>`, exiting with status 1 if there were any. Offsets are in bytes. tests/lex_aster.test.ts checks it against the compiler's own
-// lexer on every golden program.
+// `error <start> <end> <message>`, exiting with status 1 if there were any. Offsets are in bytes.
+// tests/lex_aster.test.ts checks it against the compiler's own lexer on every golden program.
 // expect-args: fixtures/lex_sample.txt
 // expect-stdout:
 // fn 0 2 fn

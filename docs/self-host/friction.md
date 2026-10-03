@@ -1,7 +1,7 @@
 # Self-hosting friction log
 
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
-(`annoying`, `costly` or `blocking`) and describes the workaround. This log feeds the v0.4 language spec.
+(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 language spec, and entries 4 to 6 are now resolved.
 
 Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which is 1,646 lines
 and has byte-for-byte parity with the TypeScript parser.
@@ -48,6 +48,11 @@ conformance test, but a compiler driver needs errors on stderr and an exit code.
 
 **Workaround:** errors print last, in a fixed `error S E message` form.
 
+**Resolved in v0.4.** The `eprint` and `exit` builtins exist. `lex.aster` and `parse.aster` now write every diagnostic
+to stderr with `eprint` and exit with 1 when there were any. Usage and read errors use `exit(2)`, and stdout holds only
+tokens or the tree. The conformance tests compare stdout and stderr separately. A `match` arm ending in `exit(2)` needs
+no `return` (see `main` in `lex.aster`).
+
 ### 5. No string `match` (annoying)
 
 Token kinds are strings, and dispatch on them is an `if` chain: `parse_statement`, `parse_primary` and `describe` contain
@@ -56,12 +61,28 @@ Token kinds are strings, and dispatch on them is an `if` chain: `parse_statement
 **Workaround:** `if` chains. Converting to a payload-free `Kind` enum would need a string-to-enum table, which is itself an
 `if` chain.
 
+**Resolved in v0.4.** `match` accepts string scrutinees, with or-patterns. In `parse.aster`, `k == "…"` comparisons
+went from 27 to 3. The three left are boolean values, not dispatch (`k == "var"` and `k == "true"` twice). `contains`
+survives only for the `level_ops` lookups in `parse_binary`.
+
 ### 6. No character literals (annoying)
 
 The lexer compares bytes against magic numbers (27 of them: `48`, `57`, `34`, `92`, `95` and so on), each needing a
 comment or a careful read.
 
 **Workaround:** comments and helper predicates like `is_digit`.
+
+**Resolved in v0.4.** `'a'` is an `int`, and byte tests in both files use character literals. Numeric byte literals left
+in `lex.aster`: 6. They are `240`, `224` and `192`, the `utf8_len` thresholds, which need range tests that `match` can't
+express (no range patterns), and the BOM bytes `239`, `187` and `191`. `parse.aster` has the same ones in its copied
+lexer.
+
+**`if` chains kept on purpose:**
+- `lex.aster` (and the copy in `parse.aster`): the main dispatch loop, because each branch tests a different predicate or
+  lookahead; `lex_char`'s error chain, because the order of the checks matters; the `lex_string` and `lex_char` loop
+  bodies, which use `continue` and `break`; and `utf8_len`, which tests ranges.
+- `parse.aster`: `parse_program` (a three-way test through `at_item`), `parse_postfix` (`eat` consumes the token as a
+  side effect of the test), `parse_unary` and `expect` (single tests), and `bom_len` (a three-byte check).
 
 ### 7. No shared fields across enum variants (annoying)
 
@@ -77,7 +98,8 @@ type count and adds a `.node` to every match.
 - **No string ordering.** `fits()` range-checks integer literals by comparing lengths and then bytes, because there's no
   `<` on strings and no wider integer.
 - **No string repeat.** Indentation is a `for _i in 0..depth { pad += "  "; }` loop.
-- **No `match` on ints.** The binary-operator table `level_ops(level)` is an `if` chain.
+- **No `match` on ints.** The binary-operator table `level_ops(level)` is an `if` chain. *Resolved in v0.4:* it is now a
+  `match` on ints.
 
 ### 9. Bugs the self-hosted side found in the bootstrap compiler
 
@@ -94,12 +116,21 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
-## v0.4 shortlist (ranked)
+## Found while building v0.4
+
+- Error recovery in pattern syntax hides later errors in the same function, so the error fixtures use one pattern error
+  per function.
+
+## Shortlist (ranked)
+
+Items 4 to 6 were done in v0.4. Items 1 to 3 remain.
 
 1. **Error propagation**: a built-in `Result`-style return with a `?`-like operator, or exceptions. It removes the
-   100 checks from entry 1. It likely needs generics or a predeclared generic enum (see 3).
+   100 checks from entry 1. It likely needs generics or a predeclared generic enum (see 3). Planned for v0.5, together
+   with 3.
 2. **Modules or file includes**: entry 2. Without them the checker can't be written without copying 1,600 lines.
-3. **Generic enums** (at least `Option[T]`/`Result[T, E]`): entry 3, and the foundation for 1.
-4. **Writing to stderr and exiting with a code**: entry 4. Small, and needed before a self-hosted driver.
-5. **`match` on string and int values**: entries 5 and 8. This would make kind dispatch a `match`.
-6. **Character literals** (`'a'` as an `int`): entry 6. Cheap and purely lexical.
+   Planned for v0.6.
+3. **Generic enums** (at least `Option[T]`/`Result[T, E]`): entry 3, and the foundation for 1. Planned for v0.5.
+4. ~~**Writing to stderr and exiting with a code**~~: entry 4. Done in v0.4 (`eprint`, `exit`).
+5. ~~**`match` on string and int values**~~: entries 5 and 8. Done in v0.4.
+6. ~~**Character literals**~~: entry 6. Done in v0.4.
