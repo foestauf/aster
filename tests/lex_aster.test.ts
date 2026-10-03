@@ -12,20 +12,23 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/]lex_[a-z]+\.txt$/.test(f))
   .toSorted();
 
+const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
+
 /**
  * The TypeScript lexer's output in lex.aster's line format, with UTF-16 offsets converted to byte offsets in the raw
- * file. `makeSource` strips a leading BOM before lexing, so spans are shifted past its 3 bytes.
+ * file: tokens for stdout and errors for stderr. `makeSource` strips a leading BOM before lexing, so spans are shifted
+ * past its 3 bytes.
  */
-function expected(text: string): { stdout: string; status: number } {
+function expected(text: string): { stdout: string; stderr: string; status: number } {
   const bom = text.startsWith('\uFEFF') ? 3 : 0;
   const body = bom > 0 ? text.slice(1) : text;
   const { tokens, diagnostics } = lex(makeSource('corpus', text));
   const byte = (offset: number): number => bom + Buffer.byteLength(body.slice(0, offset), 'utf8');
-  const lines = tokens.map((t) =>
+  const out = tokens.map((t) =>
     t.kind === 'eof' ? `eof ${byte(t.span.start)} ${byte(t.span.end)}` : `${t.kind} ${byte(t.span.start)} ${byte(t.span.end)} ${t.text}`,
   );
-  for (const d of diagnostics) lines.push(`error ${byte(d.span.start)} ${byte(d.span.end)} ${d.message}`);
-  return { stdout: lines.map((l) => `${l}\n`).join(''), status: diagnostics.length > 0 ? 1 : 0 };
+  const err = diagnostics.map((d) => `error ${byte(d.span.start)} ${byte(d.span.end)} ${d.message}`);
+  return { stdout: toOutput(out), stderr: toOutput(err), status: diagnostics.length > 0 ? 1 : 0 };
 }
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-lex-'));
@@ -46,6 +49,7 @@ describe('lex.aster matches the TypeScript lexer', () => {
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_errors.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_bom.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_chars.txt'));
+    expect(corpus).toContain(join('programs', 'fixtures', 'lex_astral.txt'));
   });
 
   it.each(corpus)('%s', (file) => {
@@ -53,6 +57,6 @@ describe('lex.aster matches the TypeScript lexer', () => {
     // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
     const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
-    expect({ stdout: run.stdout, status: run.status }).toEqual(expected(text));
+    expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(text));
   });
 });

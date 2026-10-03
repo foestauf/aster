@@ -1,0 +1,5 @@
+// Character literals with non-ASCII bodies, ending in a bare backslash with no newline.
+let a = '\é';
+let b = '\😀';
+let c = '😀';
+let d = '\
