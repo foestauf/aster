@@ -60,6 +60,10 @@ describe('parseExpectations', () => {
     expect(e.stdout).toBe('out\n');
   });
 
+  it('collects repeated expect-args lines', () => {
+    expect(parseExpectations('// expect-args: a b\n// expect-args: c\nfn').args).toEqual(['a', 'b', 'c']);
+  });
+
   it('treats an empty expect-args as no arguments', () => {
     expect(parseExpectations('// expect-args:\nfn').args).toEqual([]);
   });

@@ -4,7 +4,7 @@ export interface Expectations {
   exitCode: number;
   /** `line:col message` entries; non-empty means compile-only. */
   errors: string[];
-  /** Program arguments, split on whitespace. */
+  /** Program arguments, split on whitespace; repeated `expect-args` lines add to them. */
   args: string[];
   /** Text fed to the program's stdin; empty when there is no `expect-stdin` block. */
   stdin: string;
@@ -46,7 +46,7 @@ export function parseExpectations(text: string): Expectations {
     if (exit) result.exitCode = Number(exit[1]);
     else if (stderr) result.stderr += `${stderr[1]}\n`;
     else if (error) result.errors.push(error[1]);
-    else if (args) result.args = args[1].split(/\s+/).filter((a) => a.length > 0);
+    else if (args) result.args.push(...args[1].split(/\s+/).filter((a) => a.length > 0));
     // A typo'd directive would otherwise silently fall back to a default and weaken the test.
     else if (body.startsWith('expect-')) throw new Error(`unrecognised directive '${lines[i - 1]}'`);
   }

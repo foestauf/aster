@@ -1,0 +1,3 @@
+// expect-error: 2:4 'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'
+fn main(args: [string]) {
+}

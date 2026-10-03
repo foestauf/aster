@@ -1,0 +1,11 @@
+// expect-error: 4:5 non-exhaustive match: missing 'ReadResult::Err'
+// expect-error: 7:21 non-exhaustive match: missing 'ReadResult::Ok'
+fn main(): int {
+    match read_file("x") {
+        ReadResult::Ok(_) => {}
+    }
+    let s: string = match read_file("y") {
+        ReadResult::Err(e) => e,
+    };
+    return len(s);
+}
