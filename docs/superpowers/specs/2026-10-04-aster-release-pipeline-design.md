@@ -3,7 +3,7 @@
 **Date:** 2026-10-04
 **Status:** Approved in brainstorming
 **Scope:** R1 of two. R2 (archive the TypeScript seed) is a separate spec, built on this one (§9).
-**Baseline:** `c6205b8` (LLVM plan, PR #39).
+**Baseline:** `cdbca89` (LLVM measurements, PR #44; C stays the default backend).
 **Builds on:** [`2026-10-04-aster-normal-build-path-design.md`](2026-10-04-aster-normal-build-path-design.md) and
 [`docs/self-host/building.md`](../../self-host/building.md).
 
@@ -117,9 +117,12 @@ reject older source.
 ### Steps
 
 1. Resolve the tag.
-2. Fetch the three assets into `build/bootstrap/<tag>/`, unless they are already there. Downloads use `curl -fsSL`
-   against `https://github.com/<owner>/<repo>/releases/download/<tag>/<asset>`, where `<owner>/<repo>` comes from the
-   `origin` remote. `gh` is not required.
+2. Fetch the three assets into `build/bootstrap/<tag>/`, unless they are already there. The repository is private, so
+   anonymous downloads don't work: downloads use `gh release download <tag> --repo <owner>/<repo>`, where
+   `<owner>/<repo>` comes from the `origin` remote. CI authenticates `gh` with `GH_TOKEN`. Assets are downloaded into a
+   temporary sibling directory and renamed into place, so an interrupted download never leaves a partial cache. If `gh`
+   is missing or fails, bootstrap exits 1 with its error and the hint
+   `install and authenticate gh, or set ASTER_BOOTSTRAP_DIR`.
 3. Verify both files against `SHA256SUMS`. On a mismatch, delete the cached directory and exit 1, naming the asset.
 4. Pick a builder. Run `asterc-linux-x86_64 check` on a one-line program. If that succeeds, the binary is the builder.
    Otherwise unpack the C seed, build it with the command in `BUILD.txt`, print
@@ -176,8 +179,8 @@ after the build error.
 
 The job runs only on `pull_request`, not on pushes to `main`.
 
-**Repository setting.** `release-bootstrap` must be marked as a required status check in branch protection. The R1 PR
-says so. Claude does not change repository settings.
+**Repository setting.** `main` has no branch protection today. For CI to enforce the rule rather than merely report it,
+`release-bootstrap` must be a required status check. The R1 PR says so. Claude does not change repository settings.
 
 A failed `release.yml` turns `main` red, and every later PR then fails step 2. A missing release can't go unnoticed.
 Re-running `release.yml` fixes it.
