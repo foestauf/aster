@@ -179,11 +179,13 @@ fn main(args: [string]): int {
     } else {
         result = run_c(c + "\n", parsed.program_args);
     }
-    return match result {
-        Result::Ok(status) => status,
-        Result::Err(msg) => {
-            eprint("internal compiler error: " + msg);
-            return 3;
-        },
+    if let Result::Err(msg) = result {
+        eprint("internal compiler error: " + msg);
+        return 3;
+    }
+    // Never fails: the Err case returned above, and `let … else` cannot see the error's payload.
+    let Result::Ok(status) = result else {
+        return 3;
     };
+    return status;
 }

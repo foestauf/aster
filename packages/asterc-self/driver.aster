@@ -43,12 +43,13 @@ fn driver_build_in(tmp: string, c: string, out: string): Result[int, string] {
     let written: [string] = [];
     for i in 0..len(names) {
         let path: string = tmp + "/" + names[i];
+        // Listed before writing: a failed write may still have created the file.
+        push(written, path);
         if let Result::Err(e) = write_file(path, texts[i]) {
             push(written, tmp);
             driver_remove_all(written);
             return Result::Err(e);
         }
-        push(written, path);
     }
     let argv: [string] = ["cc", "-std=c11", "-O2", "-Wall", "-I" + tmp, tmp + "/program.c", tmp + "/aster_rt.c", "-o", out];
     let result: Result[int, string] = match run_process(argv) {

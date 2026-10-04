@@ -338,6 +338,7 @@ describe('divergences from stage 0', () => {
   });
 
   it('a compiler panic is panic: …, exit 101', () => {
+    // 64 MiB of address space must stay below the compiler's peak for its own source, so an allocation fails.
     for (let i = 0; i < 3; i++) {
       const r = spawnSync('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', s1, S1_SOURCE], {
         cwd: REPO_ROOT,
@@ -346,6 +347,7 @@ describe('divergences from stage 0', () => {
         maxBuffer: 256 * 1024 * 1024,
         timeout: 60_000,
       });
+      expect(r.error).toBeUndefined();
       expect(r.status).toBe(101);
       expect(r.stderr).toMatch(/^panic: out of memory/);
     }
