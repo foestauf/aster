@@ -33,16 +33,7 @@ const accepted = candidates.flatMap((file) => {
 const corpus = accepted.map((c) => c.file);
 
 // Files whose typed bodies checker.aster does not build yet: they run as skipped until a later task removes them.
-const PENDING = new Set<string>([
-  'programs/check.aster',
-  'programs/parse.aster',
-  'programs/typed.aster',
-  'unwrap/example.aster',
-  'unwrap/if_let.aster',
-  'unwrap/let_else.aster',
-  'unwrap/let_else_loop.aster',
-  'unwrap/scrutinee_once.aster',
-]);
+const PENDING = new Set<string>([]);
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-typed-'));
 const exe = join(workDir, 'typed');
