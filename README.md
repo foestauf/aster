@@ -57,6 +57,18 @@ A program can span several files: `import "other.aster";` is a top-level item, a
 
 Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through. `run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
 
+## System builtins
+
+```
+read_file(path: string): Result[string, string]       // Ok(file contents)
+write_file(path: string, contents: string): Result[int, string]   // Ok(bytes written); creates or truncates the file
+make_temp_dir(prefix: string): Result[string, string] // Ok(path of a new directory named <prefix>XXXXXX)
+remove_path(path: string): Result[int, string]        // Ok(0); removes a file or an empty directory
+run_process(argv: [string]): Result[int, string]      // Ok(exit status), or Ok(128 + signal) if killed
+```
+
+Failures are `Err("<path>: <reason>")`. For `make_temp_dir` the path is the template, and for `run_process` it is `argv[0]`. `run_process` searches `PATH` for `argv[0]` and shares the caller's stdin, stdout and stderr. Their names are reserved.
+
 ## How it works
 
 ```
