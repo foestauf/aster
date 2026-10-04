@@ -8,8 +8,10 @@ import { buildExecutable, compileToC, formatDiagnostic, lex, makeSource } from '
 
 // Checks tests/programs/programs/lex.aster, the Aster lexer written in Aster, against the compiler's own lexer.
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
+const SELF_DIR = fileURLToPath(new URL('../packages/asterc-self/', import.meta.url));
 const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/]lex_[a-z]+\.txt$/.test(f))
+  .concat(readdirSync(SELF_DIR).filter((f) => f.endsWith('.aster')).map((f) => join('..', '..', 'packages', 'asterc-self', f)))
   .toSorted();
 
 const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
@@ -46,7 +48,7 @@ beforeAll(() => {
 describe('lex.aster matches the TypeScript lexer', () => {
   it('has a corpus that includes itself and the error fixture', () => {
     expect(corpus).toContain(join('programs', 'lex.aster'));
-    expect(corpus).toContain(join('programs', 'lexer.aster'));
+    expect(corpus).toContain(join('..', '..', 'packages', 'asterc-self', 'lexer.aster'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_errors.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_bom.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_chars.txt'));

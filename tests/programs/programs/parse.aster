@@ -14,7 +14,7 @@
 //     return 34 43
 //       name 41 42 x
 
-import "parser.aster";
+import "../../../packages/asterc-self/parser.aster";
 
 // ---- printer: one line per node, indented two spaces per level
 

@@ -12,8 +12,10 @@ import {
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
 // parser. Both sides render the AST in the indented-tree format of docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md §3.
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
+const SELF_DIR = fileURLToPath(new URL('../packages/asterc-self/', import.meta.url));
 const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/](lex|parse)_\w+\.txt$/.test(f))
+  .concat(readdirSync(SELF_DIR).filter((f) => f.endsWith('.aster')).map((f) => join('..', '..', 'packages', 'asterc-self', f)))
   .toSorted();
 
 const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
@@ -289,7 +291,7 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
-    expect(corpus).toContain(join('programs', 'lexer.aster'));
+    expect(corpus).toContain(join('..', '..', 'packages', 'asterc-self', 'lexer.aster'));
     for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'parse_generics', 'parse_imports', 'parse_unwrap', 'parse_unwrap_errors', 'lex_question', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }

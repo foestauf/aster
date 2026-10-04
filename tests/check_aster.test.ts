@@ -124,8 +124,10 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //   load  cannot import '<literal>': <reason>                              errors/import_missing.aster, import_dir.aster
 //   load  lexical and syntax errors of every loaded file                   errors/lex_errors.aster, import_syntax.aster
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
+const SELF_DIR = fileURLToPath(new URL('../packages/asterc-self/', import.meta.url));
 const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/]check_\w+\.txt$/.test(f))
+  .concat(readdirSync(SELF_DIR).filter((f) => f.endsWith('.aster')).map((f) => join('..', '..', 'packages', 'asterc-self', f)))
   .toSorted();
 
 const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
@@ -195,8 +197,9 @@ beforeAll(() => {
 
 describe('check.aster matches the TypeScript front end', () => {
   it('has a corpus that includes itself, its libraries and the checker fixtures', () => {
-    for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
-      expect(corpus).toContain(join('programs', f));
+    expect(corpus).toContain(join('programs', 'check.aster'));
+    for (const f of ['checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
+      expect(corpus).toContain(join('..', '..', 'packages', 'asterc-self', f));
     }
     for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_bom2', 'check_paths', 'check_paths_lib', 'check_decls', 'check_stmts', 'check_generics', 'check_match', 'check_unwrap']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
