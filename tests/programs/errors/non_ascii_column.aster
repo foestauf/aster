@@ -1,0 +1,6 @@
+// An error after a tab, a two-byte character and an astral one on the same line: its column counts UTF-16 units.
+// expect-error: 4:38 type mismatch: expected int, found string
+fn main(): int {
+	let s: string = "é😀"; let x: int = s;
+    return x;
+}
