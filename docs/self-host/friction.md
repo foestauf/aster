@@ -141,14 +141,14 @@ type count and adds a `.node` to every match.
 ## Found while building emission
 
 `emit.aster` ports `codegen/c/emit.ts` (297 lines of TypeScript) in 476 lines, about 1.6 times as long. The driver
-(`tests/programs/programs/emit.aster`, 60 lines) emits C for a file's whole closure. It matches `emitC(lower(typed))` byte for byte on
-all 147 corpus files, both as E0 (the driver built by stage 0) and as E1 (the driver built from the C that E0 emits for
-its own closure, with `cc -std=c11 -O2 -Wall -Werror` and no warnings). The fixed point holds: the C that E1 emits for
-its own closure is identical (`cmp`) to the C it was built from. No compiler bug turned up.
+(`tests/programs/programs/emit.aster`, 60 lines) emits C for a file's whole closure. It matches `emitC(lower(typed))`
+byte for byte on all 147 corpus files, both as E0 (the driver built by stage 0) and as E1 (the driver built from the C
+that E0 emits for its own closure, with `cc -std=c11 -O2 -Wall -Werror` and no warnings). The fixed point holds: the C
+that E1 emits for its own closure is identical (`cmp`) to the C it was built from. No compiler bug turned up.
 
-- **Measurements.** Emitting the driver's own closure (5,747 `.aster` lines: lexer 244, parser 1,051, loader 216,
-  checker 2,714, lower 911, ir 75, emit 476, driver 60) takes 0.05 s and 43,776 KB max RSS as E0, and 0.05 s and
-  43,904 KB as E1 (wall clock resolution is 10 ms). The C is 35,416 lines and 960,990 bytes.
+- **Measurements.** Emitting the driver's own closure (5,800 `.aster` lines: lexer 244, parser 1,051, loader 216,
+  checker 2,714, report 53, lower 911, ir 75, emit 476, driver 60) takes 0.05 s and 43,776 KB max RSS as E0, and 0.05 s
+  and 43,904 KB as E1 (wall clock resolution is 10 ms). The C is 35,416 lines and 960,990 bytes.
 - **Contract section 8's memory question.** The never-freeing runtime is not a problem at this size: about 44 MB covers
   the whole compiler from source to C. Nothing here argues for a collector or arenas yet.
 - **No Aster workarounds.** `emit.aster` compiled verbatim from the plan, and all four `fixtures/emit_*.txt` were
