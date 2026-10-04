@@ -1,9 +1,10 @@
 // expect-library
 // The Aster parser, shared by parse.aster and the type checker. It defines the syntax tree (`Item`, `Expr`, `Stmt`,
 // `TypeExpr`, `Pattern`, `Block`, `Ident` and the structs around them, each spanned with byte offsets) and a recursive
-// descent parser over the lexer's tokens. `new_parser` builds a Parser from a Lexer and `parse_program` turns it into the
-// items of a file, recording syntax errors in `Parser.errors`. It mirrors packages/asterc/src/parser;
-// tests/parse_aster.test.ts checks it against the compiler's own parser.
+// descent parser over the lexer's tokens. `new_parser` builds a Parser from a Lexer (`new_parser_at` also offsets every
+// span by a file's global base) and `parse_program` turns it into the items of a file, recording syntax errors in
+// `Parser.errors`. It mirrors packages/asterc/src/parser; tests/parse_aster.test.ts checks it against the compiler's
+// own parser.
 
 import "lexer.aster";
 
@@ -187,6 +188,8 @@ struct Parser {
     errors: [LexError],
     // True while parsing an `if`/`while`/`for`/`match` header, where `Name {` starts the body, not a struct literal.
     no_struct_lit: bool,
+    // Added to every token's offsets (see new_parser_at), so spans are global; `text` subtracts it to index `src`.
+    base: int,
 }
 
 fn peek_at(p: Parser, offset: int): Token {
@@ -229,7 +232,7 @@ fn at_item(p: Parser): bool {
 }
 
 fn text(p: Parser, t: Token): string {
-    return substring(p.src, t.start, t.end);
+    return substring(p.src, t.start - p.base, t.end - p.base);
 }
 
 fn ident_of(p: Parser, t: Token): Ident {
@@ -978,5 +981,15 @@ fn parse_expr_block(p: Parser): Option[Expr] {
 }
 
 fn new_parser(lx: Lexer): Parser {
-    return Parser { src: lx.src, tokens: lx.tokens, pos: 0, errors: [], no_struct_lit: false };
+    return Parser { src: lx.src, tokens: lx.tokens, pos: 0, errors: [], no_struct_lit: false, base: 0 };
+}
+
+// A Parser whose spans (and errors) are offset by `base`: a file's place in a multi-file program. The lexer's own
+// errors are not shifted; the caller does that.
+fn new_parser_at(lx: Lexer, base: int): Parser {
+    let tokens: [Token] = [];
+    for t in lx.tokens {
+        push(tokens, Token { kind: t.kind, start: t.start + base, end: t.end + base });
+    }
+    return Parser { src: lx.src, tokens: tokens, pos: 0, errors: [], no_struct_lit: false, base: base };
 }
