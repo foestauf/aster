@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildExecutable, compileToC, formatDiagnostic, lex, makeSource, parse,
-  type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
+  type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfLetStmt, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
 } from '../packages/asterc/src/index.js';
 
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
@@ -139,7 +139,8 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
         for (const arm of e.arms) {
           emit(d + 1, 'arm');
           pattern(d + 2, arm.pattern);
-          expr(d + 2, arm.body);
+          if (arm.body.kind === 'block') block(d + 2, arm.body);
+          else expr(d + 2, arm.body);
         }
         return;
     }
@@ -150,13 +151,26 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
     for (const s of b.statements) stmt(d + 1, s);
   };
 
+  const elseBranch = (d: number, e: IfStmt['else']): void => {
+    if (e === null) emit(d, '-');
+    else if (e.kind === 'if') ifStmt(d, e);
+    else if (e.kind === 'ifLet') ifLetStmt(d, e);
+    else block(d, e);
+  };
+
   const ifStmt = (d: number, s: IfStmt): void => {
     emit(d, `if ${sp(s.span)}`);
     expr(d + 1, s.cond);
     block(d + 1, s.then);
-    if (s.else === null) emit(d + 1, '-');
-    else if (s.else.kind === 'if') ifStmt(d + 1, s.else);
-    else block(d + 1, s.else);
+    elseBranch(d + 1, s.else);
+  };
+
+  const ifLetStmt = (d: number, s: IfLetStmt): void => {
+    emit(d, `if-let ${sp(s.span)}`);
+    pattern(d + 1, s.pattern);
+    expr(d + 1, s.scrutinee);
+    block(d + 1, s.then);
+    elseBranch(d + 1, s.else);
   };
 
   const stmt = (d: number, s: Stmt): void => {
@@ -166,12 +180,19 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
         emit(d, `${s.mutable ? 'var' : 'let'} ${head} ${s.name} ${sp(s.nameSpan)}`);
         type(d + 1, s.type);
         return expr(d + 1, s.init);
+      case 'letElse':
+        emit(d, `let-else ${head}`);
+        pattern(d + 1, s.pattern);
+        expr(d + 1, s.init);
+        return block(d + 1, s.else);
       case 'assign':
         emit(d, `assign ${head} ${s.op}`);
         expr(d + 1, s.target);
         return expr(d + 1, s.value);
       case 'if':
         return ifStmt(d, s);
+      case 'ifLet':
+        return ifLetStmt(d, s);
       case 'while':
         emit(d, `while ${head}`);
         expr(d + 1, s.cond);

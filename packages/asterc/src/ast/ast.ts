@@ -103,7 +103,27 @@ export interface IfStmt {
   kind: 'if';
   cond: Expr;
   then: Block;
-  else: Block | IfStmt | null;
+  else: Block | IfStmt | IfLetStmt | null;
+  span: Span;
+}
+
+/** `let pattern = init else { … };`. The else block must diverge (checked later). */
+export interface LetElseStmt {
+  kind: 'letElse';
+  pattern: Pattern;
+  init: Expr;
+  elseKeywordSpan: Span;
+  else: Block;
+  span: Span;
+}
+
+/** `if let pattern = scrutinee { … } [else …]`. */
+export interface IfLetStmt {
+  kind: 'ifLet';
+  pattern: Pattern;
+  scrutinee: Expr;
+  then: Block;
+  else: Block | IfStmt | IfLetStmt | null;
   span: Span;
 }
 
@@ -191,7 +211,7 @@ export interface MatchStmt {
   span: Span;
 }
 
-export type Stmt = LetStmt | AssignStmt | IfStmt | WhileStmt | ForRangeStmt | ForEachStmt | MatchStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
+export type Stmt = LetStmt | LetElseStmt | AssignStmt | IfStmt | IfLetStmt | WhileStmt | ForRangeStmt | ForEachStmt | MatchStmt | BreakStmt | ContinueStmt | ReturnStmt | Block | ExprStmt;
 
 export type UnaryOp = '-' | '!';
 export type BinaryOp = '||' | '&&' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '+' | '-' | '*' | '/' | '%';
@@ -315,7 +335,7 @@ export interface VariantExpr {
 
 export interface MatchExprArm {
   pattern: Pattern;
-  body: Expr;
+  body: Expr | Block;
 }
 
 /** `match` in expression position: at least one arm, each a single expression. */

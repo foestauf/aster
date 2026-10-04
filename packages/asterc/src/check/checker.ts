@@ -507,6 +507,20 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
     }
     case 'block':
       return checkBlock(ctx, stmt);
+    // Stubs until Task 4: check the scrutinee and the blocks, produce nothing.
+    case 'letElse':
+      checkExpr(ctx, stmt.init);
+      checkBlock(ctx, stmt.else);
+      return { node: { kind: 'block', statements: [] }, diverges: false };
+    case 'ifLet': {
+      checkExpr(ctx, stmt.scrutinee);
+      checkBlock(ctx, stmt.then);
+      if (stmt.else !== null) {
+        if (stmt.else.kind === 'block') checkBlock(ctx, stmt.else);
+        else checkStmt(ctx, stmt.else);
+      }
+      return { node: { kind: 'block', statements: [] }, diverges: false };
+    }
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
       const diverges = expr.kind === 'builtin' && (expr.builtin === 'panic' || expr.builtin === 'exit');
@@ -522,7 +536,10 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
     return { node: { kind: 'if', cond, then: then.node, else: null }, diverges: false };
   }
   let other: Checked<TBlock>;
-  if (stmt.else.kind === 'if') {
+  if (stmt.else.kind === 'ifLet') {
+    const nested = checkStmt(ctx, stmt.else);
+    other = { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
+  } else if (stmt.else.kind === 'if') {
     const nested = checkIf(ctx, stmt.else);
     other = { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
   } else {
@@ -1037,9 +1054,19 @@ function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract
 
 function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): TExpr {
   const bodies: TExpr[] = [];
+  let hasBlockArm = false;
   const { scrutinee, patterns } = checkMatch(ctx, expr.scrutinee, expr.keywordSpan, expr.arms.map((a) => a.pattern), (i) => {
-    bodies.push(checkExpr(ctx, expr.arms[i].body, expected));
+    const body = expr.arms[i].body;
+    if (body.kind === 'block') {
+      // Stub until Task 4.
+      hasBlockArm = true;
+      checkBlock(ctx, body);
+      bodies.push(errorExpr());
+    } else {
+      bodies.push(checkExpr(ctx, body, expected));
+    }
   });
+  if (hasBlockArm) return errorExpr();
   if (bodies.some((b) => isError(b.type))) return errorExpr();
   // The parser guarantees at least one arm.
   const type = bodies[0].type;

@@ -1,5 +1,5 @@
 import type {
-  Alternative, AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, ImportDecl, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
+  Alternative, AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, ImportDecl, IfStmt, IfLetStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -242,11 +242,29 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
+  /** After `let`: does a pattern follow (rather than `name: type`)? */
+  function atPatternLet(): boolean {
+    const t = peek(1);
+    if (t.kind === 'ident') return peek(2).kind === '::';
+    return t.kind === 'int' || t.kind === 'char' || t.kind === 'string' || t.kind === 'true' || t.kind === 'false' ||
+      (t.kind === '-' && peek(2).kind === 'int');
+  }
+
   function parseStatement(): Stmt {
     const t = peek();
     switch (t.kind) {
       case 'let':
       case 'var': {
+        if (t.kind === 'let' && atPatternLet()) {
+          advance();
+          const pattern = parsePattern();
+          expect('=');
+          const init = parseHeaderExpr();
+          const kw = expect('else');
+          const elseBlock = parseBlock();
+          const semi = expect(';');
+          return { kind: 'letElse', pattern, init, elseKeywordSpan: kw.span, else: elseBlock, span: join(t.span, semi.span) };
+        }
         advance();
         const name = expect('ident');
         expect(':');
@@ -323,11 +341,20 @@ export function parse(tokens: readonly Token[]): ParseResult {
     return { kind: 'forEach', name: name.text, nameSpan: name.span, iterable: first, body, span: join(kw.span, body.span) };
   }
 
-  function parseIfStmt(): IfStmt {
+  function parseIfStmt(): IfStmt | IfLetStmt {
     const kw = expect('if');
+    if (eat('let')) {
+      const pattern = parsePattern();
+      expect('=');
+      const scrutinee = parseHeaderExpr();
+      const then = parseBlock();
+      let elseBranch: Block | IfStmt | IfLetStmt | null = null;
+      if (eat('else')) elseBranch = at('if') ? parseIfStmt() : parseBlock();
+      return { kind: 'ifLet', pattern, scrutinee, then, else: elseBranch, span: join(kw.span, (elseBranch ?? then).span) };
+    }
     const cond = parseHeaderExpr();
     const then = parseBlock();
-    let elseBranch: Block | IfStmt | null = null;
+    let elseBranch: Block | IfStmt | IfLetStmt | null = null;
     if (eat('else')) elseBranch = at('if') ? parseIfStmt() : parseBlock();
     return { kind: 'if', cond, then, else: elseBranch, span: join(kw.span, (elseBranch ?? then).span) };
   }
@@ -594,6 +621,12 @@ export function parse(tokens: readonly Token[]): ParseResult {
       for (;;) {
         const pattern = parsePattern();
         expect('=>');
+        if (at('{')) {
+          arms.push({ pattern, body: parseBlock() });
+          eat(',');
+          if (at('}')) break;
+          continue;
+        }
         arms.push({ pattern, body: parseExpr() });
         if (!eat(',') || at('}')) break;
       }

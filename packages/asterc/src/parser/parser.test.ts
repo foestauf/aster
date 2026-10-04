@@ -226,7 +226,8 @@ describe('statements and functions', () => {
 
   it('describes identifiers, integers and strings in errors', () => {
     expect(errors('fn 1() {}')).toEqual(["expected identifier, found integer '1'"]);
-    expect(errors('fn f() { let "s" }')).toEqual(['expected identifier, found string literal']);
+    // A string after `let` now starts a let-else pattern, so use a token that cannot.
+    expect(errors('fn f() { let [ }')).toEqual(["expected identifier, found '['"]);
     expect(errors('fn f() { x y; }')).toEqual(["expected ';', found identifier 'y'"]);
   });
   it('parses assignment to any place, with compound operators', () => {
@@ -413,5 +414,65 @@ describe('match', () => {
 
   it('describes a character literal in errors', () => {
     expect(errors("fn main(): int { return 1 'b'; }")).toEqual(["expected ';', found character literal"]);
+  });
+});
+
+const body = (src: string) => parseText(`fn f(): int {\n${src}\n}`);
+
+describe('v0.7 unwrapping forms', () => {
+  it('parses let-else with a variant pattern', () => {
+    const { program, diagnostics } = body('let Option::Some(x) = g() else { return 0; };');
+    expect(diagnostics).toEqual([]);
+    const s = program.functions[0].body.statements[0];
+    expect(s).toMatchObject({ kind: 'letElse', pattern: { kind: 'variant', enumName: 'Option', variant: 'Some' }, init: { kind: 'call' } });
+    if (s.kind !== 'letElse') throw new Error('expected letElse');
+    expect(s.else.statements[0].kind).toBe('return');
+  });
+
+  it('parses let-else with literal and or-patterns', () => {
+    for (const src of ["let 1 | 2 = n else { return 0; };", "let -3 = n else { return 0; };", "let 'a' = c else { return 0; };",
+      'let "x" = s else { return 0; };', 'let true = b else { return 0; };']) {
+      const { program, diagnostics } = body(src);
+      expect(diagnostics).toEqual([]);
+      expect(program.functions[0].body.statements[0].kind).toBe('letElse');
+    }
+  });
+
+  it('keeps the typed let form', () => {
+    const { program, diagnostics } = body('let x: int = 1;\nvar y: int = 2;');
+    expect(diagnostics).toEqual([]);
+    expect(program.functions[0].body.statements.map((s) => s.kind)).toEqual(['let', 'let']);
+  });
+
+  it('reports a let-else without else, without ;, and let _', () => {
+    expect(errors('fn f(): int { let Option::Some(x) = g(); }')).toEqual(["expected 'else', found ';'"]);
+    expect(errors('fn f(): int { let 1 = x else { return 0; } }')).toEqual(["expected ';', found '}'"]);
+    expect(errors('fn f(): int { let _ = x; }')).toEqual(["expected identifier, found '_'"]);
+  });
+
+  it('does not take a struct literal as the if-let scrutinee', () => {
+    // `P { }` would otherwise parse as an empty struct literal and leave no then-block.
+    expect(errors('fn f(): int { if let 1 = P { } return 0; }')).toEqual([]);
+  });
+
+  it('parses if let with else-if-let and else chains', () => {
+    const { program, diagnostics } = body('if let Option::Some(x) = a { } else if let 1 = b { } else if c { } else { }\nreturn 0;');
+    expect(diagnostics).toEqual([]);
+    const s = program.functions[0].body.statements[0];
+    expect(s).toMatchObject({ kind: 'ifLet', else: { kind: 'ifLet', else: { kind: 'if', else: { kind: 'block' } } } });
+  });
+
+  it('lets a plain if chain into an if let', () => {
+    const { program } = body('if c { } else if let 1 = b { }\nreturn 0;');
+    expect(program.functions[0].body.statements[0]).toMatchObject({ kind: 'if', else: { kind: 'ifLet', else: null } });
+  });
+
+  it('parses block arms in a match expression, with optional commas', () => {
+    const { program, diagnostics } = body('return match o { Option::Some(x) => x, Option::None => { return 1; } };');
+    expect(diagnostics).toEqual([]);
+    const ret = program.functions[0].body.statements[0];
+    if (ret.kind !== 'return' || ret.value?.kind !== 'matchExpr') throw new Error('expected return of match');
+    expect(ret.value.arms[1].body.kind).toBe('block');
+    expect(errors('fn f(): int { return match o { Option::None => { return 1; } Option::Some(x) => x }; }')).toEqual([]);
   });
 });
