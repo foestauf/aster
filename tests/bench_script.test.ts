@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assertExpected, compareConfigurations, geometricMean, median, parseExpected, parseOptions, REPO_ROOT, renderReport, roundOrder, type Report, type Result } from '../scripts/bench.js';
+import { assertExpected, compareConfigurations, geometricMean, median, parseExpected, parseOptions, REPO_ROOT, renderReport, renderReproduction, roundOrder, type Report, type Result } from '../scripts/bench.js';
 
 describe('benchmark statistics', () => {
   it('computes odd and even medians without mutating samples', () => {
@@ -142,5 +142,24 @@ describe('benchmark orchestration boundary', () => {
     expect(pkg.scripts.bench).toBe('node scripts/bench.ts');
     expect(readFileSync(join(REPO_ROOT, '.gitignore'), 'utf8')).toContain('.bench/');
     expect(parseOptions([]).configs).not.toContain('llvm');
+  });
+});
+
+describe('record reproduction recipe', () => {
+  it('preserves a named bootstrap binary and describes the matching toolchain', () => {
+    const args = ['--record', '--compiler=build/asterc-baseline'];
+    const text = renderReproduction(parseOptions(args), args);
+    expect(text).toContain('export PATH=');
+    expect(text).toContain('gcc 13');
+    expect(text).toContain('clang/lld 18');
+    expect(text).toContain('pnpm bootstrap');
+    expect(text).toContain("cp -- build/asterc 'build/asterc-baseline'");
+    expect(text).toContain('Never splice LLVM samples');
+    expect(renderReproduction(parseOptions(args), args, '2')).toContain("taskset -c '2' pnpm bench");
+  });
+  it('does not copy the default compiler onto itself and quotes custom paths', () => {
+    expect(renderReproduction(parseOptions([]), [])).not.toContain('cp --');
+    const args = ["--compiler=build/compiler's copy"];
+    expect(renderReproduction(parseOptions(args), args)).toContain("'build/compiler'\\''s copy'");
   });
 });

@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
-import { basename, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // L1: orchestration only. No compiler implementation imports or changed driver flags.
@@ -185,6 +185,30 @@ export function compareConfigurations(results: readonly Result[], configs: reado
     if ((geometricMeanSpeedups[config] ?? 0) > geometricMeanSpeedups[bestC]!) bestC = config;
   }
   return { bestC, geometricMeanSpeedups };
+}
+
+function shellQuote(value: string): string {
+  return "'" + value.replaceAll("'", "'\\''") + "'";
+}
+
+export function renderReproduction(options: Options, argv: readonly string[], cpuAffinity?: string): string {
+  const lines = [
+    'Use the source revision and benchmark inputs identified above. Install the recorded toolchain first: gcc 13 as `cc`, Node 24+, and clang/lld 18 when measuring LLVM.',
+    'Put the matching toolchain directory first in `PATH` for both bootstrap and the benchmark. On this development machine it was `/tmp/aster-toolchain-bin`; that temporary directory is not an install instruction for another machine.', '',
+    '```sh', '# Replace this with your installed gcc-13 / clang-18 / lld-18 wrapper directory.',
+    'export PATH="/path/to/pinned-toolchain/bin:$PATH"', 'cc --version', 'clang --version', 'ld.lld --version',
+    'pnpm bootstrap',
+  ];
+  if (resolve(REPO_ROOT, options.compiler) !== resolve(REPO_ROOT, 'build/asterc')) {
+    lines.push('# Preserve the freshly bootstrapped compiler under the path used by this record.',
+      `mkdir -p -- ${shellQuote(dirname(options.compiler))}`,
+      `cp -- build/asterc ${shellQuote(options.compiler)}`);
+  }
+  const affinityPrefix = cpuAffinity && /^[0-9,-]+$/.test(cpuAffinity) ? `taskset -c ${shellQuote(cpuAffinity)} ` : '';
+  if (affinityPrefix) lines.push('# Recorded CPU affinity; choose an allowed equivalent CPU set if this machine differs.');
+  lines.push(`${affinityPrefix}pnpm bench ${argv.map(shellQuote).join(' ')}`.trimEnd(), '```', '',
+    'Use a fresh combined `--configs=c-O2,c-O3,c-lto,llvm` run for L5. Never splice LLVM samples into this earlier C baseline.');
+  return lines.join('\n');
 }
 
 export function renderReport(report: Report): string {
@@ -412,8 +436,7 @@ export function main(argv: string[]): number {
       '# Aster C / LLVM benchmark record', '',
       'This is a measurement of the machine and inputs named below. Deviations are explicit; it is not automatically a certified reference-machine result.', '',
       '```text', text.trimEnd(), '```', '',
-      '## Reproduce', '', 'Run `pnpm bootstrap`, then:', '',
-      '```sh', `pnpm bench ${argv.map((arg) => "'" + arg.replaceAll("'", "'\\''") + "'").join(' ')}`.trimEnd(), '```', '',
+      '## Reproduce', '', renderReproduction(options, argv), '',
       '## Raw samples', '', rawSamples, '',
       '## Exact run data', '', 'The JSON includes source checksums, expected output, compiler provenance, commands and all samples.', '',
       '```json', JSON.stringify(report, null, 2), '```', '',
