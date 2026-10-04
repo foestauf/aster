@@ -54,6 +54,7 @@ check() {
   step="pnpm aster run $prog"
   pnpm -s aster run "tests/programs/$prog" "$@" > "$work/out" || fail "exit $?"
   expected "tests/programs/$prog" > "$work/want"
+  [ -s "$work/want" ] || fail 'no expect-stdout block'
   cmp -s "$work/want" "$work/out" || fail "stdout differs: $(diff "$work/want" "$work/out" | head -5)"
 }
 
