@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assertExpected, compareConfigurations, geometricMean, median, parseExpected, parseOptions, REPO_ROOT, renderReport, roundOrder, type Report, type Result } from '../scripts/bench.js';
+import { assertExpected, assessVariability, compareConfigurations, evaluateL5, geometricMean, median, parseExpected, parseOptions, REPO_ROOT, renderReport, renderReproduction, renderL5, roundOrder, type Report, type Result } from '../scripts/bench.js';
 
 describe('benchmark statistics', () => {
   it('computes odd and even medians without mutating samples', () => {
@@ -100,16 +100,16 @@ describe('whole-suite C selection', () => {
 function fixture(): Report {
   return {
     schemaVersion: 1,
-    environment: { recordedAt: '2026-10-04T00:00:00.000Z', gitCommit: 'local-sha', gitDirty: true, sourceRevision: 'upstream-sha', inputSha256: 'input-sha', compilerSha256: 'compiler-sha', uname: 'Linux x86_64', osRelease: 'Debian 13', cpu: 'test CPU', cpuCount: 4, governor: 'unavailable', cc: 'gcc 13.3', clang: 'clang 18.1', lld: 'lld 18.1', node: 'v24.0.0', note: 'cloud materialization', deviations: ['reference OS differs'] },
+    environment: { recordedAt: '2026-10-04T00:00:00.000Z', gitCommit: 'local-sha', gitDirty: true, sourceRevision: 'upstream-sha', inputSha256: 'input-sha', compilerSha256: 'compiler-sha', uname: 'Linux x86_64', osRelease: 'Debian 13', cpu: 'test CPU', cpuCount: 4, cpuAffinity: '0-3', governor: 'unavailable', cc: 'gcc 13.3', clang: 'clang 18.1', lld: 'lld 18.1', node: 'v24.0.0', note: 'cloud materialization', deviations: ['reference OS differs'] },
     options: parseOptions([]), workloadSources: [], buildCommands: [], results: [result('integers', 'c-O2', 12.34567)],
-    bestC: 'c-O2', geometricMeanSpeedups: { 'c-O2': 1 }, ok: true, failure: null,
+    bestC: 'c-O2', geometricMeanSpeedups: { 'c-O2': 1 }, decision: evaluateL5([], ['c-O2'], true), ok: true, failure: null,
   };
 }
 
 describe('report rendering', () => {
   it('includes provenance, precision, method, limits and explicit best C', () => {
     const text = renderReport(fixture());
-    for (const expected of ['upstream-sha', 'dirty: yes', 'input-sha', 'cloud materialization', 'DEVIATION', '12.346', '1024', 'wait4', 'Medians exclude warmups', 'rotating configuration order', 'Best measured whole-suite C configuration: c-O2', 'self-emit-c', 'unchanged driver (cc -O2)', 'No L5/default-backend decision', 'PASS']) {
+    for (const expected of ['upstream-sha', 'dirty: yes', 'input-sha', 'cloud materialization', 'DEVIATION', '12.346', '1024', 'wait4', 'Medians exclude warmups', 'rotating configuration order', 'Best measured whole-suite C configuration: c-O2', 'self-emit-c', 'unchanged driver (cc -O2)', 'L5 performance decision: NOT-EVALUATED', 'No compiler defaults are changed', 'Benchmark output checks: PASS']) {
       expect(text).toContain(expected);
     }
   });
@@ -123,7 +123,7 @@ describe('report rendering', () => {
     expect(text).toContain('incomplete');
     expect(text).toContain('not established');
     expect(text).toContain('FAIL: incorrect checksum');
-    expect(text).not.toContain('\nPASS');
+    expect(text).not.toContain('Benchmark output checks: PASS');
   });
 });
 
@@ -142,5 +142,137 @@ describe('benchmark orchestration boundary', () => {
     expect(pkg.scripts.bench).toBe('node scripts/bench.ts');
     expect(readFileSync(join(REPO_ROOT, '.gitignore'), 'utf8')).toContain('.bench/');
     expect(parseOptions([]).configs).not.toContain('llvm');
+  });
+});
+
+
+const allConfigs = ['c-O2', 'c-O3', 'c-lto', 'llvm'] as const;
+function sampled(benchmark: string, configuration: Result['configuration'], ms: number, kind: Result['kind'] = 'runtime', times: number[] = [ms, ms, ms, ms, ms]): Result {
+  return { ...result(benchmark, configuration, median(times), kind),
+    samples: [ms, ...times].map((elapsedMs, round) => ({ round, warmup: round === 0, elapsedMs, peakRssKiB: 1024, exitCode: 0, signal: 0, stdoutSha256: 'checked', stderrSha256: 'empty', valid: true })) };
+}
+function decisionFixture(): Result[] {
+  return allConfigs.flatMap((configuration, index) => [
+    sampled('a', configuration, [100, 95, 90, 80][index]!),
+    sampled('b', configuration, [100, 95, 90, 80][index]!),
+    sampled('self-build', configuration, [1000, 950, 900, 850][index]!, 'self-build'),
+    sampled('self-emit-c', configuration, [10, 11, 12, 20][index]!, 'self-emit-c'),
+  ]);
+}
+function replaceCase(results: Result[], replacement: Result): Result[] {
+  return results.map((entry) => entry.benchmark === replacement.benchmark && entry.configuration === replacement.configuration ? replacement : entry);
+}
+
+describe('L5 performance decision', () => {
+  it('requires fresh complete configurations and separate successful correctness', () => {
+    expect(evaluateL5(decisionFixture(), allConfigs, false).status).toBe('not-evaluated');
+    expect(evaluateL5(decisionFixture(), ['c-O2', 'llvm'], true).status).toBe('not-evaluated');
+    expect(evaluateL5(decisionFixture().filter((entry) => entry.configuration !== 'c-lto'), allConfigs, true).status).toBe('inconclusive');
+  });
+  it('uses the best whole-suite C and all three exact gates', () => {
+    const decision = evaluateL5(decisionFixture(), allConfigs, true);
+    expect(decision.bestC).toBe('c-lto');
+    expect(decision.suiteSpeedup).toBeCloseTo(1.125);
+    expect(decision.selfBuildSpeedup).toBeCloseTo(900 / 850);
+    expect(decision.suitePass).toBe(true);
+    expect(decision.selfBuildPass).toBe(true);
+    expect(decision.runtimePass).toBe(true);
+    expect(decision.measuredGatesPass).toBe(true);
+    expect(decision.status).toBe('passes');
+    // The slower LLVM self-emitter is intentionally not a fourth gate.
+    expect(decision.qualityIssues).toEqual([]);
+  });
+  it('accepts exactly 1.10x suite and equal self-build medians', () => {
+    let results = decisionFixture();
+    for (const name of ['a', 'b']) results = replaceCase(results, sampled(name, 'llvm', 90 / 1.1));
+    results = replaceCase(results, sampled('self-build', 'llvm', 900, 'self-build'));
+    expect(evaluateL5(results, allConfigs, true).status).toBe('passes');
+  });
+  it('fails below 1.10x even when LLVM beats unoptimized C by 10%', () => {
+    let results = decisionFixture();
+    for (const name of ['a', 'b']) results = replaceCase(results, sampled(name, 'llvm', 85));
+    const decision = evaluateL5(results, allConfigs, true);
+    expect(decision.suitePass).toBe(false);
+    expect(decision.status).toBe('fails');
+  });
+  it('fails a slower full self-build even with a faster suite', () => {
+    const decision = evaluateL5(replaceCase(decisionFixture(), sampled('self-build', 'llvm', 901, 'self-build')), allConfigs, true);
+    expect(decision.suitePass).toBe(true);
+    expect(decision.selfBuildPass).toBe(false);
+    expect(decision.status).toBe('fails');
+  });
+  it('accepts 5% runtime regression and rejects anything greater', () => {
+    let results = replaceCase(decisionFixture(), sampled('a', 'llvm', 90 * 1.05));
+    results = replaceCase(results, sampled('b', 'llvm', 40));
+    expect(evaluateL5(results, allConfigs, true).status).toBe('passes');
+    const decision = evaluateL5(replaceCase(results, sampled('a', 'llvm', 90 * 1.05001)), allConfigs, true);
+    expect(decision.suitePass).toBe(true);
+    expect(decision.runtimePass).toBe(false);
+    expect(decision.status).toBe('fails');
+  });
+  it('keeps noisy measured gates visible but calls the conclusion inconclusive', () => {
+    const results = replaceCase(decisionFixture(), sampled('a', 'llvm', 80, 'runtime', [60, 75, 80, 90, 100]));
+    const decision = evaluateL5(results, allConfigs, true);
+    expect(decision.measuredGatesPass).toBe(true);
+    expect(decision.status).toBe('inconclusive');
+    expect(decision.qualityIssues.join(' ')).toContain('above 20%');
+    expect(renderL5(decision).join('\n')).toContain('not a confidence interval');
+  });
+  it('considers noisy competing C configurations but treats emitter noise separately', () => {
+    const noisyC = replaceCase(decisionFixture(), sampled('a', 'c-O3', 95, 'runtime', [65, 95, 95, 95, 125]));
+    expect(evaluateL5(noisyC, allConfigs, true).status).toBe('inconclusive');
+    const noisyEmit = replaceCase(decisionFixture(), sampled('self-emit-c', 'llvm', 20, 'self-emit-c', [1, 10, 20, 100, 1000]));
+    expect(evaluateL5(noisyEmit, allConfigs, true).status).toBe('passes');
+    expect(renderL5(evaluateL5(noisyEmit, allConfigs, true)).join(' ')).toContain('emission-only diagnostic, not a gate');
+  });
+  it('rejects short, unchecked, duplicate or inconsistent sample sets', () => {
+    const short = replaceCase(decisionFixture(), sampled('a', 'llvm', 80, 'runtime', [80, 80]));
+    expect(evaluateL5(short, allConfigs, true).status).toBe('inconclusive');
+    const unchecked = decisionFixture();
+    unchecked[0]!.samples[1]!.valid = false;
+    expect(evaluateL5(unchecked, allConfigs, true).status).toBe('inconclusive');
+    const inconsistent = decisionFixture();
+    inconsistent[0]!.medianWallMs = 101;
+    expect(evaluateL5(inconsistent, allConfigs, true).qualityIssues.join(' ')).toContain('stored median differs');
+    const duplicate = decisionFixture();
+    duplicate.push(duplicate[0]!);
+    expect(evaluateL5(duplicate, allConfigs, true).status).toBe('inconclusive');
+  });
+  it('excludes warmup from spread and flags the earlier string-like variance', () => {
+    const row = sampled('string', 'c-lto', 203, 'runtime', [149, 182, 203, 260, 295]);
+    row.samples[0]!.elapsedMs = 5000;
+    const variability = assessVariability([row])[0]!;
+    expect(variability.minMs).toBe(149);
+    expect(variability.maxMs).toBe(295);
+    expect(variability.relativeSpread).toBeCloseTo(146 / 203);
+    expect(variability.noisy).toBe(true);
+    expect(assessVariability([sampled('a', 'c-O2', 100, 'runtime', [90, 100, 100, 100, 110])])[0]!.noisy).toBe(false);
+  });
+  it('reports correctness success independently of a performance failure', () => {
+    const report = fixture();
+    report.decision = evaluateL5(replaceCase(decisionFixture(), sampled('self-build', 'llvm', 950, 'self-build')), allConfigs, true);
+    const text = renderReport(report);
+    expect(text).toContain('L5 performance decision: FAILS');
+    expect(text).toContain('Benchmark output checks: PASS');
+    expect(text).toContain('No compiler defaults are changed');
+  });
+});
+
+describe('record reproduction recipe', () => {
+  it('preserves a named bootstrap binary and describes the matching toolchain', () => {
+    const args = ['--record', '--compiler=build/asterc-baseline'];
+    const text = renderReproduction(parseOptions(args), args);
+    expect(text).toContain('export PATH=');
+    expect(text).toContain('gcc 13');
+    expect(text).toContain('clang/lld 18');
+    expect(text).toContain('pnpm bootstrap');
+    expect(text).toContain("cp -- build/asterc 'build/asterc-baseline'");
+    expect(text).toContain('Never splice LLVM samples');
+    expect(renderReproduction(parseOptions(args), args, '2')).toContain("taskset -c '2' pnpm bench");
+  });
+  it('does not copy the default compiler onto itself and quotes custom paths', () => {
+    expect(renderReproduction(parseOptions([]), [])).not.toContain('cp --');
+    const args = ["--compiler=build/compiler's copy"];
+    expect(renderReproduction(parseOptions(args), args)).toContain("'build/compiler'\\''s copy'");
   });
 });

@@ -61,13 +61,33 @@ No L5/default-backend decision follows from this run alone.
 PASS
 ```
 
+## Interpretation and stability
+
+This is a correctness-passing development baseline. The measured whole-suite C winner is c-lto (1.1423x over c-O2), but the raw timings are noisy. Applying the subsequently added stability heuristic, 15 cases have (maximum - minimum) / median above 20%. This heuristic is a warning, not a confidence interval.
+
+For example, c-lto string-building spans approximately 149–295 ms. These samples do not establish a stable default-backend decision. A later LLVM comparison must rebuild and remeasure all three C configurations and LLVM together; the old C samples must not be reused as the comparator.
+
+The reproduction instructions below were corrected after the run to include the preserved compiler copy and matching toolchain setup. Original samples, hashes, timestamps and commands above and in the JSON remain unchanged.
+
 ## Reproduce
 
-Run `pnpm bootstrap`, then:
+Use the source revision and benchmark inputs identified above. Install the recorded toolchain first: gcc 13 as `cc`, Node 24+, and clang/lld 18 when measuring LLVM.
+Put the matching toolchain directory first in `PATH` for both bootstrap and the benchmark. On this development machine it was `/tmp/aster-toolchain-bin`; that temporary directory is not an install instruction for another machine.
 
 ```sh
+# Replace this with your installed gcc-13 / clang-18 / lld-18 wrapper directory.
+export PATH="/path/to/pinned-toolchain/bin:$PATH"
+cc --version
+clang --version
+ld.lld --version
+pnpm bootstrap
+# Preserve the freshly bootstrapped compiler under the path used by this record.
+mkdir -p -- 'build'
+cp -- build/asterc 'build/asterc-baseline'
 pnpm bench '--record' '--compiler=build/asterc-baseline' '--source-revision=d668d8e18cb70087ae88799317cedd547c32b6d7' '--environment-note=Development cloud baseline on Debian 13, not the Ubuntu 24.04 reference machine. Sources materialized from authenticated upstream Git blobs at the stated source revision; local git HEAD is a synthetic snapshot. Pinned official GCC 13.3 and clang/lld 18.1.8 extracted locally. No other assistant compile/test jobs run during samples.'
 ```
+
+Use a fresh combined `--configs=c-O2,c-O3,c-lto,llvm` run for L5. Never splice LLVM samples into this earlier C baseline.
 
 ## Raw samples
 
