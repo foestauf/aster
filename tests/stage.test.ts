@@ -16,11 +16,15 @@ describe('resolveStage', () => {
   it.for([
     [{ ASTER_STAGE_BIN: '/bin/s2' }, /set together/],
     [{ ASTER_STAGE: 'S2' }, /set together/],
-    [{ ASTER_STAGE_BIN: '/bin/s2', ASTER_STAGE: 'S9' }, /S1, S2 or S3/],
+    [{ ASTER_STAGE_BIN: '/bin/s2', ASTER_STAGE: 'S9' }, /S1, S2, S3 or SL1/],
     [{ ASTER_STAGE_BIN: 'rel/s2', ASTER_STAGE: 'S2' }, /absolute/],
     [{ ASTER_STAGE_BIN: '/bin/missing', ASTER_STAGE: 'S3' }, /does not exist/],
   ] as const)('rejects %j', ([env, message]) => {
     expect(() => resolveStage(env, '/tmp/s1', exists)).toThrow(message);
+  });
+
+  it('uses the LLVM-built stage', () => {
+    expect(resolveStage({ ASTER_STAGE_BIN: '/bin/s2', ASTER_STAGE: 'SL1' }, '/tmp/s1', exists)).toEqual({ name: 'SL1', bin: '/bin/s2' });
   });
 
   it('rejects a missing S1 when no stage is given', () => {

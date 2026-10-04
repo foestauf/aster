@@ -53,7 +53,7 @@ If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` pr
 
 ## Verifying
 
-- `pnpm selfhost` builds S1 to S4, compares the C at every hop and runs the conformance suites against S1, S2 and S3 (S4 is built only for the C comparison). `pnpm selfhost --record` also re-records [proof.md](proof.md).
+- `pnpm selfhost` builds S1 to S4, compares the C at every hop and runs the conformance suites against S1, S2 and S3 (S4 is built only for the C comparison). It also builds LLVM stages SL1 and SL2, checks their LLVM fixed point and C oracle, and runs the stage-aware suites against SL1. This proof requires clang 18 and lld 18. `pnpm selfhost --record` also re-records [proof.md](proof.md).
 - `scripts/normal-path.sh` hides `packages/asterc/dist`, runs `pnpm build`, builds the compiler through `pnpm aster`, and builds and runs representative programs with `pnpm aster run`. It prints `normal path: PASS` on success. Run `pnpm bootstrap` first. While it runs it hides `packages/asterc/dist`, so don't run `pnpm test`, `pnpm selfhost`, `pnpm bootstrap` or `pnpm aster:seed` in the same checkout at the same time.
 
 CI runs both on every push to `main` and every pull request: the `proof` job runs typecheck, lint and `pnpm selfhost`, and the `normal-path` job runs `pnpm bootstrap` and then `scripts/normal-path.sh`.

@@ -11,7 +11,7 @@ import { spawnStrict } from './spawn.js';
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 export interface Stage {
-  name: 'S1' | 'S2' | 'S3';
+  name: 'S1' | 'S2' | 'S3' | 'SL1';
   bin: string;
 }
 
@@ -33,7 +33,7 @@ export function resolveStage(
     if (s1 === undefined) throw new Error('no S1: global setup (tests/global-setup.ts) should have built it');
     return { name: 'S1', bin: s1 };
   }
-  if (name !== 'S1' && name !== 'S2' && name !== 'S3') throw new Error(`ASTER_STAGE must be S1, S2 or S3, not '${name}'`);
+  if (name !== 'S1' && name !== 'S2' && name !== 'S3' && name !== 'SL1') throw new Error(`ASTER_STAGE must be S1, S2, S3 or SL1, not '${name}'`);
   if (!isAbsolute(bin)) throw new Error(`ASTER_STAGE_BIN '${bin}' must be an absolute path`);
   if (!exists(bin)) throw new Error(`ASTER_STAGE_BIN '${bin}' does not exist`);
   return { name, bin };

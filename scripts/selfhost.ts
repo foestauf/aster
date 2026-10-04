@@ -62,6 +62,7 @@ interface Counts {
 interface StageReport {
   name: string;
   cSha256: string;
+  llvmSha256?: string;
   matchesS0: boolean;
   suite: Counts | null;
 }
@@ -71,6 +72,8 @@ interface Report {
   dirty: boolean;
   uname: string;
   cc: string;
+  clang: string;
+  lld: string;
   node: string;
   locale: string;
   stages: StageReport[];
@@ -122,6 +125,8 @@ function renderReport(r: Report): string {
     'Aster self-hosting proof',
     `commit  ${r.commit}  (dirty: ${r.dirty ? 'yes' : 'no'})`,
     `cc      ${r.cc}`,
+    `clang   ${r.clang}`,
+    `lld     ${r.lld}`,
     `uname   ${r.uname}`,
     `node    ${r.node}`,
     `locale  ${r.locale}`,
@@ -130,9 +135,9 @@ function renderReport(r: Report): string {
   ];
   for (const s of r.stages) {
     const tests =
-      s.name === 'S0' ? `${showCounts(r.fullSuite)} (pnpm test)` : s.name === 'S4' ? '(built by S3; C only)' : showCounts(s.suite);
+      s.name === 'S0' ? `${showCounts(r.fullSuite)} (pnpm test)` : s.name === 'S4' ? '(built by S3; C only)' : s.name === 'SL2' ? '(LLVM fixed point; C oracle)' : showCounts(s.suite);
     const matches = s.name === 'S0' ? '—' : s.matchesS0 ? 'yes' : 'NO';
-    lines.push(`${s.name.padEnd(7)}${s.cSha256.slice(0, 16).padEnd(18)}${matches.padEnd(9)}${tests}`);
+    lines.push(`${s.name.padEnd(7)}${s.cSha256.slice(0, 16).padEnd(18)}${matches.padEnd(9)}${tests}${s.llvmSha256 ? `; LLVM ${s.llvmSha256.slice(0, 16)}` : ''}`);
   }
   lines.push('', r.ok ? 'PASS' : `FAIL (${r.failedStep ?? 'unknown step'})`);
   return lines.join('\n') + '\n';
@@ -151,6 +156,8 @@ export function main(argv: string[]): number {
     dirty: false,
     uname: '',
     cc: '',
+    clang: '',
+    lld: '',
     node: process.version,
     locale: 'LC_ALL=C',
     stages: [],
@@ -183,6 +190,10 @@ export function main(argv: string[]): number {
       const ccMajor = run('cc', ['-dumpversion']).stdout.trim().split('.')[0];
       if (report.uname !== 'Linux x86_64') fail(`needs Linux x86_64, not '${report.uname}'`);
       if (ccMajor !== '13' || !ccVersion.includes('Free Software Foundation')) fail(`needs gcc 13 as cc, not '${report.cc}'`);
+      report.clang = run('clang', ['--version']).stdout.split('\n')[0] ?? '';
+      report.lld = run('ld.lld', ['--version']).stdout.trim();
+      if (!/clang version 18\./.test(report.clang)) fail(`needs clang 18, not '${report.clang}'`);
+      if (!/LLD 18\./.test(report.lld)) fail(`needs lld 18, not '${report.lld}'`);
       if (Number(process.versions.node.split('.')[0]) < 24) fail(`needs Node 24 or later, not ${process.version}`);
       if (!recordAllowed(report.dirty, record)) fail('--record needs a clean tree');
     });
@@ -193,7 +204,7 @@ export function main(argv: string[]): number {
 
     mkdirSync(outDir, { recursive: true });
     for (const f of readdirSync(outDir)) {
-      if (/\.(c|json)$/.test(f) || f.startsWith('report.')) rmSync(join(outDir, f));
+      if (/\.(c|ll|json)$/.test(f) || f.startsWith('report.')) rmSync(join(outDir, f));
     }
     const dir = mkdtempSync(join(tmpdir(), 'aster-selfhost-'));
     work = dir;
@@ -229,6 +240,26 @@ export function main(argv: string[]): number {
       if (drift !== '') fail(drift);
     });
 
+    const llvmBin = (n: number) => join(dir, `sl${n}`);
+    step('LLVM stages and fixed point', () => {
+      const first = run(bin(1), ['build', COMPILER, '--backend=llvm', '-o', llvmBin(1)]);
+      if (first.status !== 0 || first.stderr !== '') fail(`S1 failed to build SL1: ${first.status}\n${first.stderr}`);
+      const second = run(llvmBin(1), ['build', COMPILER, '--backend=llvm', '-o', llvmBin(2)]);
+      if (second.status !== 0 || second.stderr !== '') fail(`SL1 failed to build SL2: ${second.status}\n${second.stderr}`);
+      let previous: string | null = null;
+      for (const n of [1, 2]) {
+        const emitted = run(llvmBin(n), ['build', COMPILER, '--emit=llvm']);
+        const c = run(llvmBin(n), ['build', COMPILER, '--emit=c']);
+        if (emitted.status !== 0 || emitted.stderr !== '' || c.status !== 0 || c.stderr !== '') fail(`SL${n} emission failed`);
+        if (c.stdout !== cs[0]) fail(`C(SL${n}) differs from C(S0)`);
+        if (previous !== null && previous !== emitted.stdout) fail('LLVM(SL1) differs from LLVM(SL2)');
+        previous = emitted.stdout;
+        writeFileSync(join(outDir, `sl${n}.ll`), emitted.stdout);
+        writeFileSync(join(outDir, `sl${n}.c`), c.stdout);
+        report.stages.push({ name: `SL${n}`, cSha256: sha256(c.stdout), llvmSha256: sha256(emitted.stdout), matchesS0: true, suite: null });
+      }
+    });
+
     const vitest = (name: string, files: readonly string[], json: string, env: Record<string, string | undefined>): Counts => {
       const file = join(outDir, json);
       const args = ['exec', 'vitest', 'run', ...files, '--reporter=default', '--reporter=json', `--outputFile=${file}`];
@@ -255,8 +286,14 @@ export function main(argv: string[]): number {
         });
       });
     }
+    step('suites against SL1', () => {
+      report.stages.find((s) => s.name === 'SL1')!.suite = vitest('SL1 suites', STAGE_SUITES, 'SL1.json', {
+        ASTER_STAGE_BIN: llvmBin(1), ASTER_STAGE: 'SL1',
+      });
+    });
     step('suite totals', () => {
       const [t1, t2, t3] = [1, 2, 3].map((n) => report.stages[n]!.suite!.total);
+      if (t1 !== report.stages.find((s) => s.name === 'SL1')!.suite!.total) fail('SL1 ran a different number of stage-aware tests');
       if (t1 !== t2 || t2 !== t3) fail(`S1, S2 and S3 ran different numbers of tests: ${t1}, ${t2}, ${t3}`);
     });
     report.ok = true;
@@ -281,7 +318,7 @@ export function main(argv: string[]): number {
       text.trimEnd(),
       '```',
       '',
-      'Reproduce it with `pnpm selfhost` on Linux x86_64 with gcc 13 and Node 24 or later.',
+      'Reproduce it with `pnpm selfhost` on Linux x86_64 with gcc 13, clang 18, lld 18 and Node 24 or later.',
       '',
     ].join('\n');
     mkdirSync(join(REPO_ROOT, 'docs', 'self-host'), { recursive: true });
