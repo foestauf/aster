@@ -67,7 +67,8 @@ fn dirname(path: string): string {
 }
 
 // A file's identity: the path with repeated `/` collapsed, `.` segments dropped and `name/..` pairs resolved. The
-// compiler uses the real path instead; the two differ only through symlinks.
+// compiler uses the real path instead; the two differ through symlinks, and for a relative root whose imports climb out
+// of the working directory and back in (the real path resolves against the working directory, this doesn't).
 fn normalise(path: string): string {
     let absolute: bool = len(path) > 0 && byte_at(path, 0) == '/';
     let stack: [string] = [];
@@ -135,15 +136,6 @@ fn decode_literal(body: string): Option[string] {
     return Option::Some(out + substring(body, run, len(body)));
 }
 
-fn contains_path(paths: [string], path: string): bool {
-    for p in paths {
-        if p == path {
-            return true;
-        }
-    }
-    return false;
-}
-
 // ---- loading
 
 // Lexes and parses one file at the next base, then loads its imports that are not in `seen` yet.
@@ -196,7 +188,7 @@ fn load_import(ld: Loaded, seen: [string], from: string, src: string, base: int,
     }
     if reason == "" {
         let id: string = normalise(target);
-        if contains_path(seen, id) {
+        if contains(seen, id) {
             return;
         }
         match read_file(target) {

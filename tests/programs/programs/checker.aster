@@ -523,12 +523,7 @@ fn find_enum(env: Env, name: string): Option[int] {
 }
 
 fn find_template(env: Env, name: string): Option[int] {
-    for i in 0..len(env.templates) {
-        if env.templates[i].decl.name.name == name {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
+    return find_template_in(env.templates, name);
 }
 
 fn is_found(i: Option[int]): bool {
@@ -1771,10 +1766,11 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // - each pattern alternative must fit the scrutinee's type
 // - no arm may be unreachable, and no alternative may repeat a value already covered
 // - an enum or bool match must cover every value unless there is a `_` arm; an int or string match needs `_`
-// and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed or
-// unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
+// and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed
+// or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
 fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
-    // Invariant: a match expression only ever has ArmBody::Expr arms (parser.aster builds only those), so m.types stays in step with the arms.
+    // Invariant: a match expression only ever has ArmBody::Expr arms (parser.aster builds only those), so m.types stays
+    // in step with the arms.
     let st: Type = check_expr(ctx, scrutinee, Option::None);
     var has_decl: bool = false;
     var variants: [TVariant] = [];
