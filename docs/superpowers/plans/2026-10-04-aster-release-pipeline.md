@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+> Note: during execution, CI's message `release for <sha> not published yet; re-run this job when release.yml finishes` was superseded by a wait-then-fall-back (see spec §6).
+
 - Linux x86_64 only. `cc` is gcc 13. Node ≥ 24.
 - Scripts are orchestration only: they spawn compilers, `cc`, `git`, `tar`, `gzip` and `gh`, and never import `packages/asterc/src`.
 - Tag: `build-YYYYMMDD-<sha7>`, date = the commit's committer date in UTC, `<sha7>` = first 7 hex chars of the full SHA.

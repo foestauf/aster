@@ -46,6 +46,7 @@ describe('release-base.sh', () => {
     expect(r.stderr).toContain(
       `release for ${git('rev-parse', 'HEAD^1')} not published yet; falling back to the nearest earlier release`,
     );
+    expect(r.stderr).toContain(`::warning::release for ${git('rev-parse', 'HEAD^1')} not published yet; falling back to build-20261001-aaaaaaa`);
   });
 
   it('fails when neither the revision nor its ancestors have a release', () => {

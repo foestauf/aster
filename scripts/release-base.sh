@@ -24,6 +24,7 @@ while :; do
   if [ "$i" -ge "$tries" ]; then
     if tag=$(git describe --tags --match 'build-*' --abbrev=0 "$sha" 2>/dev/null); then
       echo "release for $sha not published yet; falling back to the nearest earlier release" >&2
+      echo "::warning::release for $sha not published yet; falling back to $tag" >&2
       echo "$tag"
       exit 0
     fi

@@ -11,8 +11,10 @@ notes=$(printf '%s\n\nCommit %s\n%s/%s/commit/%s\n' "$subject" "$sha" "$GITHUB_S
 cleanup() {
   gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
 }
-# A draft left by an earlier failed run.
-cleanup
+# A draft left by an earlier failed run. Never touch a published release: a transient gh failure upstream could land here.
+if [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" = true ]; then
+  cleanup
+fi
 gh release create "$tag" --draft --target "$sha" --title "$tag" --notes "$notes" \
   "$dir/asterc-linux-x86_64" "$dir/asterc-c-seed.tar.gz" "$dir/SHA256SUMS" || { cleanup; exit 1; }
 gh release edit "$tag" --draft=false --latest || { cleanup; exit 1; }

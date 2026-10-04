@@ -7,6 +7,7 @@ tag=$(sh scripts/release-base.sh HEAD^1)
 case $? in
   0) exec pnpm -s bootstrap --release "$tag" ;;
   3)
+    echo '::warning::no build-* release exists yet; bootstrapping from the TypeScript seed'
     echo 'ci-bootstrap: no build-* release exists yet; bootstrapping from the TypeScript seed' >&2
     exec pnpm -s bootstrap:seed
     ;;

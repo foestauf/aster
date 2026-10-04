@@ -3,7 +3,7 @@ import { accessSync, chmodSync, constants, copyFileSync, mkdirSync, mkdtempSync,
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prepareRelease } from './release-bootstrap.ts';
+import { prepareRelease, RELEASE_TAG } from './release-bootstrap.ts';
 import { firstDifference } from './selfhost.ts';
 
 // `pnpm bootstrap`, `pnpm bootstrap:seed` and `pnpm build` (issue #21): install the self-hosted compiler as
@@ -31,7 +31,7 @@ export const TWO_STEP =
 
 export function parseArgs(argv: string[]): { mode: Mode; release: string | null } | null {
   if (argv.length === 1 && (argv[0] === 'bootstrap' || argv[0] === 'bootstrap-seed' || argv[0] === 'build')) return { mode: argv[0], release: null };
-  if (argv.length === 3 && argv[0] === 'bootstrap' && argv[1] === '--release' && argv[2] !== '') return { mode: 'bootstrap', release: argv[2]! };
+  if (argv.length === 3 && argv[0] === 'bootstrap' && argv[1] === '--release' && RELEASE_TAG.test(argv[2]!)) return { mode: 'bootstrap', release: argv[2]! };
   return null;
 }
 

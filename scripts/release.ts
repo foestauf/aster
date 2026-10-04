@@ -86,18 +86,12 @@ export function makeRelease(opts: { compiler: string; out: string; mtime: number
 
     // Everything succeeded: only now touch --out.
     mkdirSync(opts.out, { recursive: true });
-    const placed: string[] = [];
+    const names = [BINARY, SEED, SUMS];
     try {
-      for (const name of [BINARY, SEED, SUMS]) {
-        copyFileSync(join(work, name), join(opts.out, `${name}.tmp-${process.pid}`));
-        placed.push(name);
-      }
-      for (const name of placed) renameSync(join(opts.out, `${name}.tmp-${process.pid}`), join(opts.out, name));
+      for (const name of names) copyFileSync(join(work, name), join(opts.out, `${name}.tmp-${process.pid}`));
+      for (const name of names) renameSync(join(opts.out, `${name}.tmp-${process.pid}`), join(opts.out, name));
     } catch (e) {
-      for (const name of [BINARY, SEED, SUMS]) {
-        rmSync(join(opts.out, `${name}.tmp-${process.pid}`), { force: true });
-        rmSync(join(opts.out, name), { force: true });
-      }
+      for (const name of names) rmSync(join(opts.out, `${name}.tmp-${process.pid}`), { force: true });
       return { ok: false, step: 'write assets', message: e instanceof Error ? e.message : String(e) };
     }
     return { ok: true };

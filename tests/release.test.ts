@@ -33,6 +33,16 @@ describe('main', () => {
   });
 });
 
+describe('the scripts', () => {
+  it('import nothing from packages/', () => {
+    for (const f of ['release.ts', 'release-bootstrap.ts']) {
+      const text = readFileSync(join(import.meta.dirname, '..', 'scripts', f), 'utf8');
+      expect(text).not.toMatch(/from\s+['"][^'"]*packages\//);
+      expect(text).not.toMatch(/import\(\s*['"][^'"]*packages\//);
+    }
+  });
+});
+
 describe('makeRelease', () => {
   it('writes exactly the three assets', () => {
     expect(readdirSync(out).toSorted()).toEqual([BINARY, SUMS, SEED].toSorted());

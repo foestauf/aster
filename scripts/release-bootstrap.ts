@@ -12,6 +12,9 @@ export const NO_TAG = 'bootstrap: no build-* release is an ancestor of HEAD; use
 export const FELL_BACK = 'bootstrap: release binary did not run; built the C seed instead';
 export const GH_HINT = 'install and authenticate gh, or set ASTER_BOOTSTRAP_DIR';
 
+/** The only tags `--release` may name: also the cache directory's name, so no path separators or dots can get in. */
+export const RELEASE_TAG = /^build-\d{8}-[0-9a-f]{7}$/;
+
 export type Origin = 'binary' | 'c seed';
 export type PrepareResult =
   | { ok: true; builder: Builder; origin: Origin; source: string; notes: string[] }
@@ -86,7 +89,9 @@ export function prepareRelease(opts: {
 }): PrepareResult {
   let dir: string;
   let source: string;
+  const notes: string[] = [];
   if (opts.assetsDir !== undefined) {
+    if (opts.release !== null) notes.push(`bootstrap: --release ${opts.release} ignored because ASTER_BOOTSTRAP_DIR is set`);
     dir = opts.assetsDir;
     source = `ASTER_BOOTSTRAP_DIR ${dir}`;
     const v = verifyAssets(dir);
@@ -98,8 +103,10 @@ export function prepareRelease(opts: {
     }
     const tag = opts.release ?? resolveTag(opts.root);
     if (tag === null) return { ok: false, message: NO_TAG };
+    if (!RELEASE_TAG.test(tag)) return { ok: false, message: `bootstrap: invalid release tag '${tag}'` };
     source = `release ${tag}`;
-    dir = join(opts.root, 'build', 'bootstrap', tag);
+    const cache = join(opts.root, 'build', 'bootstrap');
+    dir = join(cache, tag);
     if (!existsSync(dir)) {
       mkdirSync(dirname(dir), { recursive: true });
       const d = download(opts.root, opts.gh ?? 'gh', tag, dir);
@@ -107,7 +114,7 @@ export function prepareRelease(opts: {
     }
     const v = verifyAssets(dir);
     if (!v.ok) {
-      rmSync(dir, { recursive: true, force: true });
+      if (dirname(dir) === cache) rmSync(dir, { recursive: true, force: true });
       return { ok: false, message: `bootstrap: ${source}: ${v.message}` };
     }
   }
@@ -116,7 +123,7 @@ export function prepareRelease(opts: {
   const bin = join(opts.work, 'asterc-release');
   copyFileSync(join(dir, BINARY), bin);
   chmodSync(bin, 0o755);
-  if (runs(bin, opts.work)) return { ok: true, builder: { cmd: bin, args: [] }, origin: 'binary', source, notes: [] };
+  if (runs(bin, opts.work)) return { ok: true, builder: { cmd: bin, args: [] }, origin: 'binary', source, notes };
 
   const untar = run('tar', ['-xzf', join(dir, SEED), '-C', opts.work], opts.work);
   if (untar.status !== 0) return { ok: false, message: `bootstrap: ${source}: could not unpack ${SEED}: ${untar.stderr.trim()}` };
@@ -126,5 +133,5 @@ export function prepareRelease(opts: {
   if (built.status !== 0 || !runs(seedBin, opts.work)) {
     return { ok: false, message: `bootstrap: ${source}: neither the binary nor the C seed produced a working compiler\n${built.stderr}` };
   }
-  return { ok: true, builder: { cmd: seedBin, args: [] }, origin: 'c seed', source, notes: [FELL_BACK] };
+  return { ok: true, builder: { cmd: seedBin, args: [] }, origin: 'c seed', source, notes: [...notes, FELL_BACK] };
 }

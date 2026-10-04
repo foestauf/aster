@@ -129,6 +129,28 @@ describe('prepareRelease', () => {
     expect(existsSync(cache)).toBe(false);
   });
 
+  it('rejects a release tag that is not a build tag, and deletes nothing', () => {
+    const root = repo('traversal');
+    const sentinel = join(root, 'build', 'x');
+    mkdirSync(sentinel, { recursive: true });
+    writeFileSync(join(sentinel, 'keep'), 'keep');
+    for (const bad of ['../x', '../..', 'v1']) {
+      const r = prepareRelease({ root, release: bad, assetsDir: undefined, work: mkdtempSync(join(dir, 'work-')), fetch: false });
+      expect(r).toEqual({ ok: false, message: `bootstrap: invalid release tag '${bad}'` });
+    }
+    expect(existsSync(join(sentinel, 'keep'))).toBe(true);
+    expect(existsSync(join(root, '.git'))).toBe(true);
+  });
+
+  it('notes that --release is ignored when ASTER_BOOTSTRAP_DIR is set', () => {
+    const root = repo('ignored');
+    const r = prepareRelease({ root, release: 'build-20260101-aaaaaaa', assetsDir: fixture, work: mkdtempSync(join(dir, 'work-')), fetch: false });
+    expect(r).toMatchObject({
+      ok: true,
+      notes: ['bootstrap: --release build-20260101-aaaaaaa ignored because ASTER_BOOTSTRAP_DIR is set'],
+    });
+  });
+
   it('needs a GitHub origin remote to download', () => {
     const root = repo('no-origin');
     const r = prepareRelease({ root, release: 'build-20260101-aaaaaaa', assetsDir: undefined, work: mkdtempSync(join(dir, 'work-')), fetch: false });

@@ -10,6 +10,7 @@
 - gcc 13 as `cc`.
 - For the LLVM backend only: clang 18 as `clang` and lld 18 as `ld.lld` (Ubuntu 24.04 packages `clang-18`, `lld-18`). Textual `--emit=llvm` does not need clang.
 - Node 24 or later and pnpm. They are needed for the bootstrap, the orchestration scripts and the tests only.
+- `origin` must be a GitHub remote: `pnpm bootstrap` derives the repository from it to download releases.
 - An authenticated `gh` for `pnpm bootstrap`, because the repository is private. Not needed with `ASTER_BOOTSTRAP_DIR` or `pnpm bootstrap:seed`.
 
 `build/asterc` itself needs only `cc` and libc at run time. The C runtime is embedded in the binary (contract section 4.4).
@@ -55,7 +56,8 @@ If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` pr
 
 - `build/asterc`: the installed compiler. `build/` is gitignored.
 - `.selfhost/`: the proof's report directory, with `report.txt`, `report.json`, `c0.c` to `c4.c` and the vitest JSON.
-- Temporary directories named `aster-build-compiler-*`, `aster-selfhost-*` and `aster-normal-path-*` under `$TMPDIR`. The scripts remove them on exit.
+- `build/bootstrap/<tag>/`: the cache of a downloaded release (see [Releases](#releases)).
+- Temporary directories named `aster-build-compiler-*`, `aster-bootstrap-*`, `aster-release-*`, `aster-selfhost-*` and `aster-normal-path-*` under `$TMPDIR`. The scripts remove them on exit.
 
 ## Verifying
 
@@ -72,12 +74,16 @@ CI runs on every push to `main` and every pull request:
 
 `scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. If no `build-*` release exists at all, it bootstraps from the seed with `pnpm bootstrap:seed`. This only happens before the first release.
 
-`release.yml` runs after CI passes on a push to `main` and publishes the release. See [Releases](#releases).
+Both `normal-path` and `release-bootstrap` bootstrap from the release of `HEAD^1`. `release-bootstrap` runs only on pull requests and is the job meant to be the required check.
+
+A push of several commits to `main` publishes a release for the tip only. The intermediate commits get none, so the next CI run waits about 15 minutes for the release of its `HEAD^1`, then falls back to the nearest earlier release.
+
+`release.yml` runs after CI passes on a push to `main` and publishes the release. Its concurrency group can drop a pending release run when merges arrive in quick succession. The fallback covers the gap, and re-running `release.yml` for the missed commit restores the release. See [Releases](#releases).
 
 ## Recovery
 
 - If an edit breaks the compiler, `pnpm build` fails and the old binary stays installed. Fix the source and run `pnpm build` again.
-- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor always can, because of the two-step rule.
+- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor can whenever the two-step rule was enforced for the changes since it, but the fallback may pick an older release than you expect, so it may lack newer features.
 - If `build/` is lost or damaged, run `pnpm bootstrap`.
 - If the release binary won't run, `pnpm bootstrap` builds the C seed automatically and prints a note. You can also build it by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
 - If you have no GitHub access, set `ASTER_BOOTSTRAP_DIR=<dir with the three assets>`, or run `pnpm bootstrap:seed`.

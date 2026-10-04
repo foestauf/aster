@@ -68,6 +68,16 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: LLVM-only toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18
+          clang-18 --version
+          ld.lld-18 --version
+          mkdir -p "$RUNNER_TEMP/aster-llvm-bin"
+          ln -s /usr/bin/clang-18 "$RUNNER_TEMP/aster-llvm-bin/clang"
+          ln -s /usr/bin/ld.lld-18 "$RUNNER_TEMP/aster-llvm-bin/ld.lld"
+          echo "$RUNNER_TEMP/aster-llvm-bin" >> "$GITHUB_PATH"
       - run: pnpm install --frozen-lockfile
       - run: sh scripts/ci-bootstrap.sh
       - run: pnpm test

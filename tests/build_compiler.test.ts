@@ -130,6 +130,13 @@ describe('parseArgs', () => {
     expect(parseArgs([])).toBeNull();
   });
 
+  it('accepts --release only for a well-formed build tag', () => {
+    for (const bad of ['..', '../..', 'build-1-a', 'v1', '', 'build-20261004-c6205b8/..', 'build-20261004-C6205B8']) {
+      expect(parseArgs(['bootstrap', '--release', bad])).toBeNull();
+    }
+    expect(parseArgs(['bootstrap', '--release', 'build-20261004-c6205b8'])).toEqual({ mode: 'bootstrap', release: 'build-20261004-c6205b8' });
+  });
+
   it('names the two-step rule', () => {
     expect(TWO_STEP).toBe('the release cannot build this compiler source; land the feature first, then use it (two-step rule, docs/self-host/building.md)');
   });
