@@ -1,0 +1,26 @@
+fn first(xs: [int]): Option[int] {
+    if len(xs) == 0 { return Option::None; }
+    return Option::Some(xs[0]);
+}
+fn double_first(xs: [int]): Option[int] {
+    let v: int = first(xs)?;
+    return Option::Some(v * 2);
+}
+fn parse_digit(s: string): Result[int, string] {
+    if len(s) != 1 { return Result::Err("bad"); }
+    return Result::Ok(byte_at(s, 0) - '0');
+}
+fn sum_digits(a: string, b: string): Result[int, string] {
+    return Result::Ok(parse_digit(a)? + parse_digit(b)?);
+}
+fn main(): int {
+    match double_first([4]) {
+        Option::Some(v) => print(v),
+        Option::None => {}
+    }
+    match sum_digits("1", "2") {
+        Result::Ok(v) => print(v),
+        Result::Err(e) => print(e),
+    }
+    return 0;
+}

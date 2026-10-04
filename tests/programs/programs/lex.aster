@@ -34,7 +34,7 @@
 // ; 82 83 ;
 // } 84 85 }
 // eof 86 86
-import "lexer.aster";
+import "../../../packages/asterc-self/lexer.aster";
 
 
 // Prints every token to stdout and every error to stderr, one per line, then exits with status 1 if there were errors.

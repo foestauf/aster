@@ -122,12 +122,11 @@ struct Expr {
     node: ExprNode,
 }
 
-// `Int` holds the canonical decimal value and `Char` the literal's source text. A `Str` literal's text is read from the
-// source by its span.
+// `Int` holds the canonical decimal value, and `Char` and `Str` the literal's source text, quotes included.
 enum ExprNode {
     Int(string),
     Char(string),
-    Str,
+    Str(string),
     Bool(bool),
     Name(string),
     Unary(string, Expr),
@@ -899,7 +898,7 @@ fn parse_primary(p: Parser): Option[Expr] {
         }
         "string" => {
             advance(p);
-            return Option::Some(Expr { start: t.start, end: t.end, node: ExprNode::Str });
+            return Option::Some(Expr { start: t.start, end: t.end, node: ExprNode::Str(text(p, t)) });
         }
         "true" | "false" => {
             advance(p);

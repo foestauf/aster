@@ -1,0 +1,78 @@
+// Prints the typed program in the canonical dump format. It loads the program rooted at the file named by its only
+// argument, with every file it imports, and type-checks it. Diagnostics go to stderr exactly as check.aster prints
+// them, exiting with status 1 if there are any; with none it prints the typed program's dump (dump_typed in
+// packages/asterc-self/typed_dump.aster) to stdout. tests/typed_aster.test.ts checks it against the compiler's own
+// typed program printed by tests/typed_dump.ts.
+// expect-args: fixtures/check_small.txt
+// expect-stdout:
+// struct Point
+//   field x int
+//   field y int
+// enum Color
+//   variant Red
+//   variant Green
+// enum Option[int]
+//   variant Some int
+//   variant None
+// fn main int
+//   local 0 p Point let
+//   local 1 c Color let
+//   local 2 o Option[int] let
+//   local 3 n int var
+//   body
+//     let 0
+//       struct-lit Point : Point
+//         init x
+//           int 1 : int
+//         init y
+//           int 2 : int
+//     let 1
+//       variant Color Red 0 : Color
+//     let 2
+//       variant Option[int] Some 0 : Option[int]
+//         field .x : int
+//           local 0 p : Point
+//     let 3
+//       field .y : int
+//         local 0 p : Point
+//     assign +=
+//       place-local 3 n : int
+//       int 1 : int
+//     return
+//       int 0 : int
+
+import "../../../packages/asterc-self/loader.aster";
+import "../../../packages/asterc-self/checker.aster";
+import "../../../packages/asterc-self/report.aster";
+import "../../../packages/asterc-self/typed_dump.aster";
+
+// Prints `msg` to stderr and exits with status 2, for a usage or read error.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(2);
+}
+
+fn main(args: [string]): int {
+    if len(args) != 1 {
+        die("usage: typed <file>");
+    }
+    match read_file(args[0]) {
+        Result::Ok(src) => {
+            let loaded: Loaded = load_program(args[0], src);
+            if len(loaded.diags) > 0 {
+                print_diags(loaded.files, sort_diags(loaded.diags));
+                exit(1);
+            }
+            let checked: Checked = check_program(loaded.items, loaded.root_end);
+            if len(checked.diags) > 0 {
+                print_diags(loaded.files, sort_diags(checked.diags));
+                exit(1);
+            }
+            for l in dump_typed(checked) {
+                print(l);
+            }
+            return 0;
+        }
+        Result::Err(msg) => die(msg),
+    }
+}

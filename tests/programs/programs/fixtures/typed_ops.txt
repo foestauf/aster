@@ -1,0 +1,22 @@
+enum Dir { Up, Down }
+fn add(a: int, b: int): int { return a + b; }
+fn main(): int {
+    let x: int = -add(1, 2) * 3 / 4 % 5 - 6;
+    let ok: bool = !(x < 0) && x <= 1 || x > 2 && x >= 3 && x == 4 && x != 5;
+    let same: bool = Dir::Up == Dir::Down;
+    let differ: bool = Dir::Up != Dir::Down;
+    let s: string = "a" + int_to_string(len("bc"));
+    let eq: bool = s == "a2";
+    let arr: [int] = [1, 2, 3];
+    push(arr, 4);
+    let last: int = pop(arr);
+    let n: int = len(arr) + byte_at(s, 0) + len(substring(s, 0, 1));
+    eprint(n);
+    print(ok);
+    print(same || differ || eq);
+    let r: Result[string, string] = read_file("/nonexistent");
+    if x > 100 { exit(3); }
+    if x > 200 { panic("big"); }
+    let input: string = read_stdin();
+    return last + len(input);
+}

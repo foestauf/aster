@@ -1,17 +1,18 @@
 // expect-library
 // The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
 // builtins.ts) and the parts of types/type.ts it needs. `check_program` checks the items of a loaded program and
-// returns its diagnostics, with global byte offsets, and the typed program's structs, enums and functions (with their
-// locals) for check.aster's summary. tests/check_aster.test.ts checks it, through check.aster, against the compiler's
-// own checker. The functions follow checker.ts's order, with the same names in snake_case.
+// returns its diagnostics, with global byte offsets, and the typed program: its structs, enums and functions, with
+// their locals and typed bodies. tests/check_aster.test.ts checks its diagnostics and summary, through check.aster,
+// against the compiler's own checker. The functions follow checker.ts's order, with the same names in snake_case.
 //
 // Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
 // returns the index of the entry, if any.
 //
-// `check_expr` returns only an expression's type, and statements only whether they diverge (spec §2, "Types only, no
-// typed tree").
-//
-// Matches are checked for their diagnostics, binders and divergence only; there are no typed patterns.
+// The typed program mirrors check/types.ts field for field: `check_expr` returns an expression's typed node, and
+// `check_stmt` and `check_block` a statement's or block's typed node with whether it diverges. That covers `?`,
+// `let ... else`, `if let`, `match` and its patterns, and every local with the id TS gives it. typed_dump.aster prints
+// the tree in a canonical format, and tests/typed_aster.test.ts checks that dump, through typed.aster, against
+// tests/typed_dump.ts's on the whole accepted corpus.
 
 import "loader.aster";
 
@@ -177,12 +178,62 @@ struct TEnum {
     args: [Type],
 }
 
-// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id.
+// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id. `body`
+// is the typed body.
 struct TFunction {
     name: string,
     params: int,
     locals: [Local],
     ret: Type,
+    body: TBlock,
+}
+
+// ---- the typed tree (check/types.ts)
+
+struct TBlock { stmts: [TStmt] }
+
+// A match arm: an expression-bodied arm has an `Expr` body, a block-bodied one a `Block`.
+struct TArm { pattern: TPattern, body: TArmBody }
+
+enum TArmBody { Block(TBlock), Expr(TExpr) }
+
+// A variant alternative of a pattern, with its tag.
+struct TVariantRef { name: string, tag: int }
+
+// `Variants` holds the alternatives and, when there is exactly one, one binder per payload slot (`None` for `_`);
+// otherwise no binders. `Ints` holds decimal values and `Strings` decoded values.
+enum TPattern { Wildcard, Variants([TVariantRef], [Option[Local]]), Ints([string]), Strings([string]) }
+
+// An assignment target.
+struct TPlace { ty: Type, node: TPlaceNode }
+
+enum TPlaceNode { Local(Local), Field(TExpr, string), Index(TExpr, TExpr) }
+
+struct TFieldInit { field: string, value: TExpr }
+
+// `operand?`: continues with payload slot 0 of `ok_variant`, or returns `return_fail_variant` of `return_enum` (the
+// enclosing function's return type) from the function. `fail_payload_type` is the operand's `Err` slot type for
+// `Result`, carried into the returned `Err`, and `None` for `Option`.
+struct TTry {
+    operand: TExpr, ok_variant: string, ok_tag: int, fail_variant: string, fail_tag: int, return_type: Type,
+    return_enum: string, return_fail_variant: string, return_fail_tag: int, fail_payload_type: Option[Type],
+}
+
+struct TExpr { ty: Type, node: TExprNode }
+
+// `Int` holds the decimal value, `Str` the decoded value. `Call` names a user function, `Builtin` a builtin.
+// `Variant` is (enum, variant, tag, args). `Error` stands for an expression that failed to check.
+enum TExprNode {
+    Int(string), Str(string), Bool(bool), Local(Local), Unary(string, TExpr), Binary(string, TExpr, TExpr),
+    Call(string, [TExpr]), Builtin(string, [TExpr]), If(TExpr, TExpr, TExpr), Field(TExpr, string),
+    Index(TExpr, TExpr), ArrayLit([TExpr]), StructLit(string, [TFieldInit]), Variant(string, string, int, [TExpr]),
+    EnumCompare(string, TExpr, TExpr), Match(TExpr, [TArm]), Try(TTry), Error,
+}
+
+enum TStmt {
+    Let(Local, TExpr), Assign(TPlace, string, TExpr), If(TExpr, TBlock, Option[TBlock]), While(TExpr, TBlock),
+    ForRange(Local, TExpr, TExpr, TBlock), ForEach(Local, TExpr, TBlock), Break, Continue, Return(Option[TExpr]),
+    Match(TExpr, [TArm]), Block(TBlock), Expr(TExpr),
 }
 
 // A generic enum, kept as written until an instantiation names it (check/generics.ts).
@@ -995,15 +1046,15 @@ fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TF
         let p: Typed = decl.params[i];
         declare(ctx, p.name, sig.params[i], false);
     }
-    let diverges: bool = check_block(ctx, decl.body);
+    let body: CheckedBlock = check_block(ctx, decl.body);
     if is_never(sig.ret) {
-        if !diverges {
+        if !body.diverges {
             report(ctx.env, "function '" + decl.name.name + "' returns 'never' but can reach its end", decl.name.start, decl.name.end);
         }
-    } else if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
+    } else if !body.diverges && !is_void(sig.ret) && !is_error(sig.ret) {
         report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
-    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
+    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret, body: body.node };
 }
 
 fn find_local(scope: [Local], name: string): Option[int] {
@@ -1055,29 +1106,42 @@ fn expect_type(ctx: Ctx, expected: Type, actual: Type, start: int, end: int) {
     report(ctx.env, "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
 }
 
-fn check_condition(ctx: Ctx, e: Expr): Type {
-    let cond: Type = check_expr(ctx, e, Option::None);
-    if kind_of_type(cond) != "bool" && !is_error(cond) {
-        report(ctx.env, "condition must be bool, found " + type_to_string(cond), e.start, e.end);
+fn check_condition(ctx: Ctx, e: Expr): TExpr {
+    let cond: TExpr = check_expr(ctx, e, Option::None);
+    if kind_of_type(cond.ty) != "bool" && !is_error(cond.ty) {
+        report(ctx.env, "condition must be bool, found " + type_to_string(cond.ty), e.start, e.end);
     }
     return cond;
 }
 
-// ---- statements. Each returns true when control can never continue past it.
+// ---- statements. Each returns its typed node and whether control can never continue past it.
 
-fn check_block(ctx: Ctx, b: Block): bool {
+struct CheckedStmt {
+    node: TStmt,
+    diverges: bool,
+}
+
+struct CheckedBlock {
+    node: TBlock,
+    diverges: bool,
+}
+
+fn check_block(ctx: Ctx, b: Block): CheckedBlock {
     push(ctx.scopes, []);
+    let stmts: [TStmt] = [];
     var diverges: bool = false;
     for s in b.stmts {
-        if check_stmt(ctx, s) {
+        let checked: CheckedStmt = check_stmt(ctx, s);
+        push(stmts, checked.node);
+        if checked.diverges {
             diverges = true;
         }
     }
     pop(ctx.scopes);
-    return diverges;
+    return CheckedBlock { node: TBlock { stmts: stmts }, diverges: diverges };
 }
 
-fn check_stmt(ctx: Ctx, s: Stmt): bool {
+fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
     match s.node {
         StmtNode::Let(mutable, name, ty, init) => {
             var t: Type = resolve_type(ctx.env, ty);
@@ -1085,116 +1149,116 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
                 report(ctx.env, "variable cannot have type void", ty.start, ty.end);
                 t = Type::Error;
             }
-            let init_type: Type = check_expr(ctx, init, Option::Some(t));
-            expect_type(ctx, t, init_type, init.start, init.end);
-            declare(ctx, name, t, mutable);
-            return is_never(init_type);
+            let value: TExpr = check_expr(ctx, init, Option::Some(t));
+            expect_type(ctx, t, value.ty, init.start, init.end);
+            let local: Local = declare(ctx, name, t, mutable);
+            return CheckedStmt { node: TStmt::Let(local, value), diverges: is_never(value.ty) };
         }
         StmtNode::LetElse(pattern, init, else_keyword, other) => {
-            check_let_else(ctx, pattern, init, else_keyword, other);
-            // The statement falls through whenever the pattern matches.
-            return false;
+            return check_let_else(ctx, pattern, init, else_keyword, other);
         }
         StmtNode::IfLet(pattern, scrutinee, then, other) => {
             return check_if_let(ctx, pattern, scrutinee, then, other);
         }
         StmtNode::Assign(op, target, value) => {
-            // check_place gives the error type for a target that was already reported: it has no type to guide the
-            // value, and must not cascade into it. A place whose type is an error behaves the same from here on.
-            let place: Type = check_place(ctx, target);
-            let value_type: Type = check_expr(ctx, value, Option::Some(place));
-            if is_error(place) {
-                return false;
-            }
+            let place: Option[TPlace] = check_place(ctx, target);
+            // A target that was already reported has no type to guide the value, and must not cascade into it.
+            let expected: Type = match place {
+                Option::Some(p) => p.ty,
+                Option::None => Type::Error,
+            };
+            let v: TExpr = check_expr(ctx, value, Option::Some(expected));
+            let Option::Some(p) = place else {
+                return CheckedStmt { node: TStmt::Expr(v), diverges: false };
+            };
             if op == "=" {
-                expect_type(ctx, place, value_type, value.start, value.end);
+                expect_type(ctx, p.ty, v.ty, value.start, value.end);
             } else {
-                check_compound(ctx, s, op, place, value_type);
+                check_compound(ctx, s, op, p.ty, v.ty);
             }
-            return false;
+            return CheckedStmt { node: TStmt::Assign(p, op, v), diverges: false };
         }
         StmtNode::If(cond, then, other) => {
             return check_if(ctx, cond, then, other);
         }
         StmtNode::While(cond, body) => {
-            check_condition(ctx, cond);
+            let c: TExpr = check_condition(ctx, cond);
             let lp: Loop = Loop { has_break: false };
             push(ctx.loops, lp);
-            check_block(ctx, body);
+            let b: CheckedBlock = check_block(ctx, body);
             pop(ctx.loops);
             let literal_true: bool = match cond.node {
                 ExprNode::Bool(v) => v,
                 _ => false,
             };
-            return literal_true && !lp.has_break;
+            return CheckedStmt { node: TStmt::While(c, b.node), diverges: literal_true && !lp.has_break };
         }
         StmtNode::ForRange(name, start, end, body) => {
-            check_range_bound(ctx, start);
-            check_range_bound(ctx, end);
-            check_for_body(ctx, name, Type::Int, body);
+            let from: TExpr = check_range_bound(ctx, start);
+            let to: TExpr = check_range_bound(ctx, end);
+            let f: ForBody = check_for_body(ctx, name, Type::Int, body);
             // A for loop may run zero times, so it never ends a control path on its own.
-            return false;
+            return CheckedStmt { node: TStmt::ForRange(f.local, from, to, f.body), diverges: false };
         }
         StmtNode::ForEach(name, iterable, body) => {
-            let array: Type = check_expr(ctx, iterable, Option::None);
+            let array: TExpr = check_expr(ctx, iterable, Option::None);
             var elem: Type = Type::Error;
-            match array {
+            match array.ty {
                 Type::Array(t) => {
                     elem = t;
                 }
                 _ => {
-                    if !is_error(array) {
-                        report(ctx.env, "cannot iterate over a value of type " + type_to_string(array), iterable.start, iterable.end);
+                    if !is_error(array.ty) {
+                        report(ctx.env, "cannot iterate over a value of type " + type_to_string(array.ty), iterable.start, iterable.end);
                     }
                 }
             }
-            check_for_body(ctx, name, elem, body);
-            return false;
+            let f: ForBody = check_for_body(ctx, name, elem, body);
+            return CheckedStmt { node: TStmt::ForEach(f.local, array, f.body), diverges: false };
         }
         StmtNode::Break => {
             check_loop_exit(ctx, s, "break");
-            return true;
+            return CheckedStmt { node: TStmt::Break, diverges: true };
         }
         StmtNode::Continue => {
             check_loop_exit(ctx, s, "continue");
-            return true;
+            return CheckedStmt { node: TStmt::Continue, diverges: true };
         }
         StmtNode::Return(value) => {
             if is_never(ctx.ret) {
                 report(ctx.env, "cannot return from a function that returns 'never'", s.start, s.end);
+                var checked: Option[TExpr] = Option::None;
                 if let Option::Some(v) = value {
-                    check_expr(ctx, v, Option::None);
+                    checked = Option::Some(check_expr(ctx, v, Option::None));
                 }
-                return true;
+                return CheckedStmt { node: TStmt::Return(checked), diverges: true };
             }
-            match value {
-                Option::None => {
-                    if !is_void(ctx.ret) && !is_error(ctx.ret) {
-                        report(ctx.env, "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
-                    }
+            let Option::Some(v) = value else {
+                if !is_void(ctx.ret) && !is_error(ctx.ret) {
+                    report(ctx.env, "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
                 }
-                Option::Some(v) => {
-                    // In a void function the value is wrong whatever it is, so `[]` must not also be reported as
-                    // uninferable.
-                    let expected: Type = if is_void(ctx.ret) { Type::Error } else { ctx.ret };
-                    let t: Type = check_expr(ctx, v, Option::Some(expected));
-                    if is_void(ctx.ret) {
-                        report(ctx.env, "void function cannot return a value", v.start, v.end);
-                    } else {
-                        expect_type(ctx, ctx.ret, t, v.start, v.end);
-                    }
-                }
+                return CheckedStmt { node: TStmt::Return(Option::None), diverges: true };
+            };
+            // In a void function the value is wrong whatever it is, so `[]` must not also be reported as uninferable.
+            let expected: Type = if is_void(ctx.ret) { Type::Error } else { ctx.ret };
+            let checked: TExpr = check_expr(ctx, v, Option::Some(expected));
+            if is_void(ctx.ret) {
+                report(ctx.env, "void function cannot return a value", v.start, v.end);
+            } else {
+                expect_type(ctx, ctx.ret, checked.ty, v.start, v.end);
             }
-            return true;
+            return CheckedStmt { node: TStmt::Return(Option::Some(checked)), diverges: true };
         }
         StmtNode::Match(keyword, scrutinee, arms) => {
             return check_match(ctx, keyword, scrutinee, arms);
         }
         StmtNode::Block(b) => {
-            return check_block(ctx, b);
+            let checked: CheckedBlock = check_block(ctx, b);
+            return CheckedStmt { node: TStmt::Block(checked.node), diverges: checked.diverges };
         }
         StmtNode::Expr(e) => {
-            return is_never(check_expr(ctx, e, Option::None));
+            let checked: TExpr = check_expr(ctx, e, Option::None);
+            return CheckedStmt { node: TStmt::Expr(checked), diverges: is_never(checked.ty) };
         }
     }
 }
@@ -1208,30 +1272,39 @@ fn check_loop_exit(ctx: Ctx, s: Stmt, kind: string) {
     }
 }
 
-fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
-    check_condition(ctx, cond);
-    let then_diverges: bool = check_block(ctx, then);
+fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): CheckedStmt {
+    let c: TExpr = check_condition(ctx, cond);
+    let t: CheckedBlock = check_block(ctx, then);
+    if let Else::None = other {
+        return CheckedStmt { node: TStmt::If(c, t.node, Option::None), diverges: false };
+    }
+    let o: CheckedBlock = check_else(ctx, other);
+    return CheckedStmt { node: TStmt::If(c, t.node, Option::Some(o.node)), diverges: t.diverges && o.diverges };
+}
+
+// Checks the else branch of an `if` or `if let`: a block, or a chained `if`/`if let` wrapped in a block. Callers
+// handle an absent branch themselves.
+fn check_else(ctx: Ctx, other: Else): CheckedBlock {
     match other {
         Else::None => {
-            return false;
+            panic("internal: check_else without an else branch");
         }
         Else::Block(b) => {
-            let other_diverges: bool = check_block(ctx, b);
-            return then_diverges && other_diverges;
+            return check_block(ctx, b);
         }
         Else::If(nested) => {
-            var other_diverges: bool = false;
-            if let StmtNode::If(c, t, e) = nested.node {
-                other_diverges = check_if(ctx, c, t, e);
-            }
-            return then_diverges && other_diverges;
+            let StmtNode::If(c, t, e) = nested.node else {
+                panic("internal: else-if is not an if");
+            };
+            let checked: CheckedStmt = check_if(ctx, c, t, e);
+            return CheckedBlock { node: TBlock { stmts: [checked.node] }, diverges: checked.diverges };
         }
         Else::IfLet(nested) => {
-            var other_diverges: bool = false;
-            if let StmtNode::IfLet(p, sc, t, e) = nested.node {
-                other_diverges = check_if_let(ctx, p, sc, t, e);
-            }
-            return then_diverges && other_diverges;
+            let StmtNode::IfLet(p, sc, t, e) = nested.node else {
+                panic("internal: else-if-let is not an if let");
+            };
+            let checked: CheckedStmt = check_if_let(ctx, p, sc, t, e);
+            return CheckedBlock { node: TBlock { stmts: [checked.node] }, diverges: checked.diverges };
         }
     }
 }
@@ -1245,126 +1318,134 @@ fn declare_existing(ctx: Ctx, name: Ident, local: Local) {
     push(scope, local);
 }
 
-// The arms let-else and if-let check as a match: the pattern with `body`, then a synthetic wildcard (at the pattern's
-// span) with `other`.
-fn refutable_arms(pattern: Pattern, body: Block, other: Block): [Arm] {
+// The arms let-else and if-let check as a match: the pattern with `body`, then a synthetic wildcard at the pattern's
+// span. check_arms checks the wildcard arm's body from its `refutable` else branch, so it is left empty here.
+fn refutable_arms(pattern: Pattern, body: Block): [Arm] {
     let wildcard: Pattern = Pattern { start: pattern.start, end: pattern.end, node: PatternNode::Wildcard };
-    return [Arm { pattern: pattern, body: ArmBody::Block(body) }, Arm { pattern: wildcard, body: ArmBody::Block(other) }];
-}
-
-fn empty_block(start: int, end: int): Block {
-    return Block { start: start, end: end, stmts: [] };
+    let empty: Block = Block { start: pattern.start, end: pattern.end, stmts: [] };
+    return [Arm { pattern: pattern, body: ArmBody::Block(body) }, Arm { pattern: wildcard, body: ArmBody::Block(empty) }];
 }
 
 // `let P = init else { ... };`: the scrutinee, then the pattern's binders (allocated in the first arm's scope, which
-// fixes their local ids), then the else block, which can't see them. The binders then enter the enclosing scope.
-fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, other: Block) {
+// fixes their local ids), then the else block, which can't see them. The binders then enter the enclosing scope with
+// the same locals. It becomes a match whose first arm is empty and whose wildcard arm is the else block, and falls
+// through whenever the pattern matches.
+fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, other: Block): CheckedStmt {
     let keyword: Ident = Ident { name: "let", start: pattern.start, end: pattern.end };
-    let arms: [Arm] = refutable_arms(pattern, empty_block(pattern.start, pattern.end), other);
-    let m: MatchArms = check_arms(ctx, keyword, init, arms, false, Option::None, true);
+    let m: MatchArms = check_arms(ctx, keyword, init, refutable_arms(pattern, Block { start: pattern.start, end: pattern.end, stmts: [] }), false, Option::None, Option::Some(Else::Block(other)));
     if !m.diverges[1] {
         report(ctx.env, "'else' block of 'let' must diverge", else_keyword.start, else_keyword.end);
     }
     // `m.binders` holds the binders' locals but not their spans, which a clash in the enclosing scope is reported at,
     // so walk the pattern again for each binder's name. `declared` skips a name the pattern repeats (already reported
     // as a duplicate binding), and only a variant pattern binds names.
-    let PatternNode::Variant(_, _, binders) = pattern.node else {
-        return;
-    };
-    let declared: [string] = [];
-    for b in binders {
-        let Binder::Named(id) = b else {
-            continue;
-        };
-        if contains(declared, id.name) {
-            continue;
-        }
-        if let Option::Some(j) = find_local(m.binders, id.name) {
-            push(declared, id.name);
-            declare_existing(ctx, id, m.binders[j]);
+    if let PatternNode::Variant(_, _, binders) = pattern.node {
+        let declared: [string] = [];
+        for b in binders {
+            let Binder::Named(id) = b else {
+                continue;
+            };
+            if contains(declared, id.name) {
+                continue;
+            }
+            if let Option::Some(j) = find_local(m.binders, id.name) {
+                push(declared, id.name);
+                declare_existing(ctx, id, m.binders[j]);
+            }
         }
     }
+    let arms: [TArm] = [
+        TArm { pattern: m.patterns[0], body: TArmBody::Block(TBlock { stmts: [] }) },
+        TArm { pattern: m.patterns[1], body: m.bodies[1] },
+    ];
+    return CheckedStmt { node: TStmt::Match(m.scrutinee, arms), diverges: false };
+}
+
+// Whether an `if` or `if let` has an else branch (TS's `else !== null`).
+fn has_else_branch(other: Else): bool {
+    return match other {
+        Else::None => false,
+        _ => true,
+    };
 }
 
 // `if let P = scrutinee { ... } else ...`: the scrutinee, then the pattern's binders (scoped to the then block), then
-// the then block, then the else branch. A chained `if` or `if let` is checked as a block holding just that statement.
-// It diverges when it has an else branch and both branches diverge.
-fn check_if_let(ctx: Ctx, pattern: Pattern, scrutinee: Expr, then: Block, other: Else): bool {
-    var has_else: bool = true;
-    var other_block: Block = empty_block(pattern.start, pattern.end);
-    match other {
-        Else::None => {
-            has_else = false;
-        }
-        Else::Block(b) => {
-            other_block = b;
-        }
-        Else::If(nested) => {
-            other_block = Block { start: nested.start, end: nested.end, stmts: [nested] };
-        }
-        Else::IfLet(nested) => {
-            other_block = Block { start: nested.start, end: nested.end, stmts: [nested] };
-        }
-    }
+// the then block, then the else branch (check_else). It becomes a match of the pattern with the then block and a
+// wildcard with the else branch (an empty block when there is none), and diverges when it has an else branch and both
+// branches diverge.
+fn check_if_let(ctx: Ctx, pattern: Pattern, scrutinee: Expr, then: Block, other: Else): CheckedStmt {
     let keyword: Ident = Ident { name: "if", start: pattern.start, end: pattern.end };
-    let m: MatchArms = check_arms(ctx, keyword, scrutinee, refutable_arms(pattern, then, other_block), false, Option::None, true);
-    return has_else && m.diverges[0] && m.diverges[1];
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, refutable_arms(pattern, then), false, Option::None, Option::Some(other));
+    let arms: [TArm] = [TArm { pattern: m.patterns[0], body: m.bodies[0] }, TArm { pattern: m.patterns[1], body: m.bodies[1] }];
+    return CheckedStmt { node: TStmt::Match(m.scrutinee, arms), diverges: has_else_branch(other) && m.diverges[0] && m.diverges[1] };
 }
 
-fn check_range_bound(ctx: Ctx, e: Expr): Type {
-    let bound: Type = check_expr(ctx, e, Option::None);
-    if !is_error(bound) && kind_of_type(bound) != "int" {
-        report(ctx.env, "range bound must be int, found " + type_to_string(bound), e.start, e.end);
+fn check_range_bound(ctx: Ctx, e: Expr): TExpr {
+    let bound: TExpr = check_expr(ctx, e, Option::None);
+    if !is_error(bound.ty) && kind_of_type(bound.ty) != "int" {
+        report(ctx.env, "range bound must be int, found " + type_to_string(bound.ty), e.start, e.end);
     }
     return bound;
 }
 
+// A for loop's variable and typed body.
+struct ForBody {
+    local: Local,
+    body: TBlock,
+}
+
 // Checks a for-loop body with the immutable loop variable declared in a scope of its own.
-fn check_for_body(ctx: Ctx, name: Ident, ty: Type, b: Block) {
+fn check_for_body(ctx: Ctx, name: Ident, ty: Type, b: Block): ForBody {
     push(ctx.scopes, []);
-    declare(ctx, name, ty, false);
+    let local: Local = declare(ctx, name, ty, false);
     push(ctx.loops, Loop { has_break: false });
-    check_block(ctx, b);
+    let body: CheckedBlock = check_block(ctx, b);
     pop(ctx.loops);
     pop(ctx.scopes);
+    return ForBody { local: local, body: body.node };
 }
 
 // ---- expressions
 
+// The node for an expression that failed to check (TS's errorExpr).
+fn error_expr(): TExpr {
+    return TExpr { ty: Type::Error, node: TExprNode::Error };
+}
+
 // `expected` only guides array literals (and passes into if-expression branches); callers still check the result.
-fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
+fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
     match e.node {
-        ExprNode::Int(_) => {
-            return Type::Int;
+        ExprNode::Int(value) => {
+            return TExpr { ty: Type::Int, node: TExprNode::Int(value) };
         }
-        ExprNode::Char(_) => {
-            return Type::Int;
+        ExprNode::Char(text) => {
+            return TExpr { ty: Type::Int, node: TExprNode::Int(int_to_string(char_pattern_value(text))) };
         }
-        ExprNode::Str => {
-            return Type::Str;
+        ExprNode::Str(text) => {
+            return TExpr { ty: Type::Str, node: TExprNode::Str(string_literal_value(text)) };
         }
-        ExprNode::Bool(_) => {
-            return Type::Bool;
+        ExprNode::Bool(value) => {
+            return TExpr { ty: Type::Bool, node: TExprNode::Bool(value) };
         }
         ExprNode::Name(name) => {
             if let Option::Some(local) = lookup(ctx, name) {
-                return local.ty;
+                return TExpr { ty: local.ty, node: TExprNode::Local(local) };
             }
             let message: string = if is_function_name(ctx, name) { "'" + name + "' is a function, not a value" } else { "undefined name '" + name + "'" };
             report(ctx.env, message, e.start, e.end);
-            return Type::Error;
+            return error_expr();
         }
-        ExprNode::Unary(op, operand) => {
-            let t: Type = check_expr(ctx, operand, Option::None);
-            if is_error(t) {
-                return Type::Error;
+        ExprNode::Unary(op, operand_expr) => {
+            let operand: TExpr = check_expr(ctx, operand_expr, Option::None);
+            if is_error(operand.ty) {
+                return error_expr();
             }
             let want: Type = if op == "-" { Type::Int } else { Type::Bool };
-            if !type_equals(t, want) {
-                report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(t), e.start, e.end);
-                return Type::Error;
+            if !type_equals(operand.ty, want) {
+                report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(operand.ty), e.start, e.end);
+                return error_expr();
             }
-            return want;
+            return TExpr { ty: want, node: TExprNode::Unary(op, operand) };
         }
         ExprNode::Binary(op, left, right) => {
             return check_binary(ctx, e, op, left, right);
@@ -1375,37 +1456,37 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
         ExprNode::Match(keyword, scrutinee, arms) => {
             return check_match_expr(ctx, e, keyword, scrutinee, arms, expected);
         }
-        ExprNode::If(cond, then, other) => {
-            check_condition(ctx, cond);
-            let a: Type = check_expr(ctx, then, expected);
-            let b: Type = check_expr(ctx, other, expected);
-            if is_error(a) || is_error(b) {
-                return Type::Error;
+        ExprNode::If(cond_expr, then_expr, other_expr) => {
+            let cond: TExpr = check_condition(ctx, cond_expr);
+            let then: TExpr = check_expr(ctx, then_expr, expected);
+            let other: TExpr = check_expr(ctx, other_expr, expected);
+            if is_error(then.ty) || is_error(other.ty) {
+                return error_expr();
             }
             // A branch of type never doesn't take part in the "same type" rule.
-            let ty: Type = if is_never(a) { b } else { a };
-            if !is_never(a) && !is_never(b) && !type_equals(a, b) {
-                report(ctx.env, "if branches have different types: " + type_to_string(a) + " and " + type_to_string(b), e.start, e.end);
-                return Type::Error;
+            let ty: Type = if is_never(then.ty) { other.ty } else { then.ty };
+            if !is_never(then.ty) && !is_never(other.ty) && !type_equals(then.ty, other.ty) {
+                report(ctx.env, "if branches have different types: " + type_to_string(then.ty) + " and " + type_to_string(other.ty), e.start, e.end);
+                return error_expr();
             }
             if is_void(ty) {
                 report(ctx.env, "if expression cannot have type void", e.start, e.end);
-                return Type::Error;
+                return error_expr();
             }
-            return ty;
+            return TExpr { ty: ty, node: TExprNode::If(cond, then, other) };
         }
-        ExprNode::Field(object, field) => {
-            let t: Type = check_expr(ctx, object, Option::None);
-            if is_error(t) {
-                return Type::Error;
+        ExprNode::Field(object_expr, field) => {
+            let object: TExpr = check_expr(ctx, object_expr, Option::None);
+            if is_error(object.ty) {
+                return error_expr();
             }
-            if let Type::Struct(name) = t {
+            if let Type::Struct(name) = object.ty {
                 if let Option::Some(f) = find_field(ctx.env, name, field.name) {
-                    return f.ty;
+                    return TExpr { ty: f.ty, node: TExprNode::Field(object, field.name) };
                 }
             }
-            report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(t) + "'", field.start, field.end);
-            return Type::Error;
+            report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(object.ty) + "'", field.start, field.end);
+            return error_expr();
         }
         ExprNode::StructLit(name, fields) => {
             return check_struct_lit(ctx, name, fields);
@@ -1414,26 +1495,22 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
             return check_try(ctx, e, operand);
         }
         ExprNode::Index(array_expr, index_expr) => {
-            let array: Type = check_expr(ctx, array_expr, Option::None);
-            let index: Type = check_expr(ctx, index_expr, Option::None);
-            if !is_error(index) && kind_of_type(index) != "int" {
-                report(ctx.env, "array index must be int, found " + type_to_string(index), index_expr.start, index_expr.end);
+            let array: TExpr = check_expr(ctx, array_expr, Option::None);
+            let index: TExpr = check_expr(ctx, index_expr, Option::None);
+            if !is_error(index.ty) && kind_of_type(index.ty) != "int" {
+                report(ctx.env, "array index must be int, found " + type_to_string(index.ty), index_expr.start, index_expr.end);
             }
-            if is_error(array) {
-                return Type::Error;
+            if is_error(array.ty) {
+                return error_expr();
             }
-            match array {
-                Type::Array(elem) => {
-                    if kind_of_type(index) != "int" {
-                        return Type::Error;
-                    }
-                    return elem;
-                }
-                _ => {
-                    report(ctx.env, "cannot index a value of type " + type_to_string(array), array_expr.start, array_expr.end);
-                    return Type::Error;
-                }
+            let Type::Array(elem) = array.ty else {
+                report(ctx.env, "cannot index a value of type " + type_to_string(array.ty), array_expr.start, array_expr.end);
+                return error_expr();
+            };
+            if kind_of_type(index.ty) != "int" {
+                return error_expr();
             }
+            return TExpr { ty: elem, node: TExprNode::Index(array, index) };
         }
         ExprNode::ArrayLit(elements) => {
             return check_array_lit(ctx, e, elements, expected);
@@ -1459,41 +1536,57 @@ fn tryable(env: Env, t: Type): Option[int] {
 }
 
 // `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function.
-fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
-    let t: Type = check_expr(ctx, operand, Option::None);
+fn check_try(ctx: Ctx, e: Expr, operand_expr: Expr): TExpr {
+    let operand: TExpr = check_expr(ctx, operand_expr, Option::None);
+    let t: Type = operand.ty;
     if is_error(t) {
-        return Type::Error;
+        return error_expr();
     }
     let Option::Some(oi) = tryable(ctx.env, t) else {
         report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     };
     let op: TEnum = ctx.env.enums[oi];
     let is_result: bool = op.base == "Result";
     let ty: Type = op.variants[0].payload[0];
-    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`).
+    let fail_payload_type: Option[Type] = if is_result { Option::Some(op.variants[1].payload[0]) } else { Option::None };
+    let return_enum: string = match ctx.ret {
+        Type::Enum(name) => name,
+        _ => "",
+    };
+    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`); only lowering is unreachable then.
     if is_error(ctx.ret) {
-        return ty;
+        let unresolved: TTry = TTry {
+            operand: operand, ok_variant: op.variants[0].name, ok_tag: 0, fail_variant: op.variants[1].name, fail_tag: 1,
+            return_type: ctx.ret, return_enum: return_enum, return_fail_variant: op.variants[1].name, return_fail_tag: 1,
+            fail_payload_type: fail_payload_type,
+        };
+        return TExpr { ty: ty, node: TExprNode::Try(unresolved) };
     }
     // A return type that isn't tryable at all and one of the other kind get the same message.
     let kind: string = if is_result { "a Result" } else { "an Option" };
     let wrong_return: string = "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'";
     let Option::Some(ri) = tryable(ctx.env, ctx.ret) else {
         report(ctx.env, wrong_return, e.start, e.end);
-        return Type::Error;
+        return error_expr();
     };
     let ret: TEnum = ctx.env.enums[ri];
     if ret.base != op.base {
         report(ctx.env, wrong_return, e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
     if is_result && !type_equals(op.args[1], ret.args[1]) {
         let mine: string = type_to_string(op.args[1]);
         let theirs: string = type_to_string(ret.args[1]);
         report(ctx.env, "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
-    return ty;
+    let node: TTry = TTry {
+        operand: operand, ok_variant: op.variants[0].name, ok_tag: 0, fail_variant: op.variants[1].name, fail_tag: 1,
+        return_type: ctx.ret, return_enum: return_enum, return_fail_variant: ret.variants[1].name, return_fail_tag: 1,
+        fail_payload_type: fail_payload_type,
+    };
+    return TExpr { ty: ty, node: TExprNode::Try(node) };
 }
 
 fn variant_arity_message(enum_name: string, variant: string, expected: int, found: int): string {
@@ -1537,7 +1630,7 @@ fn resolve_variant(env: Env, enum_name: Ident, variant_name: Ident): FoundVarian
 }
 
 // `E::V(...)`, generic or not.
-fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, args: [Expr], expected: Option[Type]): Type {
+fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, args: [Expr], expected: Option[Type]): TExpr {
     match resolve_variant(ctx.env, enum_name, variant_name) {
         FoundVariant::Missing => {
             // Still check the values for their own errors; the `error` type keeps `[]` from being reported as
@@ -1545,25 +1638,28 @@ fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, 
             for a in args {
                 check_expr(ctx, a, Option::Some(Type::Error));
             }
-            return Type::Error;
+            return error_expr();
         }
         FoundVariant::Generic(template, variant_decl) => {
             return check_generic_variant_expr(ctx, e, args, template, variant_decl, expected);
         }
         FoundVariant::Plain(enum_type, variant) => {
-            let types: [Type] = [];
+            let values: [TExpr] = [];
             for i in 0..len(args) {
                 let slot: Type = if i < len(variant.payload) { variant.payload[i] } else { Type::Error };
-                push(types, check_expr(ctx, args[i], Option::Some(slot)));
+                push(values, check_expr(ctx, args[i], Option::Some(slot)));
             }
-            if len(types) != len(variant.payload) {
-                report(ctx.env, variant_arity_message(enum_type.name, variant.name, len(variant.payload), len(types)), e.start, e.end);
-                return Type::Error;
+            if len(values) != len(variant.payload) {
+                report(ctx.env, variant_arity_message(enum_type.name, variant.name, len(variant.payload), len(values)), e.start, e.end);
+                return error_expr();
             }
-            for i in 0..len(types) {
-                expect_type(ctx, variant.payload[i], types[i], args[i].start, args[i].end);
+            for i in 0..len(values) {
+                expect_type(ctx, variant.payload[i], values[i].ty, args[i].start, args[i].end);
             }
-            return Type::Enum(enum_type.name);
+            let Option::Some(tag) = find_tvariant(enum_type.variants, variant.name) else {
+                panic("internal: enum '" + enum_type.name + "' has no variant '" + variant.name + "'");
+            };
+            return TExpr { ty: Type::Enum(enum_type.name), node: TExprNode::Variant(enum_type.name, variant.name, tag, values) };
         }
     }
 }
@@ -1571,14 +1667,14 @@ fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, 
 // Checks `E::V(...)` for a generic `E`, inferring its type arguments (spec §3.5): first from an expected
 // instantiation of `E`, then from the values left to right. Each value takes its slot type as context once every
 // parameter the slot mentions is known, and its type then fixes the parameters still unknown.
-fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Template, variant_decl: VariantDecl, expected: Option[Type]): Type {
+fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Template, variant_decl: VariantDecl, expected: Option[Type]): TExpr {
     let base: string = template.decl.name.name;
     if template.broken || template.has_errors {
         // The declaration was already reported.
         for a in args {
             check_expr(ctx, a, Option::Some(Type::Error));
         }
-        return Type::Error;
+        return error_expr();
     }
     let bindings: [Binding] = [];
     var expected_error: bool = false;
@@ -1596,10 +1692,10 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         }
     }
     let slots: [TypeExpr] = variant_decl.payload;
-    let types: [Type] = [];
+    let values: [TExpr] = [];
     for i in 0..len(args) {
         if i >= len(slots) {
-            push(types, check_expr(ctx, args[i], Option::Some(Type::Error)));
+            push(values, check_expr(ctx, args[i], Option::Some(Type::Error)));
             continue;
         }
         let slot: TypeExpr = slots[i];
@@ -1613,46 +1709,44 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
             }
         }
         let context: Option[Type] = if known { Option::Some(resolve_type_with(ctx.env, slot, bindings, true, true, false)) } else { Option::None };
-        let value: Type = check_expr(ctx, args[i], context);
-        unify(ctx.env, template.params, slot, value, bindings);
-        push(types, value);
+        let value: TExpr = check_expr(ctx, args[i], context);
+        unify(ctx.env, template.params, slot, value.ty, bindings);
+        push(values, value);
     }
-    if len(types) != len(slots) {
-        report(ctx.env, variant_arity_message(base, variant_decl.name.name, len(slots), len(types)), e.start, e.end);
-        return Type::Error;
+    if len(values) != len(slots) {
+        report(ctx.env, variant_arity_message(base, variant_decl.name.name, len(slots), len(values)), e.start, e.end);
+        return error_expr();
     }
     let type_args: [Type] = [];
     for p in template.params {
         let Option::Some(t) = find_binding(bindings, p) else {
             // An unknown parameter that an error-typed value or context would have fixed was already reported.
             var reported: bool = expected_error;
-            for t in types {
-                if is_error(t) {
+            for v in values {
+                if is_error(v.ty) {
                     reported = true;
                 }
             }
             if !reported {
                 report(ctx.env, "cannot infer type arguments for '" + base + "'", e.start, e.end);
             }
-            return Type::Error;
+            return error_expr();
         };
         push(type_args, t);
     }
     let ty: Type = instantiate(ctx.env, template, type_args);
     let name: string = type_to_string(ty);
-    let Option::Some(payload) = variant_payload(ctx.env, name, variant_decl.name.name) else {
+    let Option::Some(ei) = find_enum(ctx.env, name) else {
+        panic("internal: missing instantiation '" + name + "'");
+    };
+    let Option::Some(tag) = find_tvariant(ctx.env.enums[ei].variants, variant_decl.name.name) else {
         panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'");
     };
-    for i in 0..len(types) {
-        expect_type(ctx, payload[i], types[i], args[i].start, args[i].end);
+    let payload: [Type] = ctx.env.enums[ei].variants[tag].payload;
+    for i in 0..len(values) {
+        expect_type(ctx, payload[i], values[i].ty, args[i].start, args[i].end);
     }
-    return ty;
-}
-
-// The payload of variant `variant` of the enum (or instantiation) named `enum_name`, if both exist.
-fn variant_payload(env: Env, enum_name: string, variant: string): Option[[Type]] {
-    let en: TEnum = env.enums[find_enum(env, enum_name)?];
-    return Option::Some(en.variants[find_tvariant(en.variants, variant)?].payload);
+    return TExpr { ty: ty, node: TExprNode::Variant(name, variant_decl.name.name, tag, values) };
 }
 
 // Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
@@ -1722,37 +1816,43 @@ fn match_category(t: Type): string {
     return "";
 }
 
-// A pattern alternative that fits the scrutinee: its key in the match's covered set, and for a variant its index (its
-// tag) in the scrutinee's enum, else -1. A key holds the alternative's value, not its spelling: `int:<decimal>` for
-// integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
+// A pattern alternative that fits the scrutinee: its key in the match's covered set, for a variant its index (its tag)
+// in the scrutinee's enum, else -1, and the value it matches: the decimal value of an int, char or bool (0 or 1)
+// pattern, the decoded value of a string pattern, and "" for a variant. A key holds the alternative's value, not its
+// spelling: `int:<decimal>` for integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
 struct ResolvedAlt {
     key: string,
     variant: int,
+    value: string,
 }
 
-// What check_arms found: the scrutinee's type and, per arm in order, the body's type (an expression match) or whether
-// it diverges (a statement match), and the scope holding the first arm's binders (which let-else declares again after
-// its else block). TS's `checkArm` callback becomes the `as_expr` flag.
+// What check_arms found: the typed scrutinee and, per arm in order, the typed pattern, the typed body, and the body's
+// type (an expression match) or whether it diverges (a statement match), and the scope holding the first arm's binders
+// (which let-else declares again after its else block). TS's `checkArm` callback becomes the `as_expr` flag.
 struct MatchArms {
-    scrutinee: Type,
+    scrutinee: TExpr,
+    patterns: [TPattern],
+    bodies: [TArmBody],
     types: [Type],
     diverges: [bool],
     binders: [Local],
 }
 
-// A match statement; returns whether it diverges.
-fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
-    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None, false);
-    // Every match is exhaustive, so it ends a control path exactly when every arm does.
-    if len(m.diverges) == 0 {
-        return false;
+// A match statement. An expression arm's body becomes a block holding that expression statement.
+fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): CheckedStmt {
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None, Option::None);
+    let typed: [TArm] = [];
+    for i in 0..len(m.patterns) {
+        push(typed, TArm { pattern: m.patterns[i], body: m.bodies[i] });
     }
+    // Every match is exhaustive, so it ends a control path exactly when every arm does.
+    var diverges: bool = len(m.diverges) > 0;
     for d in m.diverges {
         if !d {
-            return false;
+            diverges = false;
         }
     }
-    return true;
+    return CheckedStmt { node: TStmt::Match(m.scrutinee, typed), diverges: diverges };
 }
 
 // TS's checkMatch. Checks a match's scrutinee and patterns:
@@ -1764,11 +1864,14 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check. For a match
 // expression (`as_expr`) `types` gets one type per arm, a block arm (which must diverge) counting as never; for a match
 // statement `diverges` gets one entry per arm.
-// `refutable` is set by let-else and if-let, which pass their pattern and then a synthetic wildcard: that wildcard is
-// never unreachable, and a first pattern that covers every value is reported as `pattern always matches` instead,
-// unless the pattern has an error of its own (any diagnostic from resolving it or declaring its binders).
-fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type], refutable: bool): MatchArms {
-    let st: Type = check_expr(ctx, scrutinee, Option::None);
+// `refutable` is set by let-else and if-let, which pass their pattern and then a synthetic wildcard, with the else
+// branch that is the wildcard arm's body (TS's checkArm callback runs checkElse there, or nothing for an absent branch,
+// which leaves an empty block that doesn't diverge). That wildcard is never unreachable, and a first pattern that
+// covers every value is reported as `pattern always matches` instead, unless the pattern has an error of its own (any
+// diagnostic from resolving it or declaring its binders).
+fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type], refutable: Option[Else]): MatchArms {
+    let scrutinee_expr: TExpr = check_expr(ctx, scrutinee, Option::None);
+    let st: Type = scrutinee_expr.ty;
     var has_decl: bool = false;
     var variants: [TVariant] = [];
     if let Type::Enum(name) = st {
@@ -1781,11 +1884,15 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         report(ctx.env, "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
     }
     let category: string = if kind_of_type(st) == "enum" && !has_decl { "" } else { match_category(st) };
+    let is_refutable: bool = match refutable {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
 
     let covered: [string] = [];
     var wildcard_seen: bool = false;
     var all_resolved: bool = true;
-    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [], binders: [] };
+    let result: MatchArms = MatchArms { scrutinee: scrutinee_expr, patterns: [], bodies: [], types: [], diverges: [], binders: [] };
     var index: int = 0;
     for arm in arms {
         let pattern: Pattern = arm.pattern;
@@ -1799,6 +1906,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             _ => [pattern],
         };
         var single: int = -1;
+        var fresh: [ResolvedAlt] = [];
         let diags_before: int = len(ctx.env.diags);
         var irrefutable: bool = false;
         if category != "" {
@@ -1818,14 +1926,15 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                 if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
                     none_missing = len(missing) == 0;
                 }
-                if !refutable && (wildcard_seen || none_missing) {
+                if !is_refutable && (wildcard_seen || none_missing) {
                     report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
                 }
             } else {
-                for key in check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen) {
-                    push(covered, key);
+                fresh = check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen);
+                for r in fresh {
+                    push(covered, r.key);
                 }
-                if refutable && index == 0 && pattern_resolved {
+                if is_refutable && index == 0 && pattern_resolved {
                     if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
                         irrefutable = len(missing) == 0;
                     }
@@ -1842,7 +1951,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         }
 
         push(ctx.scopes, []);
-        declare_binders(ctx, pattern, variants, single);
+        let binders: [Option[Local]] = declare_binders(ctx, pattern, variants, single);
         if irrefutable && len(ctx.env.diags) == diags_before {
             report(ctx.env, "pattern always matches", pattern.start, pattern.end);
         }
@@ -1851,7 +1960,16 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         }
         match arm.body {
             ArmBody::Block(b) => {
-                let diverges: bool = check_block(ctx, b);
+                var block: CheckedBlock = CheckedBlock { node: TBlock { stmts: [] }, diverges: false };
+                if index == 0 || !is_refutable {
+                    block = check_block(ctx, b);
+                } else if let Option::Some(other) = refutable {
+                    if has_else_branch(other) {
+                        block = check_else(ctx, other);
+                    }
+                }
+                let diverges: bool = block.diverges;
+                push(result.bodies, TArmBody::Block(block.node));
                 if as_expr {
                     // A match expression's block arm must diverge, and so contributes the type never.
                     if !diverges {
@@ -1864,13 +1982,18 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             }
             ArmBody::Expr(body) => {
                 if as_expr {
-                    push(result.types, check_expr(ctx, body, expected));
+                    let checked: TExpr = check_expr(ctx, body, expected);
+                    push(result.bodies, TArmBody::Expr(checked));
+                    push(result.types, checked.ty);
                 } else {
-                    push(result.diverges, is_never(check_expr(ctx, body, Option::None)));
+                    let checked: TExpr = check_expr(ctx, body, Option::None);
+                    push(result.bodies, TArmBody::Block(TBlock { stmts: [TStmt::Expr(checked)] }));
+                    push(result.diverges, is_never(checked.ty));
                 }
             }
         }
         pop(ctx.scopes);
+        push(result.patterns, typed_pattern(pattern, category, fresh, binders, variants));
         index += 1;
     }
 
@@ -1900,7 +2023,7 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
     if let PatternNode::Variant(enum_name, variant_name, binders) = alt.node {
         if has_decl {
             let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders)?;
-            return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
+            return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi, value: "" });
         }
         // Only the enum name matters here: any variant of it is the wrong type. Templates count as enums, and the type
         // namespace holds each name at most once.
@@ -1920,14 +2043,19 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
         report(ctx.env, "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
         return Option::None;
     }
-    let key: string = match alt.node {
-        PatternNode::IntPat(text) => "int:" + int_pattern_value(text),
-        PatternNode::CharPat(text) => "int:" + int_to_string(char_pattern_value(text)),
-        PatternNode::BoolPat(b) => if b { "bool:true" } else { "bool:false" },
-        PatternNode::StringPat(text) => "str:" + string_pattern_value(text),
+    if let PatternNode::StringPat(text) = alt.node {
+        return Option::Some(ResolvedAlt { key: "str:" + string_pattern_value(text), variant: -1, value: string_literal_value(text) });
+    }
+    if let PatternNode::BoolPat(b) = alt.node {
+        let value: string = if b { "1" } else { "0" };
+        return Option::Some(ResolvedAlt { key: if b { "bool:true" } else { "bool:false" }, variant: -1, value: value });
+    }
+    let value: string = match alt.node {
+        PatternNode::IntPat(text) => int_pattern_value(text),
+        PatternNode::CharPat(text) => int_to_string(char_pattern_value(text)),
         _ => "",
     };
-    return Option::Some(ResolvedAlt { key: key, variant: -1 });
+    return Option::Some(ResolvedAlt { key: "int:" + value, variant: -1, value: value });
 }
 
 // An integer pattern's value in canonical decimal (TS's bigint), so `007` and `7`, and `-0` and `0`, are one key.
@@ -1995,17 +2123,47 @@ fn string_pattern_value(text: string): string {
     return out;
 }
 
+// A string literal's value, from its source text (quotes included): its bytes with every escape decoded. Aster has no
+// way to make a string from a byte, so an escape's byte comes from a one-byte literal; any other byte is copied as is,
+// which keeps UTF-8 sequences intact.
+fn string_literal_value(text: string): string {
+    var out: string = "";
+    var i: int = 1;
+    while i < len(text) - 1 {
+        let c: int = byte_at(text, i);
+        if c == '\\' && i + 1 < len(text) - 1 {
+            out += match byte_at(text, i + 1) {
+                'n' => "\n",
+                't' => "\t",
+                'r' => "\r",
+                '0' => "\0",
+                '\\' => "\\",
+                '"' => "\"",
+                '\'' => "'",
+                _ => substring(text, i + 1, i + 2),
+            };
+            i += 2;
+        } else {
+            out += substring(text, i, i + 1);
+            i += 1;
+        }
+    }
+    return out;
+}
+
 // Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
-// otherwise each covered alternative as a duplicate. Returns the keys of the alternatives that cover something new.
-fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [string] {
-    let fresh: [string] = [];
+// otherwise each covered alternative as a duplicate. Returns the alternatives that cover something new.
+fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [ResolvedAlt] {
+    let fresh: [ResolvedAlt] = [];
     let stale: [Pattern] = [];
+    let arm_keys: [string] = [];
     for i in 0..len(resolved) {
         if let Option::Some(r) = resolved[i] {
-            if contains(covered, r.key) || contains(fresh, r.key) {
+            if contains(covered, r.key) || contains(arm_keys, r.key) {
                 push(stale, alternatives[i]);
             } else {
-                push(fresh, r.key);
+                push(arm_keys, r.key);
+                push(fresh, r);
             }
         }
     }
@@ -2047,7 +2205,9 @@ fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], co
 
 // Declares a single variant pattern's binders in the current scope, typed by the payload of variant `vi` (an index into
 // `variants`, or -1) when the binder count is right. Named binders in an or-pattern are reported and not declared.
-fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
+// Returns one local per binder of a variant pattern (None for `_` and for a repeated name), else none.
+fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int): [Option[Local]] {
+    let locals: [Option[Local]] = [];
     match pattern.node {
         PatternNode::Or(alts) => {
             for alt in alts {
@@ -2070,19 +2230,52 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
             let seen: [string] = [];
             for i in 0..len(binders) {
                 let Binder::Named(id) = binders[i] else {
+                    push(locals, Option::None);
                     continue;
                 };
                 if contains(seen, id.name) {
                     report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                    push(locals, Option::None);
                 } else {
                     push(seen, id.name);
                     let ty: Type = if has_slots { slots[i] } else { Type::Error };
-                    declare(ctx, id, ty, false);
+                    push(locals, Option::Some(declare(ctx, id, ty, false)));
                 }
             }
         }
         _ => {}
     }
+    return locals;
+}
+
+// The typed form of an arm's pattern, from the alternatives it newly covers (`fresh`) and its binders. `variants` are
+// the scrutinee enum's variants, which name a fresh variant alternative by its index.
+fn typed_pattern(pattern: Pattern, category: string, fresh: [ResolvedAlt], binders: [Option[Local]], variants: [TVariant]): TPattern {
+    if let PatternNode::Wildcard = pattern.node {
+        return TPattern::Wildcard;
+    }
+    if category == "int" || category == "bool" {
+        let values: [string] = [];
+        for r in fresh {
+            push(values, r.value);
+        }
+        return TPattern::Ints(values);
+    }
+    if category == "string" {
+        let values: [string] = [];
+        for r in fresh {
+            push(values, r.value);
+        }
+        return TPattern::Strings(values);
+    }
+    let refs: [TVariantRef] = [];
+    for r in fresh {
+        if r.variant >= 0 {
+            push(refs, TVariantRef { name: variants[r.variant].name, tag: r.variant });
+        }
+    }
+    let kept: [Option[Local]] = if len(refs) == 1 { binders } else { [] };
+    return TPattern::Variants(refs, kept);
 }
 
 // Resolves `F::V(...)` against the scrutinee's enum (whose variants are `variants`), returning the variant's index.
@@ -2110,11 +2303,11 @@ fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Patter
 }
 
 // A match expression.
-fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
-    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected, false);
+fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): TExpr {
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected, Option::None);
     for t in m.types {
         if is_error(t) {
-            return Type::Error;
+            return error_expr();
         }
     }
     // The parser guarantees at least one arm. Arms of type never (block arms among them) don't take part in the "same
@@ -2129,17 +2322,21 @@ fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [A
     for t in m.types {
         if !is_never(t) && !type_equals(t, ty) {
             report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
-            return Type::Error;
+            return error_expr();
         }
     }
     if is_void(ty) {
         report(ctx.env, "match expression cannot have type void", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
-    if match_category(m.scrutinee) == "" {
-        return Type::Error;
+    if match_category(m.scrutinee.ty) == "" {
+        return error_expr();
     }
-    return ty;
+    let typed: [TArm] = [];
+    for i in 0..len(m.patterns) {
+        push(typed, TArm { pattern: m.patterns[i], body: m.bodies[i] });
+    }
+    return TExpr { ty: ty, node: TExprNode::Match(m.scrutinee, typed) };
 }
 
 fn find_field(env: Env, struct_name: string, name: string): Option[TField] {
@@ -2156,7 +2353,7 @@ fn is_reference(t: Type): bool {
     };
 }
 
-fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
+fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): TExpr {
     let Option::Some(si) = find_struct(ctx.env, name.name) else {
         report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
         // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
@@ -2164,41 +2361,50 @@ fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
         for init in inits {
             check_expr(ctx, init.value, Option::Some(Type::Error));
         }
-        return Type::Error;
+        return error_expr();
     };
     let st: TStruct = ctx.env.structs[si];
-    // The names of the fields initialised so far.
-    let seen: [string] = [];
+    // The fields initialised so far, in the order written.
+    let fields: [TFieldInit] = [];
     for init in inits {
         let decl: Option[TField] = find_field(ctx.env, st.name, init.name.name);
         let field_type: Type = match decl {
             Option::Some(f) => f.ty,
             Option::None => Type::Error,
         };
-        let value: Type = check_expr(ctx, init.value, Option::Some(field_type));
+        let value: TExpr = check_expr(ctx, init.value, Option::Some(field_type));
         match decl {
             Option::None => {
                 report(ctx.env, "unknown field '" + init.name.name + "' on '" + name.name + "'", init.name.start, init.name.end);
             }
             Option::Some(f) => {
-                if contains(seen, init.name.name) {
+                if has_field_init(fields, init.name.name) {
                     report(ctx.env, "duplicate field '" + init.name.name + "'", init.name.start, init.name.end);
                 } else {
-                    expect_type(ctx, f.ty, value, init.value.start, init.value.end);
-                    push(seen, init.name.name);
+                    expect_type(ctx, f.ty, value.ty, init.value.start, init.value.end);
+                    push(fields, TFieldInit { field: init.name.name, value: value });
                 }
             }
         }
     }
     for f in st.fields {
-        if !contains(seen, f.name) {
+        if !has_field_init(fields, f.name) {
             report(ctx.env, "missing field '" + f.name + "' in '" + name.name + "'", name.start, name.end);
         }
     }
-    return Type::Struct(st.name);
+    return TExpr { ty: Type::Struct(st.name), node: TExprNode::StructLit(st.name, fields) };
 }
 
-fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]): Type {
+fn has_field_init(fields: [TFieldInit], name: string): bool {
+    for f in fields {
+        if f.field == name {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]): TExpr {
     var elem: Option[Type] = Option::None;
     if let Option::Some(t) = expected {
         if is_error(t) {
@@ -2206,7 +2412,7 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
             for el in elements {
                 check_expr(ctx, el, Option::Some(Type::Error));
             }
-            return Type::Error;
+            return error_expr();
         }
         if let Type::Array(x) = t {
             elem = Option::Some(x);
@@ -2215,61 +2421,69 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
     if len(elements) == 0 {
         let Option::Some(x) = elem else {
             report(ctx.env, "cannot infer type of empty array", e.start, e.end);
-            return Type::Error;
+            return error_expr();
         };
-        return Type::Array(x);
+        return TExpr { ty: Type::Array(x), node: TExprNode::ArrayLit([]) };
     }
+    let values: [TExpr] = [];
     for el in elements {
-        let value: Type = check_expr(ctx, el, elem);
+        let value: TExpr = check_expr(ctx, el, elem);
         match elem {
             Option::None => {
                 // Without an expected type, the first element that isn't never decides.
-                if is_never(value) {
+                if is_never(value.ty) {
+                    push(values, value);
                     continue;
                 }
-                if is_void(value) {
+                if is_void(value.ty) {
                     report(ctx.env, "array element cannot have type void", el.start, el.end);
-                    return Type::Error;
+                    return error_expr();
                 }
-                elem = Option::Some(value);
+                elem = Option::Some(value.ty);
             }
             Option::Some(x) => {
-                expect_type(ctx, x, value, el.start, el.end);
+                expect_type(ctx, x, value.ty, el.start, el.end);
             }
         }
+        push(values, value);
     }
     let Option::Some(x) = elem else {
         report(ctx.env, "cannot infer type of empty array", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     };
     if is_error(x) {
-        return Type::Error;
+        return error_expr();
     }
-    return Type::Array(x);
+    return TExpr { ty: Type::Array(x), node: TExprNode::ArrayLit(values) };
 }
 
-// Resolves an assignment target to its type, or to the error type once it has been reported. Only a bare local needs
-// to be `var`; writing through a field or an element is always allowed, because `let` only fixes the binding, not the
-// object it refers to.
-fn check_place(ctx: Ctx, target: Expr): Type {
+// Resolves an assignment target, or None once it has been reported. Only a bare local needs to be `var`; writing
+// through a field or an element is always allowed, because `let` only fixes the binding, not the object it refers to.
+fn check_place(ctx: Ctx, target: Expr): Option[TPlace] {
     match target.node {
         ExprNode::Name(name) => {
             let Option::Some(local) = lookup(ctx, name) else {
                 let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
                 report(ctx.env, message, target.start, target.end);
-                return Type::Error;
+                return Option::None;
             };
             if !local.mutable {
                 report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
             }
-            return local.ty;
+            return Option::Some(TPlace { ty: local.ty, node: TPlaceNode::Local(local) });
         }
         ExprNode::Field(_, _) | ExprNode::Index(_, _) => {
-            return check_expr(ctx, target, Option::None);
+            let checked: TExpr = check_expr(ctx, target, Option::None);
+            return match checked.node {
+                TExprNode::Field(object, field) => Option::Some(TPlace { ty: checked.ty, node: TPlaceNode::Field(object, field) }),
+                TExprNode::Index(array, index) => Option::Some(TPlace { ty: checked.ty, node: TPlaceNode::Index(array, index) }),
+                // already reported
+                _ => Option::None,
+            };
         }
         _ => {
             report(ctx.env, "invalid assignment target", target.start, target.end);
-            return Type::Error;
+            return Option::None;
         }
     }
 }
@@ -2323,38 +2537,38 @@ fn binary_result_type(op: string, left: Type, right: Type): Option[Type] {
     return Option::None;
 }
 
-fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr): Type {
-    let left: Type = check_expr(ctx, left_expr, Option::None);
-    let right: Type = check_expr(ctx, right_expr, Option::None);
-    if is_error(left) || is_error(right) {
-        return Type::Error;
+fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr): TExpr {
+    let left: TExpr = check_expr(ctx, left_expr, Option::None);
+    let right: TExpr = check_expr(ctx, right_expr, Option::None);
+    if is_error(left.ty) || is_error(right.ty) {
+        return error_expr();
     }
-    if is_never(left) || is_never(right) {
-        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
-        return Type::Error;
+    if is_never(left.ty) || is_never(right.ty) {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
+        return error_expr();
     }
-    if (op == "==" || op == "!=") && type_equals(left, right) {
+    if (op == "==" || op == "!=") && type_equals(left.ty, right.ty) {
         var is_enum: bool = false;
         var payload_free_enum: bool = false;
-        if let Type::Enum(name) = left {
+        if let Type::Enum(name) = left.ty {
             is_enum = true;
             if let Option::Some(i) = find_enum(ctx.env, name) {
                 payload_free_enum = ctx.env.enums[i].payload_free;
             }
         }
-        if is_reference(left) || (is_enum && !payload_free_enum) {
-            report(ctx.env, "cannot compare '" + type_to_string(left) + "' values", e.start, e.end);
-            return Type::Error;
+        if is_reference(left.ty) || (is_enum && !payload_free_enum) {
+            report(ctx.env, "cannot compare '" + type_to_string(left.ty) + "' values", e.start, e.end);
+            return error_expr();
         }
         if payload_free_enum {
-            return Type::Bool;
+            return TExpr { ty: Type::Bool, node: TExprNode::EnumCompare(op, left, right) };
         }
     }
-    let Option::Some(t) = binary_result_type(op, left, right) else {
-        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
-        return Type::Error;
+    let Option::Some(t) = binary_result_type(op, left.ty, right.ty) else {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
+        return error_expr();
     };
-    return t;
+    return TExpr { ty: t, node: TExprNode::Binary(op, left, right) };
 }
 
 fn arity_message(name: string, expected: int, found: int): string {
@@ -2365,8 +2579,8 @@ fn arity_message(name: string, expected: int, found: int): string {
 // checkCall's `checkArgs`. Only used once a problem with the call itself has been reported (or the signature is
 // known): the `error` type keeps `[]` arguments from cascading. Calls nothing has complained about yet must not use
 // it.
-fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
-    let types: [Type] = [];
+fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [TExpr] {
+    let values: [TExpr] = [];
     for i in 0..len(args) {
         var expected: Type = Type::Error;
         if let Option::Some(ps) = params {
@@ -2374,30 +2588,30 @@ fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
                 expected = ps[i];
             }
         }
-        push(types, check_expr(ctx, args[i], Option::Some(expected)));
+        push(values, check_expr(ctx, args[i], Option::Some(expected)));
     }
-    return types;
+    return values;
 }
 
-fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
+fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
     let ExprNode::Name(name) = callee.node else {
         check_args(ctx, args, Option::None);
         report(ctx.env, "only named functions can be called", callee.start, callee.end);
-        return Type::Error;
+        return error_expr();
     };
     if let Option::Some(_) = lookup(ctx, name) {
         check_args(ctx, args, Option::None);
         report(ctx.env, "'" + name + "' is not a function", callee.start, callee.end);
-        return Type::Error;
+        return error_expr();
     }
     if name == "print" || name == "eprint" {
         // A wrong argument count is reported by check_print; its arguments must not cascade then.
-        let types: [Type] = [];
+        let values: [TExpr] = [];
         for a in args {
             let expected: Option[Type] = if len(args) == 1 { Option::None } else { Option::Some(Type::Error) };
-            push(types, check_expr(ctx, a, expected));
+            push(values, check_expr(ctx, a, expected));
         }
-        return check_print(ctx, e, name, args, types);
+        return check_print(ctx, e, name, args, values);
     }
     if name == "len" || name == "push" || name == "pop" {
         return check_collection_builtin(ctx, name, e, args);
@@ -2406,51 +2620,60 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
     // A builtin's signature, else the user function's.
     let builtins: [Signature] = builtin_signatures();
     var sigs: [Signature] = ctx.signatures;
+    var builtin: bool = false;
     if let Option::Some(_) = find_signature(builtins, name) {
         sigs = builtins;
+        builtin = true;
     }
     let Option::Some(si) = find_signature(sigs, name) else {
         check_args(ctx, args, Option::None);
         report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
-        return Type::Error;
+        return error_expr();
     };
     let sg: Signature = sigs[si];
-    let types: [Type] = check_args(ctx, args, Option::Some(sg.params));
-    if len(types) != len(sg.params) {
-        report(ctx.env, arity_message(name, len(sg.params), len(types)), e.start, e.end);
+    let values: [TExpr] = check_args(ctx, args, Option::Some(sg.params));
+    if len(values) != len(sg.params) {
+        report(ctx.env, arity_message(name, len(sg.params), len(values)), e.start, e.end);
     } else {
-        for i in 0..len(types) {
-            expect_type(ctx, sg.params[i], types[i], args[i].start, args[i].end);
+        for i in 0..len(values) {
+            expect_type(ctx, sg.params[i], values[i].ty, args[i].start, args[i].end);
         }
     }
+    var ret: Type = sg.ret;
     if name == "read_file" {
         let Option::Some(ti) = find_template(ctx.env, "Result") else {
             panic("internal: no Result template");
         };
-        return instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
+        ret = instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
     }
-    return sg.ret;
+    if builtin {
+        return TExpr { ty: ret, node: TExprNode::Builtin(name, values) };
+    }
+    return TExpr { ty: ret, node: TExprNode::Call(name, values) };
 }
 
-// `name` is print or eprint; `types` are the types of `args`.
-fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], types: [Type]): Type {
-    if len(types) != 1 {
-        report(ctx.env, arity_message(name, 1, len(types)), e.start, e.end);
-        return Type::Error;
+// `name` is print or eprint; `values` are the checked `args`.
+fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], values: [TExpr]): TExpr {
+    if len(values) != 1 {
+        report(ctx.env, arity_message(name, 1, len(values)), e.start, e.end);
+        return error_expr();
     }
-    let t: Type = types[0];
+    let t: Type = values[0].ty;
     let k: string = kind_of_type(t);
     if !is_error(t) && k != "int" && k != "bool" && k != "string" {
         report(ctx.env, "cannot print a value of type " + type_to_string(t), args[0].start, args[0].end);
     }
-    return Type::Void;
+    return TExpr { ty: Type::Void, node: TExprNode::Builtin(name, values) };
 }
 
 // `len` (string or array), `push` and `pop` (any array). Typed by hand because they work on any array.
-fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type {
+fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExpr {
+    let values: [TExpr] = [];
     var t: Type = Type::Error;
     if len(args) > 0 {
-        t = check_expr(ctx, args[0], Option::None);
+        let first: TExpr = check_expr(ctx, args[0], Option::None);
+        push(values, first);
+        t = first.ty;
     }
     var elem: Option[Type] = Option::None;
     if let Type::Array(x) = t {
@@ -2461,14 +2684,13 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type
         Option::Some(x) => x,
         Option::None => Type::Error,
     };
-    let rest: [Type] = [];
     for i in 1..len(args) {
-        push(rest, check_expr(ctx, args[i], Option::Some(rest_expected)));
+        push(values, check_expr(ctx, args[i], Option::Some(rest_expected)));
     }
     let arity: int = if name == "push" { 2 } else { 1 };
     if len(args) == 0 || len(args) != arity {
         report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
     if name == "len" {
         let k: string = kind_of_type(t);
@@ -2476,17 +2698,17 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type
             report(ctx.env, "function 'len' expects a string or array, found " + type_to_string(t), args[0].start, args[0].end);
         }
         // len is an int whatever its argument, so a bad argument doesn't cascade.
-        return Type::Int;
+        return TExpr { ty: Type::Int, node: TExprNode::Builtin("len", values) };
     }
     let Option::Some(x) = elem else {
         if !is_error(t) {
             report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
         }
-        return Type::Error;
+        return error_expr();
     };
     if name == "push" {
-        expect_type(ctx, x, rest[0], args[1].start, args[1].end);
-        return Type::Void;
+        expect_type(ctx, x, values[1].ty, args[1].start, args[1].end);
+        return TExpr { ty: Type::Void, node: TExprNode::Builtin("push", values) };
     }
-    return x;
+    return TExpr { ty: x, node: TExprNode::Builtin("pop", values) };
 }

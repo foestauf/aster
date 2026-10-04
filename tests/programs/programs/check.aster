@@ -23,57 +23,9 @@
 //   let 2 o Option[int]
 //   var 3 n int
 
-import "loader.aster";
-import "checker.aster";
-
-// ---- diagnostics
-
-// Sorts by start (stable: an insertion sort) and drops a diagnostic when an earlier one has the same start and
-// message, as the compiler's sortDiagnostics does.
-fn sort_diags(diags: [Diag]): [Diag] {
-    let sorted: [Diag] = [];
-    for d in diags {
-        push(sorted, d);
-        var i: int = len(sorted) - 1;
-        while i > 0 && sorted[i - 1].start > d.start {
-            sorted[i] = sorted[i - 1];
-            i -= 1;
-        }
-        sorted[i] = d;
-    }
-    let out: [Diag] = [];
-    for d in sorted {
-        var seen: bool = false;
-        var k: int = len(out) - 1;
-        while k >= 0 && out[k].start == d.start {
-            if out[k].message == d.message {
-                seen = true;
-            }
-            k -= 1;
-        }
-        if !seen {
-            push(out, d);
-        }
-    }
-    return out;
-}
-
-// Prints each diagnostic against the file it starts in: the last one whose base is at or before its start. The end is
-// clamped to that file.
-fn print_diags(files: [SourceFile], diags: [Diag]) {
-    for d in diags {
-        var f: SourceFile = files[0];
-        for candidate in files {
-            if candidate.base <= d.start {
-                f = candidate;
-            }
-        }
-        let end: int = min(d.end, f.base + len(f.src));
-        let start_text: string = int_to_string(d.start - f.base + f.bom);
-        let end_text: string = int_to_string(end - f.base + f.bom);
-        eprint("error " + f.path + " " + start_text + " " + end_text + " " + d.message);
-    }
-}
+import "../../../packages/asterc-self/loader.aster";
+import "../../../packages/asterc-self/checker.aster";
+import "../../../packages/asterc-self/report.aster";
 
 // ---- summary
 
