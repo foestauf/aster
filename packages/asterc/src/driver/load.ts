@@ -46,7 +46,9 @@ export const nodeHost: LoadHost = {
   },
   realPath(path) {
     try {
-      return realpathSync(path);
+      // realpathSync.native: the JS realpathSync folds `..` lexically before following links, which is wrong
+      // through a symlinked directory.
+      return realpathSync.native(path);
     } catch {
       return resolve(path);
     }
@@ -72,7 +74,8 @@ export function loadProgram(root: SourceFile, host: LoadHost): LoadResult {
   const files: SourceFile[] = [];
   const program: Program = { functions: [], structs: [], enums: [], imports: [] };
   const diagnostics: Diagnostic[] = [];
-  const loaded = new Set<string>([host.realPath(resolve(root.path))]);
+  // The root is keyed the same way as every import: physically, from its spelling as given.
+  const loaded = new Set<string>([host.realPath(root.path)]);
 
   const visit = (source: SourceFile): void => {
     files.push(source);
