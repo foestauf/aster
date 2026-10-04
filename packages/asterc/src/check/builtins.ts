@@ -27,6 +27,11 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   read_stdin: { params: [], returnType: STRING },
   // The checker types read_file's call as Result[string, string].
   read_file: { params: [STRING], returnType: VOID },
+  // Likewise: write_file, remove_path and run_process return Result[int, string], make_temp_dir Result[string, string].
+  write_file: { params: [STRING, STRING], returnType: VOID },
+  make_temp_dir: { params: [STRING], returnType: VOID },
+  remove_path: { params: [STRING], returnType: VOID },
+  run_process: { params: [{ kind: 'array', elem: STRING }], returnType: VOID },
 };
 
 export function isSignatureBuiltin(name: string): name is SignatureBuiltin {

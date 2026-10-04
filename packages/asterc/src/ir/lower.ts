@@ -667,6 +667,11 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
       throw new Error(`internal: ${e.builtin} is lowered to an array instruction`);
     case 'read_file':
       throw new Error('internal: read_file is lowered to a read_file instruction');
+    case 'write_file':
+    case 'make_temp_dir':
+    case 'remove_path':
+    case 'run_process':
+      throw new Error(`internal: ${e.builtin} is not lowered yet`);
     default:
       return e.builtin;
   }

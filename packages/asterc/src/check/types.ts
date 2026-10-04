@@ -1,7 +1,7 @@
 import type { AssignOp, BinaryOp, UnaryOp } from '../ast/ast.js';
 import type { Type } from '../types/type.js';
 
-export type BuiltinName = 'print' | 'eprint' | 'exit' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'push' | 'pop' | 'read_stdin' | 'read_file';
+export type BuiltinName = 'print' | 'eprint' | 'exit' | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'push' | 'pop' | 'read_stdin' | 'read_file' | 'write_file' | 'make_temp_dir' | 'remove_path' | 'run_process';
 
 export interface Local {
   /** Unique within its function; params come first. */
