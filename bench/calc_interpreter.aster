@@ -1,0 +1,152 @@
+// Tokenize and parse a changing expression, then interpret its AST for changing x.
+// Includes precedence, recursive enums, indirect object access, and runtime calls.
+// expect-stdout: 74910056192
+// expect-exit: 0
+enum Kind { Num, Variable, Plus, Minus, Star, Slash, Percent, LParen, RParen, End }
+
+struct Token { kind: Kind, value: int }
+
+enum Expr {
+    Num(int),
+    Variable,
+    Neg(Expr),
+    Binary(Kind, Expr, Expr),
+}
+
+struct Parser { tokens: [Token], pos: int }
+
+fn symbol(c: int): Kind {
+    if c == 43 { return Kind::Plus; }
+    if c == 45 { return Kind::Minus; }
+    if c == 42 { return Kind::Star; }
+    if c == 47 { return Kind::Slash; }
+    if c == 37 { return Kind::Percent; }
+    if c == 40 { return Kind::LParen; }
+    if c == 41 { return Kind::RParen; }
+    panic("unexpected character");
+}
+
+fn tokenize(src: string): [Token] {
+    let tokens: [Token] = [];
+    var i: int = 0;
+    while i < len(src) {
+        let c: int = byte_at(src, i);
+        if c == 32 {
+            i += 1;
+        } else if c >= 48 && c <= 57 {
+            var n: int = 0;
+            while i < len(src) && byte_at(src, i) >= 48 && byte_at(src, i) <= 57 {
+                n = n * 10 + (byte_at(src, i) - 48);
+                i += 1;
+            }
+            push(tokens, Token { kind: Kind::Num, value: n });
+        } else if c == 120 {
+            push(tokens, Token { kind: Kind::Variable, value: 0 });
+            i += 1;
+        } else {
+            push(tokens, Token { kind: symbol(c), value: 0 });
+            i += 1;
+        }
+    }
+    push(tokens, Token { kind: Kind::End, value: 0 });
+    return tokens;
+}
+
+fn peek(p: Parser): Kind {
+    return p.tokens[p.pos].kind;
+}
+
+fn advance(p: Parser): Token {
+    let t: Token = p.tokens[p.pos];
+    p.pos += 1;
+    return t;
+}
+
+fn expect(p: Parser, k: Kind) {
+    if peek(p) != k {
+        panic("unexpected token");
+    }
+    p.pos += 1;
+}
+
+fn parse_expr(p: Parser): Expr {
+    var left: Expr = parse_term(p);
+    while peek(p) == Kind::Plus || peek(p) == Kind::Minus {
+        let op: Kind = advance(p).kind;
+        left = Expr::Binary(op, left, parse_term(p));
+    }
+    return left;
+}
+
+fn parse_term(p: Parser): Expr {
+    var left: Expr = parse_unary(p);
+    while peek(p) == Kind::Star || peek(p) == Kind::Slash || peek(p) == Kind::Percent {
+        let op: Kind = advance(p).kind;
+        left = Expr::Binary(op, left, parse_unary(p));
+    }
+    return left;
+}
+
+fn parse_unary(p: Parser): Expr {
+    if peek(p) == Kind::Minus {
+        p.pos += 1;
+        return Expr::Neg(parse_unary(p));
+    }
+    return parse_primary(p);
+}
+
+fn parse_primary(p: Parser): Expr {
+    let t: Token = advance(p);
+    if t.kind == Kind::Num {
+        return Expr::Num(t.value);
+    }
+    if t.kind == Kind::Variable {
+        return Expr::Variable;
+    }
+    if t.kind == Kind::LParen {
+        let inner: Expr = parse_expr(p);
+        expect(p, Kind::RParen);
+        return inner;
+    }
+    panic("expected a number or '('");
+}
+
+fn apply(op: Kind, a: int, b: int): int {
+    match op {
+        Kind::Plus => { return a + b; }
+        Kind::Minus => { return a - b; }
+        Kind::Star => { return a * b; }
+        Kind::Slash => { return a / b; }
+        Kind::Percent => { return a % b; }
+        _ => panic("not an operator"),
+    }
+}
+
+fn eval(e: Expr, x: int): int {
+    return match e {
+        Expr::Num(n) => n,
+        Expr::Variable => x,
+        Expr::Neg(inner) => -eval(inner, x),
+        Expr::Binary(op, l, r) => apply(op, eval(l, x), eval(r, x)),
+    };
+}
+
+fn main(): int {
+    let sources: [string] = [
+        "(x + 23) * (31 - 7) + 99 / 3 - 5 * (8 + 2)",
+        "x * 7 + (81 / 9 - 2) * (13 + 4) - 101 % 7",
+        "(x % 97 + 1) * (x % 31 + 2) - (45 - 12) / 3",
+        "-(x % 113) + (17 * 19 - 23) * 3 + x / 11",
+    ];
+    var checksum: int = 0;
+    for batch in 0..40000 {
+        let parser: Parser = Parser { tokens: tokenize(sources[batch % 4]), pos: 0 };
+        let expression: Expr = parse_expr(parser);
+        expect(parser, Kind::End);
+        for pass in 0..12 {
+            checksum += eval(expression, batch + pass);
+        }
+    }
+    print(checksum);
+    return 0;
+}

@@ -4,3 +4,4 @@ coverage/
 *.log
 .selfhost/
 build/
+.bench/
