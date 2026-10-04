@@ -1,0 +1,40 @@
+enum Shape { Circle(int), Rect(int, int), Empty }
+fn area(s: Shape): int {
+    return match s {
+        Shape::Circle(r) => r * r * 3,
+        Shape::Rect(w, _) => {
+            return w;
+        }
+        Shape::Empty => 0,
+    };
+}
+fn main(): int {
+    let n: int = 3;
+    match n {
+        1 | 2 => print("small"),
+        -9223372036854775808 => print("min"),
+        _ => {}
+    }
+    let c: int = 'x';
+    let k: int = match c {
+        'a' | '\n' => 1,
+        _ => 2,
+    };
+    let s: string = "\\";
+    match s {
+        "\0" | "\\" => print("esc"),
+        "é" => print("e"),
+        _ => {}
+    }
+    let b: bool = n > 1;
+    match b {
+        true => print("t"),
+        false => print("f"),
+    }
+    let o: Option[int] = Option::Some(1);
+    match o {
+        Option::Some(v) => print(v),
+        Option::None => {}
+    }
+    return area(Shape::Rect(2, 3)) + area(Shape::Circle(1)) + area(Shape::Empty) + k;
+}

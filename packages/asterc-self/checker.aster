@@ -9,9 +9,9 @@
 // returns the index of the entry, if any.
 //
 // `check_expr` returns an expression's typed node, and `check_stmt` and `check_block` a statement's or block's typed
-// node with whether it diverges, mirroring check/types.ts. Matches, `?`, `let ... else` and `if let` are still checked
-// for their diagnostics, types, binders and divergence only: their typed nodes are placeholders (an `Error` expression
-// carrying the right type, or an empty block statement).
+// node with whether it diverges, mirroring check/types.ts. `?`, `let ... else` and `if let` are still checked for their
+// diagnostics, types, binders and divergence only: their typed nodes are placeholders (an `Error` expression carrying
+// the right type, or an empty block statement).
 
 import "loader.aster";
 
@@ -1252,8 +1252,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
             return CheckedStmt { node: TStmt::Return(Option::Some(checked)), diverges: true };
         }
         StmtNode::Match(keyword, scrutinee, arms) => {
-            let diverges: bool = check_match(ctx, keyword, scrutinee, arms);
-            return CheckedStmt { node: TStmt::Block(TBlock { stmts: [] }), diverges: diverges };
+            return check_match(ctx, keyword, scrutinee, arms);
         }
         StmtNode::Block(b) => {
             let checked: CheckedBlock = check_block(ctx, b);
@@ -1461,7 +1460,7 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             return check_call(ctx, e, callee, args);
         }
         ExprNode::Match(keyword, scrutinee, arms) => {
-            return TExpr { ty: check_match_expr(ctx, e, keyword, scrutinee, arms, expected), node: TExprNode::Error };
+            return check_match_expr(ctx, e, keyword, scrutinee, arms, expected);
         }
         ExprNode::If(cond_expr, then_expr, other_expr) => {
             let cond: TExpr = check_condition(ctx, cond_expr);
@@ -1807,37 +1806,43 @@ fn match_category(t: Type): string {
     return "";
 }
 
-// A pattern alternative that fits the scrutinee: its key in the match's covered set, and for a variant its index (its
-// tag) in the scrutinee's enum, else -1. A key holds the alternative's value, not its spelling: `int:<decimal>` for
-// integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
+// A pattern alternative that fits the scrutinee: its key in the match's covered set, for a variant its index (its tag)
+// in the scrutinee's enum, else -1, and the value it matches: the decimal value of an int, char or bool (0 or 1)
+// pattern, the decoded value of a string pattern, and "" for a variant. A key holds the alternative's value, not its
+// spelling: `int:<decimal>` for integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
 struct ResolvedAlt {
     key: string,
     variant: int,
+    value: string,
 }
 
-// What check_arms found: the scrutinee's type and, per arm in order, the body's type (an expression match) or whether
-// it diverges (a statement match), and the scope holding the first arm's binders (which let-else declares again after
-// its else block). TS's `checkArm` callback becomes the `as_expr` flag.
+// What check_arms found: the typed scrutinee and, per arm in order, the typed pattern, the typed body, and the body's
+// type (an expression match) or whether it diverges (a statement match), and the scope holding the first arm's binders
+// (which let-else declares again after its else block). TS's `checkArm` callback becomes the `as_expr` flag.
 struct MatchArms {
-    scrutinee: Type,
+    scrutinee: TExpr,
+    patterns: [TPattern],
+    bodies: [TArmBody],
     types: [Type],
     diverges: [bool],
     binders: [Local],
 }
 
-// A match statement; returns whether it diverges.
-fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
+// A match statement. An expression arm's body becomes a block holding that expression statement.
+fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): CheckedStmt {
     let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None, false);
-    // Every match is exhaustive, so it ends a control path exactly when every arm does.
-    if len(m.diverges) == 0 {
-        return false;
+    let typed: [TArm] = [];
+    for i in 0..len(m.patterns) {
+        push(typed, TArm { pattern: m.patterns[i], body: m.bodies[i] });
     }
+    // Every match is exhaustive, so it ends a control path exactly when every arm does.
+    var diverges: bool = len(m.diverges) > 0;
     for d in m.diverges {
         if !d {
-            return false;
+            diverges = false;
         }
     }
-    return true;
+    return CheckedStmt { node: TStmt::Match(m.scrutinee, typed), diverges: diverges };
 }
 
 // TS's checkMatch. Checks a match's scrutinee and patterns:
@@ -1853,7 +1858,8 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // never unreachable, and a first pattern that covers every value is reported as `pattern always matches` instead,
 // unless the pattern has an error of its own (any diagnostic from resolving it or declaring its binders).
 fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type], refutable: bool): MatchArms {
-    let st: Type = check_expr(ctx, scrutinee, Option::None).ty;
+    let scrutinee_expr: TExpr = check_expr(ctx, scrutinee, Option::None);
+    let st: Type = scrutinee_expr.ty;
     var has_decl: bool = false;
     var variants: [TVariant] = [];
     if let Type::Enum(name) = st {
@@ -1870,7 +1876,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
     let covered: [string] = [];
     var wildcard_seen: bool = false;
     var all_resolved: bool = true;
-    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [], binders: [] };
+    let result: MatchArms = MatchArms { scrutinee: scrutinee_expr, patterns: [], bodies: [], types: [], diverges: [], binders: [] };
     var index: int = 0;
     for arm in arms {
         let pattern: Pattern = arm.pattern;
@@ -1884,6 +1890,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             _ => [pattern],
         };
         var single: int = -1;
+        var fresh: [ResolvedAlt] = [];
         let diags_before: int = len(ctx.env.diags);
         var irrefutable: bool = false;
         if category != "" {
@@ -1907,8 +1914,9 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                     report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
                 }
             } else {
-                for key in check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen) {
-                    push(covered, key);
+                fresh = check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen);
+                for r in fresh {
+                    push(covered, r.key);
                 }
                 if refutable && index == 0 && pattern_resolved {
                     if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
@@ -1927,7 +1935,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         }
 
         push(ctx.scopes, []);
-        declare_binders(ctx, pattern, variants, single);
+        let binders: [Option[Local]] = declare_binders(ctx, pattern, variants, single);
         if irrefutable && len(ctx.env.diags) == diags_before {
             report(ctx.env, "pattern always matches", pattern.start, pattern.end);
         }
@@ -1936,7 +1944,9 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         }
         match arm.body {
             ArmBody::Block(b) => {
-                let diverges: bool = check_block(ctx, b).diverges;
+                let block: CheckedBlock = check_block(ctx, b);
+                let diverges: bool = block.diverges;
+                push(result.bodies, TArmBody::Block(block.node));
                 if as_expr {
                     // A match expression's block arm must diverge, and so contributes the type never.
                     if !diverges {
@@ -1949,13 +1959,18 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             }
             ArmBody::Expr(body) => {
                 if as_expr {
-                    push(result.types, check_expr(ctx, body, expected).ty);
+                    let checked: TExpr = check_expr(ctx, body, expected);
+                    push(result.bodies, TArmBody::Expr(checked));
+                    push(result.types, checked.ty);
                 } else {
-                    push(result.diverges, is_never(check_expr(ctx, body, Option::None).ty));
+                    let checked: TExpr = check_expr(ctx, body, Option::None);
+                    push(result.bodies, TArmBody::Block(TBlock { stmts: [TStmt::Expr(checked)] }));
+                    push(result.diverges, is_never(checked.ty));
                 }
             }
         }
         pop(ctx.scopes);
+        push(result.patterns, typed_pattern(pattern, category, fresh, binders, variants));
         index += 1;
     }
 
@@ -1985,7 +2000,7 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
     if let PatternNode::Variant(enum_name, variant_name, binders) = alt.node {
         if has_decl {
             let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders)?;
-            return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
+            return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi, value: "" });
         }
         // Only the enum name matters here: any variant of it is the wrong type. Templates count as enums, and the type
         // namespace holds each name at most once.
@@ -2005,14 +2020,19 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
         report(ctx.env, "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
         return Option::None;
     }
-    let key: string = match alt.node {
-        PatternNode::IntPat(text) => "int:" + int_pattern_value(text),
-        PatternNode::CharPat(text) => "int:" + int_to_string(char_pattern_value(text)),
-        PatternNode::BoolPat(b) => if b { "bool:true" } else { "bool:false" },
-        PatternNode::StringPat(text) => "str:" + string_pattern_value(text),
+    if let PatternNode::StringPat(text) = alt.node {
+        return Option::Some(ResolvedAlt { key: "str:" + string_pattern_value(text), variant: -1, value: string_literal_value(text) });
+    }
+    if let PatternNode::BoolPat(b) = alt.node {
+        let value: string = if b { "1" } else { "0" };
+        return Option::Some(ResolvedAlt { key: if b { "bool:true" } else { "bool:false" }, variant: -1, value: value });
+    }
+    let value: string = match alt.node {
+        PatternNode::IntPat(text) => int_pattern_value(text),
+        PatternNode::CharPat(text) => int_to_string(char_pattern_value(text)),
         _ => "",
     };
-    return Option::Some(ResolvedAlt { key: key, variant: -1 });
+    return Option::Some(ResolvedAlt { key: "int:" + value, variant: -1, value: value });
 }
 
 // An integer pattern's value in canonical decimal (TS's bigint), so `007` and `7`, and `-0` and `0`, are one key.
@@ -2109,16 +2129,18 @@ fn string_literal_value(text: string): string {
 }
 
 // Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
-// otherwise each covered alternative as a duplicate. Returns the keys of the alternatives that cover something new.
-fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [string] {
-    let fresh: [string] = [];
+// otherwise each covered alternative as a duplicate. Returns the alternatives that cover something new.
+fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [ResolvedAlt] {
+    let fresh: [ResolvedAlt] = [];
     let stale: [Pattern] = [];
+    let arm_keys: [string] = [];
     for i in 0..len(resolved) {
         if let Option::Some(r) = resolved[i] {
-            if contains(covered, r.key) || contains(fresh, r.key) {
+            if contains(covered, r.key) || contains(arm_keys, r.key) {
                 push(stale, alternatives[i]);
             } else {
-                push(fresh, r.key);
+                push(arm_keys, r.key);
+                push(fresh, r);
             }
         }
     }
@@ -2160,7 +2182,9 @@ fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], co
 
 // Declares a single variant pattern's binders in the current scope, typed by the payload of variant `vi` (an index into
 // `variants`, or -1) when the binder count is right. Named binders in an or-pattern are reported and not declared.
-fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
+// Returns one local per binder of a variant pattern (None for `_` and for a repeated name), else none.
+fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int): [Option[Local]] {
+    let locals: [Option[Local]] = [];
     match pattern.node {
         PatternNode::Or(alts) => {
             for alt in alts {
@@ -2183,19 +2207,52 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
             let seen: [string] = [];
             for i in 0..len(binders) {
                 let Binder::Named(id) = binders[i] else {
+                    push(locals, Option::None);
                     continue;
                 };
                 if contains(seen, id.name) {
                     report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                    push(locals, Option::None);
                 } else {
                     push(seen, id.name);
                     let ty: Type = if has_slots { slots[i] } else { Type::Error };
-                    declare(ctx, id, ty, false);
+                    push(locals, Option::Some(declare(ctx, id, ty, false)));
                 }
             }
         }
         _ => {}
     }
+    return locals;
+}
+
+// The typed form of an arm's pattern, from the alternatives it newly covers (`fresh`) and its binders. `variants` are
+// the scrutinee enum's variants, which name a fresh variant alternative by its index.
+fn typed_pattern(pattern: Pattern, category: string, fresh: [ResolvedAlt], binders: [Option[Local]], variants: [TVariant]): TPattern {
+    if let PatternNode::Wildcard = pattern.node {
+        return TPattern::Wildcard;
+    }
+    if category == "int" || category == "bool" {
+        let values: [string] = [];
+        for r in fresh {
+            push(values, r.value);
+        }
+        return TPattern::Ints(values);
+    }
+    if category == "string" {
+        let values: [string] = [];
+        for r in fresh {
+            push(values, r.value);
+        }
+        return TPattern::Strings(values);
+    }
+    let refs: [TVariantRef] = [];
+    for r in fresh {
+        if r.variant >= 0 {
+            push(refs, TVariantRef { name: variants[r.variant].name, tag: r.variant });
+        }
+    }
+    let kept: [Option[Local]] = if len(refs) == 1 { binders } else { [] };
+    return TPattern::Variants(refs, kept);
 }
 
 // Resolves `F::V(...)` against the scrutinee's enum (whose variants are `variants`), returning the variant's index.
@@ -2223,11 +2280,11 @@ fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Patter
 }
 
 // A match expression.
-fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
+fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): TExpr {
     let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected, false);
     for t in m.types {
         if is_error(t) {
-            return Type::Error;
+            return error_expr();
         }
     }
     // The parser guarantees at least one arm. Arms of type never (block arms among them) don't take part in the "same
@@ -2242,17 +2299,21 @@ fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [A
     for t in m.types {
         if !is_never(t) && !type_equals(t, ty) {
             report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
-            return Type::Error;
+            return error_expr();
         }
     }
     if is_void(ty) {
         report(ctx.env, "match expression cannot have type void", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
-    if match_category(m.scrutinee) == "" {
-        return Type::Error;
+    if match_category(m.scrutinee.ty) == "" {
+        return error_expr();
     }
-    return ty;
+    let typed: [TArm] = [];
+    for i in 0..len(m.patterns) {
+        push(typed, TArm { pattern: m.patterns[i], body: m.bodies[i] });
+    }
+    return TExpr { ty: ty, node: TExprNode::Match(m.scrutinee, typed) };
 }
 
 fn find_field(env: Env, struct_name: string, name: string): Option[TField] {

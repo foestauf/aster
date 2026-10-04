@@ -4,8 +4,10 @@ fn main(): int {
     let c: int = 'a';
     let d: int = '\n';
     let s: string = "a\"b\\c\n\t\0é😀";
+    let r: string = "x\ry\'z";
     let t: bool = true;
     let f: bool = false;
     print(s);
+    print(r);
     return a + b + c + d;
 }
