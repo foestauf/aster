@@ -11,9 +11,7 @@
 // `check_expr` returns only an expression's type, and statements only whether they diverge (spec §2, "Types only, no
 // typed tree").
 //
-// Ported so far: types, declarations, function signatures, statements, expressions and generic enums (the prelude,
-// instantiation and inference). `match` and `?` go to stubs (check_match, check_match_expr, check_try) that report
-// nothing and give the error type.
+// Matches are checked for their diagnostics, binders and divergence only; there are no typed patterns.
 
 import "loader.aster";
 
@@ -1417,6 +1415,72 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
     }
 }
 
+// The index in `env.enums` of `t`'s instantiation when `t` is an `Option` or `Result`, else None: TS's `tryable`, whose
+// name, base and arguments the TEnum holds.
+fn tryable(env: Env, t: Type): Option[int] {
+    match t {
+        Type::Enum(name) => {
+            match find_enum(env, name) {
+                Option::Some(ei) => {
+                    let base: string = env.enums[ei].base;
+                    if base == "Option" || base == "Result" {
+                        return Option::Some(ei);
+                    }
+                }
+                Option::None => {}
+            }
+        }
+        _ => {}
+    }
+    return Option::None;
+}
+
+// `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function.
+fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
+    let t: Type = check_expr(ctx, operand, Option::None);
+    if is_error(t) {
+        return Type::Error;
+    }
+    var oi: int = -1;
+    match tryable(ctx.env, t) {
+        Option::Some(i) => {
+            oi = i;
+        }
+        Option::None => {}
+    }
+    if oi < 0 {
+        report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
+        return Type::Error;
+    }
+    let op: TEnum = ctx.env.enums[oi];
+    let is_result: bool = op.base == "Result";
+    let ty: Type = op.variants[0].payload[0];
+    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`).
+    if is_error(ctx.ret) {
+        return ty;
+    }
+    var ri: int = -1;
+    match tryable(ctx.env, ctx.ret) {
+        Option::Some(i) => {
+            ri = i;
+        }
+        Option::None => {}
+    }
+    if ri < 0 || ctx.env.enums[ri].base != op.base {
+        let kind: string = if is_result { "a Result" } else { "an Option" };
+        report(ctx.env, "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'", e.start, e.end);
+        return Type::Error;
+    }
+    let ret: TEnum = ctx.env.enums[ri];
+    if is_result && !type_equals(op.args[1], ret.args[1]) {
+        let mine: string = type_to_string(op.args[1]);
+        let theirs: string = type_to_string(ret.args[1]);
+        report(ctx.env, "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
+        return Type::Error;
+    }
+    return ty;
+}
+
 fn variant_arity_message(enum_name: string, variant: string, expected: int, found: int): string {
     let noun: string = if expected == 1 { "value" } else { "values" };
     return "variant '" + enum_name + "::" + variant + "' expects " + int_to_string(expected) + " " + noun + ", got " + int_to_string(found);
@@ -1640,23 +1704,450 @@ fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Bi
     }
 }
 
-// ---- stubs for the match and `?` paths, which Task 6 ports. Each reports nothing and gives the error type, or does
-// not diverge.
+// ---- match (spec §3.3)
 
-// `e?` (§3.7). Task 6.
-fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
-    return Type::Error;
+// The name an enum's patterns and diagnostics write: an instantiation's generic enum, or the enum itself.
+fn enum_base_name(env: Env, t: Type): string {
+    match t {
+        Type::Enum(name) => {
+            match find_enum(env, name) {
+                Option::Some(ei) => {
+                    if env.enums[ei].base != "" {
+                        return env.enums[ei].base;
+                    }
+                }
+                Option::None => {}
+            }
+            return name;
+        }
+        _ => {
+            return type_to_string(t);
+        }
+    }
 }
 
+// "enum", "int", "bool" or "string" for a type a match can take apart, else "" (TS's null).
+fn match_category(t: Type): string {
+    let kind: string = kind_of_type(t);
+    if kind == "enum" || kind == "int" || kind == "bool" || kind == "string" {
+        return kind;
+    }
+    return "";
+}
 
-// A match statement; returns whether it diverges. Task 6.
+// A pattern alternative that fits the scrutinee: its key in the match's covered set, and for a variant its index (its
+// tag) in the scrutinee's enum, else -1. A key holds the alternative's value, not its spelling: `int:<decimal>` for
+// integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
+struct ResolvedAlt {
+    key: string,
+    variant: int,
+}
+
+// What check_arms found: the scrutinee's type and, per arm in order, the body's type (an expression match) or whether
+// it diverges (a statement match). TS's `checkArm` callback becomes the `as_expr` flag.
+struct MatchArms {
+    scrutinee: Type,
+    types: [Type],
+    diverges: [bool],
+}
+
+// A match statement; returns whether it diverges.
 fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
-    return false;
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None);
+    // Every match is exhaustive, so it ends a control path exactly when every arm does.
+    if len(m.diverges) == 0 {
+        return false;
+    }
+    for d in m.diverges {
+        if !d {
+            return false;
+        }
+    }
+    return true;
 }
 
-// A match expression. Task 6.
+// TS's checkMatch. Checks a match's scrutinee and patterns:
+// - the scrutinee must be an enum, int, bool or string
+// - each pattern alternative must fit the scrutinee's type
+// - no arm may be unreachable, and no alternative may repeat a value already covered
+// - an enum or bool match must cover every value unless there is a `_` arm; an int or string match needs `_`
+// and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed or
+// unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
+fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
+    let st: Type = check_expr(ctx, scrutinee, Option::None);
+    var has_decl: bool = false;
+    var variants: [TVariant] = [];
+    match st {
+        Type::Enum(name) => {
+            match find_enum(ctx.env, name) {
+                Option::Some(ei) => {
+                    has_decl = true;
+                    variants = ctx.env.enums[ei].variants;
+                }
+                Option::None => {}
+            }
+        }
+        _ => {}
+    }
+    if match_category(st) == "" && !is_error(st) {
+        report(ctx.env, "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
+    }
+    let category: string = if kind_of_type(st) == "enum" && !has_decl { "" } else { match_category(st) };
+
+    let covered: [string] = [];
+    var wildcard_seen: bool = false;
+    var all_resolved: bool = true;
+    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [] };
+    for arm in arms {
+        let pattern: Pattern = arm.pattern;
+        let is_wildcard: bool = match pattern.node {
+            PatternNode::Wildcard => true,
+            _ => false,
+        };
+        let alternatives: [Pattern] = match pattern.node {
+            PatternNode::Wildcard => [],
+            PatternNode::Or(alts) => alts,
+            _ => [pattern],
+        };
+        var single: int = -1;
+        if category != "" {
+            let resolved: [Option[ResolvedAlt]] = [];
+            for alt in alternatives {
+                push(resolved, resolve_alternative(ctx, st, has_decl, variants, alt));
+            }
+            for r in resolved {
+                match r {
+                    Option::Some(_) => {}
+                    Option::None => {
+                        all_resolved = false;
+                    }
+                }
+            }
+            if is_wildcard {
+                var none_missing: bool = false;
+                match missing_values(ctx.env, category, st, variants, covered) {
+                    Option::Some(missing) => {
+                        none_missing = len(missing) == 0;
+                    }
+                    Option::None => {}
+                }
+                if wildcard_seen || none_missing {
+                    report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+                }
+            } else {
+                for key in check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen) {
+                    push(covered, key);
+                }
+            }
+            match pattern.node {
+                PatternNode::Variant(_, _, _) => {
+                    match resolved[0] {
+                        Option::Some(r) => {
+                            single = r.variant;
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        if is_wildcard {
+            wildcard_seen = true;
+        }
+
+        push(ctx.scopes, []);
+        declare_binders(ctx, pattern, variants, single);
+        match arm.body {
+            ArmBody::Block(b) => push(result.diverges, check_block(ctx, b)),
+            ArmBody::Expr(body) => {
+                if as_expr {
+                    push(result.types, check_expr(ctx, body, expected));
+                } else {
+                    check_expr(ctx, body, Option::None);
+                    push(result.diverges, is_diverging_call(ctx, body));
+                }
+            }
+        }
+        pop(ctx.scopes);
+    }
+
+    if category != "" && all_resolved && !wildcard_seen {
+        match missing_values(ctx.env, category, st, variants, covered) {
+            Option::None => report(ctx.env, "non-exhaustive match: add a '_' arm", keyword.start, keyword.end),
+            Option::Some(missing) => {
+                if len(missing) > 0 {
+                    var list: string = "";
+                    for i in 0..len(missing) {
+                        if i > 0 {
+                            list += ", ";
+                        }
+                        list += missing[i];
+                    }
+                    report(ctx.env, "non-exhaustive match: missing " + list, keyword.start, keyword.end);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// Resolves one alternative against the scrutinee type `st`, reporting a pattern that does not fit. Returns None after
+// any report. `has_decl` says whether the scrutinee is an enum, and `variants` are then its variants.
+fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant], alt: Pattern): Option[ResolvedAlt] {
+    match alt.node {
+        PatternNode::Variant(enum_name, variant_name, binders) => {
+            if has_decl {
+                let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders);
+                if vi < 0 {
+                    return Option::None;
+                }
+                return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
+            }
+            // Only the enum name matters here: any variant of it is the wrong type.
+            if is_found(find_enum(ctx.env, enum_name.name)) || is_found(find_template(ctx.env, enum_name.name)) {
+                report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
+            } else {
+                resolve_variant(ctx.env, enum_name, variant_name);
+            }
+            return Option::None;
+        }
+        _ => {}
+    }
+    let pattern_type: Type = match alt.node {
+        PatternNode::StringPat(_) => Type::Str,
+        PatternNode::BoolPat(_) => Type::Bool,
+        _ => Type::Int,
+    };
+    if !type_equals(pattern_type, st) {
+        report(ctx.env, "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
+        return Option::None;
+    }
+    let key: string = match alt.node {
+        PatternNode::IntPat(text) => "int:" + int_pattern_value(text),
+        PatternNode::CharPat(text) => "int:" + int_to_string(char_pattern_value(text)),
+        PatternNode::BoolPat(b) => if b { "bool:true" } else { "bool:false" },
+        PatternNode::StringPat(text) => "str:" + string_pattern_value(text),
+        _ => "",
+    };
+    return Option::Some(ResolvedAlt { key: key, variant: -1 });
+}
+
+// An integer pattern's value in canonical decimal (TS's bigint), so `007` and `7`, and `-0` and `0`, are one key.
+fn int_pattern_value(text: string): string {
+    if byte_at(text, 0) != '-' {
+        return canonical_digits(text);
+    }
+    let digits: string = canonical_digits(substring(text, 1, len(text)));
+    if digits == "0" {
+        return digits;
+    }
+    return "-" + digits;
+}
+
+// A character pattern's code, from its source text (the lexer has accepted it, so it is one ASCII character or an
+// escape).
+fn char_pattern_value(text: string): int {
+    let c: int = byte_at(text, 1);
+    if c != '\\' {
+        return c;
+    }
+    return escape_value(byte_at(text, 2));
+}
+
+// The byte an escape `\c` stands for.
+fn escape_value(c: int): int {
+    return match c {
+        'n' => 10,
+        't' => 9,
+        'r' => 13,
+        '0' => 0,
+        _ => c,
+    };
+}
+
+// A string pattern's value, from its source text, in a form that is equal for two literals exactly when their values
+// are: escapes are decoded, then a backslash is written `\\` and a NUL byte `\0`, so neither is ambiguous.
+fn string_pattern_value(text: string): string {
+    var out: string = "";
+    var i: int = 1;
+    while i < len(text) - 1 {
+        var c: int = byte_at(text, i);
+        var width: int = 1;
+        if c == '\\' && i + 1 < len(text) - 1 {
+            width = 2;
+            c = escape_value(byte_at(text, i + 1));
+        }
+        if c == '\\' {
+            out += "\\\\";
+        } else if c == 0 {
+            out += "\\0";
+        } else if c == 10 {
+            out += "\n";
+        } else if c == 9 {
+            out += "\t";
+        } else if c == 13 {
+            out += "\r";
+        } else if width == 2 {
+            out += substring(text, i + 1, i + 2);
+        } else {
+            out += substring(text, i, i + 1);
+        }
+        i += width;
+    }
+    return out;
+}
+
+// Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
+// otherwise each covered alternative as a duplicate. Returns the keys of the alternatives that cover something new.
+fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [string] {
+    let fresh: [string] = [];
+    let stale: [Pattern] = [];
+    for i in 0..len(resolved) {
+        match resolved[i] {
+            Option::Some(r) => {
+                if contains(covered, r.key) || contains(fresh, r.key) {
+                    push(stale, alternatives[i]);
+                } else {
+                    push(fresh, r.key);
+                }
+            }
+            Option::None => {}
+        }
+    }
+    if len(fresh) + len(stale) == 0 {
+        return fresh;
+    }
+    if wildcard_seen || len(fresh) == 0 {
+        report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+    } else {
+        for alt in stale {
+            report(ctx.env, "duplicate pattern alternative", alt.start, alt.end);
+        }
+    }
+    return fresh;
+}
+
+// The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; None for
+// int and string, whose values can never all be covered.
+fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], covered: [string]): Option[[string]] {
+    let missing: [string] = [];
+    if category == "enum" {
+        for i in 0..len(variants) {
+            if !contains(covered, "tag:" + int_to_string(i)) {
+                push(missing, "'" + enum_base_name(env, st) + "::" + variants[i].name + "'");
+            }
+        }
+        return Option::Some(missing);
+    }
+    if category == "bool" {
+        for b in ["true", "false"] {
+            if !contains(covered, "bool:" + b) {
+                push(missing, "'" + b + "'");
+            }
+        }
+        return Option::Some(missing);
+    }
+    return Option::None;
+}
+
+// Declares a single variant pattern's binders in the current scope, typed by the payload of variant `vi` (an index into
+// `variants`, or -1) when the binder count is right. Named binders in an or-pattern are reported and not declared.
+fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
+    match pattern.node {
+        PatternNode::Or(alts) => {
+            for alt in alts {
+                match alt.node {
+                    PatternNode::Variant(_, _, binders) => {
+                        for binder in binders {
+                            match binder {
+                                Binder::Named(id) => report(ctx.env, "or-pattern alternatives cannot bind names", id.start, id.end),
+                                Binder::Wild => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        PatternNode::Variant(_, _, binders) => {
+            var slots: [Type] = [];
+            var has_slots: bool = false;
+            if vi >= 0 && len(binders) == len(variants[vi].payload) {
+                slots = variants[vi].payload;
+                has_slots = true;
+            }
+            let seen: [string] = [];
+            for i in 0..len(binders) {
+                match binders[i] {
+                    Binder::Wild => {}
+                    Binder::Named(id) => {
+                        if contains(seen, id.name) {
+                            report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                        } else {
+                            push(seen, id.name);
+                            let ty: Type = if has_slots { slots[i] } else { Type::Error };
+                            declare(ctx, id, ty, false);
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+// Resolves `F::V(...)` against the scrutinee's enum (whose variants are `variants`), returning the variant's index.
+// Returns -1 after reporting an unknown or wrong enum or an unknown variant. A wrong binder count is reported, but the
+// variant is still returned, so it still counts as covered.
+fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Pattern, enum_name: Ident, variant_name: Ident, binders: [Binder]): int {
+    // Patterns never carry type arguments, so a pattern names an instantiation by its generic enum's name.
+    let base: string = enum_base_name(ctx.env, st);
+    if enum_name.name != base {
+        match resolve_variant(ctx.env, enum_name, variant_name) {
+            FoundVariant::Missing => {}
+            _ => report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end),
+        }
+        return -1;
+    }
+    match find_tvariant(variants, variant_name.name) {
+        Option::Some(vi) => {
+            let payload: [Type] = variants[vi].payload;
+            if len(binders) != len(payload) {
+                report(ctx.env, variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
+            }
+            return vi;
+        }
+        Option::None => {
+            report(ctx.env, "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
+            return -1;
+        }
+    }
+}
+
+// A match expression.
 fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
-    return Type::Error;
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected);
+    for t in m.types {
+        if is_error(t) {
+            return Type::Error;
+        }
+    }
+    // The parser guarantees at least one arm.
+    let ty: Type = m.types[0];
+    for t in m.types {
+        if !type_equals(t, ty) {
+            report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
+            return Type::Error;
+        }
+    }
+    if is_void(ty) {
+        report(ctx.env, "match expression cannot have type void", e.start, e.end);
+        return Type::Error;
+    }
+    if match_category(m.scrutinee) == "" {
+        return Type::Error;
+    }
+    return ty;
 }
 
 fn find_field(env: Env, struct_name: string, name: string): Option[TField] {

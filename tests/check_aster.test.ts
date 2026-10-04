@@ -77,10 +77,10 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //    846  cannot match on '<T>' values                                     errors/match_literals.aster
 //    862  unreachable match arm (variant arms)                             errors/match_coverage.aster
 //    880  non-exhaustive match: add a '_' arm                              errors/match_literals.aster
-//    881  non-exhaustive match: missing <values>                           errors/generic_ops.aster
+//    881  non-exhaustive match: missing <values>                           errors/generic_ops.aster, fixtures/check_match.txt
 //    898  pattern type '<E>' does not match '<T>' (variant alternative)    errors/match_literals.aster
 //    906  pattern type '<T>' does not match '<U>' (literal alternative)    errors/match_literals.aster
-//    945  unreachable match arm (literal arms)                             errors/match_coverage.aster
+//    945  unreachable match arm (literal arms)                             errors/match_coverage.aster, fixtures/check_match.txt
 //    946  duplicate pattern alternative                                    errors/match_or_patterns.aster
 //    975  or-pattern alternatives cannot bind names                        errors/match_or_patterns.aster
 //    988  duplicate binding '<x>'                                          errors/match_patterns.aster
@@ -118,29 +118,10 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .toSorted();
 
 /**
- * Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes. Until
- * Task 6 ports `match`, a match statement never diverges, so a function that ends in one is wrongly missing a return
- * (programs/checker.aster, io/exit_nested_arms.aster, and, since Task 5 resolves their `Option` return types,
- * programs/parser.aster and programs/loader.aster), and match binders are missing from the locals.
+ * Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes; since
+ * Task 6 ported `match` and `?`, every file passes.
  */
-const PENDING = new Set<string>([
-  'enums/aliasing.aster', 'enums/linked_list.aster',
-  'errors/generic_inference.aster', 'errors/generic_ops.aster',
-  'errors/match_coverage.aster', 'errors/match_literals.aster', 'errors/match_or_patterns.aster',
-  'errors/match_patterns.aster', 'errors/read_file_match.aster', 'errors/read_result_ops.aster',
-  'errors/try_errors.aster',
-  'generics/basic.aster', 'generics/c_names.aster', 'generics/inference.aster', 'generics/list.aster',
-  'generics/match.aster', 'generics/nested.aster', 'generics/shared_instance.aster', 'generics/struct_field.aster',
-  'generics/tree.aster', 'generics/two_params.aster',
-  'io/exit_nested_arms.aster', 'io/read_file.aster', 'io/read_file_errors.aster', 'io/read_file_result.aster',
-  'match/control_flow.aster', 'match/expressions.aster', 'match/int.aster', 'match/or_patterns.aster',
-  'match/scrutinee_once.aster', 'match/statements.aster',
-  'modules/generic.aster',
-  'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/checker.aster',
-  'programs/lex.aster', 'programs/loader.aster', 'programs/parse.aster', 'programs/parser.aster',
-  'try/chain.aster', 'try/loops.aster', 'try/option.aster', 'try/order.aster', 'try/positions.aster',
-  'try/read_file.aster', 'try/result.aster',
-]);
+const PENDING = new Set<string>([]);
 
 const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
 
@@ -212,7 +193,7 @@ describe('check.aster matches the TypeScript front end', () => {
     for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
       expect(corpus).toContain(join('programs', f));
     }
-    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts', 'check_generics']) {
+    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts', 'check_generics', 'check_match']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
     for (const f of PENDING) expect(corpus).toContain(f);
