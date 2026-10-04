@@ -105,8 +105,7 @@ checks the missing-compiler message and exit code, and that arguments and the ex
 
 ## 4. Automation and CI
 
-`.github/workflows/ci.yml` gets two jobs, both on `ubuntu-latest` (Ubuntu 24.04, gcc 13, which satisfies the proof's
-environment check) with Node 24.
+`.github/workflows/ci.yml` gets two jobs, both on `ubuntu-24.04` (pinned, because the proof requires gcc 13, which that image ships) with Node 24.
 
 **`proof`:** `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm selfhost`. The proof already runs the
 full `pnpm test`, the stage-aware suites against S1, S2 and S3, and the S0 to S4 C comparison. The `.selfhost/` report is
