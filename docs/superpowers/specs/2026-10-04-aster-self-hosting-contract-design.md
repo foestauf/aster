@@ -40,11 +40,12 @@ than C.
 |---|---|
 | OS / arch | Linux x86_64. Tested on WSL2 (kernel 6.6). |
 | C compiler | gcc 13 (Ubuntu 13.3), invoked as `cc` from `PATH`. |
+| LLVM backend toolchain | clang 18 as `clang`, lld 18 as `ld.lld`, Linux x86_64 only; CI uses Ubuntu 24.04 packages `clang-18`, `lld-18`. LLVM-only dependencies. |
 | Stage 0 host | Node ≥ 24 running `packages/asterc/dist/cli/bin.js` (`pnpm aster:seed`). |
 | C flags | `-std=c11 -O2 -Wall`, the same as the TypeScript `buildExecutable`. Test harnesses may add `-Werror`. |
 | Environment for comparisons | Repo root as cwd, root file spelled `packages/asterc-self/asterc.aster`, `LC_ALL=C`. |
 
-clang, macOS and Windows are **unsupported**. They are not claimed to work or not work. The new runtime builtins (§4.3)
+macOS and Windows are **unsupported**. Clang 18 is supported only for the experimental LLVM backend; gcc 13 remains the C-backend compiler. They are not claimed to work or not work. The new runtime builtins (§4.3)
 use POSIX APIs (`mkdtemp`, `posix_spawnp`, `waitpid`, `remove`), so `aster_rt.c` defines `_POSIX_C_SOURCE` itself.
 
 ## 3. Source closure
@@ -152,6 +153,7 @@ line `#include "aster_rt.h"`, so `--emit=c` stays comparable to stage 0.
 | Behaviour | Stage 0 (TS) | Self-hosted | Why accepted |
 |---|---|---|---|
 | `--emit=tokens\|ast\|ir` | Supported | Unknown emit stage (exit 2) | Debug aids. `lex/parse.aster` already prove token/AST parity. |
+| `--backend=c\|llvm`, `--emit=llvm` | Rejected (exit 2) | Backend selection for build/run, LLVM textual emission for build; default C. At L2 LLVM selections report `llvm backend not implemented yet` (exit 2). | LLVM is self-hosted only. |
 | `ASTER_CC` | Overrides `cc` | Ignored, always `cc` | Would need an `env` builtin, and nothing in self-hosting uses it. |
 | `cc` failure text | `cc`'s stderr inside the internal-error message | `cc`'s stderr streams first, then `internal compiler error: C compiler 'cc' failed` | Exit code 3 matches. Only reachable if emitted C is broken, which §6 catches. |
 | Import identity | `realPath` of each import | Lexically normalised path (the `loader.aster` rule) | No `realpath` builtin. See §7. |

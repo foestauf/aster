@@ -15,13 +15,14 @@ struct CliArgs {
     command: string,
     file: string,
     out: Option[string],
-    emit_c: bool,
+    emit_stage: string,
+    backend: string,
     program_args: [string],
 }
 
 // cli.ts's USAGE with the emit stages narrowed to c, without its final newline (eprint adds it).
 fn usage_text(): string {
-    return "usage:\n  aster check <file.aster>\n  aster build <file.aster> [-o <out>] [--emit=c]\n  aster run <file.aster> [-- <args>...]";
+    return "usage:\n  aster check <file.aster>\n  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]\n  aster run <file.aster> [--backend=c|llvm] [-- <args>...]";
 }
 
 // Whether `s` begins with `prefix`.
@@ -41,7 +42,8 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
     }
     var file: Option[string] = Option::None;
     var out: Option[string] = Option::None;
-    var emit_c: bool = false;
+    var emit_stage: string = "";
+    var backend: string = "c";
     let program_args: [string] = [];
     var i: int = 1;
     while i < len(args) {
@@ -55,6 +57,14 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
                 push(program_args, args[k]);
             }
             break;
+        } else if cli_starts_with(arg, "--backend=") {
+            if command == "check" {
+                return Result::Err("'--backend' is only valid with 'build' or 'run'");
+            }
+            backend = substring(arg, len("--backend="), len(arg));
+            if backend != "c" && backend != "llvm" {
+                return Result::Err("unknown backend '" + backend + "'");
+            }
         } else if arg == "-o" || cli_starts_with(arg, "--emit=") {
             if command != "build" {
                 if arg == "-o" {
@@ -70,10 +80,10 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
                 out = Option::Some(args[i]);
             } else {
                 let stage: string = substring(arg, len("--emit="), len(arg));
-                if stage != "c" {
+                if stage != "c" && stage != "llvm" {
                     return Result::Err("unknown emit stage '" + stage + "'");
                 }
-                emit_c = true;
+                emit_stage = stage;
             }
         } else if cli_starts_with(arg, "-") {
             return Result::Err("unknown option '" + arg + "'");
@@ -87,7 +97,7 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
     let Option::Some(path) = file else {
         return Result::Err("missing input file");
     };
-    return Result::Ok(CliArgs { command: command, file: path, out: out, emit_c: emit_c, program_args: program_args });
+    return Result::Ok(CliArgs { command: command, file: path, out: out, emit_stage: emit_stage, backend: backend, program_args: program_args });
 }
 
 // The output path for `build` without `-o`, as cli.ts's defaultOutput gives it: the input's basename without a
@@ -145,6 +155,10 @@ fn main(args: [string]): int {
             return 2;
         }
     };
+    if parsed.backend == "llvm" || parsed.emit_stage == "llvm" {
+        eprint("error: llvm backend not implemented yet");
+        return 2;
+    }
     let Result::Ok(src) = read_file(parsed.file) else {
         eprint("error: cannot read '" + parsed.file + "'");
         return 2;
@@ -170,7 +184,7 @@ fn main(args: [string]): int {
         return 0;
     }
     let c: string = compile_c(checked);
-    if parsed.command == "build" && parsed.emit_c {
+    if parsed.command == "build" && parsed.emit_stage == "c" {
         print(c);
         return 0;
     }
