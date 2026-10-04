@@ -1,0 +1,299 @@
+// expect-library
+// The typed program in the canonical dump format, a line-for-line port of tests/typed_dump.ts (`dumpTyped` and
+// `escapeDump`). `dump_typed` returns the dump's lines, without their newlines: one node per line, indented by two
+// spaces per depth, every expression line ending in ` : <type>`. tests/typed_aster.test.ts checks it, through
+// typed.aster, against the TypeScript printer on the compiler's own typed program.
+//
+// Each `dump_*` printer takes the lines so far, the depth and a node, and appends to the lines.
+
+import "checker.aster";
+
+// A dump string value: `"…"` over the value's bytes, with `"`, `\`, newline and tab escaped by a backslash and any
+// other byte below 0x20 or from 0x7f up written as `\xHH`.
+fn dump_escape(s: string): string {
+    let hex: string = "0123456789abcdef";
+    var out: string = "\"";
+    for i in 0..len(s) {
+        let b: int = byte_at(s, i);
+        if b == '"' {
+            out += "\\\"";
+        } else if b == '\\' {
+            out += "\\\\";
+        } else if b == '\n' {
+            out += "\\n";
+        } else if b == '\t' {
+            out += "\\t";
+        } else if b < 32 || b >= 127 {
+            out += "\\x" + substring(hex, b / 16, b / 16 + 1) + substring(hex, b % 16, b % 16 + 1);
+        } else {
+            out += substring(s, i, i + 1);
+        }
+    }
+    return out + "\"";
+}
+
+// `word` followed by each of `parts`, separated by single spaces.
+fn dump_head(word: string, parts: [string]): string {
+    var out: string = word;
+    for p in parts {
+        out += " " + p;
+    }
+    return out;
+}
+
+// Appends `text`, indented by `depth`.
+fn dump_put(out: [string], depth: int, text: string) {
+    var line: string = "";
+    for i in 0..depth {
+        line += "  ";
+    }
+    push(out, line + text);
+}
+
+fn dump_block(out: [string], d: int, b: TBlock) {
+    dump_put(out, d, "block");
+    for s in b.stmts {
+        dump_stmt(out, d + 1, s);
+    }
+}
+
+fn dump_arm(out: [string], d: int, a: TArm) {
+    dump_put(out, d, "arm");
+    dump_pattern(out, d + 1, a.pattern);
+    match a.body {
+        TArmBody::Block(b) => dump_block(out, d + 1, b),
+        TArmBody::Expr(e) => dump_expr(out, d + 1, e),
+    }
+}
+
+fn dump_pattern(out: [string], d: int, p: TPattern) {
+    match p {
+        TPattern::Wildcard => dump_put(out, d, "wildcard"),
+        TPattern::Variants(variants, binders) => {
+            let names: [string] = [];
+            for v in variants {
+                push(names, v.name + "/" + int_to_string(v.tag));
+            }
+            dump_put(out, d, dump_head("variants", names));
+            if len(binders) > 0 {
+                let ids: [string] = [];
+                for b in binders {
+                    match b {
+                        Option::Some(l) => push(ids, int_to_string(l.id)),
+                        Option::None => push(ids, "_"),
+                    }
+                }
+                dump_put(out, d, dump_head("binders", ids));
+            }
+        }
+        TPattern::Ints(values) => dump_put(out, d, dump_head("ints", values)),
+        TPattern::Strings(values) => {
+            let escaped: [string] = [];
+            for v in values {
+                push(escaped, dump_escape(v));
+            }
+            dump_put(out, d, dump_head("strings", escaped));
+        }
+    }
+}
+
+fn dump_place(out: [string], d: int, p: TPlace) {
+    match p.node {
+        TPlaceNode::Local(l) => dump_put(out, d, "place-local " + int_to_string(l.id) + " " + l.name + " : " + type_to_string(p.ty)),
+        TPlaceNode::Field(object, field) => {
+            dump_put(out, d, "place-field ." + field + " : " + type_to_string(p.ty));
+            dump_expr(out, d + 1, object);
+        }
+        TPlaceNode::Index(array, index) => {
+            dump_put(out, d, "place-index : " + type_to_string(p.ty));
+            dump_expr(out, d + 1, array);
+            dump_expr(out, d + 1, index);
+        }
+    }
+}
+
+fn dump_stmt(out: [string], d: int, s: TStmt) {
+    match s {
+        TStmt::Let(local, init) => {
+            dump_put(out, d, "let " + int_to_string(local.id));
+            dump_expr(out, d + 1, init);
+        }
+        TStmt::Assign(place, op, value) => {
+            dump_put(out, d, "assign " + op);
+            dump_place(out, d + 1, place);
+            dump_expr(out, d + 1, value);
+        }
+        TStmt::If(cond, then, otherwise) => {
+            dump_put(out, d, "if");
+            dump_expr(out, d + 1, cond);
+            dump_block(out, d + 1, then);
+            match otherwise {
+                Option::Some(b) => dump_block(out, d + 1, b),
+                Option::None => dump_put(out, d + 1, "none"),
+            }
+        }
+        TStmt::While(cond, body) => {
+            dump_put(out, d, "while");
+            dump_expr(out, d + 1, cond);
+            dump_block(out, d + 1, body);
+        }
+        TStmt::ForRange(local, start, end, body) => {
+            dump_put(out, d, "for-range " + int_to_string(local.id));
+            dump_expr(out, d + 1, start);
+            dump_expr(out, d + 1, end);
+            dump_block(out, d + 1, body);
+        }
+        TStmt::ForEach(local, array, body) => {
+            dump_put(out, d, "for-each " + int_to_string(local.id));
+            dump_expr(out, d + 1, array);
+            dump_block(out, d + 1, body);
+        }
+        TStmt::Break => dump_put(out, d, "break"),
+        TStmt::Continue => dump_put(out, d, "continue"),
+        TStmt::Return(value) => {
+            dump_put(out, d, "return");
+            match value {
+                Option::Some(e) => dump_expr(out, d + 1, e),
+                Option::None => dump_put(out, d + 1, "none"),
+            }
+        }
+        TStmt::Match(scrutinee, arms) => {
+            dump_put(out, d, "match");
+            dump_expr(out, d + 1, scrutinee);
+            for a in arms {
+                dump_arm(out, d + 1, a);
+            }
+        }
+        TStmt::Block(b) => dump_block(out, d, b),
+        TStmt::Expr(e) => {
+            dump_put(out, d, "expr");
+            dump_expr(out, d + 1, e);
+        }
+    }
+}
+
+// Appends each of `es` as a child at depth `d`.
+fn dump_kids(out: [string], d: int, es: [TExpr]) {
+    for c in es {
+        dump_expr(out, d, c);
+    }
+}
+
+fn dump_expr(out: [string], d: int, e: TExpr) {
+    let t: string = " : " + type_to_string(e.ty);
+    match e.node {
+        TExprNode::Int(value) => dump_put(out, d, "int " + value + t),
+        TExprNode::Str(value) => dump_put(out, d, "str " + dump_escape(value) + t),
+        TExprNode::Bool(value) => {
+            if value {
+                dump_put(out, d, "bool true" + t);
+            } else {
+                dump_put(out, d, "bool false" + t);
+            }
+        }
+        TExprNode::Local(l) => dump_put(out, d, "local " + int_to_string(l.id) + " " + l.name + t),
+        TExprNode::Unary(op, operand) => {
+            dump_put(out, d, "unary " + op + t);
+            dump_expr(out, d + 1, operand);
+        }
+        TExprNode::Binary(op, left, right) => {
+            dump_put(out, d, "binary " + op + t);
+            dump_kids(out, d + 1, [left, right]);
+        }
+        TExprNode::Call(name, args) => {
+            dump_put(out, d, "call " + name + t);
+            dump_kids(out, d + 1, args);
+        }
+        TExprNode::Builtin(name, args) => {
+            dump_put(out, d, "builtin " + name + t);
+            dump_kids(out, d + 1, args);
+        }
+        TExprNode::If(cond, then, otherwise) => {
+            dump_put(out, d, "if" + t);
+            dump_kids(out, d + 1, [cond, then, otherwise]);
+        }
+        TExprNode::Field(object, field) => {
+            dump_put(out, d, "field ." + field + t);
+            dump_expr(out, d + 1, object);
+        }
+        TExprNode::Index(array, index) => {
+            dump_put(out, d, "index" + t);
+            dump_kids(out, d + 1, [array, index]);
+        }
+        TExprNode::ArrayLit(elements) => {
+            dump_put(out, d, "array" + t);
+            dump_kids(out, d + 1, elements);
+        }
+        TExprNode::StructLit(name, fields) => {
+            dump_put(out, d, "struct-lit " + name + t);
+            for f in fields {
+                dump_put(out, d + 1, "init " + f.field);
+                dump_expr(out, d + 2, f.value);
+            }
+        }
+        TExprNode::Variant(enum_name, variant, tag, args) => {
+            dump_put(out, d, "variant " + enum_name + " " + variant + " " + int_to_string(tag) + t);
+            dump_kids(out, d + 1, args);
+        }
+        TExprNode::EnumCompare(op, left, right) => {
+            dump_put(out, d, "enum-compare " + op + t);
+            dump_kids(out, d + 1, [left, right]);
+        }
+        TExprNode::Match(scrutinee, arms) => {
+            dump_put(out, d, "match" + t);
+            dump_expr(out, d + 1, scrutinee);
+            for a in arms {
+                dump_arm(out, d + 1, a);
+            }
+        }
+        TExprNode::Try(x) => {
+            let fail: string = x.fail_variant + "/" + int_to_string(x.fail_tag);
+            let ret: string = x.return_enum + " " + x.return_fail_variant + "/" + int_to_string(x.return_fail_tag);
+            dump_put(out, d, "try " + x.ok_variant + "/" + int_to_string(x.ok_tag) + " " + fail + " -> " + ret + t);
+            dump_put(out, d + 1, "return-type " + type_to_string(x.return_type));
+            if let Option::Some(payload) = x.fail_payload_type {
+                dump_put(out, d + 1, "fail-payload " + type_to_string(payload));
+            }
+            dump_expr(out, d + 1, x.operand);
+        }
+        TExprNode::Error => dump_put(out, d, "error" + t),
+    }
+}
+
+// The whole program: structs with their fields, enums with their variants, then functions with their locals and body.
+fn dump_typed(c: Checked): [string] {
+    let out: [string] = [];
+    for s in c.structs {
+        dump_put(out, 0, "struct " + s.name);
+        for f in s.fields {
+            dump_put(out, 1, "field " + f.name + " " + type_to_string(f.ty));
+        }
+    }
+    for e in c.enums {
+        dump_put(out, 0, "enum " + e.name);
+        for v in e.variants {
+            let payload: [string] = [];
+            for p in v.payload {
+                push(payload, type_to_string(p));
+            }
+            dump_put(out, 1, dump_head("variant " + v.name, payload));
+        }
+    }
+    for f in c.functions {
+        dump_put(out, 0, "fn " + f.name + " " + type_to_string(f.ret));
+        for l in f.locals {
+            var kind: string = "let";
+            if l.id < f.params {
+                kind = "param";
+            } else if l.mutable {
+                kind = "var";
+            }
+            dump_put(out, 1, "local " + int_to_string(l.id) + " " + l.name + " " + type_to_string(l.ty) + " " + kind);
+        }
+        dump_put(out, 1, "body");
+        for s in f.body.stmts {
+            dump_stmt(out, 2, s);
+        }
+    }
+    return out;
+}

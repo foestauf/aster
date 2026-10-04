@@ -177,12 +177,62 @@ struct TEnum {
     args: [Type],
 }
 
-// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id.
+// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id. `body`
+// is the typed body; check_function leaves it empty for now.
 struct TFunction {
     name: string,
     params: int,
     locals: [Local],
     ret: Type,
+    body: TBlock,
+}
+
+// ---- the typed tree (check/types.ts)
+
+struct TBlock { stmts: [TStmt] }
+
+// A match arm: an expression-bodied arm has an `Expr` body, a block-bodied one a `Block`.
+struct TArm { pattern: TPattern, body: TArmBody }
+
+enum TArmBody { Block(TBlock), Expr(TExpr) }
+
+// A variant alternative of a pattern, with its tag.
+struct TVariantRef { name: string, tag: int }
+
+// `Variants` holds the alternatives and, when there is exactly one, one binder per payload slot (`None` for `_`);
+// otherwise no binders. `Ints` holds decimal values and `Strings` decoded values.
+enum TPattern { Wildcard, Variants([TVariantRef], [Option[Local]]), Ints([string]), Strings([string]) }
+
+// An assignment target.
+struct TPlace { ty: Type, node: TPlaceNode }
+
+enum TPlaceNode { Local(Local), Field(TExpr, string), Index(TExpr, TExpr) }
+
+struct TFieldInit { field: string, value: TExpr }
+
+// `operand?`: continues with payload slot 0 of `ok_variant`, or returns `return_fail_variant` of `return_enum` (the
+// enclosing function's return type) from the function. `fail_payload_type` is the operand's `Err` slot type for
+// `Result`, carried into the returned `Err`, and `None` for `Option`.
+struct TTry {
+    operand: TExpr, ok_variant: string, ok_tag: int, fail_variant: string, fail_tag: int, return_type: Type,
+    return_enum: string, return_fail_variant: string, return_fail_tag: int, fail_payload_type: Option[Type],
+}
+
+struct TExpr { ty: Type, node: TExprNode }
+
+// `Int` holds the decimal value, `Str` the decoded value. `Call` names a user function, `Builtin` a builtin.
+// `Variant` is (enum, variant, tag, args). `Error` stands for an expression that failed to check.
+enum TExprNode {
+    Int(string), Str(string), Bool(bool), Local(Local), Unary(string, TExpr), Binary(string, TExpr, TExpr),
+    Call(string, [TExpr]), Builtin(string, [TExpr]), If(TExpr, TExpr, TExpr), Field(TExpr, string),
+    Index(TExpr, TExpr), ArrayLit([TExpr]), StructLit(string, [TFieldInit]), Variant(string, string, int, [TExpr]),
+    EnumCompare(string, TExpr, TExpr), Match(TExpr, [TArm]), Try(TTry), Error,
+}
+
+enum TStmt {
+    Let(Local, TExpr), Assign(TPlace, string, TExpr), If(TExpr, TBlock, Option[TBlock]), While(TExpr, TBlock),
+    ForRange(Local, TExpr, TExpr, TBlock), ForEach(Local, TExpr, TBlock), Break, Continue, Return(Option[TExpr]),
+    Match(TExpr, [TArm]), Block(TBlock), Expr(TExpr),
 }
 
 // A generic enum, kept as written until an instantiation names it (check/generics.ts).
@@ -1003,7 +1053,7 @@ fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TF
     } else if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
         report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
-    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
+    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret, body: TBlock { stmts: [] } };
 }
 
 fn find_local(scope: [Local], name: string): Option[int] {
