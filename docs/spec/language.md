@@ -1,4 +1,4 @@
-# Aster v0.6 Language Reference
+# Aster v0.7 Language Reference
 
 Aster is a small, statically typed, compiled language. It compiles to C and then to a native executable.
 
@@ -49,6 +49,31 @@ fn main(): int {
 
 Run it with `pnpm build && pnpm aster run example.aster`. It prints `6` and `12`, then the read error on stderr.
 
+`let … else`, `if let` and the `never` type unwrap an `Option` without `?`:
+
+```aster
+fn die(msg: string): never {
+    eprint(msg);
+    exit(1);
+}
+
+fn first_digit(s: string): int {
+    let Option::Some(d) = parse_digit(s, 0) else {
+        return -1;
+    };
+    return d;
+}
+
+fn main(): int {
+    if let Option::Some(n) = parse_digit("7", 0) {
+        print(n);   // 7
+    } else {
+        die("no digit");
+    }
+    return first_digit("x");
+}
+```
+
 A program may span several files. This one is two, `main.aster` and `geometry.aster` in the same directory:
 
 ```aster
@@ -79,7 +104,7 @@ fn norm2(p: Point): int {
 - Whitespace is insignificant except as a separator.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`, excluding keywords.
 - Keywords: `fn let var if else while for in break continue return true false struct enum match import`. `Option` and `Result` are predeclared type names, not keywords.
-- Type names `int bool string void` are ordinary identifiers resolved as types in type position. They are not keywords.
+- Type names `int bool string void never` are ordinary identifiers resolved as types in type position. They are not keywords.
 - Integer literals: decimal digits only. A literal that does not fit in a signed 64-bit integer is a compile error. A negative number is unary minus applied to a literal. As a special case, `-9223372036854775808` is accepted.
 - String literals: `"..."` with escapes `\n \t \r \\ \" \' \0`. Any other escape is a compile error. Raw newlines inside a string literal are a compile error.
 - Character literals: `'a'`. The body is exactly one printable ASCII byte (0x20 to 0x7E) other than `'` and `\`, or one escape from the set above (`\n \t \r \\ \" \' \0`, the same set strings use). The value is the byte's value, so `'a'` is `97`, `' '` is `32`, `'\n'` is `10` and `'\''` is `39`. Errors, each reported once per literal:
@@ -100,6 +125,7 @@ fn norm2(p: Point): int {
 | `bool`   | `true` / `false`. |
 | `string` | Immutable sequence of bytes (UTF-8 by convention). |
 | `void`   | Return type only. Not usable as a variable, parameter, field or element type. |
+| `never`  | The type of an expression that does not finish, such as `panic("x")`. Valid only as a function's declared return type. See [The `never` type](#the-never-type). |
 | `Name`   | A struct or a non-generic enum named `Name`. |
 | `Name[T1, …]` | An instantiation of a generic enum, such as `Option[int]` or `Result[[string], string]`. Arguments may be any type except `void`. |
 | `[T]`    | A reference to a growable array of `T`. `T` may be any type except `void`, including another array. |
@@ -132,6 +158,7 @@ type        = IDENT [ "[" type { "," type } "]" ] | "[" type "]" ;
 block       = "{" { statement } "}" ;
 statement   = "let" IDENT ":" type "=" expr ";"
             | "var" IDENT ":" type "=" expr ";"
+            | "let" pattern "=" expr "else" block ";"
             | ifStmt
             | "while" expr block
             | forStmt
@@ -142,7 +169,7 @@ statement   = "let" IDENT ":" type "=" expr ";"
             | block
             | expr [ assignOp expr ] ";" ;
 assignOp    = "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
-ifStmt      = "if" expr block [ "else" ( ifStmt | block ) ] ;
+ifStmt      = "if" ( expr | "let" pattern "=" expr ) block [ "else" ( ifStmt | block ) ] ;
 forStmt     = "for" IDENT "in" expr [ ".." expr ] block ;
 matchStmt   = "match" expr "{" { pattern "=>" ( block [ "," ] | expr "," ) } "}" ;
 
@@ -168,7 +195,8 @@ arrayLit    = "[" [ expr { "," expr } [ "," ] ] "]" ;
 ifExpr      = "if" expr exprBlock "else" ( ifExpr | exprBlock ) ;
 exprBlock   = "{" expr "}" ;
 variantExpr = IDENT "::" IDENT [ "(" expr { "," expr } ")" ] ;
-matchExpr   = "match" expr "{" pattern "=>" expr { "," pattern "=>" expr } [ "," ] "}" ;
+matchExpr   = "match" expr "{" matchExprArm { "," matchExprArm } [ "," ] "}" ;
+matchExprArm = pattern "=>" ( expr | block ) ;
 pattern     = "_" | alternative { "|" alternative } ;
 alternative = literal | IDENT "::" IDENT [ "(" binder { "," binder } ")" ] ;
 literal     = [ "-" ] INT | CHAR | STRING | "true" | "false" ;
@@ -181,6 +209,9 @@ Notes:
 - `_` must stand alone as a whole pattern. `_ | 1` is the parse error `expected '=>', found '|'`, and `1 | _` is `expected pattern, found '_'`. A token that cannot start an alternative is `expected pattern, found <token>`.
 - In a pattern, `-` applies only to an `INT`. An int pattern is range-checked like an int expression, and `-9223372036854775808` is accepted.
 - All binary operators are left-associative. Comparison and equality operators are non-associative: `a < b < c` is a parse error.
+- **Telling the two `let` forms apart.** After `let`, an identifier followed by `::`, or a literal token (an int, a `-` before an int, a char, a string, `true` or `false`), starts a pattern. Anything else is the typed form, so `let _ = …` is still `expected identifier, found '_'`. In `let … else` the scrutinee follows the struct-literal rule for headers, `else` is required (`expected 'else', found …`), and the block is followed by `;`. The scrutinee of `if let` follows the same header rule.
+- A match-expression arm whose body starts with `{` is a block arm. The `,` after a block arm is optional, as in a match statement. An expression arm still needs its `,` unless it is the last arm.
+- If-expression branches are still `{ expr }`. A `{ stmts }` branch is not allowed, but a branch can diverge through a `never` call.
 - A statement beginning with `if` is always parsed as `ifStmt`. An `if` in expression position (after `=`, as an argument, as an operand, after `return`) is parsed as `ifExpr`.
 - **Struct literals in headers.** In the condition of an `if` or `while`, and in a `for` header, `Name {` starts the body rather than a struct literal. To use a struct literal there, wrap it in parentheses: `if (Point { x: 1, y: 2 }).x == p.x { ... }`. Inside `( )`, `[ ]`, call arguments, struct literal fields, variant arguments and `match` arms (expression arms and block arms alike), struct literals are allowed again.
 - In an assignment, the left-hand side must be a place: a variable, a field `e.f` or an element `e[i]`, nested as deep as needed (`a[i].kids[j] = n;`). Anything else is the error `invalid assignment target`.
@@ -196,13 +227,13 @@ Notes:
 
 **Functions, structs and enums**
 - Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs and enums may refer to themselves and to each other.
-- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string` or `void`, and must not duplicate another struct, enum, function or builtin. `Option` and `Result` are builtin types and cannot be redefined (`'Option' is a builtin type and cannot be redefined`).
+- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string`, `void` or `never`, and must not duplicate another struct, enum, function or builtin. `Option` and `Result` are builtin types and cannot be redefined (`'Option' is a builtin type and cannot be redefined`).
 - Struct and enum names live in the type namespace. A local variable may share a struct's or enum's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
 - `main` must exist with the signature `fn main(): int` or `fn main(args: [string]): int` (any parameter name). `args` holds the command-line arguments without the program name, as a fresh array. The return value is the process exit code (truncated to the platform's exit-status range by the OS).
 - Parameters are immutable bindings.
-- A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false, and every `for` loop as possibly running zero times. An expression statement that calls `panic` or `exit` ends its path, and a `match` statement ends a path when all of its arms do.
-- `return e;` in a `void` function and `return;` in a non-`void` function are errors. `return e;` requires `e` to match the declared return type.
+- A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false, and every `for` loop as possibly running zero times. An expression statement whose type is `never` (a call to `panic`, `exit` or a user function that returns `never`) ends its path, and a `match` statement ends a path when all of its arms do.
+- `return e;` in a `void` function and `return;` in a non-`void` function are errors. A `never` function cannot return at all (see below). `return e;` requires `e` to match the declared return type.
 - Calls are checked for argument count and argument types.
 
 **Imports and multi-file programs**
@@ -276,6 +307,69 @@ A variant pattern never carries type arguments: `Option::Some(x)` matches any `O
   - `int` and `string`: a `_` arm is required (`non-exhaustive match: add a '_' arm`).
 - In a `match` expression, all arms must have the same type, which must not be `void` (`match arms have different types: A and B`, `match expression cannot have type void`).
 
+**`let … else`**
+
+```aster
+let Option::Some(si) = find_struct(ctx.env, name.name) else {
+    report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
+    return Type::Error;
+};
+```
+
+- The pattern is anything a `match` arm accepts except `_`: a variant pattern with binders, an int, char, string or bool literal, or an or-pattern. The same rules apply as in a match arm (unknown enums and variants, payload arity, `or-pattern alternatives cannot bind names`, `duplicate binding 'x'`, `cannot match on 'T' values`, `pattern type 'T' does not match 'S'`). Binder types come from the scrutinee's payload types, so no annotation is written. Binders are immutable.
+- If the pattern matches, the binders are in scope for the rest of the enclosing block and the statement falls through. If it doesn't, the `else` block runs.
+- Order: the scrutinee is checked, then the pattern, then the `else` block. The binders enter scope only after the `else` block, so the block cannot see them. They then behave like other `let`s: a binder that repeats a name already declared in the same scope is `'x' is already declared in this scope`, and one may shadow a name from an enclosing scope.
+- The `else` block must diverge, in the sense the missing-return analysis uses: `return`, `break`, `continue`, an infinite `while`, an `if` or `match` whose branches all diverge, or a statement whose expression has type `never`. Otherwise the error is `'else' block of 'let' must diverge`, at the `else` keyword. The statement itself never diverges.
+- In a loop the binders are assigned again each time the statement runs, and code after the statement sees the current iteration's values.
+
+**`if let`**
+
+```aster
+if let Option::Some(local) = find_local(ctx, name.name) {
+    return local.ty;
+} else if let Option::Some(si) = find_struct(ctx.env, name.name) {
+    …
+}
+```
+
+- `if let P = e { … }` runs the block when `P` matches `e`, with the binders in scope in that block only. An optional `else` branch runs otherwise. The pattern rules are those of `let … else`.
+- Order: the scrutinee, then the pattern, then the then-block, then the else branch.
+- It diverges when it has an `else` branch and both branches diverge, as `if` does. `else` may chain into a plain `if` or another `if let`, and the reverse.
+- It is a statement, not an expression. There is no `while let`, no `if let … && cond`, and no negated pattern.
+
+**Irrefutable patterns.** A pattern in `let … else` or `if let` that covers every value of the scrutinee's type is the error `pattern always matches`, at the pattern's span. Examples are `Wrapper::W(x)` on a single-variant enum and `true | false` on a `bool`. Int and string scrutinees are never irrefutable. It is not reported when the scrutinee has the error type, or when the pattern itself produced any diagnostic, binder errors such as `duplicate binding 'x'` and `or-pattern alternatives cannot bind names` included.
+
+<a id="the-never-type"></a>
+**The `never` type**
+
+- `never` is a built-in type name, as `void` is: declaring a struct, enum or type parameter with that name is `'never' is a built-in type and cannot be redefined`.
+- It is valid only as a function's declared return type. In any other position (a variable, parameter, field, payload, array element or type argument) the error is `'never' is only allowed as a return type`, at the type's span.
+- `panic(msg)` and `exit(code)` return `never`.
+- **Compatibility.** An expression of type `never` fits any expected type: a `let` initialiser, an assignment, an argument, a `return` value, a struct field, a payload, an array element, `push`'s value. `let x: int = panic("unreachable");` type-checks. Where the rules ask for a specific type without an expected type, `never` is rejected like any other wrong type: an operator operand (`==` and `!=` included, with the usual `operator '<op>' cannot be applied to …` message), a condition, `print`'s argument, `len`'s argument, a `match` scrutinee. `never` is equal only to `never`.
+- `never` never fixes an inferred type. An array literal whose elements are all `never` and which has no expected type is `cannot infer type of empty array`, and `Option::Some(panic("x"))` without context is `cannot infer type arguments for 'Option'`.
+- **Divergence.** An expression statement or a `let` initialiser whose type is `never` ends its control path.
+- **User functions.** `fn die(msg: string): never { eprint(msg); exit(1); }` declares a function that never returns.
+  - Its body must diverge on every path, or the error is `function 'die' returns 'never' but can reach its end`, at the function's name. This replaces the missing-return error.
+  - Every `return` in it is `cannot return from a function that returns 'never'`, at the `return`. The returned value, if any, is still checked, against no expected type.
+  - `main` cannot return `never`: the usual `'main' must have signature …` error applies.
+- **Unification.** In an `if` or `match` expression, branches or arms of type `never` do not take part in the "same type" rule. The expression's type is the common type of the others, or `never` if all of them are `never`. The existing `… cannot have type void` rules apply to that type.
+
+**Diverging match-expression arms**
+
+```aster
+let ty: Type = match find_struct(env, name) {
+    Option::Some(i) => env.structs[i].ty,
+    Option::None => {
+        report(env, "unknown struct '" + name + "'", start, end);
+        return Type::Error;
+    },
+};
+```
+
+- A block arm is checked as a block in the arm's scope, so the arm's binders are visible. It must diverge, or the error is `match arm block must diverge`, at the arm's pattern span. Its type is `never`.
+- An expression arm may be a `never` expression: `Option::None => panic("internal")`.
+- If-expression branches cannot be blocks (only `{ expr }`). They diverge through a `never` value: `let x: int = if c { 1 } else { die("x") };`.
+
 **The `?` operator**
 
 `e?` evaluates `e` once. It unwraps a success or returns the failure from the enclosing function:
@@ -324,7 +418,7 @@ Builtins are special-cased in the checker. There is no overloading in user code,
 |---------|-----------|-----------|
 | `print` | `(x: int \| bool \| string): void` | Writes `x` and a newline to stdout. bools print as `true`/`false`. |
 | `eprint` | `(x: int \| bool \| string): void` | Flushes stdout, then writes `x` and a newline to stderr. Typed exactly like `print`. |
-| `exit` | `(code: int): void` | Flushes stdout and ends the process with exit code `code` (truncated to the platform's exit-status range by the OS). Does not return. |
+| `exit` | `(code: int): never` | Flushes stdout and ends the process with exit code `code` (truncated to the platform's exit-status range by the OS). Does not return. |
 | `len` | `(s: string): int` / `(a: [T]): int` | Byte length of a string, or element count of an array. |
 | `push` | `(a: [T], x: T): void` | Appends `x` to `a`. |
 | `pop` | `(a: [T]): T` | Removes and returns the last element. Panics if `a` is empty. |
@@ -333,7 +427,7 @@ Builtins are special-cased in the checker. There is no overloading in user code,
 | `int_to_string` | `(n: int): string` | Decimal representation. |
 | `read_file` | `(path: string): Result[string, string]` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
 | `read_stdin` | `(): string` | Reads stdin to EOF. Later calls return `""`. |
-| `panic` | `(msg: string): void` | Writes `panic: <msg>` to stderr and exits with code 101. |
+| `panic` | `(msg: string): never` | Writes `panic: <msg>` to stderr and exits with code 101. |
 
 ## Runtime panics
 
@@ -346,6 +440,6 @@ A runtime panic writes `panic: <message>` plus a newline to stderr and exits wit
 - A read error on stdin (`cannot read stdin: <reason>`).
 - `panic(msg)`.
 
-## Not in v0.6
+## Not in v0.7
 
-Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, qualified names (`lexer::Token`), visibility (`pub`), selective imports, search paths or packages, separate compilation, `defer`, freeing memory, and C-style `for` loops.
+Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, `while let`, `if let` as an expression, guards or chains in `let … else` and `if let`, negated patterns, a `let … else` whose `else` block sees the failure's payload, blocks as if-expression branches, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, qualified names (`lexer::Token`), visibility (`pub`), selective imports, search paths or packages, separate compilation, `defer`, freeing memory, and C-style `for` loops.

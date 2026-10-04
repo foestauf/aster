@@ -1,8 +1,8 @@
 # Self-hosting friction log
 
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
-(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4, v0.5 and v0.6 language specs. Entries 1 to 6 are now resolved.
-Entries 10 to 16 come from check.aster and scope v0.7.
+(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4, v0.5, v0.6 and v0.7 language specs. Entries 1 to 6 and 10 are now resolved.
+Entries 10 to 16 come from check.aster. Entry 10 scoped v0.7, and the rest feed what comes after.
 
 Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5, 1,524 before the v0.6 split, 1,292 after it)
 and has byte-for-byte parity with the TypeScript parser. For check.aster the parser moved into `parser.aster` (995 lines),
@@ -177,6 +177,29 @@ arm can leave early.
 `let … else { … }`, a diverging type for `return`, `panic` and `exit` so that they can end a match-expression arm, or
 `if let`. Generic functions alone would only fold the five wrappers into one `is_some[T]`.
 
+**Resolved in v0.7.** `let P = e else { … };`, `if let`, the `never` type and block arms in `match` expressions all
+shipped, and `checker.aster` was rewritten with them. From `e8b38e8` to `bf6fa19`:
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `checker.aster` lines | 2,720 | 2,492 |
+| Empty `Option::None => {}` arms | 29 | 0 |
+| All `Option::None =>` arms | 59 | 9 (each a full two-arm match) |
+| `is_found` | 16 calls on 14 lines plus 1 definition | 0, deleted |
+| Wrapper definitions (`is_found`, `is_signature_builtin`, `is_primitive`, `is_bound`, `is_local`) | 5 | 1 (`is_primitive`) |
+| Find-or-bail sentinels (`oi`, `ri`, `si`, `name = ""`) | 4 | 0 |
+| Duplicated `panic("internal: …")` in `check_generic_variant_expr` | 2 | 1 |
+| `let … else` statements | 0 | 23 in `checker.aster`, 1 in `loader.aster` |
+| `if let` statements | 0 | 61 in `checker.aster`, 1 each in `parser.aster` and `loader.aster` |
+| `_ => {}` arms in `checker.aster` | 25 | 5 |
+
+`?` now appears 6 times in `checker.aster` code, in `tryable`, `find_field`, `variant_payload` and
+`resolve_alternative`, where an `Option`-returning helper made it possible. The sentinel dance is gone, so a forgotten
+`if si < 0` can no longer type-check. `parse_if_stmt` lost its three placeholder variables, and each driver
+(`lex.aster`, `parse.aster`, `check.aster`) gained a `die(msg): never` helper. The "before" counts are
+higher than the ones quoted above (2,558 lines, 26 empty arms), because `checker.aster` kept growing between that
+measurement and `e8b38e8`.
+
 ### 11. No maps or sets (costly)
 
 The TS checker leans on `Map` and `Set`: 38 lines of `checker.ts`, `generics.ts` and `load.ts` name one. Aster only has
@@ -314,6 +337,34 @@ directory and back (a `cwd` builtin alongside `real_path` would close that).
 - Struct values are heap references, so `Ctx` and `Env` shared mutation the way the TS objects do.
 - check.aster checks its own 4,172 lines in 0.03 s and about 16 MB.
 
+## Found while building v0.7
+
+`checker.aster` shrank by 228 lines (2,720 to 2,492). The other files barely moved: `parser.aster` +1, `loader.aster` -4,
+and each driver +2.
+
+- **Wrappers and sentinels that stayed.**
+  - `is_primitive` stays: its 2 calls sit inside `||` expressions, where there's no statement to put an `if let` on.
+  - `collect_types` keeps its `name`/`kind` sentinel, because or-patterns can't bind. The two variants carry
+    different payload types (`StructDecl` and `EnumDecl`), so one `let … else` can't express it.
+- **What the new forms couldn't express well.**
+  - A `let … else` with a guard, or `if let` chains (`if let A = x && let B = f(a)`). `check_try` fails two ways with
+    one message and has to hoist the message. Six pyramids (`ExprNode::Field`, `check_arms`, `enum_base_name`,
+    `check_binary`, `resolve_alternative`, `check_generic_variant_expr`, which is three deep) are variant test then
+    lookup.
+  - A `let … else` whose `else` block can see the `Err` payload. `read_file` in each driver's `main` and in
+    `load_import` (four sites) stays a `match`, because the failure arm needs `msg`.
+  - `if let` as an expression, or as a boolean test (`is_some`). `check_call`'s builtin-versus-user signature table is
+    a `var` plus an `if let`, and `is_primitive` is the same shape.
+  - Negated patterns. `if let Option::None = …` works but reads oddly, and `resolve_pattern_variant`'s "anything but
+    `Missing`" has no form at all.
+  - `while let` has no site. The checker's search loops index arrays, and the parser's loops are driven by `eat`/`at`.
+- **The drivers' helper is `die`**, because `parser.aster` already has `fail`. The flat namespace shows up again.
+- **Compiler bugs found during the milestone**, all fixed before merge:
+  - an inferred `never` (`[panic(..)]`, `Option::Some(panic(..))`) crashed lowering,
+  - `never == never` type-checked,
+  - `pattern always matches` fired alongside binder errors.
+- **No new evidence for `defer`.**
+
 ## Found while building v0.6
 
 - **The flat namespace cost one rename.** The lexer's byte reader `peek` became `peek_byte`, because the parser has its
@@ -339,35 +390,31 @@ directory and back (a `cwd` builtin alongside `real_path` would close that).
 
 ## Shortlist (ranked)
 
-The v0.4 to v0.6 shortlist is all done: error propagation and generic enums in v0.5 (entries 1 and 3), modules in v0.6
-(entry 2), and stderr with exit codes, `match` on strings and ints, and character literals in v0.4 (entries 4, 5 and 6, and `match` on ints
-from entry 8).
+The v0.4 to v0.7 shortlist items are done: error propagation and generic enums in v0.5
+(entries 1 and 3), modules in v0.6 (entry 2), stderr with exit codes, `match` on strings and ints, and character
+literals in v0.4 (entries 4, 5 and 6, and `match` on ints from entry 8), and unwrapping an `Option` without `?` in v0.7
+(entry 10, previously item 1 here: `let … else`, `if let`, `never` and diverging match arms).
 
-This is the v0.7 shortlist, ranked by what made the checker port longer, buggier or harder to read. Open items from
-earlier milestones are ranked on the same terms.
+This is the shortlist for what comes after v0.7, ranked by what made the checker port longer, buggier or harder to read.
+Maps and sets (item 1) are next. Open items from earlier milestones are ranked on the same terms.
 
-1. **Unwrapping an `Option` without `?`**: entry 10. A `let … else`, or a diverging type so that `return`, `panic` and
-   `exit` can end a match-expression arm (ideally both). `?` is used 0 times in `checker.aster`'s 2,558 lines. The
-   evidence is 26 empty `Option::None => {}` arms, 4 find-or-bail sentinels, 5 Option-to-bool wrappers (`is_found`
-   alone has 15 calls) and one `panic` written out twice. The sentinel dance is the pattern most likely to hide a
-   bug: a forgotten `if si < 0` type-checks.
-2. **Maps and sets**: entry 11. A built-in map keyed by `string` or `int` (that covers every use here), and a set or an
+1. **Maps and sets**: entry 11. A built-in map keyed by `string` or `int` (that covers every use here), and a set or an
    idiom for one. The evidence is 12 `find_*` lookups (7 of them the same loop), 13 `contains` calls standing in for
    sets, Tarjan's five Maps and Sets as six parallel arrays, and two last-wins backwards searches that copy `Map.set`
    semantics by hand. TS names a `Map` or `Set` on 38 lines.
-3. **Closures**: entry 12. Five closures were lifted. One callback (`checkArm`) turned into an `as_expr` flag and a
+2. **Closures**: entry 12. Five closures were lifted. One callback (`checkArm`) turned into an `as_expr` flag and a
    result struct.
-4. **Default arguments**: entry 13. Four wrapper and full-form pairs (`resolve_type`/`resolve_type_with`,
+3. **Default arguments**: entry 13. Four wrapper and full-form pairs (`resolve_type`/`resolve_type_with`,
    `lex`/`lex_from`, `new_parser`/`new_parser_at`, `find_template`/`find_template_in`).
-5. **Qualified names**: entry 14. Two cross-file collisions in two milestones (`peek_byte`, `scc_visit`). It's cheap so far,
-   but 227 shared names grow with every library. It ranks above item 6 because collisions force renames and grow with
+4. **Qualified names**: entry 14. Two cross-file collisions in two milestones (`peek_byte`, `scc_visit`). It's cheap so far,
+   but 227 shared names grow with every library. It ranks above item 5 because collisions force renames and grow with
    every new library, while `.node` is only noise.
-6. **Shared fields across enum variants**: entry 7. `.node` appears 21 times in `checker.aster` and the AST still
+5. **Shared fields across enum variants**: entry 7. `.node` appears 21 times in `checker.aster` and the AST still
    doubles its types.
-7. **Small gaps**: entries 8 and 16. `join` (3 hand-written loops), a sort (1 insertion sort), binding patterns in
+6. **Small gaps**: entries 8 and 16. `join` (3 hand-written loops), a sort (1 insertion sort), binding patterns in
    literal matches, string ordering, `do … while` and string repeat.
-8. **`defer`**: the v0.5 section. There's no new evidence. The checker has 0 sites, and the 5 save/restore sites are
+7. **`defer`**: the v0.5 section. There's no new evidence. The checker has 0 sites, and the 5 save/restore sites are
    all in `parser.aster`.
-9. **`real_path` and bare error reasons**: entry 15. No test needs them. They only matter once a driver has to dedupe
+8. **`real_path` and bare error reasons**: entry 15. No test needs them. They only matter once a driver has to dedupe
    symlinked imports or load a relative root that climbs out of the working directory and back (a `cwd` builtin
    alongside `real_path` would close that).

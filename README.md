@@ -17,6 +17,34 @@ pnpm aster run tests/programs/programs/parse.aster -- tests/programs/basics/hell
 pnpm aster run tests/programs/programs/check.aster -- tests/programs/basics/hello.aster # the Aster type checker, written in Aster
 ```
 
+Since v0.7, `let … else`, `if let` and the `never` type unwrap an `Option` without `?`:
+
+```aster
+fn die(msg: string): never {
+    eprint(msg);
+    exit(1);
+}
+
+fn digit(c: int): Option[int] {
+    if c >= '0' && c <= '9' {
+        return Option::Some(c - '0');
+    }
+    return Option::None;
+}
+
+fn main(): int {
+    let Option::Some(d) = digit('7') else {
+        die("not a digit");
+    };
+    if let Option::Some(e) = digit('x') {
+        print(e);
+    } else {
+        print(d);   // 7
+    }
+    return 0;
+}
+```
+
 ## CLI
 
 ```
@@ -48,9 +76,10 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - v0.4 design (character literals, `match` on ints, bools and strings, or-patterns, `eprint` and `exit`): [`docs/superpowers/specs/2026-10-03-aster-v0.4-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.4-design.md)
 - v0.5 design (generic enums, `Option[T]` and `Result[T, E]`, the `?` operator, `read_file` returns `Result`): [`docs/superpowers/specs/2026-10-03-aster-v0.5-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.5-design.md)
 - v0.6 design (`import` and multi-file programs): [`docs/superpowers/specs/2026-10-03-aster-v0.6-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.6-design.md)
+- v0.7 design (`let … else`, `if let`, the `never` type, diverging `match` arms): [`docs/superpowers/specs/2026-10-03-aster-v0.7-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.7-design.md)
 - check.aster design (the self-hosted type checker): [`docs/superpowers/specs/2026-10-03-aster-check-aster-design.md`](docs/superpowers/specs/2026-10-03-aster-check-aster-design.md)
 - Self-hosting friction log and shortlist: [`docs/self-host/friction.md`](docs/self-host/friction.md)
 
 ## Tests
 
-`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser. The self-hosted programs (`lex.aster`, `parse.aster` and `check.aster`) use the v0.4 features (character literals, `match` on strings and ints, `eprint` and `exit`) and v0.5 features (generic enums, `Option`, `Result` and `?`), and the tests compare their stdout and stderr separately. Since v0.6 they share a `lexer.aster`, imported by `lex.aster` and `parser.aster` (which `parse.aster`, `loader.aster`, `checker.aster` and `check.aster` build on). It and the other library files are marked `// expect-library`, so the golden suite never compiles them as a root, but the conformance suites still lex and parse them. Multi-file golden programs live in `tests/programs/modules/`. `tests/check_aster.test.ts` checks `check.aster`, the self-hosted type checker, against the compiler's front end on every `.aster` file under `tests/programs/` (`check.aster` and its libraries included) and on `fixtures/check_*.txt`. It compares the diagnostics, the summary of the typed program and the exit code.
+`pnpm test` runs unit tests and the golden suite in `tests/programs/`. Each `.aster` file declares its expected output, exit code or compile errors in `// expect-…` header comments. The golden suite is the language's conformance suite: a future self-hosted compiler must pass it unchanged. `tests/lex_aster.test.ts` checks `lex.aster` against the compiler's lexer on every golden program, and `tests/parse_aster.test.ts` checks `parse.aster`'s syntax tree and diagnostics against the compiler's parser. The self-hosted programs (`lex.aster`, `parse.aster` and `check.aster`) use the v0.4 features (character literals, `match` on strings and ints, `eprint` and `exit`) and v0.5 features (generic enums, `Option`, `Result` and `?`), and, since v0.7, `let … else`, `if let` and `never`, and the tests compare their stdout and stderr separately. Since v0.6 they share a `lexer.aster`, imported by `lex.aster` and `parser.aster` (which `parse.aster`, `loader.aster`, `checker.aster` and `check.aster` build on). It and the other library files are marked `// expect-library`, so the golden suite never compiles them as a root, but the conformance suites still lex and parse them. Multi-file golden programs live in `tests/programs/modules/`. `tests/check_aster.test.ts` checks `check.aster`, the self-hosted type checker, against the compiler's front end on every `.aster` file under `tests/programs/` (`check.aster` and its libraries included) and on `fixtures/check_*.txt`. It compares the diagnostics, the summary of the typed program and the exit code.
