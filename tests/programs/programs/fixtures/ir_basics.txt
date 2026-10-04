@@ -1,0 +1,26 @@
+// IR fixture: declarations, literals, locals, let, return, nested blocks and the string table.
+struct Point { x: int, y: int }
+enum Color { Red, Green }
+enum Shape { Dot(Point), Empty }
+
+fn nothing() {
+}
+
+fn answer(): int {
+    let a: int = 42;
+    {
+        let b: int = a;
+        return b;
+    }
+}
+
+fn main(): int {
+    let s: string = "hi";
+    let t: string = "hi";
+    let u: string = "tab\tquote\"back\\nul\0cr\r";
+    let yes: bool = true;
+    let no: bool = false;
+    var n: int = 1;
+    let m: int = n;
+    return 0;
+}

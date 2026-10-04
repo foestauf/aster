@@ -1,0 +1,69 @@
+// IR fixture: enum (payload-free and payload, or-patterns, binders, `_` binders), int, bool and string matches, with and
+// without `_`, as statements and as expressions.
+enum Dir { North, East, South, West }
+enum Msg { Move(int, int), Say(string), Quit }
+
+fn turn(d: Dir): Dir {
+    return match d {
+        Dir::North => Dir::East,
+        Dir::East | Dir::South => Dir::West,
+        _ => Dir::North,
+    };
+}
+
+fn handle(m: Msg): int {
+    match m {
+        Msg::Move(x, _) => {
+            return x;
+        }
+        Msg::Say(text) => print(text),
+        Msg::Quit => {}
+    }
+    return 0;
+}
+
+fn word(n: int): string {
+    return match n {
+        0 | 1 => "few",
+        7 => "lucky",
+        _ => "many",
+    };
+}
+
+fn code(s: string): int {
+    return match s {
+        "a" | "b" => 1,
+        "c" => 2,
+        _ => 3,
+    };
+}
+
+fn exact(s: string): int {
+    match s {
+        "x" => {
+            return 1;
+        }
+        "y" | "c" => {
+            return 2;
+        }
+        _ => {
+            return 0;
+        }
+    }
+}
+
+fn yes(b: bool): int {
+    return match b {
+        true => 1,
+        false => 0,
+    };
+}
+
+fn main(): int {
+    let d: Dir = turn(Dir::North);
+    print(d == Dir::West);
+    print(handle(Msg::Move(1, 2)) + handle(Msg::Say("hi")) + handle(Msg::Quit));
+    print(word(7));
+    print(code("c") + exact("y") + yes(true));
+    return 0;
+}

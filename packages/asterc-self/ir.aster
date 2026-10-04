@@ -1,0 +1,75 @@
+// expect-library
+// The compiler IR, written in Aster: a port of packages/asterc/src/ir/ir.ts, field for field. It is deliberately not
+// SSA: every value lives in a typed, mutable local slot, and control flow is explicit basic blocks that each end in
+// exactly one terminator. Names start with `Ir` because the flat namespace already has `Loop`, `Block` and `Local`.
+
+import "checker.aster";
+
+// A local slot. `name` is the source name of a user variable or param, and `None` for a compiler temporary.
+struct IrLocal { id: int, name: Option[string], ty: Type }
+
+struct IrField { name: string, ty: Type }
+
+// Fields in declaration order.
+struct IrStruct { name: string, fields: [IrField] }
+
+// `tag` is the variant's index in its enum.
+struct IrVariant { name: string, tag: int, payload: [Type] }
+
+// `payload_free` is true when no variant has a payload: values are plain int64 tags, not heap objects.
+struct IrEnum { name: string, payload_free: bool, variants: [IrVariant] }
+
+// `Int` is a canonical decimal, as in the typed tree. `Str` is an index into `IrProgram.strings`.
+enum IrOperand { Local(int), Int(string), Bool(bool), Str(int) }
+
+struct IrFieldValue { name: string, value: IrOperand }
+
+// One instruction. A destination is a local id, and `Option[int]` destinations are `None` for void calls.
+// Operators and builtins use the IR spelling: `add`, `str_eq`, `neg`, `print_int`.
+//   Copy(dst, src)                          Unop(dst, op, operand)            Binop(dst, op, left, right)
+//   Call(dst, fn, args)                     CallBuiltin(dst, builtin, args)
+//   StructNew(dst, struct, fields)          FieldGet(dst, object, field)      FieldSet(object, field, value)
+//   ArrayNew(dst, elem, elements)           IndexGet(dst, array, index)       IndexSet(array, index, value)
+//   ArrayLen(dst, array)                    ArrayPush(array, value)           ArrayPop(dst, array)
+//   EnumNew(dst, enum, variant, tag, args)  EnumTag(dst, value)
+//   EnumField(dst, value, enum, variant, tag, index)                          ReadFile(ok, text, path)
+enum IrInstr {
+    Copy(int, IrOperand),
+    Unop(int, string, IrOperand),
+    Binop(int, string, IrOperand, IrOperand),
+    Call(Option[int], string, [IrOperand]),
+    CallBuiltin(Option[int], string, [IrOperand]),
+    StructNew(int, string, [IrFieldValue]),
+    FieldGet(int, IrOperand, string),
+    FieldSet(IrOperand, string, IrOperand),
+    ArrayNew(int, Type, [IrOperand]),
+    IndexGet(int, IrOperand, IrOperand),
+    IndexSet(IrOperand, IrOperand, IrOperand),
+    ArrayLen(int, IrOperand),
+    ArrayPush(IrOperand, IrOperand),
+    ArrayPop(int, IrOperand),
+    EnumNew(int, string, string, int, [IrOperand]),
+    EnumTag(int, IrOperand),
+    EnumField(int, IrOperand, string, string, int, int),
+    ReadFile(int, int, IrOperand),
+}
+
+// A `switch` case: a decimal value and the label it jumps to.
+struct IrCase { value: string, target: string }
+
+// `Switch(value, cases, default)`: a `None` default means no other value can occur.
+enum IrTerm {
+    Jmp(string),
+    Br(IrOperand, string, string),
+    Switch(IrOperand, [IrCase], Option[string]),
+    Ret(Option[IrOperand]),
+    Unreachable,
+}
+
+struct IrBlock { label: string, instrs: [IrInstr], term: IrTerm }
+
+// Params are locals[0 .. param_count). `locals` is indexed by id, and blocks[0] is the entry block.
+struct IrFunction { name: string, param_count: int, locals: [IrLocal], ret: Type, blocks: [IrBlock] }
+
+// `strings` holds the interned string literals, referenced by index.
+struct IrProgram { structs: [IrStruct], enums: [IrEnum], functions: [IrFunction], strings: [string] }

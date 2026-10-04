@@ -1,0 +1,32 @@
+// IR fixture: ? on Option and Result, read_file, and string literals in every JSON escape class, repeated across
+// functions so the shared string table deduplicates them.
+fn first(xs: [int]): Option[int] {
+    if len(xs) == 0 {
+        return Option::None;
+    }
+    return Option::Some(xs[0]);
+}
+
+fn double_first(xs: [int]): Option[int] {
+    let x: int = first(xs)?;
+    return Option::Some(x * 2);
+}
+
+fn load(path: string): Result[string, string] {
+    let text: string = read_file(path)?;
+    return Result::Ok("q\"b\\n\nt\tz\0r\ré😀" + text);
+}
+
+fn main(): int {
+    print("q\"b\\n\nt\tz\0r\ré😀");
+    print("é");
+    match double_first([4]) {
+        Option::Some(v) => print(v),
+        Option::None => print("none"),
+    }
+    match load("/nonexistent") {
+        Result::Ok(text) => print(text),
+        Result::Err(msg) => eprint("é"),
+    }
+    return 0;
+}

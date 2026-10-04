@@ -1,0 +1,911 @@
+// expect-library
+// Lowering, written in Aster: a port of packages/asterc/src/ir/lower.ts, function by function. `lower_program` turns
+// the checked program into the IR. It allocates temps, labels and interned strings in exactly the order lower.ts does,
+// because tests/ir_aster.test.ts compares the printed IR byte for byte.
+//
+// Aster has no closures or maps. lower.ts's callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`
+// and `IrPlaceRef`. Its maps become linear scans: `intern_ir_string`, `ir_find_struct` and `ir_block_index`.
+
+import "ir.aster";
+
+// The interned string literals, in first-use order, shared by every function.
+struct IrStrings { values: [string] }
+
+// An enclosing loop: where `continue` and `break` jump, and whether a `continue` targets it (so its continue block is
+// reachable).
+struct IrLoop { continue_label: string, break_label: string, continued: bool }
+
+// The block being filled.
+struct IrOpen { label: string, instrs: [IrInstr] }
+
+// Per-function lowering state. `current` is the open block, or `None` when the position is unreachable.
+struct IrState {
+    locals: [IrLocal],
+    blocks: [IrBlock],
+    current: Option[IrOpen],
+    label_count: int,
+    loops: [IrLoop],
+    strings: IrStrings,
+    structs: [TStruct],
+}
+
+fn lower_program(c: Checked): IrProgram {
+    let strings: IrStrings = IrStrings { values: [] };
+    let functions: [IrFunction] = [];
+    for f in c.functions {
+        push(functions, lower_function(f, strings, c.structs));
+    }
+    let structs: [IrStruct] = [];
+    for s in c.structs {
+        let fields: [IrField] = [];
+        for f in s.fields {
+            push(fields, IrField { name: f.name, ty: ir_type(f.ty) });
+        }
+        push(structs, IrStruct { name: s.name, fields: fields });
+    }
+    let enums: [IrEnum] = [];
+    for e in c.enums {
+        let variants: [IrVariant] = [];
+        for i in 0..len(e.variants) {
+            let payload: [Type] = [];
+            for p in e.variants[i].payload {
+                push(payload, ir_type(p));
+            }
+            push(variants, IrVariant { name: e.variants[i].name, tag: i, payload: payload });
+        }
+        push(enums, IrEnum { name: e.name, payload_free: e.payload_free, variants: variants });
+    }
+    return IrProgram { structs: structs, enums: enums, functions: functions, strings: strings.values };
+}
+
+// Every type except the checker-only `error` and `never`.
+fn ir_type(t: Type): Type {
+    return match t {
+        Type::Error => panic("internal: error type reached lowering"),
+        Type::Never => panic("internal: never type reached lowering"),
+        _ => t,
+    };
+}
+
+fn lower_function(f: TFunction, strings: IrStrings, structs: [TStruct]): IrFunction {
+    let locals: [IrLocal] = [];
+    for l in f.locals {
+        push(locals, IrLocal { id: l.id, name: Option::Some(l.name), ty: ir_type(l.ty) });
+    }
+    let st: IrState = IrState {
+        locals: locals,
+        blocks: [],
+        current: Option::Some(IrOpen { label: "entry", instrs: [] }),
+        label_count: 0,
+        loops: [],
+        strings: strings,
+        structs: structs,
+    };
+    lower_block(st, f.body);
+    // The checker guarantees non-void functions never fall off the end. A never function is void in the IR: its body
+    // diverges, so this is a no-op for it.
+    let ret: Type = match f.ret {
+        Type::Never => Type::Void,
+        _ => ir_type(f.ret),
+    };
+    if kind_of_type(ret) == "void" {
+        ir_terminate(st, IrTerm::Ret(Option::None));
+    } else {
+        ir_terminate(st, IrTerm::Unreachable);
+    }
+    return IrFunction { name: f.name, param_count: f.params, locals: st.locals, ret: ret, blocks: ir_prune_unreachable(st.blocks) };
+}
+
+fn ir_block_index(blocks: [IrBlock], label: string): int {
+    for i in 0..len(blocks) {
+        if blocks[i].label == label {
+            return i;
+        }
+    }
+    panic("internal: no block " + label);
+}
+
+// Keeps only the blocks reachable from the entry block, in their original order.
+fn ir_prune_unreachable(blocks: [IrBlock]): [IrBlock] {
+    if len(blocks) == 0 {
+        return blocks;
+    }
+    let reached: [bool] = [];
+    for b in blocks {
+        push(reached, false);
+    }
+    let work: [string] = [blocks[0].label];
+    while len(work) > 0 {
+        let i: int = ir_block_index(blocks, pop(work));
+        if reached[i] {
+            continue;
+        }
+        reached[i] = true;
+        match blocks[i].term {
+            IrTerm::Jmp(target) => push(work, target),
+            IrTerm::Br(_, then, otherwise) => {
+                push(work, then);
+                push(work, otherwise);
+            }
+            IrTerm::Switch(_, cases, fallback) => {
+                for c in cases {
+                    push(work, c.target);
+                }
+                if let Option::Some(d) = fallback {
+                    push(work, d);
+                }
+            }
+            _ => {}
+        }
+    }
+    let kept: [IrBlock] = [];
+    for i in 0..len(blocks) {
+        if reached[i] {
+            push(kept, blocks[i]);
+        }
+    }
+    return kept;
+}
+
+// ---- block plumbing
+
+fn ir_new_label(st: IrState, hint: string): string {
+    st.label_count += 1;
+    return hint + int_to_string(st.label_count);
+}
+
+fn ir_new_temp(st: IrState, ty: Type): int {
+    let id: int = len(st.locals);
+    push(st.locals, IrLocal { id: id, name: Option::None, ty: ty });
+    return id;
+}
+
+// Code after a never expression is unreachable: it is dropped rather than emitted.
+fn ir_emit(st: IrState, i: IrInstr) {
+    if let Option::Some(open) = st.current {
+        push(open.instrs, i);
+    }
+}
+
+// Closes the open block with `t`. A no-op when the position is already unreachable.
+fn ir_terminate(st: IrState, t: IrTerm) {
+    if let Option::Some(open) = st.current {
+        push(st.blocks, IrBlock { label: open.label, instrs: open.instrs, term: t });
+        st.current = Option::None;
+    }
+}
+
+// Opens a new block, falling through into it from the open block if there is one.
+fn ir_start_block(st: IrState, label: string) {
+    ir_terminate(st, IrTerm::Jmp(label));
+    st.current = Option::Some(IrOpen { label: label, instrs: [] });
+}
+
+fn ir_reachable(st: IrState): bool {
+    return match st.current {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn intern_ir_string(table: IrStrings, value: string): int {
+    for i in 0..len(table.values) {
+        if table.values[i] == value {
+            return i;
+        }
+    }
+    push(table.values, value);
+    return len(table.values) - 1;
+}
+
+fn ir_current_loop(st: IrState): IrLoop {
+    if len(st.loops) == 0 {
+        panic("internal: break/continue outside loop");
+    }
+    return st.loops[len(st.loops) - 1];
+}
+
+fn ir_ref(id: int): IrOperand {
+    return IrOperand::Local(id);
+}
+
+// Stands in for the value of an expression in unreachable code. It is only ever used there, and that code is pruned.
+fn ir_placeholder(): IrOperand {
+    return IrOperand::Int("0");
+}
+
+// ---- operators and places
+
+// The IR operator for source operator `op` (never `&&` or `||`) on operands of type `t`.
+fn ir_bin_op(op: string, t: Type): string {
+    if kind_of_type(t) == "string" {
+        if op == "+" {
+            return "concat";
+        }
+        if op == "==" {
+            return "str_eq";
+        }
+        if op == "!=" {
+            return "str_ne";
+        }
+    }
+    return match op {
+        "+" => "add",
+        "-" => "sub",
+        "*" => "mul",
+        "/" => "div",
+        "%" => "mod",
+        "<" => "lt",
+        "<=" => "le",
+        ">" => "gt",
+        ">=" => "ge",
+        "==" => "eq",
+        "!=" => "ne",
+        _ => panic("internal: short-circuit operator in binOp"),
+    };
+}
+
+// `+=` to `+` (ast.ts's binaryOpOf).
+fn ir_compound_base(op: string): string {
+    return substring(op, 0, len(op) - 1);
+}
+
+// Reads the tag of an enum value into a new int temporary.
+fn ir_enum_tag(st: IrState, value: IrOperand): IrOperand {
+    let dst: int = ir_new_temp(st, Type::Int);
+    ir_emit(st, IrInstr::EnumTag(dst, value));
+    return ir_ref(dst);
+}
+
+fn ir_find_struct(structs: [TStruct], name: string): TStruct {
+    for s in structs {
+        if s.name == name {
+            return s;
+        }
+    }
+    panic("internal: unknown struct " + name);
+}
+
+// An assignment target whose sub-expressions are already lowered (so they run exactly once).
+enum IrPlaceRef { Field(IrOperand, string), Index(IrOperand, IrOperand) }
+
+fn ir_place_read(r: IrPlaceRef, dst: int): IrInstr {
+    return match r {
+        IrPlaceRef::Field(object, field) => IrInstr::FieldGet(dst, object, field),
+        IrPlaceRef::Index(array, index) => IrInstr::IndexGet(dst, array, index),
+    };
+}
+
+fn ir_place_write(r: IrPlaceRef, value: IrOperand): IrInstr {
+    return match r {
+        IrPlaceRef::Field(object, field) => IrInstr::FieldSet(object, field, value),
+        IrPlaceRef::Index(array, index) => IrInstr::IndexSet(array, index, value),
+    };
+}
+
+// ---- statements
+
+fn lower_block(st: IrState, b: TBlock) {
+    for s in b.stmts {
+        if !ir_reachable(st) {
+            return; // the rest is unreachable
+        }
+        lower_stmt(st, s);
+    }
+}
+
+fn lower_stmt(st: IrState, s: TStmt) {
+    match s {
+        TStmt::Let(local, init) => {
+            let v: IrOperand = lower_value(st, init);
+            ir_emit(st, IrInstr::Copy(local.id, v));
+        }
+        TStmt::Assign(place, op, value) => lower_assign(st, place, op, value),
+        TStmt::Match(scrutinee, arms) => lower_match(st, scrutinee, arms, Option::None),
+        TStmt::Expr(e) => {
+            lower_expr(st, e);
+        }
+        TStmt::Block(b) => lower_block(st, b),
+        TStmt::Return(value) => {
+            if let Option::Some(e) = value {
+                let v: IrOperand = lower_value(st, e);
+                ir_terminate(st, IrTerm::Ret(Option::Some(v)));
+            } else {
+                ir_terminate(st, IrTerm::Ret(Option::None));
+            }
+        }
+        TStmt::Break => {
+            let lp: IrLoop = ir_current_loop(st);
+            ir_terminate(st, IrTerm::Jmp(lp.break_label));
+        }
+        TStmt::Continue => {
+            let lp: IrLoop = ir_current_loop(st);
+            lp.continued = true;
+            ir_terminate(st, IrTerm::Jmp(lp.continue_label));
+        }
+        TStmt::If(cond, then, otherwise) => lower_if_stmt(st, cond, then, otherwise),
+        TStmt::While(cond, body) => {
+            let head: string = ir_new_label(st, "while_head");
+            let body_label: string = ir_new_label(st, "while_body");
+            let end: string = ir_new_label(st, "while_end");
+            ir_start_block(st, head);
+            let c: IrOperand = lower_value(st, cond);
+            ir_terminate(st, IrTerm::Br(c, body_label, end));
+            ir_start_block(st, body_label);
+            push(st.loops, IrLoop { continue_label: head, break_label: end, continued: false });
+            lower_block(st, body);
+            pop(st.loops);
+            ir_terminate(st, IrTerm::Jmp(head));
+            ir_start_block(st, end);
+        }
+        TStmt::ForRange(local, start, end, body) => {
+            let s0: IrOperand = lower_value(st, start);
+            let e0: IrOperand = lower_value(st, end);
+            let counter: int = ir_new_temp(st, Type::Int);
+            let limit: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::Copy(counter, s0));
+            ir_emit(st, IrInstr::Copy(limit, e0));
+            lower_for(st, body, counter, IrForKind::Range(limit, local.id));
+        }
+        TStmt::ForEach(local, array, body) => {
+            let source: IrOperand = lower_value(st, array);
+            let arr: int = ir_new_temp(st, ir_type(array.ty));
+            let index: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::Copy(arr, source));
+            ir_emit(st, IrInstr::Copy(index, IrOperand::Int("0")));
+            lower_for(st, body, index, IrForKind::Each(arr, local.id));
+        }
+    }
+}
+
+fn lower_if_stmt(st: IrState, cond: TExpr, then: TBlock, otherwise: Option[TBlock]) {
+    let c: IrOperand = lower_value(st, cond);
+    let then_label: string = ir_new_label(st, "then");
+    var else_label: string = "";  // "" means no else (labels are never empty)
+    if let Option::Some(_) = otherwise {
+        else_label = ir_new_label(st, "else");
+    }
+    let end_label: string = ir_new_label(st, "endif");
+    if else_label == "" {
+        ir_terminate(st, IrTerm::Br(c, then_label, end_label));
+    } else {
+        ir_terminate(st, IrTerm::Br(c, then_label, else_label));
+    }
+    ir_start_block(st, then_label);
+    lower_block(st, then);
+    var reaches_end: bool = ir_reachable(st) || else_label == "";
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    if let Option::Some(b) = otherwise {
+        ir_start_block(st, else_label);
+        lower_block(st, b);
+        if ir_reachable(st) {
+            reaches_end = true;
+        }
+        ir_terminate(st, IrTerm::Jmp(end_label));
+    }
+    if reaches_end {
+        ir_start_block(st, end_label);
+    }
+}
+
+fn lower_assign(st: IrState, place: TPlace, op: string, value: TExpr) {
+    match place.node {
+        TPlaceNode::Local(l) => {
+            // A local can't change while the right-hand side runs, so it can be read after it.
+            let v: IrOperand = lower_value(st, value);
+            if op == "=" {
+                ir_emit(st, IrInstr::Copy(l.id, v));
+            } else {
+                ir_emit(st, IrInstr::Binop(l.id, ir_bin_op(ir_compound_base(op), place.ty), ir_ref(l.id), v));
+            }
+        }
+        TPlaceNode::Field(object, field) => {
+            let o: IrOperand = lower_value(st, object);
+            ir_store_through_place(st, IrPlaceRef::Field(o, field), place.ty, op, value);
+        }
+        TPlaceNode::Index(array, index) => {
+            let a: IrOperand = lower_value(st, array);
+            let i: IrOperand = lower_value(st, index);
+            ir_store_through_place(st, IrPlaceRef::Index(a, i), place.ty, op, value);
+        }
+    }
+}
+
+// Finishes an assignment to a place whose sub-expressions are lowered: computes the new value (reading the place first
+// for a compound operator) and writes it.
+fn ir_store_through_place(st: IrState, r: IrPlaceRef, ty: Type, op: string, rhs: TExpr) {
+    var value: IrOperand = ir_placeholder();
+    if op == "=" {
+        value = lower_value(st, rhs);
+    } else {
+        value = ir_combine(st, op, ty, r, rhs);
+    }
+    ir_emit(st, ir_place_write(r, value));
+}
+
+// For `place op= rhs`: loads the place's current value, evaluates `rhs`, applies `op` and returns the result.
+fn ir_combine(st: IrState, op: string, ty: Type, r: IrPlaceRef, rhs: TExpr): IrOperand {
+    let old: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, ir_place_read(r, old));
+    let value: IrOperand = lower_value(st, rhs);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Binop(dst, ir_bin_op(ir_compound_base(op), ty), ir_ref(old), value));
+    return ir_ref(dst);
+}
+
+// ---- expressions
+
+fn lower_value(st: IrState, e: TExpr): IrOperand {
+    return match lower_expr(st, e) {
+        Option::Some(v) => v,
+        Option::None => panic("internal: void expression used as a value"),
+    };
+}
+
+// Lowers each of `es` in order.
+fn lower_args(st: IrState, es: [TExpr]): [IrOperand] {
+    let out: [IrOperand] = [];
+    for e in es {
+        push(out, lower_value(st, e));
+    }
+    return out;
+}
+
+// What a for loop iterates: `Range(limit, local)` counts the hidden counter up to the `limit` local and binds it to
+// `local`; `Each(array, local)` walks the `array` local and binds each element to `local`.
+enum IrForKind { Range(int, int), Each(int, int) }
+
+// The shared shape of both for loops (`counter` is the hidden int local that the step block increments):
+//   head: br cond, body, end
+//   body: bind the loop variable; body; jmp step
+//   step: counter += 1; jmp head   (only when the body can fall through or continue; an unused label would warn)
+//   end:
+fn lower_for(st: IrState, body: TBlock, counter: int, kind: IrForKind) {
+    let head: string = ir_new_label(st, "for_head");
+    let body_label: string = ir_new_label(st, "for_body");
+    let step: string = ir_new_label(st, "for_step");
+    let end: string = ir_new_label(st, "for_end");
+    ir_start_block(st, head);
+    var cond: int = 0;
+    match kind {
+        IrForKind::Range(limit, _) => {
+            cond = ir_new_temp(st, Type::Bool);
+            ir_emit(st, IrInstr::Binop(cond, "lt", ir_ref(counter), ir_ref(limit)));
+        }
+        IrForKind::Each(array, _) => {
+            let n: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::ArrayLen(n, ir_ref(array)));
+            cond = ir_new_temp(st, Type::Bool);
+            ir_emit(st, IrInstr::Binop(cond, "lt", ir_ref(counter), ir_ref(n)));
+        }
+    }
+    ir_terminate(st, IrTerm::Br(ir_ref(cond), body_label, end));
+    ir_start_block(st, body_label);
+    match kind {
+        IrForKind::Range(_, local) => ir_emit(st, IrInstr::Copy(local, ir_ref(counter))),
+        IrForKind::Each(array, local) => ir_emit(st, IrInstr::IndexGet(local, ir_ref(array), ir_ref(counter))),
+    }
+    let lp: IrLoop = IrLoop { continue_label: step, break_label: end, continued: false };
+    push(st.loops, lp);
+    lower_block(st, body);
+    pop(st.loops);
+    if ir_reachable(st) || lp.continued {
+        ir_start_block(st, step);
+        ir_emit(st, IrInstr::Binop(counter, "add", ir_ref(counter), IrOperand::Int("1")));
+        ir_terminate(st, IrTerm::Jmp(head));
+    }
+    ir_start_block(st, end);
+}
+
+// Lowers an expression and returns its value, or `None` for a void expression.
+fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
+    if !ir_reachable(st) {
+        return Option::Some(ir_placeholder());
+    }
+    return match e.node {
+        TExprNode::Int(value) => Option::Some(IrOperand::Int(value)),
+        TExprNode::Bool(value) => Option::Some(IrOperand::Bool(value)),
+        TExprNode::Str(value) => Option::Some(IrOperand::Str(intern_ir_string(st.strings, value))),
+        TExprNode::Local(l) => Option::Some(ir_ref(l.id)),
+        TExprNode::Unary(op, operand) => Option::Some(lower_unary(st, e.ty, op, operand)),
+        TExprNode::Binary(op, left, right) => Option::Some(lower_binary(st, e.ty, op, left, right)),
+        TExprNode::Call(name, args) => lower_call(st, e.ty, name, args),
+        TExprNode::Builtin(name, args) => lower_builtin(st, e.ty, name, args),
+        TExprNode::Field(object, field) => Option::Some(lower_field(st, e.ty, object, field)),
+        TExprNode::Index(array, index) => Option::Some(lower_index(st, e.ty, array, index)),
+        TExprNode::ArrayLit(elements) => Option::Some(lower_array_lit(st, e.ty, elements)),
+        TExprNode::StructLit(name, fields) => Option::Some(lower_struct_lit(st, e.ty, name, fields)),
+        TExprNode::Variant(enum_name, variant, tag, args) => Option::Some(lower_variant(st, e.ty, enum_name, variant, tag, args)),
+        TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
+        TExprNode::If(cond, then, otherwise) => Option::Some(lower_if_expr(st, e.ty, cond, then, otherwise)),
+        TExprNode::Error => panic("internal: error expression reached lowering"),
+        TExprNode::Match(scrutinee, arms) => Option::Some(lower_match_expr(st, e.ty, scrutinee, arms)),
+        TExprNode::Try(x) => Option::Some(lower_try(st, e.ty, x)),
+    };
+}
+
+fn lower_unary(st: IrState, ty: Type, op: string, operand: TExpr): IrOperand {
+    let v: IrOperand = lower_value(st, operand);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    if op == "-" {
+        ir_emit(st, IrInstr::Unop(dst, "neg", v));
+    } else {
+        ir_emit(st, IrInstr::Unop(dst, "not", v));
+    }
+    return ir_ref(dst);
+}
+
+fn lower_binary(st: IrState, ty: Type, op: string, left: TExpr, right: TExpr): IrOperand {
+    if op == "&&" || op == "||" {
+        return lower_short_circuit(st, op, left, right);
+    }
+    let l: IrOperand = lower_value(st, left);
+    let r: IrOperand = lower_value(st, right);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Binop(dst, ir_bin_op(op, left.ty), l, r));
+    return ir_ref(dst);
+}
+
+fn lower_short_circuit(st: IrState, op: string, left: TExpr, right: TExpr): IrOperand {
+    let l: IrOperand = lower_value(st, left);
+    var rhs: string = "";
+    var end: string = "";
+    if op == "&&" {
+        rhs = ir_new_label(st, "and_rhs");
+        end = ir_new_label(st, "and_end");
+    } else {
+        rhs = ir_new_label(st, "or_rhs");
+        end = ir_new_label(st, "or_end");
+    }
+    let dst: int = ir_new_temp(st, Type::Bool);
+    ir_emit(st, IrInstr::Copy(dst, l));
+    if op == "&&" {
+        ir_terminate(st, IrTerm::Br(l, rhs, end));
+    } else {
+        ir_terminate(st, IrTerm::Br(l, end, rhs));
+    }
+    ir_start_block(st, rhs);
+    let r: IrOperand = lower_value(st, right);
+    ir_emit(st, IrInstr::Copy(dst, r));
+    ir_terminate(st, IrTerm::Jmp(end));
+    ir_start_block(st, end);
+    return ir_ref(dst);
+}
+
+// When both branches diverge nothing reaches the end, so the position stays unreachable.
+fn lower_if_expr(st: IrState, ty: Type, cond: TExpr, then: TExpr, otherwise: TExpr): IrOperand {
+    let c: IrOperand = lower_value(st, cond);
+    let then_label: string = ir_new_label(st, "then");
+    let else_label: string = ir_new_label(st, "else");
+    let end_label: string = ir_new_label(st, "endif");
+    let never: bool = kind_of_type(ty) == "never";
+    var dst: int = -1;
+    if !never {
+        dst = ir_new_temp(st, ir_type(ty));
+    }
+    ir_terminate(st, IrTerm::Br(c, then_label, else_label));
+    ir_start_block(st, then_label);
+    let tv: IrOperand = lower_value(st, then);
+    if !never {
+        ir_emit(st, IrInstr::Copy(dst, tv));
+    }
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, else_label);
+    let ev: IrOperand = lower_value(st, otherwise);
+    if !never {
+        ir_emit(st, IrInstr::Copy(dst, ev));
+    }
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    if never {
+        return ir_placeholder();
+    }
+    ir_start_block(st, end_label);
+    return ir_ref(dst);
+}
+
+fn lower_call(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
+    let a: [IrOperand] = lower_args(st, args);
+    let k: string = kind_of_type(ty);
+    if k == "void" || k == "never" {
+        ir_emit(st, IrInstr::Call(Option::None, name, a));
+        if k == "never" {
+            ir_terminate(st, IrTerm::Unreachable);
+            return Option::Some(ir_placeholder());
+        }
+        return Option::None;
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Call(Option::Some(dst), name, a));
+    return Option::Some(ir_ref(dst));
+}
+
+// The IR builtin for a call of `name`: print and eprint split by argument type.
+fn ir_builtin_name(name: string, args: [TExpr]): string {
+    if name == "print" || name == "eprint" {
+        let k: string = kind_of_type(args[0].ty);
+        if k == "int" {
+            return name + "_int";
+        }
+        if k == "bool" {
+            return name + "_bool";
+        }
+        return name + "_string";
+    }
+    return name;
+}
+
+fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
+    let a: [IrOperand] = lower_args(st, args);
+    if name == "read_file" {
+        return Option::Some(lower_read_file(st, a[0], ty));
+    }
+    if name == "push" {
+        ir_emit(st, IrInstr::ArrayPush(a[0], a[1]));
+        return Option::None;
+    }
+    if name == "pop" {
+        let dst: int = ir_new_temp(st, ir_type(ty));
+        ir_emit(st, IrInstr::ArrayPop(dst, a[0]));
+        return Option::Some(ir_ref(dst));
+    }
+    if name == "len" && kind_of_type(args[0].ty) == "array" {
+        let dst: int = ir_new_temp(st, ir_type(ty));
+        ir_emit(st, IrInstr::ArrayLen(dst, a[0]));
+        return Option::Some(ir_ref(dst));
+    }
+    let k: string = kind_of_type(ty);
+    if k == "void" || k == "never" {
+        ir_emit(st, IrInstr::CallBuiltin(Option::None, ir_builtin_name(name, args), a));
+        if k == "never" {
+            ir_terminate(st, IrTerm::Unreachable);
+            return Option::Some(ir_placeholder());
+        }
+        return Option::None;
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::CallBuiltin(Option::Some(dst), ir_builtin_name(name, args), a));
+    return Option::Some(ir_ref(dst));
+}
+
+fn lower_field(st: IrState, ty: Type, object: TExpr, field: string): IrOperand {
+    let o: IrOperand = lower_value(st, object);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::FieldGet(dst, o, field));
+    return ir_ref(dst);
+}
+
+fn lower_index(st: IrState, ty: Type, array: TExpr, index: TExpr): IrOperand {
+    let a: IrOperand = lower_value(st, array);
+    let i: IrOperand = lower_value(st, index);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::IndexGet(dst, a, i));
+    return ir_ref(dst);
+}
+
+fn lower_array_lit(st: IrState, ty: Type, elements: [TExpr]): IrOperand {
+    let els: [IrOperand] = lower_args(st, elements);
+    let t: Type = ir_type(ty);
+    let elem: Type = match t {
+        Type::Array(e) => e,
+        _ => panic("internal: array literal without an array type"),
+    };
+    let dst: int = ir_new_temp(st, t);
+    ir_emit(st, IrInstr::ArrayNew(dst, ir_type(elem), els));
+    return ir_ref(dst);
+}
+
+fn lower_variant(st: IrState, ty: Type, enum_name: string, variant: string, tag: int, args: [TExpr]): IrOperand {
+    let a: [IrOperand] = lower_args(st, args);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::EnumNew(dst, enum_name, variant, tag, a));
+    return ir_ref(dst);
+}
+
+fn lower_enum_compare(st: IrState, op: string, left: TExpr, right: TExpr): IrOperand {
+    let l: IrOperand = ir_enum_tag(st, lower_value(st, left));
+    let r: IrOperand = ir_enum_tag(st, lower_value(st, right));
+    let dst: int = ir_new_temp(st, Type::Bool);
+    if op == "==" {
+        ir_emit(st, IrInstr::Binop(dst, "eq", l, r));
+    } else {
+        ir_emit(st, IrInstr::Binop(dst, "ne", l, r));
+    }
+    return ir_ref(dst);
+}
+
+// The value of field `name` among the written-order `values`.
+fn ir_field_value(values: [IrFieldValue], name: string): IrOperand {
+    for v in values {
+        if v.name == name {
+            return v.value;
+        }
+    }
+    panic("internal: missing field " + name);
+}
+
+// Evaluates the fields in written order, then hands the values over in declaration order. Reordering operands is safe
+// because no Aster expression can assign to a local.
+fn lower_struct_lit(st: IrState, ty: Type, name: string, fields: [TFieldInit]): IrOperand {
+    let values: [IrFieldValue] = [];
+    for f in fields {
+        push(values, IrFieldValue { name: f.field, value: lower_value(st, f.value) });
+    }
+    let decl: TStruct = ir_find_struct(st.structs, name);
+    let ordered: [IrFieldValue] = [];
+    for d in decl.fields {
+        push(ordered, IrFieldValue { name: d.name, value: ir_field_value(values, d.name) });
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::StructNew(dst, name, ordered));
+    return ir_ref(dst);
+}
+
+// The shape of a match:
+//   enum:     entry: t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+//   int/bool: entry: switch s [value: armN, ...], default <the `_` arm, or unreachable>
+//   string:   entry: a chain of `str_eq s, "lit"` tests, each br armN / next test, in arm order;
+//             a `_` arm ends the chain with a jmp, otherwise the chain ends in unreachable
+//   armN:     binder = enum_field s, Enum::Variant.slot (for each binder); body; jmp endmatch
+//   endmatch: (only when some arm falls through; an unused label would warn)
+// The scrutinee is evaluated once, and binders are read before the body runs. An expression arm's value is copied
+// into `into` when it is `Some`; a statement match and a never match pass `None`.
+fn lower_match(st: IrState, scrutinee: TExpr, arms: [TArm], into: Option[int]) {
+    let value: IrOperand = lower_value(st, scrutinee);
+    let labels: [string] = [];
+    for a in arms {
+        push(labels, ir_new_label(st, "arm"));
+    }
+    let end: string = ir_new_label(st, "endmatch");
+    var enum_name: string = "";
+    match scrutinee.ty {
+        Type::Enum(name) => {
+            enum_name = name;
+            ir_lower_switch(st, ir_enum_tag(st, value), arms, labels);
+        }
+        Type::Str => ir_lower_string_tests(st, value, arms, labels),
+        _ => ir_lower_switch(st, value, arms, labels),
+    }
+    var reaches_end: bool = false;
+    for i in 0..len(arms) {
+        ir_start_block(st, labels[i]);
+        if let TPattern::Variants(variants, binders) = arms[i].pattern {
+            if len(variants) == 1 {
+                for slot in 0..len(binders) {
+                    if let Option::Some(b) = binders[slot] {
+                        ir_emit(st, IrInstr::EnumField(b.id, value, enum_name, variants[0].name, variants[0].tag, slot));
+                    }
+                }
+            }
+        }
+        match arms[i].body {
+            TArmBody::Block(b) => lower_block(st, b),
+            TArmBody::Expr(e) => {
+                let v: IrOperand = lower_value(st, e);
+                if let Option::Some(dst) = into {
+                    ir_emit(st, IrInstr::Copy(dst, v));
+                }
+            }
+        }
+        if ir_reachable(st) {
+            reaches_end = true;
+        }
+        ir_terminate(st, IrTerm::Jmp(end));
+    }
+    if reaches_end {
+        ir_start_block(st, end);
+    }
+}
+
+// Terminates the current block with a switch on an enum tag, an int or a bool.
+fn ir_lower_switch(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
+    let cases: [IrCase] = [];
+    var fallback: Option[string] = Option::None;
+    for i in 0..len(arms) {
+        match arms[i].pattern {
+            TPattern::Wildcard => {
+                fallback = Option::Some(labels[i]);
+            }
+            TPattern::Variants(variants, _) => {
+                for v in variants {
+                    push(cases, IrCase { value: int_to_string(v.tag), target: labels[i] });
+                }
+            }
+            TPattern::Ints(values) => {
+                for v in values {
+                    push(cases, IrCase { value: v, target: labels[i] });
+                }
+            }
+            TPattern::Strings(_) => panic("internal: string pattern on a non-string match"),
+        }
+    }
+    ir_terminate(st, IrTerm::Switch(on, cases, fallback));
+}
+
+// A string match is a chain of equality tests, in arm order; a `_` arm ends it. Each literal is interned before the
+// test is emitted, even at an unreachable position, as lower.ts builds the instruction before `emit` drops it.
+fn ir_lower_string_tests(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
+    for i in 0..len(arms) {
+        match arms[i].pattern {
+            TPattern::Wildcard => {
+                ir_terminate(st, IrTerm::Jmp(labels[i]));
+                return;
+            }
+            TPattern::Strings(values) => {
+                for v in values {
+                    let test: int = ir_new_temp(st, Type::Bool);
+                    let lit: int = intern_ir_string(st.strings, v);
+                    ir_emit(st, IrInstr::Binop(test, "str_eq", on, IrOperand::Str(lit)));
+                    let next: string = ir_new_label(st, "test");
+                    ir_terminate(st, IrTerm::Br(ir_ref(test), labels[i], next));
+                    ir_start_block(st, next);
+                }
+            }
+            _ => panic("internal: non-string pattern on a string match"),
+        }
+    }
+    ir_terminate(st, IrTerm::Unreachable);
+}
+
+fn lower_match_expr(st: IrState, ty: Type, scrutinee: TExpr, arms: [TArm]): IrOperand {
+    if kind_of_type(ty) == "never" {
+        lower_match(st, scrutinee, arms, Option::None);
+        return ir_placeholder();
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    lower_match(st, scrutinee, arms, Option::Some(dst));
+    return ir_ref(dst);
+}
+
+// `operand?`: branch on the tag; the failure path builds the return enum's failure value and returns it.
+fn lower_try(st: IrState, ty: Type, x: TTry): IrOperand {
+    let operand_enum: string = match x.operand.ty {
+        Type::Enum(name) => name,
+        _ => panic("internal: ? on a non-enum operand"),
+    };
+    let value: IrOperand = lower_value(st, x.operand);
+    let tag: IrOperand = ir_enum_tag(st, value);
+    let is_ok: int = ir_new_temp(st, Type::Bool);
+    ir_emit(st, IrInstr::Binop(is_ok, "eq", tag, IrOperand::Int(int_to_string(x.ok_tag))));
+    let ok_label: string = ir_new_label(st, "try_ok");
+    let fail_label: string = ir_new_label(st, "try_fail");
+    ir_terminate(st, IrTerm::Br(ir_ref(is_ok), ok_label, fail_label));
+    ir_start_block(st, fail_label);
+    let args: [IrOperand] = [];
+    if let Option::Some(pt) = x.fail_payload_type {
+        let payload: int = ir_new_temp(st, ir_type(pt));
+        ir_emit(st, IrInstr::EnumField(payload, value, operand_enum, x.fail_variant, x.fail_tag, 0));
+        push(args, ir_ref(payload));
+    }
+    let fail_value: int = ir_new_temp(st, ir_type(x.return_type));
+    ir_emit(st, IrInstr::EnumNew(fail_value, x.return_enum, x.return_fail_variant, x.return_fail_tag, args));
+    ir_terminate(st, IrTerm::Ret(Option::Some(ir_ref(fail_value))));
+    // The fail block is terminated, so opening the ok block adds no fall-through jump.
+    ir_start_block(st, ok_label);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::EnumField(dst, value, operand_enum, x.ok_variant, x.ok_tag, 0));
+    return ir_ref(dst);
+}
+
+// `read_file(p)`: the runtime fills an ok flag and a string, then each outcome builds its Result variant.
+fn lower_read_file(st: IrState, path: IrOperand, ty: Type): IrOperand {
+    let result_enum: string = match ty {
+        Type::Enum(name) => name,
+        _ => panic("internal: read_file without a Result type"),
+    };
+    let ok: int = ir_new_temp(st, Type::Bool);
+    let text: int = ir_new_temp(st, Type::Str);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::ReadFile(ok, text, path));
+    let ok_label: string = ir_new_label(st, "read_ok");
+    let err_label: string = ir_new_label(st, "read_err");
+    let end_label: string = ir_new_label(st, "read_end");
+    ir_terminate(st, IrTerm::Br(ir_ref(ok), ok_label, err_label));
+    ir_start_block(st, ok_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Ok", 0, [ir_ref(text)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, err_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Err", 1, [ir_ref(text)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, end_label);
+    return ir_ref(dst);
+}

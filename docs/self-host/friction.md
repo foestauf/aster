@@ -138,6 +138,50 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building lowering
+
+`lower.aster` ports `ir/lower.ts` (692 lines of TypeScript) in 911 lines, and `ir_print.aster` (231 lines) ports
+`ir/print.ts` (110 lines) over `ir.aster` (75 lines, against `ir/ir.ts`'s 107). The port as a whole is 1,217 lines for 909 of
+TypeScript (`ir.ts` + `lower.ts` + `print.ts`, by `wc -l`), about 1.34 times as long. `ir.aster` lowers the typed program and prints it byte for byte as
+`printIr(lower(typed))` does on every program the TypeScript front end accepts (142 files, `fixtures/ir_*.txt` included),
+including the compiler's own closure. Lowering itself (`ir.aster` on `ir.aster`, 23,728 lines of IR) takes 0.04 s and
+about 36 MB. No compiler bug turned up.
+
+- **No closures, a third time.** `lower.ts` passes four kinds of callback: `lowerMatch`'s `lowerBody`, `lowerFor`'s
+  `cond` and `bind`, `storeThroughPlace`'s `read` and `write`, and the match-arm lambdas in `lowerExpr`. They became a
+  data argument each: `into: Option[int]` (where an arm's value goes, or `None` for a statement), an `IrForKind` enum
+  (range or array) and an `IrPlaceRef` enum (`Field` or `Index`; assigning to a local doesn't use it), each with a `match` at the point TS calls the
+  function. That, and the helpers the `match` needs, probably account for much of the 1.34 times (not measured).
+- **No maps, a third time.** `intern_ir_string`, `ir_find_struct`, `ir_block_index` and `ir_field_value` are linear
+  scans where TS uses a `Map`. The string scan is quadratic in the number of distinct literals, and on the largest input
+  (`ir.aster`, 23,728 lines out) the whole run still takes 0.04 s, so no profiling was needed.
+- **`Option` as `null`.** `IrLocal.name`, a `Call`'s destination and a `Switch`'s default are `T | null` in TS and
+  `Option` in Aster, which turns every read of them into a `match` or `if let`.
+- **`=> return ...;` arms are rejected.** `ir_term_text` became `return match ...`, with `ir_switch_text` and
+  `ir_ret_text` as helpers for the two arms that were too big to inline.
+- **Comparisons don't chain.** The fixture line in `fixtures/ir_effects.txt`, `s == "x1" != (s != "y")` is rejected, so the left comparison
+  is parenthesised too.
+- **Structs alias, and field assignment through a `let` works.** `lp.continued = true` on a `let` binding mutates the
+  struct in place, which is what lets `IrLoop.continued` mirror TS's mutable loop record (a `var` isn't needed).
+- **Statement-level oddities that turned out fine.** A call kept for its effect as an expression statement, an unused
+  loop variable and `then` as a binder name were all accepted, so none needed a workaround.
+- **The flat namespace held.** New top-level names: `Ir`-prefixed types (`IrProgram`, `IrFunction`, `IrInstr`, `IrTerm`,
+  `IrLoop`, `IrPlaceRef`, `IrForKind` and so on), 38 `ir_` functions, 26 `lower_` functions, 2 `print_` functions,
+  `intern_ir_string` and `ir_prune_unreachable`. Nothing collided with the closure's other names.
+- **The validator.** `tests/ir_validate.ts` (185 lines) checks the TypeScript IR of every accepted program: labels,
+  jump targets, local and string ranges, and the operand types the IR fixes (integer operators take ints, comparisons
+  yield bools). It isn't a type checker:
+  calls, fields, arrays and enums are only range-checked. It found nothing on the corpus.
+- **Open: invalid UTF-8 in a string literal diverges.** A string literal containing raw invalid UTF-8 (say a lone
+  0xFF) prints differently: TS reads the source with `readFileSync(..., 'utf8')` and so prints U+FFFD, while `ir.aster`
+  prints the raw byte. That is a front-end/IO difference, not a lowering one; the spec's escaping rule assumes valid
+  UTF-8 source.
+- **A runner existed after all.** The plan assumed there was none. `asterc build --emit=ir <file>` prints the TypeScript
+  IR, and was the per-file diff tool whenever `ir.aster` and TS disagreed, unlike the typed dump's missing runner.
+- **Two TypeScript-side snags.** oxlint forbids a conditional `expect`, so the test's pending list had to compare
+  through `isDeepStrictEqual`; the list is gone now that it is empty. And `asterc` exports `INT` typed as
+  `Type`, not `IrType`.
+
 ## Found while building the typed program
 
 `checker.aster` now builds the whole typed program, mirroring `check/types.ts` (127 lines of TypeScript), and
