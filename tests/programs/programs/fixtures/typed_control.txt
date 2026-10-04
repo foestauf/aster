@@ -1,0 +1,31 @@
+fn pick(b: bool): int {
+    let x: int = if b { 1 } else { 2 };
+    if b {
+        return x;
+    } else if !b {
+        return x + 1;
+    }
+    return 0;
+}
+fn main(): int {
+    var total: int = 0;
+    var i: int = 0;
+    while i < 10 {
+        i += 1;
+        if i == 3 { continue; }
+        if i == 8 { break; }
+        total += i;
+    }
+    for j in 0..3 {
+        total += j;
+    }
+    for v in [4, 5] {
+        let total: int = v;
+        print(total);
+    }
+    {
+        let inner: int = pick(true);
+        total += inner;
+    }
+    return total;
+}

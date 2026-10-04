@@ -1,0 +1,11 @@
+fn main(): int {
+    let a: int = 9223372036854775807;
+    let b: int = -9223372036854775808;
+    let c: int = 'a';
+    let d: int = '\n';
+    let s: string = "a\"b\\c\n\t\0é😀";
+    let t: bool = true;
+    let f: bool = false;
+    print(s);
+    return a + b + c + d;
+}

@@ -1,0 +1,16 @@
+struct Inner { v: int }
+struct Outer { inner: Inner, items: [int] }
+fn main(): int {
+    var o: Outer = Outer { items: [1, 2], inner: Inner { v: 3 } };
+    o.inner.v = 4;
+    o.items[1] = 5;
+    o.items[0] += 6;
+    o.inner.v -= 1;
+    var n: int = 0;
+    n *= 2;
+    n /= 1;
+    n %= 7;
+    let grid: [[int]] = [[1], [2]];
+    grid[1][0] = 9;
+    return o.inner.v + o.items[1] + grid[1][0] + n;
+}

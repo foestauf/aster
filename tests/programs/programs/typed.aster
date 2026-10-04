@@ -20,6 +20,26 @@
 //   local 2 o Option[int] let
 //   local 3 n int var
 //   body
+//     let 0
+//       struct-lit Point : Point
+//         init x
+//           int 1 : int
+//         init y
+//           int 2 : int
+//     let 1
+//       variant Color Red 0 : Color
+//     let 2
+//       variant Option[int] Some 0 : Option[int]
+//         field .x : int
+//           local 0 p : Point
+//     let 3
+//       field .y : int
+//         local 0 p : Point
+//     assign +=
+//       place-local 3 n : int
+//       int 1 : int
+//     return
+//       int 0 : int
 
 import "../../../packages/asterc-self/loader.aster";
 import "../../../packages/asterc-self/checker.aster";
