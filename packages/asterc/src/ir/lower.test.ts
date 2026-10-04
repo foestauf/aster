@@ -604,5 +604,7 @@ describe('lower', () => {
   it('lowers a block arm without copying into the result', () => {
     const ir = irOf(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { return -1; } }; return v; }`, 'f');
     expect(ir).toContain('ret -1');
+    // Only the value arm copies into the match result; the block arm ends in its own return.
+    expect(ir.match(/= copy/g)?.length ?? 0).toBe(irOf(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => 0 }; return v; }`, 'f').match(/= copy/g)!.length - 1);
   });
 });

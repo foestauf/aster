@@ -686,145 +686,155 @@ describe('generic enums', () => {
   it('does not let ? end a control path', () => {
     expect(messages(`fn f(o: Option[int]): Option[int] { o?; }\n${MAIN}`)).toEqual(["function 'f' is missing a return on some paths"]);
   });
+});
 
-  describe('never', () => {
-    it('lets panic and exit fit any expected type', () => {
-      expect(
-        msgs(`${MAIN}fn f(c: bool): int { let x: int = if c { 1 } else { panic("no") }; return x; }\nfn g(): string { return exit(1); }`),
-      ).toEqual([]);
-    });
-
-    it('accepts user never functions that diverge', () => {
-      expect(
-        msgs(
-          `${MAIN}fn die(m: string): never { eprint(m); exit(1); }\nfn f(): int { die("x"); }\nfn g(o: Option[int]): int { return match o { Option::Some(v) => v, Option::None => die("none") }; }`,
-        ),
-      ).toEqual([]);
-    });
-
-    it('rejects never functions that can reach their end or return', () => {
-      expect(msgs(`${MAIN}fn a(): never { }\nfn b(): never { return; }\nfn c(): never { return 1; }`)).toEqual([
-        "function 'a' returns 'never' but can reach its end",
-        "cannot return from a function that returns 'never'",
-        "cannot return from a function that returns 'never'",
-      ]);
-    });
-
-    it('allows never only as a return type', () => {
-      expect(
-        msgs(`${MAIN}struct S { f: never }\nenum E { V(never) }\nfn f(p: never) { let x: [never] = []; let o: Option[never] = Option::None; }`),
-      ).toEqual([
-        "'never' is only allowed as a return type",
-        "'never' is only allowed as a return type",
-        "'never' is only allowed as a return type",
-        "'never' is only allowed as a return type",
-        "'never' is only allowed as a return type",
-      ]);
-    });
-
-    it('rejects redefining never and a never main', () => {
-      expect(msgs(`${MAIN}struct never { }`)).toEqual(["'never' is a built-in type and cannot be redefined"]);
-      expect(msgs('fn main(): never { exit(0); }')).toEqual([
-        "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'",
-      ]);
-    });
-
-    it('treats never as a wrong type where nothing is expected', () => {
-      const m = msgs(`${MAIN}fn f() { let x: int = panic("a") + 1; print(panic("b")); }`);
-      expect(m.length).toBe(2); // the existing operator and print messages, naming 'never'
-      expect(m.every((s) => s.includes('never'))).toBe(true);
-    });
-
-    it('unifies if and match arms around never', () => {
-      expect(msgs(`${MAIN}fn f(c: bool): never { let x: int = if c { panic("a") } else { panic("b") }; }`)).toEqual([]);
-    });
+describe('never', () => {
+  it('lets panic and exit fit any expected type', () => {
+    expect(
+      msgs(`${MAIN}fn f(c: bool): int { let x: int = if c { 1 } else { panic("no") }; return x; }\nfn g(): string { return exit(1); }`),
+    ).toEqual([]);
   });
 
-  describe('inferred never', () => {
-    it('does not infer never as a type argument or an element type', () => {
-      expect(msgs(`${MAIN}fn f() { Option::Some(panic("x")); }`)).toEqual(["cannot infer type arguments for 'Option'"]);
-      expect(msgs(`${MAIN}fn f() { for x in [panic("a")] { } }`)).toEqual(['cannot infer type of empty array']);
-      expect(msgs(`${MAIN}fn f() { print(len([exit(1)])); }`)).toEqual(['cannot infer type of empty array']);
-    });
-
-    it('lets a later element fix the type after a never element', () => {
-      expect(msgs(`${MAIN}fn f() { let xs: [int] = [1, panic("x")]; let ys: [int] = [panic("a"), 2]; }`)).toEqual([]);
-    });
-
-    it('rejects never operands of == and !=', () => {
-      const m = msgs(`${MAIN}fn f() { let b: bool = panic("a") == panic("b"); let c: bool = exit(1) != exit(2); }`);
-      expect(m).toEqual([
-        "operator '==' cannot be applied to never and never",
-        "operator '!=' cannot be applied to never and never",
-      ]);
-    });
+  it('accepts user never functions that diverge', () => {
+    expect(
+      msgs(
+        `${MAIN}fn die(m: string): never { eprint(m); exit(1); }\nfn f(): int { die("x"); }\nfn g(o: Option[int]): int { return match o { Option::Some(v) => v, Option::None => die("none") }; }`,
+      ),
+    ).toEqual([]);
   });
 
-  describe('let-else and if let', () => {
-
-    it('binds let-else names after the statement', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([]);
-    });
-
-    it('requires the else block to diverge', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { print(1); }; return x; }`)).toEqual([
-        "'else' block of 'let' must diverge",
-      ]);
-    });
-
-    it('accepts break, continue, panic and never calls as divergence', () => {
-      expect(msgs(`${MAIN}fn die(): never { exit(1); }\nfn f(xs: [Option[int]]): int { var t: int = 0; for o in xs { let Option::Some(a) = o else { continue; }; let Option::Some(b) = o else { break; }; let Option::Some(c) = o else { panic("p"); }; let Option::Some(d) = o else { die(); }; t += a + b + c + d; } return t; }`)).toEqual([]);
-    });
-
-    it('hides let-else binders from their else block and checks conflicts', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return x; }; return x; }`)).toEqual([
-        "undefined name 'x'",
-      ]);
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let x: int = 1; let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([
-        "'x' is already declared in this scope",
-      ]);
-    });
-
-    it('scopes if-let binders to the then block', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } return x; }`)).toEqual([
-        "undefined name 'x'",
-      ]);
-    });
-
-    it('rejects irrefutable patterns', () => {
-      expect(msgs(`${MAIN}enum W { V(int) }\nfn f(w: W, b: bool): int { let W::V(x) = w else { return 0; }; if let true | false = b { } return x; }`)).toEqual([
-        'pattern always matches',
-        'pattern always matches',
-      ]);
-    });
-
-    it('reuses match pattern errors', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(a, b) = o else { return 0; }; if let 1 = "s" { } return 0; }`).length).toBe(2);
-    });
-
-    it('treats an if let with two diverging branches as diverging', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } else { return 0; } }`)).toEqual([]);
-    });
-
-    it('checks else-if-let chains', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int], p: Option[int]): int { if let Option::Some(x) = o { return x; } else if let Option::Some(y) = p { return y; } else { return 0; } }`)).toEqual([]);
-    });
+  it('rejects never functions that can reach their end or return', () => {
+    expect(msgs(`${MAIN}fn a(): never { }\nfn b(): never { return; }\nfn c(): never { return 1; }`)).toEqual([
+      "function 'a' returns 'never' but can reach its end",
+      "cannot return from a function that returns 'never'",
+      "cannot return from a function that returns 'never'",
+    ]);
   });
 
-  describe('block arms in match expressions', () => {
+  it('allows never only as a return type', () => {
+    expect(
+      msgs(`${MAIN}struct S { f: never }\nenum E { V(never) }\nfn f(p: never) { let x: [never] = []; let o: Option[never] = Option::None; }`),
+    ).toEqual([
+      "'never' is only allowed as a return type",
+      "'never' is only allowed as a return type",
+      "'never' is only allowed as a return type",
+      "'never' is only allowed as a return type",
+      "'never' is only allowed as a return type",
+    ]);
+  });
 
-    it('accepts a diverging block arm', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { print(0); return -1; } }; return v; }`)).toEqual([]);
-    });
+  it('rejects redefining never and a never main', () => {
+    expect(msgs(`${MAIN}struct never { }`)).toEqual(["'never' is a built-in type and cannot be redefined"]);
+    expect(msgs('fn main(): never { exit(0); }')).toEqual([
+      "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'",
+    ]);
+  });
 
-    it('rejects a block arm that falls through', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => x, Option::None => { print(0); } }; }`)).toEqual([
-        'match arm block must diverge',
-      ]);
-    });
+  it('treats never as a wrong type where nothing is expected', () => {
+    const m = msgs(`${MAIN}fn f() { let x: int = panic("a") + 1; print(panic("b")); }`);
+    expect(m.length).toBe(2); // the existing operator and print messages, naming 'never'
+    expect(m.every((s) => s.includes('never'))).toBe(true);
+  });
 
-    it('sees binders in a block arm', () => {
-      expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => { return x; }, Option::None => 0 }; }`)).toEqual([]);
-    });
+  it('unifies if and match arms around never', () => {
+    expect(msgs(`${MAIN}fn f(c: bool): never { let x: int = if c { panic("a") } else { panic("b") }; }`)).toEqual([]);
+  });
+});
+
+describe('inferred never', () => {
+  it('does not infer never as a type argument or an element type', () => {
+    expect(msgs(`${MAIN}fn f() { Option::Some(panic("x")); }`)).toEqual(["cannot infer type arguments for 'Option'"]);
+    expect(msgs(`${MAIN}fn f() { for x in [panic("a")] { } }`)).toEqual(['cannot infer type of empty array']);
+    expect(msgs(`${MAIN}fn f() { print(len([exit(1)])); }`)).toEqual(['cannot infer type of empty array']);
+  });
+
+  it('lets a later element fix the type after a never element', () => {
+    expect(msgs(`${MAIN}fn f() { let xs: [int] = [1, panic("x")]; let ys: [int] = [panic("a"), 2]; }`)).toEqual([]);
+  });
+
+  it('rejects never operands of == and !=', () => {
+    const m = msgs(`${MAIN}fn f() { let b: bool = panic("a") == panic("b"); let c: bool = exit(1) != exit(2); }`);
+    expect(m).toEqual([
+      "operator '==' cannot be applied to never and never",
+      "operator '!=' cannot be applied to never and never",
+    ]);
+  });
+});
+
+describe('let-else and if let', () => {
+
+  it('binds let-else names after the statement', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([]);
+  });
+
+  it('requires the else block to diverge', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { print(1); }; return x; }`)).toEqual([
+      "'else' block of 'let' must diverge",
+    ]);
+  });
+
+  it('accepts break, continue, panic and never calls as divergence', () => {
+    expect(msgs(`${MAIN}fn die(): never { exit(1); }\nfn f(xs: [Option[int]]): int { var t: int = 0; for o in xs { let Option::Some(a) = o else { continue; }; let Option::Some(b) = o else { break; }; let Option::Some(c) = o else { panic("p"); }; let Option::Some(d) = o else { die(); }; t += a + b + c + d; } return t; }`)).toEqual([]);
+  });
+
+  it('hides let-else binders from their else block and checks conflicts', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return x; }; return x; }`)).toEqual([
+      "undefined name 'x'",
+    ]);
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let x: int = 1; let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([
+      "'x' is already declared in this scope",
+    ]);
+  });
+
+  it('scopes if-let binders to the then block', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } return x; }`)).toEqual([
+      "undefined name 'x'",
+    ]);
+  });
+
+  it('rejects irrefutable patterns', () => {
+    expect(msgs(`${MAIN}enum W { V(int) }\nfn f(w: W, b: bool): int { let W::V(x) = w else { return 0; }; if let true | false = b { } return x; }`)).toEqual([
+      'pattern always matches',
+      'pattern always matches',
+    ]);
+  });
+
+  it('reuses match pattern errors', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(a, b) = o else { return 0; }; if let 1 = "s" { } return 0; }`).length).toBe(2);
+  });
+
+  it('does not call a pattern with binder errors irrefutable', () => {
+    expect(msgs(`${MAIN}enum E { A(int), B(int) }\nfn f(e: E): int { let E::A(x) | E::B(y) = e else { return 0; }; return 1; }`)).toEqual([
+      'or-pattern alternatives cannot bind names',
+      'or-pattern alternatives cannot bind names',
+    ]);
+    expect(msgs(`${MAIN}enum P { T(int, int) }\nfn f(p: P): int { let P::T(x, x) = p else { return 0; }; return 1; }`)).toEqual([
+      "duplicate binding 'x'",
+    ]);
+  });
+
+  it('treats an if let with two diverging branches as diverging', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } else { return 0; } }`)).toEqual([]);
+  });
+
+  it('checks else-if-let chains', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int], p: Option[int]): int { if let Option::Some(x) = o { return x; } else if let Option::Some(y) = p { return y; } else { return 0; } }`)).toEqual([]);
+  });
+});
+
+describe('block arms in match expressions', () => {
+
+  it('accepts a diverging block arm', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { print(0); return -1; } }; return v; }`)).toEqual([]);
+  });
+
+  it('rejects a block arm that falls through', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => x, Option::None => { print(0); } }; }`)).toEqual([
+      'match arm block must diverge',
+    ]);
+  });
+
+  it('sees binders in a block arm', () => {
+    expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => { return x; }, Option::None => 0 }; }`)).toEqual([]);
   });
 });

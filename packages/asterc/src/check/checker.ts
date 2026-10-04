@@ -916,6 +916,7 @@ function checkMatch(
     let resolved: (ResolvedAlternative | null)[] = [];
     let fresh: ResolvedAlternative[] = [];
     const diagnosticsBefore = ctx.diagnostics.length;
+    let irrefutable = false;
     if (category !== null) {
       resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
       if (resolved.includes(null)) allResolved = false;
@@ -927,11 +928,8 @@ function checkMatch(
       } else {
         fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
         for (const r of fresh) covered.add(r.key);
-        // A pattern with any error of its own is not also called irrefutable.
-        if (options.refutable && index === 0 && ctx.diagnostics.length === diagnosticsBefore && !resolved.includes(null)
-          && missingValues(category, st, decl, covered)?.length === 0) {
-          report(ctx, 'pattern always matches', pattern.span);
-        }
+        irrefutable = options.refutable === true && index === 0 && !resolved.includes(null)
+          && missingValues(category, st, decl, covered)?.length === 0;
       }
     }
     if (pattern.kind === 'wildcard') wildcardSeen = true;
@@ -939,6 +937,8 @@ function checkMatch(
     ctx.scopes.push(new Map());
     const single = pattern.kind === 'variant' ? resolved[0] : null;
     const binders = declareBinders(ctx, pattern, single?.kind === 'variant' ? single.variant : null);
+    // A pattern with any error of its own (resolution, arity, duplicates, binder errors) is not also called irrefutable.
+    if (irrefutable && ctx.diagnostics.length === diagnosticsBefore) report(ctx, 'pattern always matches', pattern.span);
     checkArm(index);
     ctx.scopes.pop();
     typed.push(typedPattern(pattern, category, fresh, binders));
