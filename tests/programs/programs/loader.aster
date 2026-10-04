@@ -1,0 +1,228 @@
+// expect-library
+// The Aster program loader, written in Aster: a port of packages/asterc/src/driver/load.ts. `load_program` lexes and
+// parses the root file and, depth first in the order the imports appear, every file it reaches, each once. Every file
+// gets a global base (the root's is 0, each later file's is one past the end of the previous one), and every span the
+// lexer and parser produce is offset by it, so spans are global and sort by load order, then position. Offsets are in
+// bytes of the BOM-stripped text. tests/check_aster.test.ts checks the result, through check.aster, against the
+// compiler's own loader.
+
+import "parser.aster";
+
+// A loaded file. `src` has any byte order mark stripped; `bom` is the 3 bytes it took, or 0.
+struct SourceFile {
+    path: string,
+    src: string,
+    base: int,
+    bom: int,
+}
+
+// A diagnostic, with global byte offsets.
+struct Diag {
+    start: int,
+    end: int,
+    message: string,
+}
+
+// Every loaded file (root first, in load order), the items of all of them (in load order), the end offset of the
+// root (declarations at or past it come from imports), and the lexical, syntax and import errors, unsorted.
+struct Loaded {
+    files: [SourceFile],
+    items: [Item],
+    root_end: int,
+    diags: [Diag],
+}
+
+// ---- paths
+
+// The directory part of a path, as Node's posix `path.dirname` computes it.
+fn dirname(path: string): string {
+    if len(path) == 0 {
+        return ".";
+    }
+    let has_root: bool = byte_at(path, 0) == '/';
+    var end: int = -1;
+    var matched_slash: bool = true;
+    var i: int = len(path) - 1;
+    while i >= 1 {
+        if byte_at(path, i) == '/' {
+            if !matched_slash {
+                end = i;
+                break;
+            }
+        } else {
+            matched_slash = false;
+        }
+        i -= 1;
+    }
+    if end == -1 {
+        if has_root {
+            return "/";
+        }
+        return ".";
+    }
+    if has_root && end == 1 {
+        return "//";
+    }
+    return substring(path, 0, end);
+}
+
+// A file's identity: the path with repeated `/` collapsed, `.` segments dropped and `name/..` pairs resolved. The
+// compiler uses the real path instead; the two differ only through symlinks.
+fn normalise(path: string): string {
+    let absolute: bool = len(path) > 0 && byte_at(path, 0) == '/';
+    let stack: [string] = [];
+    var start: int = 0;
+    for i in 0..len(path) + 1 {
+        if i == len(path) || byte_at(path, i) == '/' {
+            let seg: string = substring(path, start, i);
+            start = i + 1;
+            if seg == "" || seg == "." {
+                continue;
+            }
+            if seg == ".." && len(stack) > 0 && stack[len(stack) - 1] != ".." {
+                pop(stack);
+            } else if seg == ".." && absolute && len(stack) == 0 {
+                continue;
+            } else {
+                push(stack, seg);
+            }
+        }
+    }
+    var out: string = "";
+    if absolute {
+        out = "/";
+    }
+    for k in 0..len(stack) {
+        if k > 0 {
+            out += "/";
+        }
+        out += stack[k];
+    }
+    if out == "" {
+        return ".";
+    }
+    return out;
+}
+
+// The value of a string literal's body (the source text between its quotes), or None if it holds a NUL byte, which no
+// path can contain. Invalid escapes, already reported by the lexer, are kept as written.
+fn decode_literal(body: string): Option[string] {
+    var out: string = "";
+    var i: int = 0;
+    var run: int = 0;
+    while i < len(body) {
+        if byte_at(body, i) != '\\' || i + 1 >= len(body) {
+            i += 1;
+            continue;
+        }
+        out += substring(body, run, i);
+        let c: int = byte_at(body, i + 1);
+        if c == '0' {
+            return Option::None;
+        }
+        out += match c {
+            'n' => "\n",
+            't' => "\t",
+            'r' => "\r",
+            '\\' => "\\",
+            '"' => "\"",
+            '\'' => "'",
+            _ => substring(body, i, i + 2),
+        };
+        i += 2;
+        run = i;
+    }
+    return Option::Some(out + substring(body, run, len(body)));
+}
+
+fn contains_path(paths: [string], path: string): bool {
+    for p in paths {
+        if p == path {
+            return true;
+        }
+    }
+    return false;
+}
+
+// ---- loading
+
+// Lexes and parses one file at the next base, then loads its imports that are not in `seen` yet.
+fn visit(ld: Loaded, seen: [string], path: string, raw: string) {
+    let bom: int = bom_len(raw);
+    let src: string = substring(raw, bom, len(raw));
+    var base: int = 0;
+    if len(ld.files) > 0 {
+        let last: SourceFile = ld.files[len(ld.files) - 1];
+        base = last.base + len(last.src) + 1;
+    }
+    push(ld.files, SourceFile { path: path, src: src, base: base, bom: bom });
+    let lx: Lexer = lex(src);
+    for e in lx.errors {
+        push(ld.diags, Diag { start: e.start + base, end: e.end + base, message: e.message });
+    }
+    let p: Parser = new_parser_at(lx, base);
+    let items: [Item] = parse_program(p);
+    for e in p.errors {
+        push(ld.diags, Diag { start: e.start, end: e.end, message: e.message });
+    }
+    for item in items {
+        push(ld.items, item);
+    }
+    for item in items {
+        match item {
+            Item::Import(imp) => load_import(ld, seen, path, src, base, imp),
+            _ => {}
+        }
+    }
+}
+
+// Loads the file `imp` names, relative to the importing file `from` (whose text is `src`, at `base`), unless it is
+// already loaded. A file that cannot be read is reported at the path literal.
+fn load_import(ld: Loaded, seen: [string], from: string, src: string, base: int, imp: ImportDecl) {
+    // The literal as written, escapes intact, for the message.
+    let literal: string = substring(src, imp.path_start - base + 1, imp.path_end - base - 1);
+    var target: string = "";
+    var reason: string = "";
+    match decode_literal(literal) {
+        Option::Some(decoded) => {
+            target = decoded;
+            if len(decoded) == 0 || byte_at(decoded, 0) != '/' {
+                target = dirname(from) + "/" + decoded;
+            }
+        }
+        Option::None => {
+            reason = "invalid path";
+        }
+    }
+    if reason == "" {
+        let id: string = normalise(target);
+        if contains_path(seen, id) {
+            return;
+        }
+        match read_file(target) {
+            Result::Ok(text) => {
+                push(seen, id);
+                visit(ld, seen, target, text);
+                return;
+            }
+            Result::Err(msg) => {
+                // read_file's error is `<path>: <reason>`; the compiler quotes only the reason.
+                let prefix: string = target + ": ";
+                reason = msg;
+                if len(msg) >= len(prefix) && substring(msg, 0, len(prefix)) == prefix {
+                    reason = substring(msg, len(prefix), len(msg));
+                }
+            }
+        }
+    }
+    push(ld.diags, Diag { start: imp.path_start, end: imp.path_end, message: "cannot import '" + literal + "': " + reason });
+}
+
+// Loads the program rooted at `path`, whose contents are `src`.
+fn load_program(path: string, src: string): Loaded {
+    let ld: Loaded = Loaded { files: [], items: [], root_end: 0, diags: [] };
+    let seen: [string] = [normalise(path)];
+    visit(ld, seen, path, src);
+    ld.root_end = ld.files[0].base + len(ld.files[0].src);
+    return ld;
+}

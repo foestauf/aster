@@ -1,0 +1,7 @@
+// Imports a library that starts with a byte order mark and has multi-byte characters before its type error, so the
+// error's offsets in that file count the mark's 3 bytes and the characters' UTF-8 bytes.
+import "check_bom_lib.txt";
+
+fn main(): int {
+    return helper();
+}

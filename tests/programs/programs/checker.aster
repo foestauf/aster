@@ -1,0 +1,18 @@
+// expect-library
+// The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
+// builtins.ts). `check_program` checks the items of a loaded program and returns its diagnostics, with global byte
+// offsets. tests/check_aster.test.ts checks it, through check.aster, against the compiler's own checker.
+//
+// For now this is a stub that accepts every program; the checker is ported feature by feature.
+
+import "loader.aster";
+
+// The checker's result: its diagnostics, unsorted.
+struct Checked {
+    diags: [Diag],
+}
+
+// Checks a whole program. `root_end` is the end of the root file: declarations at or past it come from imports.
+fn check_program(items: [Item], root_end: int): Checked {
+    return Checked { diags: [] };
+}

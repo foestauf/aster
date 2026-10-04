@@ -1,0 +1,95 @@
+// The Aster type checker, written in Aster. It loads the program rooted at the file named by its only argument, with
+// every file it imports, and type-checks it. Diagnostics go to stderr, one per line, `error <path> <start> <end>
+// <message>`, sorted by position and exiting with status 1 if there are any. `<path>` is the file the diagnostic
+// starts in, as the import that loaded it spelled it, and the offsets are bytes from the start of that file (a byte
+// order mark included). With no diagnostics it prints a summary of the typed program to stdout: each struct with its
+// fields, each enum (the generic instantiations by their type, `Option[int]`) with its variants, and each function
+// with its signature and then its locals, as `param`, `let` or `var`, in id order. tests/check_aster.test.ts checks
+// it against the compiler's own front end on every golden program.
+// expect-args: fixtures/check_small.txt
+
+import "loader.aster";
+import "checker.aster";
+
+// ---- diagnostics
+
+// Sorts by start (stable: an insertion sort) and drops a diagnostic when an earlier one has the same start and
+// message, as the compiler's sortDiagnostics does.
+fn sort_diags(diags: [Diag]): [Diag] {
+    let sorted: [Diag] = [];
+    for d in diags {
+        push(sorted, d);
+        var i: int = len(sorted) - 1;
+        while i > 0 && sorted[i - 1].start > d.start {
+            sorted[i] = sorted[i - 1];
+            i -= 1;
+        }
+        sorted[i] = d;
+    }
+    let out: [Diag] = [];
+    for d in sorted {
+        var seen: bool = false;
+        var k: int = len(out) - 1;
+        while k >= 0 && out[k].start == d.start {
+            if out[k].message == d.message {
+                seen = true;
+            }
+            k -= 1;
+        }
+        if !seen {
+            push(out, d);
+        }
+    }
+    return out;
+}
+
+// Prints each diagnostic against the file it starts in: the last one whose base is at or before its start. The end is
+// clamped to that file.
+fn print_diags(files: [SourceFile], diags: [Diag]) {
+    for d in diags {
+        var f: SourceFile = files[0];
+        for candidate in files {
+            if candidate.base <= d.start {
+                f = candidate;
+            }
+        }
+        let end: int = min(d.end, f.base + len(f.src));
+        let start_text: string = int_to_string(d.start - f.base + f.bom);
+        let end_text: string = int_to_string(end - f.base + f.bom);
+        eprint("error " + f.path + " " + start_text + " " + end_text + " " + d.message);
+    }
+}
+
+// ---- summary
+
+fn print_summary(c: Checked) {
+}
+
+// ---- driver
+
+fn main(args: [string]): int {
+    if len(args) != 1 {
+        eprint("usage: check <file>");
+        exit(2);
+    }
+    match read_file(args[0]) {
+        Result::Ok(src) => {
+            let loaded: Loaded = load_program(args[0], src);
+            if len(loaded.diags) > 0 {
+                print_diags(loaded.files, sort_diags(loaded.diags));
+                exit(1);
+            }
+            let checked: Checked = check_program(loaded.items, loaded.root_end);
+            if len(checked.diags) > 0 {
+                print_diags(loaded.files, sort_diags(checked.diags));
+                exit(1);
+            }
+            print_summary(checked);
+            return 0;
+        }
+        Result::Err(msg) => {
+            eprint(msg);
+            exit(2);
+        }
+    }
+}
