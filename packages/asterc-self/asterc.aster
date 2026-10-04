@@ -8,6 +8,7 @@ import "report.aster";
 import "diag.aster";
 import "lower.aster";
 import "emit.aster";
+import "emit_llvm.aster";
 import "driver.aster";
 
 // Parsed command-line arguments. `program_args` are the arguments after `--`, for `run`.
@@ -147,6 +148,11 @@ fn compile_c(checked: Checked): string {
     return join_lines(lines, 0, len(lines) - 1);
 }
 
+fn compile_llvm(checked: Checked): string {
+    let lines: [string] = emit_llvm(lower_program(checked));
+    return join_lines(lines, 0, len(lines) - 1);
+}
+
 fn main(args: [string]): int {
     let parsed: CliArgs = match parse_cli(args) {
         Result::Ok(a) => a,
@@ -155,10 +161,6 @@ fn main(args: [string]): int {
             return 2;
         }
     };
-    if parsed.backend == "llvm" || parsed.emit_stage == "llvm" {
-        eprint("error: llvm backend not implemented yet");
-        return 2;
-    }
     let Result::Ok(src) = read_file(parsed.file) else {
         eprint("error: cannot read '" + parsed.file + "'");
         return 2;
@@ -183,8 +185,9 @@ fn main(args: [string]): int {
     if parsed.command == "check" {
         return 0;
     }
-    let c: string = compile_c(checked);
-    if parsed.command == "build" && parsed.emit_stage == "c" {
+    let llvm: bool = parsed.emit_stage == "llvm" || (parsed.emit_stage == "" && parsed.backend == "llvm");
+    let c: string = if llvm { compile_llvm(checked) } else { compile_c(checked) };
+    if parsed.command == "build" && parsed.emit_stage != "" {
         print(c);
         return 0;
     }
@@ -195,9 +198,9 @@ fn main(args: [string]): int {
             Option::Some(o) => o,
             Option::None => default_output(parsed.file),
         };
-        result = build_c(c + "\n", out);
+        result = if llvm { build_llvm(c + "\n", out) } else { build_c(c + "\n", out) };
     } else {
-        result = run_c(c + "\n", parsed.program_args);
+        result = if llvm { run_llvm(c + "\n", parsed.program_args) } else { run_c(c + "\n", parsed.program_args) };
     }
     if let Result::Err(msg) = result {
         eprint("internal compiler error: " + msg);

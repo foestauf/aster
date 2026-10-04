@@ -401,8 +401,8 @@ describe('LLVM backend surface', () => {
     ['build', '--backend=llvm', 'missing.aster'],
     ['run', '--backend=llvm', 'missing.aster'],
     ['build', '--emit=llvm', 'missing.aster'],
-  ])('recognizes the not-yet-implemented LLVM selection: %j', (args) => {
-    expect(runSn(args)).toEqual({ stdout: '', stderr: 'error: llvm backend not implemented yet\n', status: 2 });
+  ])('recognizes LLVM options before normal input handling: %j', (args) => {
+    expect(runSn(args)).toEqual({ stdout: '', stderr: "error: cannot read 'missing.aster'\n", status: 2 });
     expect(runS0(args).status).toBe(2);
   });
   it.for([
@@ -418,5 +418,35 @@ describe('LLVM backend surface', () => {
     const source = 'tests/programs/basics/hello.aster';
     expect(runSn(['build', source, '--backend=c', '--emit=c'])).toEqual(runSn(['build', source, '--emit=c']));
     expect(runS0(['build', source, '--backend=c']).status).toBe(2);
+  });
+});
+
+describe('LLVM driver failure and emission isolation', () => {
+  const dir = freshDir('llvm-driver', {
+    'hello.aster': HELLO,
+    'fakeclang/clang': "#!/bin/sh\necho 'clang: boom' >&2\nexit 1\n",
+  });
+  chmodSync(join(dir, 'fakeclang', 'clang'), 0o755);
+  const env = { PATH: `${join(dir, 'fakeclang')}:${process.env.PATH ?? ''}` };
+  it.for(['build', 'run'])('streams clang failure and cleans temporary files for %s', (command) => {
+    const argv = [command, 'hello.aster', '--backend=llvm'];
+    if (command === 'build') argv.push('-o', join(dir, 'out'));
+    expect(runSn(argv, { cwd: dir, env })).toEqual({
+      stdout: '', stderr: "clang: boom\ninternal compiler error: C compiler 'clang' failed\n", status: 3,
+    });
+  });
+  it('LLVM textual emission does not invoke clang', () => {
+    const result = runSn(['build', 'hello.aster', '--emit=llvm'], { cwd: dir, env });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('define');
+  });
+  it('an explicit C emission overrides the executable backend selection', () => {
+    expect(runSn(['build', 'hello.aster', '--backend=llvm', '--emit=c'], { cwd: dir, env })).toEqual(
+      runSn(['build', 'hello.aster', '--emit=c'], { cwd: dir, env }),
+    );
+  });
+  it('C builds work with an unusable clang', () => {
+    expect(runSn(['run', 'hello.aster', '--backend=c'], { cwd: dir, env })).toEqual({ stdout: '30\n', stderr: '', status: 0 });
   });
 });

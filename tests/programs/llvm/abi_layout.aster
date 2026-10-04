@@ -1,0 +1,56 @@
+// expect-stdout:
+// true
+// false
+// true
+// -9223372036854775808
+// true
+// 3
+// 98
+// true
+// false
+// 42
+// 99
+// true
+// true
+// 7
+struct Mixed { a: bool, x: int, b: bool, text: string, c: bool }
+struct Empty {}
+enum Padded { Flags(bool, bool, bool, bool, bool, bool, bool, bool, bool), Number(int) }
+enum Payload { Flag(bool), Mixed(bool, int, bool, string), Empty, Word(string) }
+fn identity(s: string, b: bool): string {
+    if b { return s; }
+    return "wrong";
+}
+fn main(): int {
+    let flags: [bool] = [true, false, true];
+    push(flags, false);
+    print(flags[0]);
+    print(pop(flags));
+    flags[1] = true;
+    print(flags[1]);
+    let record: Mixed = Mixed { a: true, x: -9223372036854775808, b: false, text: "a\0b", c: true };
+    print(record.x);
+    print(identity(record.text, record.a) == record.text);
+    print(len(record.text));
+    print(byte_at(record.text, 2));
+    print(record.c);
+    print(record.b);
+    let values: [Payload] = [Payload::Flag(true), Payload::Mixed(false, 42, true, "z"), Payload::Empty, Payload::Word("hello")];
+    match values[1] {
+        Payload::Mixed(a, n, b, s) => { if !a && b && s == "z" { print(n); } }
+        _ => panic("wrong variant"),
+    }
+    let items: [Mixed] = [record];
+    record.x = 99;
+    print(items[0].x);
+    let empty: Empty = Empty {};
+    let empties: [Empty] = [empty];
+    print(len(empties) == 1);
+    let padded: [Padded] = [Padded::Flags(true, false, true, false, true, false, true, false, true), Padded::Number(7)];
+    match padded[0] {
+        Padded::Flags(a, b, c, d, e, f, g, h, i) => print(a && !b && c && !d && e && !f && g && !h && i),
+        _ => panic("wrong padded variant"),
+    }
+    match padded[1] { Padded::Number(n) => print(n), _ => panic("wrong number") }
+    return 0;
+}

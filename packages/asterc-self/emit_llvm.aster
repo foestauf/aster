@@ -1,0 +1,549 @@
+// expect-library
+// Direct textual LLVM emission for Linux x86_64. Every IR local has a zero-initialized memory slot; LLVM's ordinary
+// promotion passes recover SSA. The C emitter/runtime are the behavioral and layout oracle. Runtime calls use the
+// clang x86_64 C ABI (split string arguments, aggregate string results, zeroext bool); Aster calls use LLVM types.
+
+import "emit.aster";
+
+struct LlvmState { program: IrProgram, function: IrFunction, out: [string], temp_count: int }
+struct LlvmField { ty: Type, offset: int }
+
+fn llvm_enum(p: IrProgram, name: string): IrEnum {
+    return match c_find_enum(p.enums, name) {
+        Option::Some(e) => e,
+        Option::None => panic("internal: unknown LLVM enum " + name),
+    };
+}
+
+fn llvm_type(p: IrProgram, t: Type): string {
+    return match t {
+        Type::Int => "i64",
+        Type::Bool => "i1",
+        Type::Str => "{ ptr, i64 }",
+        Type::Struct(_) => "ptr",
+        Type::Array(_) => "ptr",
+        Type::Enum(name) => if llvm_enum(p, name).payload_free { "i64" } else { "ptr" },
+        Type::Void => "void",
+        _ => panic("internal: invalid LLVM value type"),
+    };
+}
+
+fn llvm_memory_type(p: IrProgram, t: Type): string {
+    if kind_of_type(t) == "bool" { return "i8"; }
+    return llvm_type(p, t);
+}
+
+fn llvm_size(t: Type): int {
+    return match t {
+        Type::Bool => 1,
+        Type::Str => 16,
+        Type::Int => 8,
+        Type::Struct(_) => 8,
+        Type::Array(_) => 8,
+        Type::Enum(_) => 8,
+        _ => panic("internal: invalid LLVM storage type"),
+    };
+}
+
+fn llvm_alignment(t: Type): int {
+    if kind_of_type(t) == "bool" { return 1; }
+    return 8;
+}
+
+fn llvm_align_up(size: int, alignment: int): int {
+    return (size + alignment - 1) / alignment * alignment;
+}
+
+fn llvm_struct(p: IrProgram, name: string): IrStruct {
+    for s in p.structs {
+        if s.name == name { return s; }
+    }
+    panic("internal: unknown LLVM struct " + name);
+}
+
+fn llvm_struct_size(s: IrStruct): int {
+    // The C emitter gives an empty struct one char member.
+    if len(s.fields) == 0 { return 1; }
+    var size: int = 0;
+    var alignment: int = 1;
+    for f in s.fields {
+        let a: int = llvm_alignment(f.ty);
+        if a > alignment { alignment = a; }
+        size = llvm_align_up(size, a) + llvm_size(f.ty);
+    }
+    return llvm_align_up(size, alignment);
+}
+
+fn llvm_struct_field(p: IrProgram, name: string, field: string): LlvmField {
+    var offset: int = 0;
+    for f in llvm_struct(p, name).fields {
+        offset = llvm_align_up(offset, llvm_alignment(f.ty));
+        if f.name == field { return LlvmField { ty: f.ty, offset: offset }; }
+        offset += llvm_size(f.ty);
+    }
+    panic("internal: unknown LLVM struct field " + field);
+}
+
+fn llvm_variant(e: IrEnum, name: string): IrVariant {
+    for v in e.variants {
+        if v.name == name { return v; }
+    }
+    panic("internal: unknown LLVM variant " + name);
+}
+
+fn llvm_payload_size(payload: [Type]): int {
+    var size: int = 0;
+    var alignment: int = 1;
+    for t in payload {
+        let a: int = llvm_alignment(t);
+        if a > alignment { alignment = a; }
+        size = llvm_align_up(size, a) + llvm_size(t);
+    }
+    return llvm_align_up(size, alignment);
+}
+
+fn llvm_enum_size(e: IrEnum): int {
+    var size: int = 0;
+    var alignment: int = 1;
+    for v in e.variants {
+        let n: int = llvm_payload_size(v.payload);
+        if n > size { size = n; }
+        for t in v.payload {
+            let a: int = llvm_alignment(t);
+            if a > alignment { alignment = a; }
+        }
+    }
+    // The union starts at byte eight (all member alignments are at most eight), and the tag aligns the whole object.
+    return llvm_align_up(8 + llvm_align_up(size, alignment), 8);
+}
+
+fn llvm_payload_field(v: IrVariant, index: int): LlvmField {
+    var offset: int = 8;
+    for i in 0..len(v.payload) {
+        let t: Type = v.payload[i];
+        offset = llvm_align_up(offset, llvm_alignment(t));
+        if i == index { return LlvmField { ty: t, offset: offset }; }
+        offset += llvm_size(t);
+    }
+    panic("internal: invalid LLVM payload index");
+}
+
+fn llvm_local(id: int): string { return "%l" + int_to_string(id); }
+fn llvm_label(label: string): string { return "b_" + label; }
+
+fn llvm_line(st: LlvmState, line: string) { push(st.out, "  " + line); }
+
+fn llvm_temp(st: LlvmState, instruction: string): string {
+    let name: string = "%t" + int_to_string(st.temp_count);
+    st.temp_count += 1;
+    llvm_line(st, name + " = " + instruction);
+    return name;
+}
+
+fn llvm_load(st: LlvmState, t: Type, address: string): string {
+    let value: string = llvm_temp(st, "load " + llvm_memory_type(st.program, t) + ", ptr " + address + ", align " + int_to_string(llvm_alignment(t)));
+    if kind_of_type(t) == "bool" { return llvm_temp(st, "trunc i8 " + value + " to i1"); }
+    return value;
+}
+
+fn llvm_store(st: LlvmState, t: Type, value: string, address: string) {
+    var stored: string = value;
+    if kind_of_type(t) == "bool" { stored = llvm_temp(st, "zext i1 " + value + " to i8"); }
+    llvm_line(st, "store " + llvm_memory_type(st.program, t) + " " + stored + ", ptr " + address + ", align " + int_to_string(llvm_alignment(t)));
+}
+
+fn llvm_set(st: LlvmState, dst: int, value: string) {
+    llvm_store(st, st.function.locals[dst].ty, value, llvm_local(dst));
+}
+
+fn llvm_operand_type(st: LlvmState, o: IrOperand): Type {
+    return match o {
+        IrOperand::Local(id) => st.function.locals[id].ty,
+        IrOperand::Int(_) => Type::Int,
+        IrOperand::Bool(_) => Type::Bool,
+        IrOperand::Str(_) => Type::Str,
+    };
+}
+
+fn llvm_operand(st: LlvmState, o: IrOperand): string {
+    return match o {
+        IrOperand::Local(id) => llvm_load(st, st.function.locals[id].ty, llvm_local(id)),
+        IrOperand::Int(n) => n,
+        IrOperand::Bool(b) => c_bool(b),
+        IrOperand::Str(i) => "{ ptr @aster_str_" + int_to_string(i) + ", i64 " + int_to_string(len(st.program.strings[i])) + " }",
+    };
+}
+
+fn llvm_pointer(st: LlvmState, object: string, offset: int): string {
+    return llvm_temp(st, "getelementptr i8, ptr " + object + ", i64 " + int_to_string(offset));
+}
+
+fn llvm_object_field(st: LlvmState, object: IrOperand, field: string): LlvmField {
+    return match llvm_operand_type(st, object) {
+        Type::Struct(name) => llvm_struct_field(st.program, name, field),
+        _ => panic("internal: LLVM field operand is not a struct"),
+    };
+}
+
+fn llvm_element_type(st: LlvmState, array: IrOperand): Type {
+    return match llvm_operand_type(st, array) {
+        Type::Array(elem) => elem,
+        _ => panic("internal: LLVM array operand is not an array"),
+    };
+}
+
+fn llvm_array_at(st: LlvmState, array: IrOperand, index: IrOperand): string {
+    let object: string = llvm_operand(st, array);
+    let at: string = llvm_operand(st, index);
+    return llvm_temp(st, "call ptr @aster_rt_array_at(ptr " + object + ", i64 " + at + ")");
+}
+
+// The LLVM-native ABI is private to generated Aster functions. Every call/definition agrees, including aggregates.
+fn llvm_args(st: LlvmState, args: [IrOperand]): string {
+    let parts: [string] = [];
+    for a in args {
+        let value: string = llvm_operand(st, a);
+        push(parts, llvm_type(st.program, llvm_operand_type(st, a)) + " " + value);
+    }
+    return c_join(parts, ", ");
+}
+
+// At the C ABI boundary, flatten each string and annotate bool parameters exactly as clang does on x86_64.
+fn llvm_runtime_args(st: LlvmState, args: [IrOperand]): [string] {
+    let parts: [string] = [];
+    for a in args {
+        let t: Type = llvm_operand_type(st, a);
+        let value: string = llvm_operand(st, a);
+        if kind_of_type(t) == "string" {
+            let data: string = llvm_temp(st, "extractvalue { ptr, i64 } " + value + ", 0");
+            let size: string = llvm_temp(st, "extractvalue { ptr, i64 } " + value + ", 1");
+            push(parts, "ptr " + data);
+            push(parts, "i64 " + size);
+        } else if kind_of_type(t) == "bool" {
+            push(parts, "i1 zeroext " + value);
+        } else {
+            push(parts, llvm_type(st.program, t) + " " + value);
+        }
+    }
+    return parts;
+}
+
+fn llvm_call(st: LlvmState, dst: Option[int], name: string, args: string, runtime: bool) {
+    match dst {
+        Option::Some(id) => {
+            let t: Type = st.function.locals[id].ty;
+            var result: string = llvm_type(st.program, t);
+            if runtime && kind_of_type(t) == "bool" { result = "zeroext " + result; }
+            llvm_set(st, id, llvm_temp(st, "call " + result + " @" + name + "(" + args + ")"));
+        }
+        Option::None => llvm_line(st, "call void @" + name + "(" + args + ")"),
+    }
+}
+
+fn llvm_binop(st: LlvmState, dst: int, op: string, left: IrOperand, right: IrOperand) {
+    if op == "concat" || op == "str_eq" || op == "str_ne" {
+        let args: string = c_join(llvm_runtime_args(st, [left, right]), ", ");
+        if op == "concat" {
+            llvm_call(st, Option::Some(dst), "aster_rt_concat", args, true);
+        } else {
+            var value: string = llvm_temp(st, "call zeroext i1 @aster_rt_str_eq(" + args + ")");
+            if op == "str_ne" { value = llvm_temp(st, "xor i1 " + value + ", true"); }
+            llvm_set(st, dst, value);
+        }
+        return;
+    }
+    let a: string = llvm_operand(st, left);
+    let b: string = llvm_operand(st, right);
+    var operation: string = "";
+    if op == "add" || op == "sub" || op == "mul" {
+        operation = op + " i64 " + a + ", " + b;
+    } else if op == "div" || op == "mod" {
+        operation = "call i64 @aster_llvm_" + op + "(i64 " + a + ", i64 " + b + ")";
+    } else {
+        let predicate: string = match op {
+            "lt" => "slt", "le" => "sle", "gt" => "sgt", "ge" => "sge", "eq" => "eq", "ne" => "ne",
+            _ => panic("internal: unknown LLVM binary operator " + op),
+        };
+        operation = "icmp " + predicate + " " + llvm_type(st.program, llvm_operand_type(st, left)) + " " + a + ", " + b;
+    }
+    llvm_set(st, dst, llvm_temp(st, operation));
+}
+
+fn llvm_struct_new(st: LlvmState, dst: int, name: string, fields: [IrFieldValue]) {
+    let object: string = llvm_temp(st, "call ptr @aster_rt_alloc(i64 " + int_to_string(llvm_struct_size(llvm_struct(st.program, name))) + ")");
+    llvm_set(st, dst, object);
+    for fv in fields {
+        let field: LlvmField = llvm_struct_field(st.program, name, fv.name);
+        let value: string = llvm_operand(st, fv.value);
+        llvm_store(st, field.ty, value, llvm_pointer(st, object, field.offset));
+    }
+}
+
+fn llvm_array_new(st: LlvmState, dst: int, elem: Type, elements: [IrOperand]) {
+    let object: string = llvm_temp(st, "call ptr @aster_rt_array_new(i64 " + int_to_string(llvm_size(elem)) + ", i64 " + int_to_string(len(elements)) + ")");
+    llvm_set(st, dst, object);
+    for i in 0..len(elements) {
+        let address: string = llvm_temp(st, "call ptr @aster_rt_array_at(ptr " + object + ", i64 " + int_to_string(i) + ")");
+        llvm_store(st, elem, llvm_operand(st, elements[i]), address);
+    }
+}
+
+fn llvm_enum_new(st: LlvmState, dst: int, name: string, variant: string, tag: int, args: [IrOperand]) {
+    let e: IrEnum = llvm_enum(st.program, name);
+    if e.payload_free {
+        llvm_set(st, dst, int_to_string(tag));
+        return;
+    }
+    let object: string = llvm_temp(st, "call ptr @aster_rt_alloc(i64 " + int_to_string(llvm_enum_size(e)) + ")");
+    llvm_set(st, dst, object);
+    llvm_store(st, Type::Int, int_to_string(tag), object);
+    let v: IrVariant = llvm_variant(e, variant);
+    for i in 0..len(args) {
+        let field: LlvmField = llvm_payload_field(v, i);
+        llvm_store(st, field.ty, llvm_operand(st, args[i]), llvm_pointer(st, object, field.offset));
+    }
+}
+
+fn llvm_instr(st: LlvmState, ins: IrInstr) {
+    match ins {
+        IrInstr::Copy(dst, src) => llvm_set(st, dst, llvm_operand(st, src)),
+        IrInstr::Unop(dst, op, operand) => {
+            let value: string = llvm_operand(st, operand);
+            var instruction: string = "xor i1 " + value + ", true";
+            if op == "neg" { instruction = "sub i64 0, " + value; }
+            llvm_set(st, dst, llvm_temp(st, instruction));
+        }
+        IrInstr::Binop(dst, op, left, right) => llvm_binop(st, dst, op, left, right),
+        IrInstr::Call(dst, name, args) => llvm_call(st, dst, c_mangle_fn(name), llvm_args(st, args), false),
+        IrInstr::CallBuiltin(dst, name, args) => llvm_call(st, dst, "aster_rt_" + name, c_join(llvm_runtime_args(st, args), ", "), true),
+        IrInstr::StructNew(dst, name, fields) => llvm_struct_new(st, dst, name, fields),
+        IrInstr::FieldGet(dst, object, name) => {
+            let field: LlvmField = llvm_object_field(st, object, name);
+            let address: string = llvm_pointer(st, llvm_operand(st, object), field.offset);
+            llvm_set(st, dst, llvm_load(st, field.ty, address));
+        }
+        IrInstr::FieldSet(object, name, value) => {
+            let field: LlvmField = llvm_object_field(st, object, name);
+            let address: string = llvm_pointer(st, llvm_operand(st, object), field.offset);
+            llvm_store(st, field.ty, llvm_operand(st, value), address);
+        }
+        IrInstr::ArrayNew(dst, elem, elements) => llvm_array_new(st, dst, elem, elements),
+        IrInstr::IndexGet(dst, array, index) => llvm_set(st, dst, llvm_load(st, llvm_element_type(st, array), llvm_array_at(st, array, index))),
+        IrInstr::IndexSet(array, index, value) => {
+            let address: string = llvm_array_at(st, array, index);
+            llvm_store(st, llvm_element_type(st, array), llvm_operand(st, value), address);
+        }
+        IrInstr::ArrayLen(dst, array) => llvm_set(st, dst, llvm_load(st, Type::Int, llvm_operand(st, array))),
+        IrInstr::ArrayPush(array, value) => {
+            let address: string = llvm_temp(st, "call ptr @aster_rt_array_push_slot(ptr " + llvm_operand(st, array) + ")");
+            llvm_store(st, llvm_element_type(st, array), llvm_operand(st, value), address);
+        }
+        IrInstr::ArrayPop(dst, array) => {
+            let address: string = llvm_temp(st, "call ptr @aster_rt_array_pop_slot(ptr " + llvm_operand(st, array) + ")");
+            llvm_set(st, dst, llvm_load(st, llvm_element_type(st, array), address));
+        }
+        IrInstr::EnumNew(dst, name, variant, tag, args) => llvm_enum_new(st, dst, name, variant, tag, args),
+        IrInstr::EnumTag(dst, value) => {
+            let e: IrEnum = c_enum_of(st.function, st.program.enums, value);
+            var tag: string = llvm_operand(st, value);
+            if !e.payload_free { tag = llvm_load(st, Type::Int, tag); }
+            llvm_set(st, dst, tag);
+        }
+        IrInstr::EnumField(dst, value, name, variant, _, index) => {
+            let field: LlvmField = llvm_payload_field(llvm_variant(llvm_enum(st.program, name), variant), index);
+            llvm_set(st, dst, llvm_load(st, field.ty, llvm_pointer(st, llvm_operand(st, value), field.offset)));
+        }
+        IrInstr::ReadFile(ok, text, path) => {
+            let args: [string] = llvm_runtime_args(st, [path]);
+            push(args, "ptr " + llvm_local(ok));
+            llvm_call(st, Option::Some(text), "aster_rt_read_file", c_join(args, ", "), true);
+        }
+        IrInstr::Sys(name, ok, value, err, operands) => {
+            let args: [string] = llvm_runtime_args(st, operands);
+            push(args, "ptr " + llvm_local(value));
+            push(args, "ptr " + llvm_local(err));
+            llvm_call(st, Option::Some(ok), "aster_rt_" + name, c_join(args, ", "), true);
+        }
+    }
+}
+
+fn llvm_unreachable(st: LlvmState) {
+    llvm_line(st, "call void @aster_rt_unreachable()");
+    llvm_line(st, "unreachable");
+}
+
+fn llvm_term(st: LlvmState, term: IrTerm) {
+    match term {
+        IrTerm::Jmp(target) => llvm_line(st, "br label %" + llvm_label(target)),
+        IrTerm::Br(cond, yes, no) => {
+            let value: string = llvm_operand(st, cond);
+            llvm_line(st, "br i1 " + value + ", label %" + llvm_label(yes) + ", label %" + llvm_label(no));
+        }
+        IrTerm::Switch(value, cases, fallback) => {
+            var on: string = llvm_operand(st, value);
+            if kind_of_type(llvm_operand_type(st, value)) == "bool" { on = llvm_temp(st, "zext i1 " + on + " to i64"); }
+            var otherwise: string = "";
+            var missing: bool = false;
+            match fallback {
+                Option::Some(target) => { otherwise = llvm_label(target); }
+                Option::None => {
+                    otherwise = "switch_unreachable_" + int_to_string(st.temp_count);
+                    st.temp_count += 1;
+                    missing = true;
+                }
+            }
+            llvm_line(st, "switch i64 " + on + ", label %" + otherwise + " [");
+            for c in cases { llvm_line(st, "  i64 " + c.value + ", label %" + llvm_label(c.target)); }
+            llvm_line(st, "]");
+            if missing {
+                push(st.out, otherwise + ":");
+                llvm_unreachable(st);
+            }
+        }
+        IrTerm::Ret(value) => {
+            match value {
+                Option::Some(o) => {
+                    let result: string = llvm_operand(st, o);
+                    llvm_line(st, "ret " + llvm_type(st.program, st.function.ret) + " " + result);
+                }
+                Option::None => llvm_line(st, "ret void"),
+            }
+        }
+        IrTerm::Unreachable => llvm_unreachable(st),
+    }
+}
+
+fn llvm_function(out: [string], p: IrProgram, f: IrFunction) {
+    let params: [string] = [];
+    for i in 0..f.param_count { push(params, llvm_type(p, f.locals[i].ty) + " %a" + int_to_string(i)); }
+    push(out, "define " + llvm_type(p, f.ret) + " @" + c_mangle_fn(f.name) + "(" + c_join(params, ", ") + ") {");
+    push(out, "entry:");
+    let st: LlvmState = LlvmState { program: p, function: f, out: out, temp_count: 0 };
+    for local in f.locals {
+        llvm_line(st, llvm_local(local.id) + " = alloca " + llvm_memory_type(p, local.ty) + ", align " + int_to_string(llvm_alignment(local.ty)));
+    }
+    for i in 0..len(f.locals) {
+        if i < f.param_count {
+            llvm_set(st, i, "%a" + int_to_string(i));
+        } else {
+            llvm_line(st, "store " + llvm_memory_type(p, f.locals[i].ty) + " zeroinitializer, ptr " + llvm_local(i) + ", align " + int_to_string(llvm_alignment(f.locals[i].ty)));
+        }
+    }
+    llvm_line(st, "br label %" + llvm_label(f.blocks[0].label));
+    for b in f.blocks {
+        push(out, llvm_label(b.label) + ":");
+        for ins in b.instrs { llvm_instr(st, ins); }
+        llvm_term(st, b.term);
+    }
+    push(out, "}");
+    push(out, "");
+}
+
+fn llvm_string_bytes(s: string): string {
+    let hex: string = "0123456789ABCDEF";
+    var out: string = "";
+    for i in 0..len(s) {
+        let b: int = byte_at(s, i);
+        out += "\\" + c_digit(hex, b / 16) + c_digit(hex, b % 16);
+    }
+    return out;
+}
+
+fn llvm_runtime_declarations(out: [string]) {
+    let declarations: [string] = [
+        "declare void @aster_rt_panic(ptr, i64)",
+        "declare void @aster_rt_panic_cstr(ptr)",
+        "declare void @aster_rt_unreachable()",
+        "declare ptr @aster_rt_alloc(i64)",
+        "declare ptr @aster_rt_array_new(i64, i64)",
+        "declare ptr @aster_rt_array_at(ptr, i64)",
+        "declare ptr @aster_rt_array_push_slot(ptr)",
+        "declare ptr @aster_rt_array_pop_slot(ptr)",
+        "declare void @aster_rt_print_int(i64)",
+        "declare void @aster_rt_print_bool(i1 zeroext)",
+        "declare void @aster_rt_print_string(ptr, i64)",
+        "declare void @aster_rt_eprint_int(i64)",
+        "declare void @aster_rt_eprint_bool(i1 zeroext)",
+        "declare void @aster_rt_eprint_string(ptr, i64)",
+        "declare void @aster_rt_exit(i64)",
+        "declare i64 @aster_rt_len(ptr, i64)",
+        "declare i64 @aster_rt_byte_at(ptr, i64, i64)",
+        "declare { ptr, i64 } @aster_rt_substring(ptr, i64, i64, i64)",
+        "declare { ptr, i64 } @aster_rt_int_to_string(i64)",
+        "declare { ptr, i64 } @aster_rt_concat(ptr, i64, ptr, i64)",
+        "declare zeroext i1 @aster_rt_str_eq(ptr, i64, ptr, i64)",
+        "declare ptr @aster_rt_args(i32, ptr)",
+        "declare { ptr, i64 } @aster_rt_read_stdin()",
+        "declare { ptr, i64 } @aster_rt_read_file(ptr, i64, ptr)",
+        "declare zeroext i1 @aster_rt_write_file(ptr, i64, ptr, i64, ptr, ptr)",
+        "declare zeroext i1 @aster_rt_make_temp_dir(ptr, i64, ptr, ptr)",
+        "declare zeroext i1 @aster_rt_remove_path(ptr, i64, ptr, ptr)",
+        "declare zeroext i1 @aster_rt_run_process(ptr, ptr, ptr)",
+    ];
+    for declaration in declarations { push(out, declaration); }
+    push(out, "");
+}
+
+fn llvm_division_helpers(out: [string]) {
+    push(out, "@aster_llvm_divzero = private constant [17 x i8] c\"division by zero\\00\", align 1");
+    for op in ["div", "mod"] {
+        push(out, "define internal i64 @aster_llvm_" + op + "(i64 %a, i64 %b) {");
+        push(out, "entry:");
+        push(out, "  %zero = icmp eq i64 %b, 0");
+        push(out, "  br i1 %zero, label %panic, label %check_negative_one");
+        push(out, "panic:");
+        push(out, "  call void @aster_rt_panic_cstr(ptr @aster_llvm_divzero)");
+        push(out, "  unreachable");
+        push(out, "check_negative_one:");
+        push(out, "  %negative_one = icmp eq i64 %b, -1");
+        push(out, "  br i1 %negative_one, label %special, label %ordinary");
+        push(out, "special:");
+        if op == "div" {
+            push(out, "  %negated = sub i64 0, %a");
+            push(out, "  ret i64 %negated");
+        } else {
+            push(out, "  ret i64 0");
+        }
+        push(out, "ordinary:");
+        if op == "div" { push(out, "  %result = sdiv i64 %a, %b"); }
+        else { push(out, "  %result = srem i64 %a, %b"); }
+        push(out, "  ret i64 %result");
+        push(out, "}");
+        push(out, "");
+    }
+}
+
+fn emit_llvm(p: IrProgram): [string] {
+    let out: [string] = [
+        "; Aster LLVM backend: Linux x86_64, C-compatible storage and runtime ABI",
+        "source_filename = \"aster\"",
+        "target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128\"",
+        "target triple = \"x86_64-pc-linux-gnu\"",
+        "",
+    ];
+    for i in 0..len(p.strings) {
+        let s: string = p.strings[i];
+        push(out, "@aster_str_" + int_to_string(i) + " = private constant [" + int_to_string(len(s)) + " x i8] c\"" + llvm_string_bytes(s) + "\", align 1");
+    }
+    push(out, "");
+    llvm_runtime_declarations(out);
+    llvm_division_helpers(out);
+    for f in p.functions { llvm_function(out, p, f); }
+    var args: bool = false;
+    for f in p.functions {
+        if f.name == "main" && f.param_count == 1 { args = true; }
+    }
+    push(out, "define i32 @main(i32 %argc, ptr %argv) {");
+    push(out, "entry:");
+    if args {
+        push(out, "  %args = call ptr @aster_rt_args(i32 %argc, ptr %argv)");
+        push(out, "  %result = call i64 @aster_fn_main(ptr %args)");
+    } else {
+        push(out, "  %result = call i64 @aster_fn_main()");
+    }
+    push(out, "  %exit_code = trunc i64 %result to i32");
+    push(out, "  ret i32 %exit_code");
+    push(out, "}");
+    push(out, "");
+    return out;
+}
