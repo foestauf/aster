@@ -516,6 +516,50 @@ describe('check: read_file', () => {
   });
 });
 
+describe('check: POSIX builtins', () => {
+  const SRC = `fn main(): int {
+    let a: Result[int, string] = write_file("p", "x");
+    let b: Result[string, string] = make_temp_dir("t-");
+    let c: Result[int, string] = remove_path("p");
+    let d: Result[int, string] = run_process(["true"]);
+    return 0;
+}
+`;
+  it('types write_file, make_temp_dir, remove_path and run_process', () => {
+    const { program, diagnostics } = checkText(SRC);
+    expect(diagnostics).toEqual([]);
+    const types: string[] = [];
+    for (const s of program.functions.find((f) => f.name === 'main')!.body.statements) {
+      if (s.kind === 'let') types.push(typeToString(s.init.type));
+    }
+    expect(types).toEqual(['Result[int, string]', 'Result[string, string]', 'Result[int, string]', 'Result[int, string]']);
+  });
+
+  it('reports bad arguments and mismatched results', () => {
+    expect(
+      messages(`fn main(): int {
+    let a: Result[int, string] = write_file("p", 1);
+    let b: int = make_temp_dir("t-");
+    let c: Result[int, string] = remove_path();
+    let d: Result[int, string] = run_process("true");
+    let e: Result[string, string] = write_file("p", "x");
+    let f: Result[string, string] = make_temp_dir(1);
+    let g: Result[int, string] = remove_path(true);
+    return 0;
+}
+`),
+    ).toEqual([
+      'type mismatch: expected string, found int',
+      'type mismatch: expected int, found Result[string, string]',
+      "function 'remove_path' expects 1 argument, found 0",
+      'type mismatch: expected [string], found string',
+      'type mismatch: expected Result[string, string], found Result[int, string]',
+      'type mismatch: expected string, found int',
+      'type mismatch: expected string, found bool',
+    ]);
+  });
+});
+
 const mainBody = (body: string): string[] => messages(`fn main(): int { ${body} return 0; }`);
 const declared = (n: string): string[] => messages(`fn ${n}() { } fn main(): int { return 0; }`);
 

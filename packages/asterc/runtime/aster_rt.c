@@ -1,10 +1,18 @@
+#define _POSIX_C_SOURCE 200809L
 #include "aster_rt.h"
 
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <spawn.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char **environ;
 
 _Noreturn void aster_rt_panic(aster_string msg) {
     fflush(stdout);
@@ -207,15 +215,26 @@ static aster_string path_error(aster_string path, int64_t path_len, const char *
     return s;
 }
 
-aster_string aster_rt_read_file(aster_string path, bool *ok) {
-    const char *nul = path.len > 0 ? memchr(path.ptr, '\0', (size_t)path.len) : NULL;
+/* Copies `s` into a NUL-terminated buffer, or reports "<s up to the NUL>: invalid path" and returns NULL. */
+static char *cstr_or_error(aster_string s, aster_string *err) {
+    const char *nul = s.len > 0 ? memchr(s.ptr, '\0', (size_t)s.len) : NULL;
     if (nul != NULL) {
-        *ok = false;
-        return path_error(path, (int64_t)(nul - path.ptr), "invalid path");
+        *err = path_error(s, (int64_t)(nul - s.ptr), "invalid path");
+        return NULL;
     }
-    char *cpath = alloc_bytes(path.len + 1);
-    if (path.len > 0) memcpy(cpath, path.ptr, (size_t)path.len);
-    cpath[path.len] = '\0';
+    char *c = alloc_bytes(s.len + 1);
+    if (s.len > 0) memcpy(c, s.ptr, (size_t)s.len);
+    c[s.len] = '\0';
+    return c;
+}
+
+aster_string aster_rt_read_file(aster_string path, bool *ok) {
+    aster_string bad;
+    char *cpath = cstr_or_error(path, &bad);
+    if (cpath == NULL) {
+        *ok = false;
+        return bad;
+    }
     errno = 0;
     FILE *f = fopen(cpath, "rb");
     int open_err = errno; /* before free(), which C11 allows to change errno */
@@ -230,4 +249,116 @@ aster_string aster_rt_read_file(aster_string path, bool *ok) {
     fclose(f);
     if (!*ok) return path_error(path, path.len, io_reason(err));
     return contents;
+}
+
+bool aster_rt_write_file(aster_string path, aster_string contents, int64_t *value, aster_string *err) {
+    char *cpath = cstr_or_error(path, err);
+    if (cpath == NULL) return false;
+    errno = 0;
+    FILE *f = fopen(cpath, "wb");
+    int e = errno;
+    free(cpath);
+    if (f == NULL) {
+        *err = path_error(path, path.len, io_reason(e));
+        return false;
+    }
+    size_t n = contents.len > 0 ? fwrite(contents.ptr, 1, (size_t)contents.len, f) : 0;
+    e = errno;
+    if (fclose(f) != 0 && (int64_t)n == contents.len) e = errno;
+    else if ((int64_t)n == contents.len) e = 0;
+    if (e != 0 || (int64_t)n != contents.len) {
+        *err = path_error(path, path.len, io_reason(e));
+        return false;
+    }
+    *value = contents.len;
+    return true;
+}
+
+bool aster_rt_make_temp_dir(aster_string prefix, aster_string *value, aster_string *err) {
+    const char *tmp = getenv("TMPDIR");
+    if (tmp == NULL || tmp[0] == '\0') tmp = "/tmp";
+    int64_t dir_len = (int64_t)strlen(tmp);
+    int64_t len = dir_len + 1 + prefix.len + 6;
+    char *buf = alloc_bytes(len + 1);
+    memcpy(buf, tmp, (size_t)dir_len);
+    buf[dir_len] = '/';
+    if (prefix.len > 0) memcpy(buf + dir_len + 1, prefix.ptr, (size_t)prefix.len);
+    memcpy(buf + dir_len + 1 + prefix.len, "XXXXXX", 6);
+    buf[len] = '\0';
+    aster_string tmpl = { buf, len };
+    /* The NUL check covers the whole template; it can only fire inside the prefix. */
+    if (memchr(buf, '\0', (size_t)len) != NULL) {
+        *err = path_error(tmpl, (int64_t)strlen(buf), "invalid path");
+        free(buf);
+        return false;
+    }
+    errno = 0;
+    char *made = mkdtemp(buf); /* fills the X's in place */
+    int e = errno;
+    if (made == NULL) {
+        memcpy(buf + len - 6, "XXXXXX", 6); /* the failed call may have touched them */
+        *err = path_error(tmpl, tmpl.len, io_reason(e));
+        free(buf);
+        return false;
+    }
+    value->ptr = buf; /* never freed, like every string */
+    value->len = len;
+    return true;
+}
+
+bool aster_rt_remove_path(aster_string path, int64_t *value, aster_string *err) {
+    char *cpath = cstr_or_error(path, err);
+    if (cpath == NULL) return false;
+    errno = 0;
+    int rc = remove(cpath);
+    int e = errno;
+    free(cpath);
+    if (rc != 0) {
+        *err = path_error(path, path.len, io_reason(e));
+        return false;
+    }
+    *value = 0;
+    return true;
+}
+
+bool aster_rt_run_process(aster_array argv, int64_t *value, aster_string *err) {
+    if (argv->len == 0) {
+        static const char msg[] = "empty argv";
+        aster_string s = { msg, (int64_t)(sizeof msg - 1) };
+        *err = s;
+        return false;
+    }
+    char **cargv = (char **)alloc_bytes((argv->len + 1) * (int64_t)sizeof(char *));
+    for (int64_t i = 0; i < argv->len; i++) {
+        cargv[i] = cstr_or_error(*(aster_string *)aster_rt_array_at(argv, i), err);
+        if (cargv[i] == NULL) {
+            for (int64_t j = 0; j < i; j++) free(cargv[j]);
+            free(cargv);
+            return false;
+        }
+    }
+    cargv[argv->len] = NULL;
+    aster_string argv0 = *(aster_string *)aster_rt_array_at(argv, 0);
+    fflush(NULL); /* the child's output must not overtake ours */
+    pid_t pid;
+    int rc = posix_spawnp(&pid, cargv[0], NULL, NULL, cargv, environ);
+    bool ok = false;
+    if (rc != 0) {
+        *err = path_error(argv0, argv0.len, io_reason(rc));
+    } else {
+        int status = 0;
+        pid_t w;
+        do {
+            w = waitpid(pid, &status, 0);
+        } while (w == -1 && errno == EINTR);
+        if (w == -1) {
+            *err = path_error(argv0, argv0.len, io_reason(errno));
+        } else {
+            *value = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+            ok = true;
+        }
+    }
+    for (int64_t i = 0; i < argv->len; i++) free(cargv[i]);
+    free(cargv);
+    return ok;
 }

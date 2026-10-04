@@ -95,4 +95,21 @@ aster_string aster_rt_read_stdin(void);
  */
 aster_string aster_rt_read_file(aster_string path, bool *ok);
 
+/*
+ * The POSIX builtins. Each returns whether it succeeded: on success *value is set, on failure *err is set to
+ * "<subject>: <reason>". A path or argument containing a NUL byte fails with the reason "invalid path".
+ */
+
+/* Creates or truncates `path` and writes `contents`; *value is the byte count. */
+bool aster_rt_write_file(aster_string path, aster_string contents, int64_t *value, aster_string *err);
+
+/* Makes a directory "$TMPDIR/<prefix>XXXXXX" (/tmp when TMPDIR is unset or empty); *value is its path. */
+bool aster_rt_make_temp_dir(aster_string prefix, aster_string *value, aster_string *err);
+
+/* Removes a file or an empty directory; *value is 0. */
+bool aster_rt_remove_path(aster_string path, int64_t *value, aster_string *err);
+
+/* Runs argv[0] with PATH lookup and waits; *value is the exit status, or 128 + the signal. Empty argv fails. */
+bool aster_rt_run_process(aster_array argv, int64_t *value, aster_string *err);
+
 #endif

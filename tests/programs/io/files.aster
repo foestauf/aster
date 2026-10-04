@@ -1,0 +1,62 @@
+// expect-stdout:
+// made
+// wrote 11
+// read hello world
+// wrote 0
+// read <empty>
+// removed file
+// removed dir
+// gone
+fn main(): int {
+    let dir: string = match make_temp_dir("aster-files-") {
+        Result::Ok(d) => d,
+        Result::Err(e) => panic(e),
+    };
+    print("made");
+    let path: string = dir + "/a.txt";
+    match write_file(path, "hello world") {
+        Result::Ok(n) => print("wrote " + int_to_string(n)),
+        Result::Err(e) => panic(e),
+    }
+    match read_file(path) {
+        Result::Ok(text) => print("read " + text),
+        Result::Err(e) => panic(e),
+    }
+    match write_file(path, "") {
+        Result::Ok(n) => print("wrote " + int_to_string(n)),
+        Result::Err(e) => panic(e),
+    }
+    match read_file(path) {
+        Result::Ok(text) => {
+            if len(text) == 0 {
+                print("read <empty>");
+            } else {
+                print("read something");
+            }
+        }
+        Result::Err(e) => panic(e),
+    }
+    match remove_path(path) {
+        Result::Ok(_) => print("removed file"),
+        Result::Err(e) => panic(e),
+    }
+    match remove_path(dir) {
+        Result::Ok(_) => print("removed dir"),
+        Result::Err(e) => panic(e),
+    }
+    match remove_path(dir) {
+        Result::Ok(_) => print("still there"),
+        Result::Err(e) => {
+            if ends_with(e, ": No such file or directory") {
+                print("gone");
+            } else {
+                print(e);
+            }
+        }
+    }
+    return 0;
+}
+
+fn ends_with(s: string, suffix: string): bool {
+    return len(s) >= len(suffix) && substring(s, len(s) - len(suffix), len(s)) == suffix;
+}

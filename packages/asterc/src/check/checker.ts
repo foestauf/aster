@@ -1339,11 +1339,26 @@ function checkCall(ctx: Ctx, expr: CallExpr): TExpr {
   } else {
     args.forEach((arg, i) => expectType(ctx, sig.params[i], arg, expr.args[i].span));
   }
-  const returnType =
-    builtin === 'read_file' ? instantiate(ctx, ctx.templates.get(RESULT)!, [STRING, STRING]) : sig.returnType;
+  const returnType = builtin ? builtinReturnType(ctx, builtin, sig) : sig.returnType;
   return builtin
     ? { kind: 'builtin', type: returnType, builtin, args }
     : { kind: 'call', type: returnType, fn: name, args };
+}
+
+/** read_file and the four POSIX builtins return a Result the checker builds by hand. */
+function builtinReturnType(ctx: Ctx, builtin: SignatureBuiltin, sig: Signature): Type {
+  const result = (ok: Type) => instantiate(ctx, ctx.templates.get(RESULT)!, [ok, STRING]);
+  switch (builtin) {
+    case 'read_file':
+    case 'make_temp_dir':
+      return result(STRING);
+    case 'write_file':
+    case 'remove_path':
+    case 'run_process':
+      return result(INT);
+    default:
+      return sig.returnType;
+  }
 }
 
 function checkPrint(ctx: Ctx, expr: CallExpr, name: 'print' | 'eprint', args: TExpr[]): TExpr {

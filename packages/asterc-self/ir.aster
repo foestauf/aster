@@ -33,6 +33,7 @@ struct IrFieldValue { name: string, value: IrOperand }
 //   ArrayLen(dst, array)                    ArrayPush(array, value)           ArrayPop(dst, array)
 //   EnumNew(dst, enum, variant, tag, args)  EnumTag(dst, value)
 //   EnumField(dst, value, enum, variant, tag, index)                          ReadFile(ok, text, path)
+//   Sys(builtin, ok, value, err, args)
 enum IrInstr {
     Copy(int, IrOperand),
     Unop(int, string, IrOperand),
@@ -52,6 +53,7 @@ enum IrInstr {
     EnumTag(int, IrOperand),
     EnumField(int, IrOperand, string, string, int, int),
     ReadFile(int, int, IrOperand),
+    Sys(string, int, int, int, [IrOperand]),
 }
 
 // A `switch` case: a decimal value and the label it jumps to.

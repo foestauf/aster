@@ -1,0 +1,26 @@
+// expect-stdout:
+// fixtures/missing/a.txt: No such file or directory
+// fixtures/a: invalid path
+// fixtures/a: invalid path
+// fixtures: Directory not empty
+// fixtures/missing.txt: No such file or directory
+// true
+fn show(r: Result[int, string]) {
+    match r {
+        Result::Ok(n) => print("ok " + int_to_string(n)),
+        Result::Err(e) => print(e),
+    }
+}
+
+fn main(): int {
+    show(write_file("fixtures/missing/a.txt", "x"));
+    show(write_file("fixtures/a\0b", "x"));
+    show(remove_path("fixtures/a\0b"));
+    show(remove_path("fixtures"));
+    show(remove_path("fixtures/missing.txt"));
+    match make_temp_dir("x\0y") {
+        Result::Ok(_) => print("made"),
+        Result::Err(e) => print(substring(e, len(e) - len("x: invalid path"), len(e)) == "x: invalid path"),
+    }
+    return 0;
+}
