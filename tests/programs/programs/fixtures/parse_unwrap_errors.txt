@@ -1,0 +1,21 @@
+fn missing_else() {
+    let E::V(a) = f(x) { return; };
+    let ok: int = 1;
+}
+fn missing_semi() {
+    let E::V(a) = f(x) else { return; }
+    let ok: int = 1;
+}
+fn wildcard_let() {
+    let _ = f(x) else { return; };
+    let ok: int = 1;
+}
+fn if_let_missing_eq() {
+    if let E::V(a) f(x) { g(a); }
+}
+fn if_let_struct_lit() {
+    if let E::V(a) = S { a: 1 } { g(a); }
+}
+fn bad_arm() {
+    let a: int = match x { E::A => { 1 ;
+}

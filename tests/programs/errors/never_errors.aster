@@ -1,0 +1,27 @@
+// expect-error: 7:4 function 'reaches_end' returns 'never' but can reach its end
+// expect-error: 12:5 cannot return from a function that returns 'never'
+// expect-error: 16:5 cannot return from a function that returns 'never'
+// expect-error: 19:8 'never' is a built-in type and cannot be redefined
+// expect-error: 24:18 operator '+' cannot be applied to never and int
+// expect-error: 25:11 cannot print a value of type never
+fn reaches_end(): never {
+    print(1);
+}
+
+fn returns_nothing(): never {
+    return;
+}
+
+fn returns_value(): never {
+    return 1;
+}
+
+struct never {
+    x: int,
+}
+
+fn main(): int {
+    let a: int = panic("a") + 1;
+    print(panic("b"));
+    return a;
+}

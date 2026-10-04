@@ -62,6 +62,7 @@ const irEnum = (e: TEnum): IrEnum => ({
 
 function irType(t: Type): IrType {
   if (t.kind === 'error') throw new Error('internal: error type reached lowering');
+  if (t.kind === 'never') throw new Error('internal: never type reached lowering');
   return t;
 }
 
@@ -77,14 +78,37 @@ function lowerFunction(fn: TFunction, strings: StringTable, structs: ReadonlyMap
   };
   lowerBlock(st, fn.body);
   // The checker guarantees non-void functions never fall off the end.
-  terminate(st, fn.returnType.kind === 'void' ? { kind: 'ret', value: null } : { kind: 'unreachable' });
+  // A never function is void in the IR: the checker guarantees its body diverges, so this is a no-op for it.
+  const returnType: IrType = fn.returnType.kind === 'never' ? { kind: 'void' } : irType(fn.returnType);
+  terminate(st, returnType.kind === 'void' ? { kind: 'ret', value: null } : { kind: 'unreachable' });
   return {
     name: fn.name,
     paramCount: fn.params.length,
     locals: st.locals,
-    returnType: irType(fn.returnType),
-    blocks: st.blocks,
+    returnType,
+    blocks: pruneUnreachable(st.blocks),
   };
+}
+
+/** Keeps only the blocks reachable from the entry block, in their original order. */
+function pruneUnreachable(blocks: BasicBlock[]): BasicBlock[] {
+  if (blocks.length === 0) return blocks;
+  const byLabel = new Map(blocks.map((b) => [b.label, b]));
+  const reached = new Set<string>();
+  const work = [blocks[0].label];
+  while (work.length > 0) {
+    const label = work.pop()!;
+    if (reached.has(label)) continue;
+    reached.add(label);
+    const term = byLabel.get(label)!.term;
+    if (term.kind === 'jmp') work.push(term.target);
+    else if (term.kind === 'br') work.push(term.then, term.else);
+    else if (term.kind === 'switch') {
+      work.push(...term.cases.map((c) => c.target));
+      if (term.default !== null) work.push(term.default);
+    }
+  }
+  return blocks.filter((b) => reached.has(b.label));
 }
 
 // ---- block plumbing
@@ -98,7 +122,8 @@ function newTemp(st: FnState, type: IrType): number {
 }
 
 function emit(st: FnState, instr: Instr): void {
-  if (!st.current) throw new Error('internal: emitting into unreachable code');
+  // Code after a never expression is unreachable: drop it rather than emit it.
+  if (!st.current) return;
   st.current.instrs.push(instr);
 }
 
@@ -415,8 +440,12 @@ function lowerValue(st: FnState, e: TExpr): Operand {
   return value;
 }
 
+/** Stands in for the value of an expression in unreachable code. Only ever used there, and that code is pruned. */
+const PLACEHOLDER: Operand = { kind: 'int', value: 0n };
+
 /** Lowers an expression and returns its value, or null for void expressions. */
 function lowerExpr(st: FnState, e: TExpr): Operand | null {
+  if (!st.current) return PLACEHOLDER;
   switch (e.kind) {
     case 'int':
       return { kind: 'int', value: e.value };
@@ -442,8 +471,12 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     }
     case 'call': {
       const args = e.args.map((a) => lowerValue(st, a));
-      const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
+      const dst = e.type.kind === 'void' || e.type.kind === 'never' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call', dst, fn: e.fn, args });
+      if (e.type.kind === 'never') {
+        terminate(st, { kind: 'unreachable' });
+        return PLACEHOLDER;
+      }
       return dst === null ? null : { kind: 'local', id: dst };
     }
     case 'builtin': {
@@ -458,15 +491,29 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
         emit(st, e.builtin === 'pop' ? { kind: 'array_pop', dst, array: args[0] } : { kind: 'array_len', dst, array: args[0] });
         return { kind: 'local', id: dst };
       }
-      const dst = e.type.kind === 'void' ? null : newTemp(st, irType(e.type));
+      const dst = e.type.kind === 'void' || e.type.kind === 'never' ? null : newTemp(st, irType(e.type));
       emit(st, { kind: 'call_builtin', dst, builtin: irBuiltin(e), args });
-      if (e.builtin === 'panic' || e.builtin === 'exit') terminate(st, { kind: 'unreachable' });
+      if (e.type.kind === 'never') {
+        terminate(st, { kind: 'unreachable' });
+        return PLACEHOLDER;
+      }
       return dst === null ? null : { kind: 'local', id: dst };
     }
     case 'match': {
+      if (e.type.kind === 'never') {
+        lowerMatch(st, e.scrutinee, e.arms.map((a) => a.pattern), (i) => {
+          const body = e.arms[i].body;
+          if (body.kind === 'block') lowerBlock(st, body);
+          else lowerValue(st, body);
+        });
+        return PLACEHOLDER;
+      }
       const dst = newTemp(st, irType(e.type));
       lowerMatch(st, e.scrutinee, e.arms.map((a) => a.pattern), (i) => {
-        emit(st, { kind: 'copy', dst, src: lowerValue(st, e.arms[i].body) });
+        const body = e.arms[i].body;
+        // A block arm diverges, so it has no value to copy.
+        if (body.kind === 'block') lowerBlock(st, body);
+        else emit(st, { kind: 'copy', dst, src: lowerValue(st, body) });
       });
       return { kind: 'local', id: dst };
     }
@@ -475,14 +522,19 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
       const thenLabel = newLabel(st, 'then');
       const elseLabel = newLabel(st, 'else');
       const endLabel = newLabel(st, 'endif');
-      const dst = newTemp(st, irType(e.type));
+      const never = e.type.kind === 'never';
+      const dst = never ? null : newTemp(st, irType(e.type));
       terminate(st, { kind: 'br', cond, then: thenLabel, else: elseLabel });
       startBlock(st, thenLabel);
-      emit(st, { kind: 'copy', dst, src: lowerValue(st, e.then) });
+      const thenValue = lowerValue(st, e.then);
+      if (dst !== null) emit(st, { kind: 'copy', dst, src: thenValue });
       terminate(st, { kind: 'jmp', target: endLabel });
       startBlock(st, elseLabel);
-      emit(st, { kind: 'copy', dst, src: lowerValue(st, e.else) });
+      const elseValue = lowerValue(st, e.else);
+      if (dst !== null) emit(st, { kind: 'copy', dst, src: elseValue });
       terminate(st, { kind: 'jmp', target: endLabel });
+      // When both branches diverge nothing reaches the end, so the position stays unreachable.
+      if (dst === null) return PLACEHOLDER;
       startBlock(st, endLabel);
       return { kind: 'local', id: dst };
     }

@@ -1,0 +1,38 @@
+// expect-error: 10:9 pattern always matches
+// expect-error: 17:12 pattern always matches
+// expect-error: 24:9 pattern always matches
+// expect-error: 31:12 pattern always matches
+enum Wrapper {
+    W(int),
+}
+
+fn let_single(w: Wrapper): int {
+    let Wrapper::W(x) = w else {
+        return 0;
+    };
+    return x;
+}
+
+fn if_single(w: Wrapper): int {
+    if let Wrapper::W(x) = w {
+        return x;
+    }
+    return 0;
+}
+
+fn let_bool(b: bool): int {
+    let true | false = b else {
+        return 0;
+    };
+    return 1;
+}
+
+fn if_bool(b: bool) {
+    if let false | true = b {
+        print(1);
+    }
+}
+
+fn main(): int {
+    return 0;
+}

@@ -1,0 +1,90 @@
+// expect-stdout:
+// 1
+// 1
+// 12
+// 9
+// 3
+// 7
+// zero
+// expect-stderr: classify: not zero
+// expect-exit: 3
+enum Shape {
+    Circle(int),
+    Square(int),
+    Empty,
+}
+
+// A user never helper: its body ends in exit, so it can't reach its end.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(3);
+}
+
+// A never call as the last statement: no missing-return error.
+fn pick(c: bool): int {
+    if c {
+        return 1;
+    }
+    die("pick: not chosen");
+}
+
+// A never call as an if-expression branch.
+fn parse_digit(s: string): int {
+    let x: int = if s == "1" { 1 } else { die("parse_digit: bad digit") };
+    return x;
+}
+
+// A never call as a match-expression arm.
+fn area(s: Shape): int {
+    return match s {
+        Shape::Circle(r) => 3 * r * r,
+        Shape::Square(w) => w * w,
+        Shape::Empty => die("area: empty shape"),
+    };
+}
+
+fn add(a: int, b: int): int {
+    return a + b;
+}
+
+// A never call as an argument value, on a path not taken.
+fn checked(c: bool): int {
+    if c {
+        return add(1, 2);
+    }
+    return add(1, die("checked: not taken"));
+}
+
+// `let x: int = panic(...)` on a path not taken.
+fn fallback(c: bool): int {
+    if c {
+        return 7;
+    }
+    let x: int = panic("fallback: not taken");
+    return x;
+}
+
+// A match statement whose arms all end in a never call ends a non-void function.
+fn classify(n: int): string {
+    if n == 0 {
+        return "zero";
+    }
+    match n {
+        1 => die("classify: one"),
+        _ => {
+            die("classify: not zero");
+        }
+    }
+}
+
+fn main(): int {
+    print(pick(true));
+    print(parse_digit("1"));
+    print(area(Shape::Circle(2)));
+    print(area(Shape::Square(3)));
+    print(checked(true));
+    print(fallback(true));
+    print(classify(0));
+    print(classify(5));
+    return 0;
+}

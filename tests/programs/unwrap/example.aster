@@ -1,0 +1,51 @@
+// expect-stdout:
+// 9
+// -1
+// 4
+// dot
+// 0
+enum Shape { Circle(int), Square(int), Dot }
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(1);
+}
+
+fn side(s: Shape): Option[int] {
+    return match s {
+        Shape::Square(n) => Option::Some(n),
+        _ => Option::None,
+    };
+}
+
+fn area(s: Shape): int {
+    let Option::Some(n) = side(s) else {
+        return -1;
+    };
+    return n * n;
+}
+
+fn radius(s: Shape): int {
+    return match s {
+        Shape::Circle(r) => r,
+        Shape::Square(_) => die("not a circle"),
+        Shape::Dot => {
+            print("dot");
+            return 0;
+        },
+    };
+}
+
+fn main(): int {
+    print(area(Shape::Square(3)));   // 9
+    print(area(Shape::Dot));         // -1
+    if let Shape::Circle(r) = Shape::Circle(4) {
+        print(r);                     // 4
+    }
+    let code: int = 2;
+    let 2 | 3 = code else {
+        panic("bad code");
+    };
+    print(radius(Shape::Dot));       // dot, then 0
+    return 0;
+}

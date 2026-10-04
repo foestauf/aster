@@ -1,0 +1,21 @@
+// expect-error: 8:12 undefined name 'v'
+// expect-error: 12:12 pattern type 'string' does not match 'Option[int]'
+// expect-error: 14:19 pattern type 'Result' does not match 'Option[int]'
+fn leak(o: Option[int]): int {
+    if let Option::Some(v) = o {
+        print(v);
+    }
+    return v;
+}
+
+fn mismatch(o: Option[int]) {
+    if let "x" = o {
+        print(1);
+    } else if let Result::Err(e) = o {
+        print(e);
+    }
+}
+
+fn main(): int {
+    return 0;
+}

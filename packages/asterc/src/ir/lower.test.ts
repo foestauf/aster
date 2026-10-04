@@ -562,4 +562,49 @@ describe('lower', () => {
       ),
     );
   });
+
+  describe('never', () => {
+    it('ends the block after a call to a never function', () => {
+      const ir = irOf(`${MAIN}fn die(m: string): never { exit(1); }\nfn f(): int { die("x"); }`, 'f');
+      expect(ir).toMatch(/call die\b.*\n\s*unreachable/);
+    });
+
+    it('lowers a never function as void', () => {
+      const fn = lowerText(`${MAIN}fn die(m: string): never { exit(1); }`).functions.find((f) => f.name === 'die');
+      expect(fn?.returnType).toEqual({ kind: 'void' });
+    });
+
+    it('drops blocks unreachable from the entry block', () => {
+      const ir = irOf(`${MAIN}fn f(c: bool): int { panic("x"); while c { print(1); } return 1; }`, 'f');
+      // Only the entry block remains; the loop blocks after the panic are gone.
+      expect(ir.match(/^\S+:/gm)?.length ?? 0).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('never in the middle of an expression', () => {
+    it('leaves no block unreachable from the entry', () => {
+      const fn = lowerText(`${MAIN}fn f(c: bool): bool { return c && (if c { panic("x") } else { true }); }`).functions.find(
+        (f) => f.name === 'f',
+      )!;
+      const byLabel = new Map(fn.blocks.map((b) => [b.label, b]));
+      const seen = new Set<string>();
+      const walk = (label: string): void => {
+        if (seen.has(label)) return;
+        seen.add(label);
+        const t = byLabel.get(label)!.term;
+        if (t.kind === 'jmp') walk(t.target);
+        else if (t.kind === 'br') [t.then, t.else].forEach(walk);
+        else if (t.kind === 'switch') [...t.cases.map((c) => c.target), ...(t.default === null ? [] : [t.default])].forEach(walk);
+      };
+      walk(fn.blocks[0].label);
+      expect(seen.size).toBe(fn.blocks.length);
+    });
+  });
+
+  it('lowers a block arm without copying into the result', () => {
+    const ir = irOf(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { return -1; } }; return v; }`, 'f');
+    expect(ir).toContain('ret -1');
+    // Only the value arm copies into the match result; the block arm ends in its own return.
+    expect(ir.match(/= copy/g)?.length ?? 0).toBe(irOf(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => 0 }; return v; }`, 'f').match(/= copy/g)!.length - 1);
+  });
 });

@@ -1,0 +1,28 @@
+// expect-error: 6:9 match arm block must diverge
+// expect-error: 18:9 match arm block must diverge
+fn falls_through(o: Option[int]): int {
+    let v: int = match o {
+        Option::Some(n) => n,
+        Option::None => {
+            print(0);
+        },
+    };
+    return v;
+}
+
+fn all_blocks(b: bool): int {
+    let v: int = match b {
+        true => {
+            return 1;
+        },
+        false => {
+            let x: int = 2;
+            print(x);
+        },
+    };
+    return v;
+}
+
+fn main(): int {
+    return falls_through(Option::Some(1)) + all_blocks(true);
+}

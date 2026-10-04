@@ -1,0 +1,23 @@
+// expect-error: 8:8 'never' is only allowed as a return type
+// expect-error: 12:7 'never' is only allowed as a return type
+// expect-error: 15:13 'never' is only allowed as a return type
+// expect-error: 19:12 'never' is only allowed as a return type
+// expect-error: 20:13 'never' is only allowed as a return type
+// expect-error: 21:19 'never' is only allowed as a return type
+struct Holder {
+    f: never,
+}
+
+enum Wrapper {
+    W(never),
+}
+
+fn param(p: never) {
+}
+
+fn main(): int {
+    let v: never = 1;
+    let a: [never] = [];
+    let o: Option[never] = Option::None;
+    return 0;
+}

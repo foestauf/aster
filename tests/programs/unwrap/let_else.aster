@@ -1,0 +1,105 @@
+// expect-stdout:
+// 7
+// none
+// 42
+// bad input
+// 3
+// 9
+// 5
+// four
+// 2
+// x
+// hi
+enum Pair {
+    Both(int, int),
+    Neither,
+}
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(2);
+}
+
+// Option, with the else returning.
+fn unwrap_or_none(o: Option[int]): string {
+    let Option::Some(v) = o else {
+        return "none";
+    };
+    return int_to_string(v);
+}
+
+// Result, binding the Ok payload; the else returns.
+fn parse(s: string): Result[int, string] {
+    if s == "42" {
+        return Result::Ok(42);
+    }
+    return Result::Err("bad input");
+}
+
+fn show(s: string): string {
+    let Result::Ok(n) = parse(s) else {
+        return "bad input";
+    };
+    return int_to_string(n);
+}
+
+// A user enum with a two-slot payload, one binder `_`; the else panics on a path not taken.
+fn second(p: Pair): int {
+    let Pair::Both(_, b) = p else {
+        panic("second: neither");
+    };
+    return b;
+}
+
+// An int literal; the else exits on a path not taken.
+fn exact(n: int): int {
+    let 9 = n else {
+        exit(4);
+    };
+    return n;
+}
+
+// An or-pattern; the else calls a user never helper on a path not taken.
+fn small(n: int): int {
+    let 4 | 5 | 6 = n else {
+        die("small: out of range");
+    };
+    return n;
+}
+
+// A char pattern.
+fn letter(c: int): string {
+    let 'x' = c else {
+        return "not x";
+    };
+    return "x";
+}
+
+// A string pattern.
+fn greet(s: string): string {
+    let "hi" = s else {
+        return "?";
+    };
+    return s;
+}
+
+fn main(): int {
+    print(unwrap_or_none(Option::Some(7)));
+    print(unwrap_or_none(Option::None));
+    print(show("42"));
+    print(show("x"));
+    print(second(Pair::Both(1, 3)));
+    print(exact(9));
+    print(small(5));
+    let Option::Some(word) = Option::Some("four") else {
+        return 1;
+    };
+    print(word);
+    let Pair::Both(a, _) = Pair::Both(2, 8) else {
+        return 1;
+    };
+    print(a);
+    print(letter('x'));
+    print(greet("hi"));
+    return 0;
+}

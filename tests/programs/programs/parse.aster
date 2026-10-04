@@ -192,6 +192,24 @@ fn print_stmt(src: string, d: int, s: Stmt) {
             print_type(d + 1, ty);
             print_expr(src, d + 1, init);
         }
+        StmtNode::LetElse(pattern, init, _, else_block) => {
+            line(d, "let-else " + head);
+            print_pattern(d + 1, pattern);
+            print_expr(src, d + 1, init);
+            print_block(src, d + 1, else_block);
+        }
+        StmtNode::IfLet(pattern, scrutinee, then, els) => {
+            line(d, "if-let " + head);
+            print_pattern(d + 1, pattern);
+            print_expr(src, d + 1, scrutinee);
+            print_block(src, d + 1, then);
+            match els {
+                Else::None => line(d + 1, "-"),
+                Else::Block(b) => print_block(src, d + 1, b),
+                Else::If(next) => print_stmt(src, d + 1, next),
+                Else::IfLet(next) => print_stmt(src, d + 1, next),
+            }
+        }
         StmtNode::Assign(op, target, value) => {
             line(d, "assign " + head + " " + op);
             print_expr(src, d + 1, target);
@@ -205,6 +223,7 @@ fn print_stmt(src: string, d: int, s: Stmt) {
                 Else::None => line(d + 1, "-"),
                 Else::Block(b) => print_block(src, d + 1, b),
                 Else::If(next) => print_stmt(src, d + 1, next),
+                Else::IfLet(next) => print_stmt(src, d + 1, next),
             }
         }
         StmtNode::While(cond, body) => {
@@ -295,10 +314,15 @@ fn print_errors(errors: [LexError]) {
 
 // ---- driver
 
+// Prints `msg` to stderr and exits with status 2, for a usage or read error.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(2);
+}
+
 fn main(args: [string]): int {
     if len(args) != 1 {
-        eprint("usage: parse <file>");
-        exit(2);
+        die("usage: parse <file>");
     }
     match read_file(args[0]) {
         Result::Ok(src) => {
@@ -314,9 +338,6 @@ fn main(args: [string]): int {
             }
             return 0;
         }
-        Result::Err(msg) => {
-            eprint(msg);
-            exit(2);
-        }
+        Result::Err(msg) => die(msg),
     }
 }

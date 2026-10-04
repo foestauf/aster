@@ -1,0 +1,66 @@
+// expect-stdout:
+// skip 0
+// 10
+// skip 2
+// 30
+// stop 4
+// 1
+// 2
+// stop 3
+// sum 3
+// 5
+// 6
+fn half(n: int): Option[int] {
+    if n % 2 == 0 {
+        return Option::None;
+    }
+    return Option::Some(n * 10);
+}
+
+fn lookup(n: int): Option[int] {
+    if n >= 3 {
+        return Option::None;
+    }
+    return Option::Some(n);
+}
+
+fn main(): int {
+    // continue, in a for loop: a different value is bound on each iteration and read after the statement.
+    for i in 0..5 {
+        let Option::Some(v) = half(i) else {
+            let note: string = "skip " + int_to_string(i);
+            if i == 4 {
+                print("stop 4");
+                break;
+            }
+            print(note);
+            continue;
+        };
+        let shown: int = v;
+        print(shown);
+    }
+    // break, in a while loop.
+    var n: int = 1;
+    var sum: int = 0;
+    while true {
+        let Option::Some(k) = lookup(n) else {
+            let at: int = n;
+            print("stop " + int_to_string(at));
+            break;
+        };
+        let doubled: int = k;
+        print(doubled);
+        sum += doubled;
+        n += 1;
+    }
+    print("sum " + int_to_string(sum));
+    // break, in a for-each loop, with the binder read after the statement.
+    for x in [5, 6, -1, 7] {
+        let 5 | 6 = x else {
+            break;
+        };
+        let seen: int = x;
+        print(seen);
+    }
+    return 0;
+}

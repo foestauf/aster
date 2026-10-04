@@ -1,0 +1,48 @@
+// expect-stdout:
+// let-else-hit
+// got 4
+// let-else-miss
+// else path
+// if-let-hit
+// then 5
+// if-let-miss
+// else branch
+fn next(tag: string, v: int): Option[int] {
+    print(tag);
+    if v < 0 {
+        return Option::None;
+    }
+    return Option::Some(v);
+}
+
+fn hit(): int {
+    let Option::Some(n) = next("let-else-hit", 4) else {
+        return -1;
+    };
+    print("got " + int_to_string(n));
+    return n;
+}
+
+fn miss(): int {
+    let Option::Some(n) = next("let-else-miss", -1) else {
+        print("else path");
+        return -1;
+    };
+    return n;
+}
+
+fn main(): int {
+    hit();
+    miss();
+    if let Option::Some(n) = next("if-let-hit", 5) {
+        print("then " + int_to_string(n));
+    } else {
+        print("else branch");
+    }
+    if let Option::Some(n) = next("if-let-miss", -1) {
+        print("then " + int_to_string(n));
+    } else {
+        print("else branch");
+    }
+    return 0;
+}

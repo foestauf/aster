@@ -20,7 +20,7 @@ export function sexpr(e: Expr): string {
     case 'call':
       return `(call ${[e.callee, ...e.args].map(sexpr).join(' ')})`;
     case 'matchExpr':
-      return `(match ${[sexpr(e.scrutinee), ...e.arms.map((a) => `(${patternText(a.pattern)} ${sexpr(a.body)})`)].join(' ')})`;
+      return `(match ${[sexpr(e.scrutinee), ...e.arms.map((a) => `(${patternText(a.pattern)} ${a.body.kind === 'block' ? `(block ${a.body.statements.length})` : sexpr(a.body)})`)].join(' ')})`;
     case 'ifExpr':
       return `(if ${sexpr(e.cond)} ${sexpr(e.then)} ${sexpr(e.else)})`;
     case 'field':

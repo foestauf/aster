@@ -1,12 +1,12 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfLetStmt, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
   type StructLitExpr, type TypeExpr, type VariantDecl, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import { makeSource, type Span } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
-import { BOOL, ERROR, INT, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
+import { BOOL, ERROR, INT, NEVER, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
 import {
   BUILTIN_SIGNATURES, OPTION, PRELUDE_SOURCE, RESULT, isBuiltin, isSignatureBuiltin, type Signature,
   type SignatureBuiltin,
@@ -52,6 +52,7 @@ const PRIMITIVES: ReadonlyMap<string, Type> = new Map<string, Type>([
   ['bool', BOOL],
   ['string', STRING],
   ['void', VOID],
+  ['never', NEVER],
 ]);
 
 const report = (env: Env, message: string, span: Span): void => {
@@ -77,7 +78,7 @@ const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
  * off, a valid instantiation resolves to the error type instead of being created, so validating a template's
  * payloads registers nothing.
  */
-function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Type>, quiet = false, instantiates = true): Type {
+function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Type>, quiet = false, instantiates = true, allowNever = false): Type {
   const say = (message: string, span: Span): void => {
     if (!quiet) report(env, message, span);
   };
@@ -112,6 +113,10 @@ function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Typ
     return instantiate(env, template, args);
   }
   let type: Type | null = PRIMITIVES.get(ref.name) ?? null;
+  if (type !== null && type.kind === 'never' && !allowNever) {
+    say("'never' is only allowed as a return type", ref.span);
+    return ERROR;
+  }
   if (env.structs.has(ref.name)) type = { kind: 'struct', name: ref.name };
   if (env.enums.has(ref.name)) type = { kind: 'enum', name: ref.name };
   if (type === null) {
@@ -336,7 +341,7 @@ export function check(program: Program, options: CheckOptions = {}): CheckResult
       report(env, 'parameter cannot have type void', p.type.span);
       return ERROR;
     });
-    const sig: Signature = { params, returnType: decl.returnType ? resolveType(env, decl.returnType) : VOID };
+    const sig: Signature = { params, returnType: decl.returnType ? resolveType(env, decl.returnType, undefined, false, true, true) : VOID };
     signatures.set(decl.name, sig);
     declared.push({ decl, sig });
   }
@@ -366,7 +371,9 @@ function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDec
   };
   const params = decl.params.map((p, i) => declare(ctx, p.name, p.nameSpan, sig.params[i], false));
   const body = checkBlock(ctx, decl.body);
-  if (!body.diverges && sig.returnType.kind !== 'void' && !isError(sig.returnType)) {
+  if (sig.returnType.kind === 'never') {
+    if (!body.diverges) report(ctx, `function '${decl.name}' returns 'never' but can reach its end`, decl.nameSpan);
+  } else if (!body.diverges && sig.returnType.kind !== 'void' && !isError(sig.returnType)) {
     report(ctx, `function '${decl.name}' is missing a return on some paths`, decl.nameSpan);
   }
   return { name: decl.name, params, locals: ctx.locals, returnType: sig.returnType, body: body.node };
@@ -381,6 +388,13 @@ function declare(ctx: Ctx, name: string, nameSpan: Span, type: Type, mutable: bo
   return local;
 }
 
+/** Puts an already-allocated local into the current scope, reporting a clash like `declare` does. */
+function declareExisting(ctx: Ctx, name: string, nameSpan: Span, local: Local): void {
+  const scope = ctx.scopes[ctx.scopes.length - 1];
+  if (scope.has(name)) report(ctx, `'${name}' is already declared in this scope`, nameSpan);
+  scope.set(name, local);
+}
+
 function lookup(ctx: Ctx, name: string): Local | undefined {
   for (let i = ctx.scopes.length - 1; i >= 0; i--) {
     const local = ctx.scopes[i].get(name);
@@ -392,7 +406,7 @@ function lookup(ctx: Ctx, name: string): Local | undefined {
 const isFunctionName = (ctx: Ctx, name: string): boolean => ctx.signatures.has(name) || isBuiltin(name);
 
 function expectType(ctx: Ctx, expected: Type, actual: TExpr, span: Span): void {
-  if (isError(expected) || isError(actual.type) || typeEquals(expected, actual.type)) return;
+  if (isError(expected) || isError(actual.type) || actual.type.kind === 'never' || typeEquals(expected, actual.type)) return;
   report(ctx, `type mismatch: expected ${typeToString(expected)}, found ${typeToString(actual.type)}`, span);
 }
 
@@ -430,7 +444,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       const init = checkExpr(ctx, stmt.init, type);
       expectType(ctx, type, init, stmt.init.span);
       const local = declare(ctx, stmt.name, stmt.nameSpan, type, stmt.mutable);
-      return { node: { kind: 'let', local, init }, diverges: false };
+      return { node: { kind: 'let', local, init }, diverges: init.type.kind === 'never' };
     }
     case 'assign': {
       const place = checkPlace(ctx, stmt.target);
@@ -477,6 +491,11 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       return { node: stmt.kind === 'break' ? { kind: 'break' } : { kind: 'continue' }, diverges: true };
     }
     case 'return': {
+      if (ctx.returnType.kind === 'never') {
+        report(ctx, "cannot return from a function that returns 'never'", stmt.span);
+        const value = stmt.value === null ? null : checkExpr(ctx, stmt.value);
+        return { node: { kind: 'return', value }, diverges: true };
+      }
       if (stmt.value === null) {
         if (ctx.returnType.kind !== 'void' && !isError(ctx.returnType)) {
           report(ctx, `missing return value: expected ${typeToString(ctx.returnType)}`, stmt.span);
@@ -507,10 +526,33 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
     }
     case 'block':
       return checkBlock(ctx, stmt);
+    case 'letElse': {
+      let binders = new Map<string, Local>();
+      let elseBlock: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: true };
+      const { scrutinee, patterns } = checkMatch(ctx, stmt.init, stmt.pattern.span, [stmt.pattern, { kind: 'wildcard', span: stmt.pattern.span }], (i) => {
+        if (i === 0) binders = new Map(ctx.scopes[ctx.scopes.length - 1]); // the arm scope holds exactly the binders
+        else elseBlock = checkBlock(ctx, stmt.else);
+      }, { refutable: true });
+      if (!elseBlock.diverges) report(ctx, "'else' block of 'let' must diverge", stmt.elseKeywordSpan);
+      const declared = new Set<string>();
+      for (const b of stmt.pattern.kind === 'variant' ? stmt.pattern.binders : []) {
+        const local = b === null || declared.has(b.name) ? undefined : binders.get(b.name);
+        if (b !== null && local !== undefined) {
+          declared.add(b.name);
+          declareExisting(ctx, b.name, b.span, local);
+        }
+      }
+      const arms = [
+        { pattern: patterns[0], body: { kind: 'block', statements: [] } as TBlock },
+        { pattern: patterns[1], body: elseBlock.node },
+      ];
+      return { node: { kind: 'match', scrutinee, arms }, diverges: false };
+    }
+    case 'ifLet':
+      return checkIfLet(ctx, stmt);
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
-      const diverges = expr.kind === 'builtin' && (expr.builtin === 'panic' || expr.builtin === 'exit');
-      return { node: { kind: 'expr', expr }, diverges };
+      return { node: { kind: 'expr', expr }, diverges: expr.type.kind === 'never' };
     }
   }
 }
@@ -521,17 +563,32 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
   if (stmt.else === null) {
     return { node: { kind: 'if', cond, then: then.node, else: null }, diverges: false };
   }
-  let other: Checked<TBlock>;
-  if (stmt.else.kind === 'if') {
-    const nested = checkIf(ctx, stmt.else);
-    other = { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
-  } else {
-    other = checkBlock(ctx, stmt.else);
-  }
+  const other = checkElse(ctx, stmt.else);
   return {
     node: { kind: 'if', cond, then: then.node, else: other.node },
     diverges: then.diverges && other.diverges,
   };
+}
+
+/** Checks the else branch of an `if` or `if let`: a block, or a chained `if`/`if let` wrapped in a block. */
+function checkElse(ctx: Ctx, other: Block | IfStmt | IfLetStmt): Checked<TBlock> {
+  if (other.kind === 'block') return checkBlock(ctx, other);
+  const nested = other.kind === 'if' ? checkIf(ctx, other) : checkIfLet(ctx, other);
+  return { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
+}
+
+function checkIfLet(ctx: Ctx, stmt: IfLetStmt): Checked<TStmt> {
+  let then: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: false };
+  let other: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: false };
+  const { scrutinee, patterns } = checkMatch(ctx, stmt.scrutinee, stmt.pattern.span, [stmt.pattern, { kind: 'wildcard', span: stmt.pattern.span }], (i) => {
+    if (i === 0) then = checkBlock(ctx, stmt.then);
+    else if (stmt.else !== null) other = checkElse(ctx, stmt.else);
+  }, { refutable: true });
+  const arms = [
+    { pattern: patterns[0], body: then.node },
+    { pattern: patterns[1], body: other.node },
+  ];
+  return { node: { kind: 'match', scrutinee, arms }, diverges: stmt.else !== null && then.diverges && other.diverges };
 }
 
 function checkRangeBound(ctx: Ctx, expr: Expr): TExpr {
@@ -596,15 +653,17 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
       const then = checkExpr(ctx, expr.then, expected);
       const other = checkExpr(ctx, expr.else, expected);
       if (isError(then.type) || isError(other.type)) return errorExpr();
-      if (!typeEquals(then.type, other.type)) {
+      // A branch of type never doesn't take part in the "same type" rule.
+      const type = then.type.kind === 'never' ? other.type : then.type;
+      if (then.type.kind !== 'never' && other.type.kind !== 'never' && !typeEquals(then.type, other.type)) {
         report(ctx, `if branches have different types: ${typeToString(then.type)} and ${typeToString(other.type)}`, expr.span);
         return errorExpr();
       }
-      if (then.type.kind === 'void') {
+      if (type.kind === 'void') {
         report(ctx, 'if expression cannot have type void', expr.span);
         return errorExpr();
       }
-      return { kind: 'if', type: then.type, cond, then, else: other };
+      return { kind: 'if', type, cond, then, else: other };
     }
     case 'field': {
       const object = checkExpr(ctx, expr.object);
@@ -794,7 +853,7 @@ function checkGenericVariantExpr(ctx: Ctx, expr: VariantExpr, template: Template
  * Error and void types bind nothing.
  */
 function unify(params: readonly string[], slot: TypeExpr, actual: Type, bindings: Map<string, Type>): void {
-  if (isError(actual) || actual.kind === 'void') return;
+  if (isError(actual) || actual.kind === 'void' || actual.kind === 'never') return;
   if (slot.kind === 'array') {
     if (actual.kind === 'array') unify(params, slot.elem, actual.elem, bindings);
     return;
@@ -839,6 +898,7 @@ function checkMatch(
   keywordSpan: Span,
   patterns: readonly Pattern[],
   checkArm: (index: number) => void,
+  options: { refutable?: boolean } = {},
 ): { scrutinee: TExpr; patterns: TPattern[] } {
   const scrutinee = checkExpr(ctx, scrutineeExpr);
   const st = scrutinee.type;
@@ -855,14 +915,21 @@ function checkMatch(
       pattern.kind === 'wildcard' ? [] : pattern.kind === 'or' ? pattern.alternatives : [pattern];
     let resolved: (ResolvedAlternative | null)[] = [];
     let fresh: ResolvedAlternative[] = [];
+    const diagnosticsBefore = ctx.diagnostics.length;
+    let irrefutable = false;
     if (category !== null) {
       resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
       if (resolved.includes(null)) allResolved = false;
       if (pattern.kind === 'wildcard') {
-        if (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+        // let-else and if-let supply a synthetic wildcard, which is never unreachable: `pattern always matches` covers it.
+        if (!options.refutable && (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0)) {
+          report(ctx, 'unreachable match arm', pattern.span);
+        }
       } else {
         fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
         for (const r of fresh) covered.add(r.key);
+        irrefutable = options.refutable === true && index === 0 && !resolved.includes(null)
+          && missingValues(category, st, decl, covered)?.length === 0;
       }
     }
     if (pattern.kind === 'wildcard') wildcardSeen = true;
@@ -870,6 +937,8 @@ function checkMatch(
     ctx.scopes.push(new Map());
     const single = pattern.kind === 'variant' ? resolved[0] : null;
     const binders = declareBinders(ctx, pattern, single?.kind === 'variant' ? single.variant : null);
+    // A pattern with any error of its own (resolution, arity, duplicates, binder errors) is not also called irrefutable.
+    if (irrefutable && ctx.diagnostics.length === diagnosticsBefore) report(ctx, 'pattern always matches', pattern.span);
     checkArm(index);
     ctx.scopes.pop();
     typed.push(typedPattern(pattern, category, fresh, binders));
@@ -1036,14 +1105,24 @@ function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract
 }
 
 function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): TExpr {
-  const bodies: TExpr[] = [];
+  const bodies: (TExpr | TBlock)[] = [];
   const { scrutinee, patterns } = checkMatch(ctx, expr.scrutinee, expr.keywordSpan, expr.arms.map((a) => a.pattern), (i) => {
-    bodies.push(checkExpr(ctx, expr.arms[i].body, expected));
+    const body = expr.arms[i].body;
+    if (body.kind === 'block') {
+      const block = checkBlock(ctx, body);
+      if (!block.diverges) report(ctx, 'match arm block must diverge', expr.arms[i].pattern.span);
+      bodies.push(block.node);
+    } else {
+      bodies.push(checkExpr(ctx, body, expected));
+    }
   });
-  if (bodies.some((b) => isError(b.type))) return errorExpr();
+  const exprs = bodies.filter((b): b is TExpr => b.kind !== 'block');
+  if (exprs.some((b) => isError(b.type))) return errorExpr();
   // The parser guarantees at least one arm.
-  const type = bodies[0].type;
-  const other = bodies.find((b) => !typeEquals(b.type, type));
+  // Arms of type never don't take part in the "same type" rule; the expression is never only if every arm is.
+  const live = exprs.filter((b) => b.type.kind !== 'never');
+  const type = live.length > 0 ? live[0].type : NEVER;
+  const other = live.find((b) => !typeEquals(b.type, type));
   if (other !== undefined) {
     report(ctx, `match arms have different types: ${typeToString(type)} and ${typeToString(other.type)}`, expr.span);
     return errorExpr();
@@ -1102,7 +1181,11 @@ function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined)
   for (const el of expr.elements) {
     const value = checkExpr(ctx, el, elem);
     if (elem === undefined) {
-      // Without an expected type, the first element decides.
+      // Without an expected type, the first element that isn't never decides.
+      if (value.type.kind === 'never') {
+        elements.push(value);
+        continue;
+      }
       if (value.type.kind === 'void') {
         report(ctx, 'array element cannot have type void', el.span);
         return errorExpr();
@@ -1113,7 +1196,11 @@ function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined)
     }
     elements.push(value);
   }
-  if (elem === undefined || isError(elem)) return errorExpr();
+  if (elem === undefined) {
+    report(ctx, 'cannot infer type of empty array', expr.span);
+    return errorExpr();
+  }
+  if (isError(elem)) return errorExpr();
   return { kind: 'arrayLit', type: { kind: 'array', elem }, elements };
 }
 
@@ -1184,6 +1271,14 @@ function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   const left = checkExpr(ctx, expr.left);
   const right = checkExpr(ctx, expr.right);
   if (isError(left.type) || isError(right.type)) return errorExpr();
+  if (left.type.kind === 'never' || right.type.kind === 'never') {
+    report(
+      ctx,
+      `operator '${expr.op}' cannot be applied to ${typeToString(left.type)} and ${typeToString(right.type)}`,
+      expr.span,
+    );
+    return errorExpr();
+  }
   if ((expr.op === '==' || expr.op === '!=') && typeEquals(left.type, right.type)) {
     const t = left.type;
     const payloadFreeEnum = t.kind === 'enum' && ctx.enums.get(t.name)?.payloadFree === true;

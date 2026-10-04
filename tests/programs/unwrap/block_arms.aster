@@ -1,0 +1,105 @@
+// expect-stdout:
+// 5
+// 6
+// 42
+// 42
+// 84
+// 20
+// bad input
+// -1
+// 11
+// 3
+// expect-stderr: unwrap_or_die: none
+// expect-exit: 4
+enum Token {
+    Num(int),
+    Plus,
+    Stop,
+    Skip,
+}
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(4);
+}
+
+// A block arm that continues.
+fn first_num(ts: [Token]): int {
+    for t in ts {
+        let n: int = match t {
+            Token::Num(v) => v,
+            _ => {
+                continue;
+            },
+        };
+        return n;
+    }
+    return -1;
+}
+
+// Block arms that break and continue.
+fn sum_until_stop(ts: [Token]): int {
+    var total: int = 0;
+    for t in ts {
+        let n: int = match t {
+            Token::Num(v) => v,
+            Token::Plus => 0,
+            Token::Stop => {
+                break;
+            },
+            Token::Skip => {
+                continue;
+            },
+        };
+        total += n;
+    }
+    return total;
+}
+
+// A block arm that declares a local and returns.
+fn lookup(o: Option[int]): int {
+    let v: int = match o {
+        Option::Some(x) => x,
+        Option::None => {
+            let fallback: int = 42;
+            print(fallback);
+            return fallback;
+        },
+    };
+    return v * 2;
+}
+
+// A block arm that reads its binder.
+fn parsed(r: Result[int, string]): int {
+    let v: int = match r {
+        Result::Ok(n) => n,
+        Result::Err(msg) => {
+            print(msg);
+            return -1;
+        },
+    };
+    return v + 1;
+}
+
+// A match expression whose arms are all never.
+fn unwrap_or_die(o: Option[int]): int {
+    let v: int = match o {
+        Option::Some(n) => {
+            return n;
+        },
+        Option::None => die("unwrap_or_die: none"),
+    };
+}
+
+fn main(): int {
+    print(first_num([Token::Plus, Token::Skip, Token::Num(5), Token::Num(9)]));
+    print(sum_until_stop([Token::Num(1), Token::Skip, Token::Plus, Token::Num(5), Token::Stop, Token::Num(100)]));
+    print(lookup(Option::None));
+    print(lookup(Option::Some(42)));
+    print(parsed(Result::Ok(19)) + 0);
+    print(parsed(Result::Err("bad input")));
+    print(parsed(Result::Ok(10)));
+    print(unwrap_or_die(Option::Some(3)));
+    print(unwrap_or_die(Option::None));
+    return 0;
+}

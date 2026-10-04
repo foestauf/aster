@@ -1,0 +1,179 @@
+// `never` and diverging block arms: the rules no errors/ program reaches.
+enum E { A, B(int) }
+struct P { x: int }
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(1);
+}
+
+// A return type that only allows never at its top level.
+fn wrapped(): [never] {
+    return [];
+}
+
+fn never_returns_never(): never {
+    return panic("x");
+}
+
+fn void_returns_never(c: bool) {
+    if c {
+        return panic("v");
+    }
+}
+
+fn values(c: bool, n: int): int {
+    let a: [int] = [panic("a")];
+    let b: [int] = [1, die("b")];
+    let inferred: int = len([panic("c"), die("d")]);
+    let o: Option[int] = Option::Some(panic("e"));
+    print(Option::Some(panic("z")));
+    let p: P = P { x: die("f") };
+    let e: E = E::B(panic("g"));
+    var m: int = 0;
+    m = panic("h");
+    m += panic("i");
+    if panic("j") {
+        print(1);
+    }
+    while die("k") {
+        print(2);
+    }
+    let l: int = len(panic("l"));
+    let neg: int = -panic("m");
+    let same: bool = panic("n") == panic("o");
+    let k: int = [1, 2][panic("p")];
+    let f: int = die("q").x;
+    for i in panic("r") {
+        print(i);
+    }
+    let all_never: int = if c { panic("s") } else { die("t") };
+    let mixed: int = if c { 1 } else { "two" };
+    let never_first: string = if c { die("u") } else { "ok" };
+    return 0;
+}
+
+fn arms(e: E, b: bool): int {
+    let all: int = match e {
+        E::A => {
+            return 1;
+        },
+        E::B(n) => die("n"),
+    };
+    let mixed: int = match b {
+        true => die("x"),
+        false => "no",
+    };
+    let first_never: int = match e {
+        E::A => panic("a"),
+        E::B(n) => n,
+        _ => 3,
+    };
+    let void_arms: int = match b {
+        true => print(1),
+        false => {
+            return 0;
+        },
+    };
+    let scrutinee: int = match panic("s") {
+        _ => 1,
+    };
+    let errors: int = match e {
+        E::A => {
+            let q: int = nope;
+        },
+        E::B(n) => n + true,
+    };
+    let block_binder: int = match e {
+        E::A => 0,
+        E::B(n) => {
+            print(n);
+        },
+    };
+    return 0;
+}
+
+fn statement_arms(e: E): int {
+    match e {
+        E::A => die("a"),
+        E::B(n) => {
+            return n;
+        }
+    }
+}
+
+// let-else and if-let: irrefutability with errors in the pattern, and rules no errors/ program reaches.
+enum Two { T(int, int) }
+enum AB { A(int), B }
+
+fn unwrapping(t: Two, ab: AB, o: Option[int], c: bool): int {
+    let Two::T(a, a) = t else {
+        return 0;
+    };
+    let AB::A(n) | AB::B = ab else {
+        return 0;
+    };
+    let AB::A(_) | AB::B = ab else {
+        return 0;
+    };
+    let true | false | true = c else {
+        return 0;
+    };
+    let Two::T(p, q) = missing else {
+        return 0;
+    };
+    let Option::Some(r) = panic("s") else {
+        return 0;
+    };
+    let AB::C(u) = ab else {
+        return 0;
+    };
+    let Option::Some(w, z) = o else {
+        return 0;
+    };
+    let Option::Some(m) = o else {
+        if c {
+            return 1;
+        } else {
+            return 2;
+        }
+    };
+    let Option::Some(m) = o else {
+        return 3;
+    };
+    let Option::Some(k) = o else {
+        let inner: int = k;
+        if c {
+            return 4;
+        }
+    };
+    let total: int = a + p + r + u + w + z + m + k;
+    if let Option::Some(v) = o {
+        return v;
+    } else if c {
+        return 5;
+    } else if let AB::A(y) = ab {
+        let y2: int = y;
+        return y2;
+    } else {
+        return 6;
+    }
+}
+
+fn if_let_falls(o: Option[int], c: bool): int {
+    if let Option::Some(v) = o {
+        return v;
+    } else if let Option::None = o {
+        print(c);
+    }
+}
+
+fn if_let_no_else(o: Option[int]): int {
+    if let Option::Some(v) = o {
+        return v;
+    }
+}
+
+fn main(): int {
+    return 0;
+}

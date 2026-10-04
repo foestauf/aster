@@ -1,0 +1,15 @@
+// expect-error: 8:9 expected expression, found ','
+// expect-error: 9:6 expected pattern, found ';'
+fn f(o: Option[int]): int {
+    let v: int = match o {
+        Option::Some(n) => n,
+        Option::None => {
+            return 0;
+        ,
+    };
+    return v;
+}
+
+fn main(): int {
+    return f(Option::None);
+}

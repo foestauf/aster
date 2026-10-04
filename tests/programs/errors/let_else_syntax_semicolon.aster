@@ -1,0 +1,9 @@
+// expect-error: 4:5 expected ';', found 'return'
+fn f(x: int): int {
+    let 1 = x else { return 0; }
+    return x;
+}
+
+fn main(): int {
+    return 0;
+}

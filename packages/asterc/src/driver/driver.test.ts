@@ -154,4 +154,64 @@ fn main(): int {
       else process.env.ASTER_CC = previous;
     }
   });
+
+  it('runs programs that use never', () => {
+    const text = [
+      'fn die(m: string): never { eprint(m); exit(3); }',
+      'fn pick(c: bool): int { return if c { 7 } else { die("nope") }; }',
+      'fn add(a: int, b: int): int { return a + b; }',
+      'fn main(): int {',
+      '    print(pick(true));',
+      '    let x: int = if false { panic("never") } else { 5 };',
+      '    print(add(x, 1));',
+      '    print(pick(false));',
+      '    return 0;',
+      '}',
+    ].join('\n');
+    expect(buildAndRun(text)).toEqual({ stdout: '7\n6\n', stderr: 'nope\n', status: 3 });
+  });
+
+  it('compiles a never value used as an argument and in &&', () => {
+    const text =
+      'fn f(a: int, b: int): int { return a; }\nfn g(c: bool): bool { return c && (if c { panic("x") } else { true }); }\nfn main(): int { if false { print(f(1, panic("y"))); print(g(true)); } return 0; }';
+    expect(buildAndRun(text).status).toBe(0);
+  });
+
+  it('compiles an array literal with a never element on an untaken path', () => {
+    const text = 'fn main(): int { if false { let xs: [int] = [1, panic("x")]; print(len(xs)); } print(5); return 0; }';
+    expect(buildAndRun(text)).toEqual({ stdout: '5\n', stderr: '', status: 0 });
+  });
+
+  it('runs let-else, if let and block arms', () => {
+    const text = [
+      'fn first_even(xs: [int]): Option[int] { for x in xs { if x % 2 == 0 { return Option::Some(x); } } return Option::None; }',
+      'fn sum_evens(rows: [[int]]): int {',
+      '    var total: int = 0;',
+      '    for r in rows {',
+      '        let Option::Some(e) = first_even(r) else { continue; };',
+      '        total += e;',
+      '    }',
+      '    return total;',
+      '}',
+      'fn describe(o: Option[int]): string {',
+      '    if let Option::Some(n) = o {',
+      '        if let 1 | 2 = n { return "small"; }',
+      '        return int_to_string(n);',
+      '    } else {',
+      '        return "none";',
+      '    }',
+      '}',
+      'fn half(n: int): int { return match n % 2 { 0 => n / 2, _ => { print(-1); return 0; } }; }',
+      'fn main(): int {',
+      '    print(sum_evens([[1, 4, 6], [3], [8]]));',
+      '    print(describe(Option::Some(2)));',
+      '    print(describe(Option::Some(9)));',
+      '    print(describe(Option::None));',
+      '    print(half(10));',
+      '    print(half(3));',
+      '    return 0;',
+      '}',
+    ].join('\n');
+    expect(buildAndRun(text)).toEqual({ stdout: '12\nsmall\n9\nnone\n5\n-1\n0\n', stderr: '', status: 0 });
+  });
 });
