@@ -45,3 +45,22 @@ describe('emit.aster (built by stage 0) matches the TypeScript C emitter', () =>
     expect(emitWith(e0, file)).toEqual({ stdout: c, stderr: '', status: 0 });
   });
 });
+
+/** The driver compiled from the C that E0 emits for its own closure: an emitter built by Aster. */
+const e1 = join(workDir, 'e1');
+
+describe('emit.aster built from its own C (E1) matches the TypeScript C emitter', () => {
+  beforeAll(() => {
+    const own = emitWith(e0, DRIVER);
+    if (own.status !== 0) throw new Error(`E0 failed on its own closure:\n${own.stderr}`);
+    const expected = accepted.find((a) => a.file === DRIVER);
+    // E0 is checked against TS on DRIVER above; this guards against building E1 from anything else.
+    if (expected === undefined || own.stdout !== expected.c) throw new Error('E0 C for its own closure differs from stage 0');
+    const built = buildExecutable(own.stdout, e1, ['-Werror']);
+    if (!built.ok) throw new Error(built.message);
+  });
+
+  it.for(accepted)('$file', ({ file, c }) => {
+    expect(emitWith(e1, file)).toEqual({ stdout: c, stderr: '', status: 0 });
+  });
+});
