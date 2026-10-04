@@ -58,7 +58,7 @@ const runS0 = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(pro
 
 /** S0's outcome with its usage text narrowed to the emit stages S1 supports: the one allowed text difference. */
 function s0UsageToSn(o: Outcome): Outcome {
-  return { ...o, stderr: o.stderr.replace('--emit=tokens|ast|ir|c', '--emit=c') };
+  return { ...o, stderr: o.stderr.replace('[-o <out>] [--emit=tokens|ast|ir|c]', '[-o <out>] [--backend=c|llvm] [--emit=c|llvm]').replace('aster run <file.aster> [-- <args>...]', 'aster run <file.aster> [--backend=c|llvm] [-- <args>...]') };
 }
 
 describe('usage errors', () => {
@@ -71,7 +71,6 @@ describe('usage errors', () => {
     ['check', '--wat', 'a.aster'],
     ['run', 'a.aster', '-o', 'x'],
     ['check', 'a.aster', '--emit=c'],
-    ['build', 'a.aster', '--emit=llvm'],
     ['build', 'a.aster', '-o'],
     ['run', 'a.aster', '--emit=c'],
     ['build', 'a', '--', 'x'],
@@ -393,5 +392,31 @@ describe('the next stage', () => {
     join('programs', 'emit.aster'),
   ])(`${stage().name} builds the next stage, whose C matches stage 0: --emit=c of %s`, (file) => {
     expect(runNext(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: emitOf(file), stderr: '', status: 0 });
+  });
+});
+
+
+describe('LLVM backend surface', () => {
+  it.for([
+    ['build', '--backend=llvm', 'missing.aster'],
+    ['run', '--backend=llvm', 'missing.aster'],
+    ['build', '--emit=llvm', 'missing.aster'],
+  ])('recognizes the not-yet-implemented LLVM selection: %j', (args) => {
+    expect(runSn(args)).toEqual({ stdout: '', stderr: 'error: llvm backend not implemented yet\n', status: 2 });
+    expect(runS0(args).status).toBe(2);
+  });
+  it.for([
+    ['check', '--backend=c', 'missing.aster'],
+    ['build', '--backend=wat', 'missing.aster'],
+    ['run', '--backend=', 'missing.aster'],
+    ['run', '--emit=llvm', 'missing.aster'],
+  ])('rejects an invalid backend/stage option: %j', (args) => {
+    expect(runSn(args).status).toBe(2);
+    expect(runSn(args).stderr).toContain('usage:');
+  });
+  it('explicit C keeps the normal code generation', () => {
+    const source = 'tests/programs/basics/hello.aster';
+    expect(runSn(['build', source, '--backend=c', '--emit=c'])).toEqual(runSn(['build', source, '--emit=c']));
+    expect(runS0(['build', source, '--backend=c']).status).toBe(2);
   });
 });

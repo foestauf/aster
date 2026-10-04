@@ -8,11 +8,12 @@
 
 - Linux x86_64.
 - gcc 13 as `cc`.
+- For the LLVM backend only: clang 18 as `clang` and lld 18 as `ld.lld` (Ubuntu 24.04 packages `clang-18`, `lld-18`). Textual `--emit=llvm` does not need clang.
 - Node 24 or later and pnpm. They are needed for the bootstrap, the orchestration scripts and the tests only.
 
 `build/asterc` itself needs only `cc` and libc at run time. The C runtime is embedded in the binary (contract section 4.4).
 
-Untested: other operating systems, other architectures, clang and other gcc major versions.
+Untested: other operating systems, other architectures and other compiler major versions. C remains the default backend.
 
 ## First build
 
@@ -66,3 +67,7 @@ CI runs both on every push to `main` and every pull request: the `proof` job run
 ## Differences from the seed CLI
 
 The self-hosted CLI diverges from the TypeScript one in a few places, listed in [the contract's section 4.5](../superpowers/specs/2026-10-04-aster-self-hosting-contract-design.md). Use `pnpm aster:seed` for `--emit=tokens|ast|ir` and for `ASTER_CC`.
+
+## Experimental LLVM surface
+
+The self-hosted CLI recognizes `--backend=c|llvm` for `build` and `run`, and `--emit=llvm` for `build`. The TypeScript seed rejects the new options (exit 2). At the L2 checkpoint, LLVM selections report `llvm backend not implemented yet` (exit 2); L3 supplies the emitter. C builds require neither clang nor lld.
