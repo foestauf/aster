@@ -1,3 +1,4 @@
+// `?` and `match` checking: the operator's context rules, then pattern, exhaustiveness and reachability errors.
 enum E { A, B(int), C(int, string) }
 enum W[T] { One(T), Two(T, T), Zero }
 

@@ -1,3 +1,4 @@
+// A small program that checks cleanly: a struct, an enum and a main with an Option local. check.aster's golden input.
 struct Point {
     x: int,
     y: int,

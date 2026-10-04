@@ -1,3 +1,4 @@
+// Generic enums: duplicate variants and type parameters, wrong variant names and argument counts, and instantiations.
 enum Dup[T] { A(T), A(T) }
 enum Twice[T, T] { B(T) }
 enum Wrap[T] { W(T), Nothing }
