@@ -47,7 +47,7 @@ fn main(): int {
 }
 ```
 
-Run it with `pnpm build && pnpm aster run example.aster`. It prints `6` and `12`, then the read error on stderr.
+Run it with `pnpm aster run example.aster` (after `pnpm bootstrap`). It prints `6` and `12`, then the read error on stderr.
 
 `let … else`, `if let` and the `never` type unwrap an `Option` without `?`:
 

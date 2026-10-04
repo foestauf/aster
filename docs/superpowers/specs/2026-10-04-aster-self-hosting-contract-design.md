@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-04
 **Status:** Approved in brainstorming
+**Achieved:** 2026-10-04 — #20 proved it, #21 made it the normal build path ([building.md](../../self-host/building.md)).
 **Issue:** #15. It gates #16 (typed program), #17 (lowering), #18 (C emission), #19 (driver), #20 (stage parity) and
 #21 (normal build path).
 **Baseline:** `492fc8b` (v0.7, PR #14).
@@ -25,7 +26,7 @@ This document is planning only. It changes no compiler source, specification or 
 3. Stages 1, 2 and 3 (§5) pass the frozen conformance suite (§6). The C that built stage 2 is identical to the C that
    built stage 3.
 4. A single repeatable command reproduces the proof (#20). The self-hosted compiler becomes the normal build path,
-   with TypeScript kept as the bootstrap seed and oracle (#21).
+   with TypeScript kept as the bootstrap seed and oracle (#21; see [building.md](../../self-host/building.md)).
 
 ### Non-goals
 
@@ -39,7 +40,7 @@ than C.
 |---|---|
 | OS / arch | Linux x86_64. Tested on WSL2 (kernel 6.6). |
 | C compiler | gcc 13 (Ubuntu 13.3), invoked as `cc` from `PATH`. |
-| Stage 0 host | Node ≥ 24 running `packages/asterc/dist/cli/bin.js` (`pnpm aster`). |
+| Stage 0 host | Node ≥ 24 running `packages/asterc/dist/cli/bin.js` (`pnpm aster:seed`). |
 | C flags | `-std=c11 -O2 -Wall`, the same as the TypeScript `buildExecutable`. Test harnesses may add `-Werror`. |
 | Environment for comparisons | Repo root as cwd, root file spelled `packages/asterc-self/asterc.aster`, `LC_ALL=C`. |
 
@@ -166,7 +167,7 @@ All stages are built from **one commit** in the §2 environment.
 
 | Stage | Built by | Command |
 |---|---|---|
-| S0 | — | `pnpm build`; then `node packages/asterc/dist/cli/bin.js` |
+| S0 | — | `pnpm build:seed`; then `node packages/asterc/dist/cli/bin.js` |
 | S1 | S0 | `S0 build packages/asterc-self/asterc.aster -o <dir>/s1` |
 | S2 | S1 | `S1 build packages/asterc-self/asterc.aster -o <dir>/s2` |
 | S3 | S2 | `S2 build packages/asterc-self/asterc.aster -o <dir>/s3` |

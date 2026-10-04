@@ -9,13 +9,16 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "pnpm --filter asterc build",
+    "build": "node scripts/build-compiler.ts build",
+    "build:seed": "pnpm --filter asterc build",
+    "bootstrap": "node scripts/build-compiler.ts bootstrap",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --fix",
-    "aster": "node packages/asterc/dist/cli/bin.js",
+    "aster": "sh scripts/aster",
+    "aster:seed": "node packages/asterc/dist/cli/bin.js",
     "gen:runtime": "node scripts/gen-runtime.ts",
     "selfhost": "node scripts/selfhost.ts",
     "prepare": "husky"

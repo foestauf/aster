@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  proof:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -18,6 +18,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm aster run tests/programs/basics/hello.aster
+      - run: pnpm selfhost
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfhost-report
+          path: .selfhost/
+          if-no-files-found: ignore
+
+  normal-path:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm bootstrap
+      - run: scripts/normal-path.sh
