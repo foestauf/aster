@@ -34,8 +34,7 @@ function run(cmd: string, args: string[]) {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
   });
-  if (r.error) throw r.error;
-  return { stdout: String(r.stdout ?? ''), stderr: String(r.stderr ?? ''), status: r.status };
+  return { stdout: String(r.stdout ?? ''), stderr: String(r.stderr ?? ''), status: r.status, error: r.error };
 }
 
 export function buildCompiler(builder: Builder, source: string, dest: string): BuildResult {
@@ -49,11 +48,13 @@ export function buildCompiler(builder: Builder, source: string, dest: string): B
     ];
     for (const [step, b, out] of builds) {
       const r = run(b.cmd, [...b.args, 'build', source, '-o', out]);
+      if (r.error) return { ok: false, step, message: r.error.message };
       if (r.status !== 0 || r.stderr !== '') return { ok: false, step, message: `status ${r.status}\n${r.stderr}` };
     }
     const emitted: string[] = [];
     for (const [name, bin] of [['c1', c1], ['c2', c2]] as const) {
       const r = run(bin, ['build', source, '--emit=c']);
+      if (r.error) return { ok: false, step: `${name} --emit=c`, message: r.error.message };
       if (r.status !== 0 || r.stderr !== '') return { ok: false, step: `${name} --emit=c`, message: `status ${r.status}\n${r.stderr}` };
       emitted.push(r.stdout);
     }
@@ -61,11 +62,16 @@ export function buildCompiler(builder: Builder, source: string, dest: string): B
     if (d !== null) {
       return { ok: false, step: 'fixed point', message: `C(c1) differs from C(c2) at line ${d.line}:\n  c1: ${d.a}\n  c2: ${d.b}` };
     }
-    mkdirSync(dirname(dest), { recursive: true });
     const staged = `${dest}.tmp-${process.pid}`;
-    copyFileSync(c2, staged);
-    chmodSync(staged, 0o755);
-    renameSync(staged, dest);
+    try {
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(c2, staged);
+      chmodSync(staged, 0o755);
+      renameSync(staged, dest);
+    } catch (e) {
+      rmSync(staged, { force: true });
+      return { ok: false, step: 'install', message: e instanceof Error ? e.message : String(e) };
+    }
     return { ok: true };
   } finally {
     rmSync(work, { recursive: true, force: true });

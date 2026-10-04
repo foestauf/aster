@@ -52,6 +52,13 @@ const count = () =>
   readdirSync(tmpdir()).filter((f) => f.startsWith('aster-build-compiler-') && !f.startsWith('aster-build-compiler-test-')).length;
 
 describe('buildCompiler', () => {
+  it('reports a spawn error as a failed step and leaves dest untouched', () => {
+    const dest = join(dir, 'build', 'asterc');
+    const r = buildCompiler({ cmd: join(dir, 'does-not-exist'), args: [] }, 'src.aster', dest);
+    expect(r).toMatchObject({ ok: false, step: 'build c1' });
+    expect(existsSync(dest)).toBe(false);
+  });
+
   it('installs the second-generation compiler at a fixed point, creating the directory', () => {
     const b = stub('b', { emit: 'C', next: 'b' });
     const dest = join(dir, 'build', 'asterc');

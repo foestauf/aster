@@ -19,6 +19,7 @@ fi
 work=$(mktemp -d "${TMPDIR:-/tmp}/aster-normal-path-XXXXXX")
 restore() {
   if [ -e "$dist.hidden" ]; then
+    rm -rf "$dist"
     mv "$dist.hidden" "$dist"
   fi
   rm -rf "$work"
