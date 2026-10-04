@@ -543,6 +543,8 @@ describe('check: POSIX builtins', () => {
     let c: Result[int, string] = remove_path();
     let d: Result[int, string] = run_process("true");
     let e: Result[string, string] = write_file("p", "x");
+    let f: Result[string, string] = make_temp_dir(1);
+    let g: Result[int, string] = remove_path(true);
     return 0;
 }
 `),
@@ -552,6 +554,8 @@ describe('check: POSIX builtins', () => {
       "function 'remove_path' expects 1 argument, found 0",
       'type mismatch: expected [string], found string',
       'type mismatch: expected Result[string, string], found Result[int, string]',
+      'type mismatch: expected string, found int',
+      'type mismatch: expected string, found bool',
     ]);
   });
 });

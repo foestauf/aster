@@ -287,17 +287,21 @@ bool aster_rt_make_temp_dir(aster_string prefix, aster_string *value, aster_stri
     buf[len] = '\0';
     aster_string tmpl = { buf, len };
     /* The NUL check covers the whole template; it can only fire inside the prefix. */
-    char *cpath = cstr_or_error(tmpl, err);
-    if (cpath == NULL) return false;
-    errno = 0;
-    char *made = mkdtemp(cpath);
-    int e = errno;
-    if (made == NULL) {
-        free(cpath);
-        *err = path_error(tmpl, tmpl.len, io_reason(e));
+    if (memchr(buf, '\0', (size_t)len) != NULL) {
+        *err = path_error(tmpl, (int64_t)strlen(buf), "invalid path");
+        free(buf);
         return false;
     }
-    value->ptr = cpath; /* never freed, like every string */
+    errno = 0;
+    char *made = mkdtemp(buf); /* fills the X's in place */
+    int e = errno;
+    if (made == NULL) {
+        memcpy(buf + len - 6, "XXXXXX", 6); /* the failed call may have touched them */
+        *err = path_error(tmpl, tmpl.len, io_reason(e));
+        free(buf);
+        return false;
+    }
+    value->ptr = buf; /* never freed, like every string */
     value->len = len;
     return true;
 }

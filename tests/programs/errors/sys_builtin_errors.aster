@@ -1,13 +1,17 @@
-// expect-error: 7:50 type mismatch: expected string, found int
-// expect-error: 8:18 type mismatch: expected int, found Result[string, string]
-// expect-error: 9:34 function 'remove_path' expects 1 argument, found 0
-// expect-error: 10:46 type mismatch: expected [string], found string
-// expect-error: 11:37 type mismatch: expected Result[string, string], found Result[int, string]
+// expect-error: 9:50 type mismatch: expected string, found int
+// expect-error: 10:18 type mismatch: expected int, found Result[string, string]
+// expect-error: 11:34 function 'remove_path' expects 1 argument, found 0
+// expect-error: 12:46 type mismatch: expected [string], found string
+// expect-error: 13:37 type mismatch: expected Result[string, string], found Result[int, string]
+// expect-error: 14:51 type mismatch: expected string, found int
+// expect-error: 15:46 type mismatch: expected string, found bool
 fn main(): int {
     let a: Result[int, string] = write_file("p", 1);       // wrong second argument type
     let b: int = make_temp_dir("t-");                      // Result used as int
     let c: Result[int, string] = remove_path();            // arity
     let d: Result[int, string] = run_process("true");     // string, not [string]
     let e: Result[string, string] = write_file("p", "x");  // wrong Result instance
+    let f: Result[string, string] = make_temp_dir(1);      // int, not string
+    let g: Result[int, string] = remove_path(true);        // bool, not string
     return 0;
 }

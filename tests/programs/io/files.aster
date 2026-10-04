@@ -2,6 +2,8 @@
 // made
 // wrote 11
 // read hello world
+// wrote 0
+// read <empty>
 // removed file
 // removed dir
 // gone
@@ -18,6 +20,20 @@ fn main(): int {
     }
     match read_file(path) {
         Result::Ok(text) => print("read " + text),
+        Result::Err(e) => panic(e),
+    }
+    match write_file(path, "") {
+        Result::Ok(n) => print("wrote " + int_to_string(n)),
+        Result::Err(e) => panic(e),
+    }
+    match read_file(path) {
+        Result::Ok(text) => {
+            if len(text) == 0 {
+                print("read <empty>");
+            } else {
+                print("read something");
+            }
+        }
         Result::Err(e) => panic(e),
     }
     match remove_path(path) {
