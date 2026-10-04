@@ -44,11 +44,11 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //    321  '<name>' is a builtin function and cannot be redefined (fns)     errors/builtin_and_unknown_type.aster
 //    326  '<name>' is already declared as a struct|an enum (functions)     errors/enum_decls.aster
 //    330  duplicate function '<name>'                                      errors/import_collisions.aster
-//    336  parameter cannot have type void                                  NONE -> fixtures/check_decls.txt [Task 3]
+//    336  parameter cannot have type void                                  fixtures/check_decls.txt
 //    346  missing 'fn main(): int'                                         errors/empty_file.aster
 //    348  'main' must have signature 'fn main(): int' or ...               errors/main_args_string.aster
 //    370  function '<f>' is missing a return on some paths                 errors/for_errors.aster
-//    377  '<x>' is already declared in this scope                          NONE -> fixtures/check_stmts.txt [Task 4]
+//    377  '<x>' is already declared in this scope                          fixtures/check_decls.txt (a parameter)
 //    396  type mismatch: expected <T>, found <U>                            errors/type_mismatch.aster (+11)
 //    402  condition must be bool, found <T>                                NONE -> fixtures/check_stmts.txt [Task 4]
 //    427  variable cannot have type void                                   NONE -> fixtures/check_stmts.txt [Task 4]
@@ -119,62 +119,43 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
 
 /** Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes. */
 const PENDING = new Set<string>([
-  'arith/comparisons.aster', 'arith/precedence.aster', 'arith/self_compare.aster', 'arith/wrapping.aster',
+  'arith/self_compare.aster', 'arith/wrapping.aster',
   'arrays/aliasing.aster', 'arrays/basics.aster', 'arrays/empty_inference.aster', 'arrays/nested_and_structs.aster',
-  'basics/exit_code.aster', 'basics/exit_negative.aster', 'basics/exit_wraps_256.aster', 'basics/hello.aster',
-  'basics/print_types.aster',
-  'bool/logic.aster', 'bool/short_circuit.aster',
+  'basics/hello.aster',
+  'bool/short_circuit.aster',
   'compound/elements.aster', 'compound/fields.aster', 'compound/locals.aster',
-  'control/if_else.aster', 'control/if_expr.aster', 'control/nested_loops.aster', 'control/while_loop.aster',
-  'control/while_true_return.aster',
+  'control/if_expr.aster', 'control/nested_loops.aster', 'control/while_loop.aster', 'control/while_true_return.aster',
   'enums/aliasing.aster', 'enums/c_names.aster', 'enums/construction_order.aster', 'enums/linked_list.aster',
   'enums/read_result_name.aster', 'enums/unit_equality.aster',
   'errors/array_errors.aster', 'errors/assign_errors.aster', 'errors/builtin_and_unknown_type.aster',
-  'errors/call_errors.aster', 'errors/empty_file.aster', 'errors/enum_decls.aster', 'errors/eprint_exit_calls.aster',
-  'errors/eprint_exit_redefined.aster', 'errors/for_errors.aster', 'errors/generic_decls.aster',
-  'errors/generic_expansion.aster', 'errors/generic_inference.aster', 'errors/generic_ops.aster',
-  'errors/generic_types.aster', 'errors/if_branch_types.aster', 'errors/immutable_assign.aster',
-  'errors/import_collisions.aster', 'errors/import_collisions_lib.aster', 'errors/import_fn_vs_type.aster',
-  'errors/import_fn_vs_type_lib.aster', 'errors/import_main.aster', 'errors/import_main_lib.aster',
-  'errors/import_type.aster', 'errors/import_type_lib.aster', 'errors/import_type_vs_fn.aster',
-  'errors/import_type_vs_fn_lib.aster', 'errors/main_args_string.aster', 'errors/main_signature.aster',
-  'errors/main_two_params.aster', 'errors/main_void.aster', 'errors/match_coverage.aster',
-  'errors/match_literals.aster', 'errors/match_missing_return.aster', 'errors/match_or_patterns.aster',
-  'errors/match_patterns.aster', 'errors/missing_main.aster', 'errors/missing_return.aster',
-  'errors/multiple_errors.aster', 'errors/option_redefined.aster', 'errors/postfix_errors.aster',
-  'errors/read_file_calls.aster', 'errors/read_file_match.aster', 'errors/read_result_ops.aster',
-  'errors/read_stdin_call.aster', 'errors/struct_decls.aster', 'errors/struct_exprs.aster', 'errors/try_errors.aster',
-  'errors/type_mismatch.aster', 'errors/undefined_name.aster', 'errors/variant_exprs.aster',
-  'functions/evaluation_order.aster', 'functions/mutual_recursion.aster', 'functions/recursion.aster',
-  'functions/void_functions.aster',
+  'errors/call_errors.aster', 'errors/eprint_exit_calls.aster', 'errors/for_errors.aster',
+  'errors/generic_decls.aster', 'errors/generic_expansion.aster', 'errors/generic_inference.aster',
+  'errors/generic_ops.aster', 'errors/generic_types.aster', 'errors/if_branch_types.aster',
+  'errors/immutable_assign.aster', 'errors/import_type.aster', 'errors/import_type_lib.aster',
+  'errors/match_coverage.aster', 'errors/match_literals.aster', 'errors/match_missing_return.aster',
+  'errors/match_or_patterns.aster', 'errors/match_patterns.aster', 'errors/missing_return.aster',
+  'errors/multiple_errors.aster', 'errors/postfix_errors.aster', 'errors/read_file_calls.aster',
+  'errors/read_file_match.aster', 'errors/read_result_ops.aster', 'errors/read_stdin_call.aster',
+  'errors/struct_exprs.aster', 'errors/try_errors.aster', 'errors/type_mismatch.aster', 'errors/undefined_name.aster',
+  'errors/variant_exprs.aster',
   'generics/basic.aster', 'generics/c_names.aster', 'generics/inference.aster', 'generics/list.aster',
   'generics/match.aster', 'generics/nested.aster', 'generics/shared_instance.aster', 'generics/struct_field.aster',
   'generics/tree.aster', 'generics/two_params.aster',
-  'io/args.aster', 'io/args_none.aster', 'io/eprint.aster', 'io/eprint_exit.aster', 'io/exit_nested.aster',
-  'io/exit_nested_arms.aster', 'io/read_file.aster', 'io/read_file_errors.aster', 'io/read_file_result.aster',
-  'io/stdin.aster', 'io/stdin_empty.aster',
-  'literals/chars.aster', 'literals/escapes.aster',
+  'io/args.aster', 'io/exit_nested.aster', 'io/read_file.aster', 'io/read_file_errors.aster',
+  'io/read_file_result.aster', 'io/stdin.aster',
   'loops/break_continue.aster', 'loops/foreach.aster', 'loops/range.aster', 'loops/shadowing_and_returns.aster',
   'match/bool.aster', 'match/control_flow.aster', 'match/expressions.aster', 'match/int.aster',
-  'match/literal_scrutinee_once.aster', 'match/or_patterns.aster', 'match/payload_free.aster',
-  'match/scrutinee_once.aster', 'match/statements.aster', 'match/string.aster',
-  'modules/basic.aster', 'modules/basic_lib.aster', 'modules/cycle.aster', 'modules/cycle_lib.aster',
-  'modules/diamond.aster', 'modules/diamond_a.aster', 'modules/diamond_b.aster', 'modules/diamond_shared.aster',
-  'modules/generic.aster', 'modules/generic_lib.aster', 'modules/self_import.aster',
-  'modules/sub/inner.aster', 'modules/sub/outer.aster',
-  'modules/subdir.aster',
-  'panics/byte_at_negative.aster', 'panics/byte_at_oob.aster', 'panics/compound_div_zero.aster',
-  'panics/div_zero.aster', 'panics/explicit_panic.aster', 'panics/index_negative.aster',
-  'panics/index_oob_read.aster', 'panics/index_oob_write.aster', 'panics/mod_zero.aster', 'panics/pop_empty.aster',
-  'panics/stack_underflow.aster', 'panics/substring_oob.aster',
-  'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/checker.aster', 'programs/fib.aster',
+  'match/or_patterns.aster', 'match/scrutinee_once.aster', 'match/statements.aster',
+  'modules/basic.aster', 'modules/generic.aster',
+  'panics/compound_div_zero.aster', 'panics/div_zero.aster', 'panics/explicit_panic.aster',
+  'panics/index_negative.aster', 'panics/index_oob_read.aster', 'panics/index_oob_write.aster',
+  'panics/pop_empty.aster', 'panics/stack_underflow.aster',
+  'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/fib.aster',
   'programs/fixtures/check_bom.txt', 'programs/fixtures/check_bom_lib.txt', 'programs/fixtures/check_small.txt',
-  'programs/fizzbuzz.aster', 'programs/lex.aster', 'programs/lexer.aster', 'programs/loader.aster',
-  'programs/parse.aster', 'programs/parser.aster', 'programs/rpn.aster', 'programs/tokenizer.aster',
-  'programs/tokenizer_structs.aster',
+  'programs/fizzbuzz.aster', 'programs/lex.aster', 'programs/parse.aster', 'programs/rpn.aster',
+  'programs/tokenizer.aster', 'programs/tokenizer_structs.aster',
   'scoping/shadowing.aster',
-  'strings/basics.aster', 'strings/bytes.aster', 'strings/equality.aster', 'strings/escapes.aster',
-  'strings/utf8.aster',
+  'strings/equality.aster',
   'structs/basics.aster', 'structs/c_names.aster', 'structs/declaration_order.aster', 'structs/init_order.aster',
   'structs/mutation_aliasing.aster',
   'try/chain.aster', 'try/loops.aster', 'try/option.aster', 'try/order.aster', 'try/positions.aster',
@@ -251,7 +232,7 @@ describe('check.aster matches the TypeScript front end', () => {
     for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
       expect(corpus).toContain(join('programs', f));
     }
-    for (const f of ['check_small', 'check_bom', 'check_bom_lib']) {
+    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
     for (const f of PENDING) expect(corpus).toContain(f);

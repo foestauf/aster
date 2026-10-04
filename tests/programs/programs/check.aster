@@ -7,6 +7,14 @@
 // with its signature and then its locals, as `param`, `let` or `var`, in id order. tests/check_aster.test.ts checks
 // it against the compiler's own front end on every golden program.
 // expect-args: fixtures/check_small.txt
+// expect-stdout:
+// struct Point
+//   field x int
+//   field y int
+// enum Color
+//   variant Red
+//   variant Green
+// fn main(): int
 
 import "loader.aster";
 import "checker.aster";
@@ -62,7 +70,52 @@ fn print_diags(files: [SourceFile], diags: [Diag]) {
 
 // ---- summary
 
+// The types of `types`, written as in source and separated by `, `.
+fn type_list(types: [Type]): string {
+    var out: string = "";
+    for i in 0..len(types) {
+        if i > 0 {
+            out += ", ";
+        }
+        out += type_to_string(types[i]);
+    }
+    return out;
+}
+
+// Structs with their fields, enums with their variants, then functions with their signatures and locals.
 fn print_summary(c: Checked) {
+    for s in c.structs {
+        print("struct " + s.name);
+        for f in s.fields {
+            print("  field " + f.name + " " + type_to_string(f.ty));
+        }
+    }
+    for e in c.enums {
+        print("enum " + e.name);
+        for v in e.variants {
+            if len(v.payload) == 0 {
+                print("  variant " + v.name);
+            } else {
+                print("  variant " + v.name + "(" + type_list(v.payload) + ")");
+            }
+        }
+    }
+    for f in c.functions {
+        let params: [Type] = [];
+        for i in 0..f.params {
+            push(params, f.locals[i].ty);
+        }
+        print("fn " + f.name + "(" + type_list(params) + "): " + type_to_string(f.ret));
+        for l in f.locals {
+            var kind: string = "let";
+            if l.id < f.params {
+                kind = "param";
+            } else if l.mutable {
+                kind = "var";
+            }
+            print("  " + kind + " " + int_to_string(l.id) + " " + l.name + " " + type_to_string(l.ty));
+        }
+    }
 }
 
 // ---- driver

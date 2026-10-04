@@ -1,18 +1,640 @@
 // expect-library
 // The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
-// builtins.ts). `check_program` checks the items of a loaded program and returns its diagnostics, with global byte
-// offsets. tests/check_aster.test.ts checks it, through check.aster, against the compiler's own checker.
+// builtins.ts) and the parts of types/type.ts it needs. `check_program` checks the items of a loaded program and
+// returns its diagnostics, with global byte offsets, and the typed program's structs, enums and functions (with their
+// locals) for check.aster's summary. tests/check_aster.test.ts checks it, through check.aster, against the compiler's
+// own checker. The functions follow checker.ts's order, with the same names in snake_case.
 //
-// For now this is a stub that accepts every program; the checker is ported feature by feature.
+// Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
+// returns the index of the entry, if any.
+//
+// Ported so far: types, declarations and function signatures. Function bodies are not checked yet (only their
+// parameters are declared), and generic enums are registered by name but never instantiated: a use of one resolves
+// to the error type.
 
 import "loader.aster";
 
-// The checker's result: its diagnostics, unsorted.
+// ---- types (types/type.ts)
+
+// An Aster type. `Error` marks a type that could not be determined; rules involving it are suppressed. An
+// instantiation of a generic enum is an `Enum` named by its full type string (`Option[int]`).
+enum Type {
+    Int,
+    Bool,
+    Str,
+    Void,
+    Struct(string),
+    Enum(string),
+    Array(Type),
+    Error,
+}
+
+// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `struct`, `enum`, `array` or `error`.
+fn kind_of_type(t: Type): string {
+    return match t {
+        Type::Int => "int",
+        Type::Bool => "bool",
+        Type::Str => "string",
+        Type::Void => "void",
+        Type::Struct(_) => "struct",
+        Type::Enum(_) => "enum",
+        Type::Array(_) => "array",
+        Type::Error => "error",
+    };
+}
+
+fn type_equals(a: Type, b: Type): bool {
+    match a {
+        Type::Struct(x) => {
+            match b {
+                Type::Struct(y) => {
+                    return x == y;
+                }
+                _ => {}
+            }
+        }
+        Type::Enum(x) => {
+            match b {
+                Type::Enum(y) => {
+                    return x == y;
+                }
+                _ => {}
+            }
+        }
+        Type::Array(x) => {
+            match b {
+                Type::Array(y) => {
+                    return type_equals(x, y);
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+    return kind_of_type(a) == kind_of_type(b);
+}
+
+// How a type is written in Aster source and named in diagnostics.
+fn type_to_string(t: Type): string {
+    return match t {
+        Type::Struct(name) => name,
+        Type::Enum(name) => name,
+        Type::Array(elem) => "[" + type_to_string(elem) + "]",
+        _ => kind_of_type(t),
+    };
+}
+
+// ---- builtins (check/builtins.ts)
+
+// A function's parameter and return types, under its name.
+struct Signature {
+    name: string,
+    params: [Type],
+    ret: Type,
+}
+
+// Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string or array), `push`/`pop`
+// (any array).
+fn special_builtins(): [string] {
+    return ["print", "eprint", "len", "push", "pop"];
+}
+
+fn prelude_source(): string {
+    return "enum Option[T] { Some(T), None }\nenum Result[T, E] { Ok(T), Err(E) }\n";
+}
+
+fn builtin_signatures(): [Signature] {
+    return [
+        Signature { name: "byte_at", params: [Type::Str, Type::Int], ret: Type::Int },
+        Signature { name: "substring", params: [Type::Str, Type::Int, Type::Int], ret: Type::Str },
+        Signature { name: "int_to_string", params: [Type::Int], ret: Type::Str },
+        Signature { name: "panic", params: [Type::Str], ret: Type::Void },
+        Signature { name: "exit", params: [Type::Int], ret: Type::Void },
+        Signature { name: "read_stdin", params: [], ret: Type::Str },
+        // The checker types read_file's call as Result[string, string].
+        Signature { name: "read_file", params: [Type::Str], ret: Type::Void },
+    ];
+}
+
+fn find_signature(sigs: [Signature], name: string): Option[int] {
+    for i in 0..len(sigs) {
+        if sigs[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn is_signature_builtin(name: string): bool {
+    return match find_signature(builtin_signatures(), name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn is_builtin(name: string): bool {
+    return contains(special_builtins(), name) || is_signature_builtin(name);
+}
+
+// ---- the typed program (check/types.ts)
+
+// A parameter or local variable. `id` is unique within its function; params come first.
+struct Local {
+    id: int,
+    name: string,
+    ty: Type,
+    mutable: bool,
+}
+
+struct TField {
+    name: string,
+    ty: Type,
+}
+
+// Fields in declaration order.
+struct TStruct {
+    name: string,
+    fields: [TField],
+}
+
+// A variant's tag is its index in its enum.
+struct TVariant {
+    name: string,
+    payload: [Type],
+}
+
+// Variants in declaration order.
+struct TEnum {
+    name: string,
+    variants: [TVariant],
+}
+
+// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id.
+struct TFunction {
+    name: string,
+    params: int,
+    locals: [Local],
+    ret: Type,
+}
+
+// A generic enum, kept as written until an instantiation names it (check/generics.ts).
+struct Template {
+    decl: EnumDecl,
+    params: [string],
+    broken: bool,
+    has_errors: bool,
+}
+
+// ---- checker state
+
+// State shared by the whole program check. `structs` holds every accepted struct; `enums` every accepted non-generic
+// enum and then every instantiation, in order of first use (all non-generic enums are registered before any type is
+// resolved, so the two never interleave); `templates` every generic enum, the prelude's first. Struct, enum and
+// template names share the type namespace.
+struct Env {
+    diags: [Diag],
+    structs: [TStruct],
+    enums: [TEnum],
+    templates: [Template],
+}
+
+// Per-function checking state. `scopes` is a stack of scopes, each holding its locals in declaration order.
+struct Ctx {
+    env: Env,
+    signatures: [Signature],
+    ret: Type,
+    locals: [Local],
+    scopes: [[Local]],
+}
+
+// The checker's result: its diagnostics, unsorted, and the typed program.
 struct Checked {
     diags: [Diag],
+    structs: [TStruct],
+    enums: [TEnum],
+    functions: [TFunction],
+}
+
+fn primitive_type(name: string): Option[Type] {
+    if name == "int" {
+        return Option::Some(Type::Int);
+    }
+    if name == "bool" {
+        return Option::Some(Type::Bool);
+    }
+    if name == "string" {
+        return Option::Some(Type::Str);
+    }
+    if name == "void" {
+        return Option::Some(Type::Void);
+    }
+    return Option::None;
+}
+
+fn is_primitive(name: string): bool {
+    return match primitive_type(name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn report(env: Env, message: string, start: int, end: int) {
+    push(env.diags, Diag { start: start, end: end, message: message });
+}
+
+fn builtin_type_message(name: string): string {
+    return "'" + name + "' is a builtin type and cannot be redefined";
+}
+
+// Names of predeclared types, which no declaration may reuse.
+fn is_builtin_type(name: string): bool {
+    return name == "Option" || name == "Result";
+}
+
+fn find_struct(env: Env, name: string): Option[int] {
+    for i in 0..len(env.structs) {
+        if env.structs[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_enum(env: Env, name: string): Option[int] {
+    for i in 0..len(env.enums) {
+        if env.enums[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_template(env: Env, name: string): Option[int] {
+    for i in 0..len(env.templates) {
+        if env.templates[i].decl.name.name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn is_found(i: Option[int]): bool {
+    return match i {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+// "struct" / "enum" when `name` is already taken in the type namespace, else "". Templates count as enums.
+fn type_kind_of(env: Env, name: string): string {
+    if is_found(find_struct(env, name)) {
+        return "struct";
+    }
+    if is_found(find_enum(env, name)) || is_found(find_template(env, name)) {
+        return "enum";
+    }
+    return "";
+}
+
+fn is_error(t: Type): bool {
+    return match t {
+        Type::Error => true,
+        _ => false,
+    };
+}
+
+fn is_void(t: Type): bool {
+    return match t {
+        Type::Void => true,
+        _ => false,
+    };
+}
+
+// Resolves a written type. A generic enum's arguments are checked, but it is not instantiated yet: it resolves to
+// the error type.
+fn resolve_type(env: Env, ref: TypeExpr): Type {
+    match ref.node {
+        TypeNode::Array(elem_ref) => {
+            let elem: Type = resolve_type(env, elem_ref);
+            if is_void(elem) {
+                report(env, "array element type cannot be void", elem_ref.start, elem_ref.end);
+                return Type::Error;
+            }
+            if is_error(elem) {
+                return Type::Error;
+            }
+            return Type::Array(elem);
+        }
+        TypeNode::Named(name, args) => {
+            match find_template(env, name) {
+                Option::Some(ti) => {
+                    let expected: int = len(env.templates[ti].params);
+                    if len(args) != expected {
+                        let noun: string = if expected == 1 { "argument" } else { "arguments" };
+                        report(env, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+                        return Type::Error;
+                    }
+                    for arg in args {
+                        let t: Type = resolve_type(env, arg);
+                        if is_void(t) {
+                            report(env, "type argument cannot be void", arg.start, arg.end);
+                        }
+                    }
+                    return Type::Error;
+                }
+                Option::None => {}
+            }
+            var found: Option[Type] = primitive_type(name);
+            if is_found(find_struct(env, name)) {
+                found = Option::Some(Type::Struct(name));
+            }
+            if is_found(find_enum(env, name)) {
+                found = Option::Some(Type::Enum(name));
+            }
+            match found {
+                Option::Some(t) => {
+                    if len(args) > 0 {
+                        report(env, "'" + name + "' is not generic", ref.start, ref.end);
+                        return Type::Error;
+                    }
+                    return t;
+                }
+                Option::None => {
+                    report(env, "unknown type '" + name + "'", ref.start, ref.end);
+                    return Type::Error;
+                }
+            }
+        }
+    }
+}
+
+fn find_tfield(fields: [TField], name: string): Option[int] {
+    for i in 0..len(fields) {
+        if fields[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_tvariant(variants: [TVariant], name: string): Option[int] {
+    for i in 0..len(variants) {
+        if variants[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+// 'a struct' / 'an enum', for diagnostics.
+fn article(kind: string): string {
+    if kind == "struct" {
+        return "a struct";
+    }
+    return "an enum";
+}
+
+// Registers every struct and enum name before resolving any field or payload type, so types can refer to each other
+// in any order. Structs and enums share the type namespace; of two colliding declarations, the later one is reported.
+// The items are in load order and spans are global, so they are already sorted by start, as collectTypes sorts them.
+// A generic enum becomes a template.
+fn collect_types(env: Env, items: [Item]) {
+    // The accepted structs and non-generic enums, parallel to env.structs and env.enums.
+    let struct_decls: [StructDecl] = [];
+    let enum_decls: [EnumDecl] = [];
+    for item in items {
+        var name: Ident = Ident { name: "", start: 0, end: 0 };
+        var kind: string = "";
+        match item {
+            Item::Struct(d) => {
+                name = d.name;
+                kind = "struct";
+            }
+            Item::Enum(d) => {
+                name = d.name;
+                kind = "enum";
+            }
+            _ => {}
+        }
+        if kind == "" {
+            continue;
+        }
+        let previous: string = type_kind_of(env, name.name);
+        if is_primitive(name.name) {
+            report(env, "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
+        } else if is_builtin_type(name.name) {
+            report(env, builtin_type_message(name.name), name.start, name.end);
+        } else if is_builtin(name.name) {
+            report(env, "'" + name.name + "' is a builtin function and cannot be redefined", name.start, name.end);
+        } else if previous == kind {
+            report(env, "duplicate " + kind + " '" + name.name + "'", name.start, name.end);
+        } else if previous != "" {
+            report(env, "'" + name.name + "' is already declared as " + article(previous), name.start, name.end);
+        } else {
+            match item {
+                Item::Struct(d) => {
+                    push(env.structs, TStruct { name: d.name.name, fields: [] });
+                    push(struct_decls, d);
+                }
+                Item::Enum(d) => {
+                    if len(d.params) > 0 {
+                        let params: [string] = [];
+                        for p in d.params {
+                            push(params, p.name);
+                        }
+                        push(env.templates, Template { decl: d, params: params, broken: false, has_errors: false });
+                    } else {
+                        push(env.enums, TEnum { name: d.name.name, variants: [] });
+                        push(enum_decls, d);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    for i in 0..len(struct_decls) {
+        let st: TStruct = env.structs[i];
+        for field in struct_decls[i].fields {
+            if is_found(find_tfield(st.fields, field.name.name)) {
+                report(env, "duplicate field '" + field.name.name + "'", field.name.start, field.name.end);
+                continue;
+            }
+            var t: Type = resolve_type(env, field.ty);
+            if is_void(t) {
+                report(env, "field cannot have type void", field.ty.start, field.ty.end);
+                t = Type::Error;
+            }
+            push(st.fields, TField { name: field.name.name, ty: t });
+        }
+    }
+    for i in 0..len(enum_decls) {
+        let en: TEnum = env.enums[i];
+        let decl: EnumDecl = enum_decls[i];
+        for variant in decl.variants {
+            if is_found(find_tvariant(en.variants, variant.name.name)) {
+                report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
+                continue;
+            }
+            let payload: [Type] = [];
+            for ref in variant.payload {
+                let t: Type = resolve_type(env, ref);
+                if is_void(t) {
+                    report(env, "payload cannot have type void", ref.start, ref.end);
+                    push(payload, Type::Error);
+                } else {
+                    push(payload, t);
+                }
+            }
+            push(en.variants, TVariant { name: variant.name.name, payload: payload });
+        }
+    }
+}
+
+// `fn main(): int`, or `fn main(args: [string]): int` with any parameter name.
+fn is_main_signature(sig: Signature): bool {
+    if kind_of_type(sig.ret) != "int" {
+        return false;
+    }
+    if len(sig.params) == 0 {
+        return true;
+    }
+    if len(sig.params) != 1 {
+        return false;
+    }
+    return match sig.params[0] {
+        Type::Array(elem) => kind_of_type(elem) == "string",
+        _ => false,
+    };
+}
+
+// Option and Result, parsed from the prelude, to be registered as templates before any user declaration.
+fn prelude_templates(): [Template] {
+    let p: Parser = new_parser(lex(prelude_source()));
+    let templates: [Template] = [];
+    for item in parse_program(p) {
+        match item {
+            Item::Enum(d) => {
+                let params: [string] = [];
+                for tp in d.params {
+                    push(params, tp.name);
+                }
+                push(templates, Template { decl: d, params: params, broken: false, has_errors: false });
+            }
+            _ => {}
+        }
+    }
+    return templates;
+}
+
+// Collects a function's signature, unless its name is taken; returns whether it was accepted. `main` declared at or
+// past `root_end` comes from an imported file and is ignored as if not declared, so the root's own main (or its
+// absence) is judged alone.
+fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): bool {
+    let name: string = decl.name.name;
+    if name == "main" && decl.name.start >= root_end {
+        report(env, "'main' must be declared in the root file", decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_builtin_type(name) {
+        report(env, builtin_type_message(name), decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_builtin(name) {
+        report(env, "'" + name + "' is a builtin function and cannot be redefined", decl.name.start, decl.name.end);
+        return false;
+    }
+    let type_kind: string = type_kind_of(env, name);
+    if type_kind != "" {
+        report(env, "'" + name + "' is already declared as " + article(type_kind), decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_found(find_signature(sigs, name)) {
+        report(env, "duplicate function '" + name + "'", decl.name.start, decl.name.end);
+        return false;
+    }
+    let params: [Type] = [];
+    for p in decl.params {
+        let t: Type = resolve_type(env, p.ty);
+        if is_void(t) {
+            report(env, "parameter cannot have type void", p.ty.start, p.ty.end);
+            push(params, Type::Error);
+        } else {
+            push(params, t);
+        }
+    }
+    let ret: Type = match decl.ret {
+        Option::Some(r) => resolve_type(env, r),
+        Option::None => Type::Void,
+    };
+    push(sigs, Signature { name: name, params: params, ret: ret });
+    return true;
 }
 
 // Checks a whole program. `root_end` is the end of the root file: declarations at or past it come from imports.
 fn check_program(items: [Item], root_end: int): Checked {
-    return Checked { diags: [] };
+    let env: Env = Env { diags: [], structs: [], enums: [], templates: prelude_templates() };
+    collect_types(env, items);
+
+    // Pass 1: collect signatures so functions can be called before their declaration. `declared` is parallel to
+    // `sigs`.
+    let sigs: [Signature] = [];
+    let declared: [FnDecl] = [];
+    for item in items {
+        match item {
+            Item::Fn(decl) => {
+                if collect_signature(env, sigs, decl, root_end) {
+                    push(declared, decl);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    match find_signature(sigs, "main") {
+        Option::Some(i) => {
+            if !is_main_signature(sigs[i]) {
+                let name: Ident = declared[i].name;
+                report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
+            }
+        }
+        Option::None => report(env, "missing 'fn main(): int'", 0, 0),
+    }
+
+    // Pass 2: check bodies.
+    let functions: [TFunction] = [];
+    for i in 0..len(declared) {
+        push(functions, check_function(env, sigs, declared[i], sigs[i]));
+    }
+    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions };
+}
+
+fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TFunction {
+    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [[]] };
+    for i in 0..len(decl.params) {
+        let p: Typed = decl.params[i];
+        declare(ctx, p.name, sig.params[i], false);
+    }
+    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
+}
+
+fn find_local(scope: [Local], name: string): Option[int] {
+    var i: int = len(scope) - 1;
+    while i >= 0 {
+        if scope[i].name == name {
+            return Option::Some(i);
+        }
+        i -= 1;
+    }
+    return Option::None;
+}
+
+fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
+    let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
+    if is_found(find_local(scope, name.name)) {
+        report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
+    }
+    let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
+    push(ctx.locals, local);
+    push(scope, local);
+    return local;
 }
