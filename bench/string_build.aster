@@ -1,0 +1,21 @@
+// Build short decimal records with immutable string concatenation, then hash
+// their bytes repeatedly. Batches bound retained concatenation intermediates.
+// expect-stdout: 584164027
+// expect-exit: 0
+fn main(): int {
+    var checksum: int = 0;
+    for batch in 0..2048 {
+        var text: string = "";
+        for i in 0..128 {
+            text += int_to_string((batch * 131 + i * 17) % 1000);
+            text += ":";
+        }
+        for pass in 0..16 {
+            for i in 0..len(text) {
+                checksum = (checksum * 33 + byte_at(text, i)) % 1000000007;
+            }
+        }
+    }
+    print(checksum);
+    return 0;
+}

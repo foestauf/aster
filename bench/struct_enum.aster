@@ -1,0 +1,56 @@
+// Replace records in a bounded ring and dispatch payload enums that mutate them.
+// Old heap objects are retained by the runtime; the iteration count bounds this.
+// expect-stdout: 667174078821
+// expect-exit: 0
+struct Record { id: int, score: int, active: bool }
+enum Update { Add(Record, int), Scale(Record, int), Toggle(Record) }
+
+fn apply(update: Update): int {
+    match update {
+        Update::Add(record, amount) => {
+            record.score = (record.score + amount) % 1000003;
+            return record.score + record.id;
+        }
+        Update::Scale(record, factor) => {
+            record.score = record.score * factor % 1000003;
+            return record.score - record.id;
+        }
+        Update::Toggle(record) => {
+            record.active = !record.active;
+            return if record.active { record.score } else { -record.score };
+        }
+    }
+}
+
+fn main(): int {
+    let records: [Record] = [];
+    for i in 0..4096 {
+        push(records, Record { id: i, score: i * 7, active: true });
+    }
+    var state: int = 1;
+    var checksum: int = 0;
+    for i in 0..2000000 {
+        state = state * 48271 % 2147483647;
+        let slot: int = i % 4096;
+        let prior: Record = records[slot];
+        let next: Record = Record {
+            id: i,
+            score: (prior.score + state) % 1000003,
+            active: prior.active,
+        };
+        let update: Update = if state % 3 == 0 {
+            Update::Add(next, state % 97)
+        } else if state % 3 == 1 {
+            Update::Scale(next, state % 7 + 1)
+        } else {
+            Update::Toggle(next)
+        };
+        checksum += apply(update);
+        records[slot] = next;
+    }
+    for record in records {
+        checksum += record.score;
+    }
+    print(checksum);
+    return 0;
+}

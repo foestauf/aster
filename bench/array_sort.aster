@@ -1,0 +1,60 @@
+// Heap-sort three different deterministic arrays, reusing the same storage.
+// A weighted checksum and a sortedness check consume every output element.
+// expect-stdout: 68652146336000035
+// expect-exit: 0
+fn sift_down(values: [int], start: int, end: int) {
+    var root: int = start;
+    while root * 2 + 1 < end {
+        var child: int = root * 2 + 1;
+        if child + 1 < end && values[child] < values[child + 1] {
+            child += 1;
+        }
+        if values[root] >= values[child] {
+            return;
+        }
+        let tmp: int = values[root];
+        values[root] = values[child];
+        values[child] = tmp;
+        root = child;
+    }
+}
+
+fn heap_sort(values: [int]) {
+    var start: int = len(values) / 2;
+    while start > 0 {
+        start -= 1;
+        sift_down(values, start, len(values));
+    }
+    var end: int = len(values);
+    while end > 1 {
+        end -= 1;
+        let tmp: int = values[0];
+        values[0] = values[end];
+        values[end] = tmp;
+        sift_down(values, 0, end);
+    }
+}
+
+fn main(): int {
+    let values: [int] = [];
+    for i in 0..262144 {
+        push(values, 0);
+    }
+    var state: int = 1;
+    var checksum: int = 0;
+    for round in 0..3 {
+        for i in 0..len(values) {
+            state = state * 48271 % 2147483647;
+            values[i] = state % 1000003;
+        }
+        heap_sort(values);
+        for i in 0..len(values) {
+            if i > 0 && values[i - 1] > values[i] {
+                panic("sort produced an inversion");
+            }
+            checksum += values[i] * (i + 1);
+        }
+    }
+    print(checksum);
+    return 0;
+}

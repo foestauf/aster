@@ -1,0 +1,13 @@
+// A serial Park-Miller recurrence plus a checksum: every iteration feeds the next.
+// expect-stdout: 592666852
+// expect-exit: 0
+fn main(): int {
+    var state: int = 1;
+    var checksum: int = 0;
+    for i in 0..40000000 {
+        state = state * 48271 % 2147483647;
+        checksum = (checksum + state + i % 97) % 1000000007;
+    }
+    print(checksum);
+    return 0;
+}

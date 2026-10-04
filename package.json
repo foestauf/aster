@@ -21,7 +21,8 @@
     "aster:seed": "node packages/asterc/dist/cli/bin.js",
     "gen:runtime": "node scripts/gen-runtime.ts",
     "selfhost": "node scripts/selfhost.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "bench": "node scripts/bench.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
