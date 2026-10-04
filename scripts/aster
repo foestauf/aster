@@ -1,6 +1,6 @@
 #!/bin/sh
 # `pnpm aster`: runs the installed self-hosted compiler, build/asterc (issue #21). It never falls back to the
-# TypeScript seed: `pnpm bootstrap` installs the compiler, and `pnpm aster:seed` runs the seed explicitly.
+# TypeScript seed: `pnpm bootstrap` installs the compiler from a release, and `pnpm aster:seed` runs the seed explicitly.
 bin="$(dirname "$0")/../build/asterc"
 if [ ! -x "$bin" ]; then
   echo 'aster: no compiler at build/asterc; run `pnpm bootstrap` first' >&2
