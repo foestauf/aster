@@ -195,9 +195,9 @@ export function main(argv: string[]): number {
     const cs: string[] = [];
     step('stage C', () => {
       const s1 = run('node', [S0, 'build', COMPILER, '-o', bin(1)]);
-      if (s1.status !== 0) fail(`S0 failed to build S1 (status ${s1.status}):\n${s1.stderr}`);
+      if (s1.status !== 0 || s1.stderr !== '') fail(`S0 failed to build S1 (status ${s1.status}):\n${s1.stderr}`);
       const c0 = run('node', [S0, 'build', COMPILER, '--emit=c']);
-      if (c0.status !== 0) fail(`S0 --emit=c failed (status ${c0.status}):\n${c0.stderr}`);
+      if (c0.status !== 0 || c0.stderr !== '') fail(`S0 --emit=c failed (status ${c0.status}):\n${c0.stderr}`);
       cs.push(c0.stdout);
       for (let n = 1; n <= 4; n++) {
         const c = run(bin(n), ['build', COMPILER, '--emit=c']);
