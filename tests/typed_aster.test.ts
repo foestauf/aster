@@ -22,6 +22,8 @@ function typedOf(path: string): TypedProgram | null {
 
 const candidates = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/](check|typed)_\w+\.txt$/.test(f))
+  // The libraries have no main, so TS rejects them and none reach `accepted`; the programs/check.aster and
+  // programs/typed.aster drivers cover them through their closures.
   .concat(readdirSync(SELF_DIR).filter((f) => f.endsWith('.aster')).map((f) => join('..', '..', 'packages', 'asterc-self', f)))
   .toSorted();
 
@@ -48,6 +50,8 @@ describe('typed.aster matches the TypeScript typed program', () => {
   it('has a corpus that includes the drivers and the typed fixtures', () => {
     expect(corpus).toContain(join('programs', 'check.aster'));
     expect(corpus).toContain(join('programs', 'typed.aster'));
+    // Guards against a TS change silently shrinking the accepted corpus (134 files today).
+    expect(corpus.length).toBeGreaterThanOrEqual(130);
     for (const name of readdirSync(join(PROGRAMS_DIR, 'programs', 'fixtures')).filter((n) => /^typed_\w+\.txt$/.test(n))) {
       expect(corpus).toContain(join('programs', 'fixtures', name));
     }

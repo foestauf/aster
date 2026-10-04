@@ -5,10 +5,12 @@ Pain points found while writing Aster's own compiler in Aster. Each entry says w
 Entries 10 to 16 come from check.aster. Entry 10 scoped v0.7, and the rest feed what comes after.
 
 Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5, 1,524 before the v0.6 split, 1,292 after it)
-and has byte-for-byte parity with the TypeScript parser. For check.aster the parser moved into `parser.aster` (995 lines),
-leaving `parse.aster` at 322 (the tree printer and `main`). The type checker is `checker.aster` (2,558 lines), with
-`loader.aster` (220) and `check.aster` (155). With `lexer.aster` (244) that is 4,172 lines, and check.aster matches the
-TypeScript front end byte for byte on 205 corpus files.
+and has byte-for-byte parity with the TypeScript parser. For check.aster the parser moved into `parser.aster` (1,051 lines now),
+leaving `parse.aster` at 343 (the tree printer and `main`). The type checker is `checker.aster` (2,714 lines), with
+`loader.aster` (216), `report.aster` (53) and `check.aster` (109). With `lexer.aster` (244) that is 4,387 lines (4,764 with
+`typed_dump.aster` (299) and `typed.aster` (78) from #16), and check.aster matches the TypeScript front end byte for byte
+on 229 corpus files (every `.aster` file under `tests/programs/` and in `packages/asterc-self/`, plus the `check_*.txt`
+fixtures).
 
 ## Entries
 
@@ -139,7 +141,7 @@ type count and adds a `.node` to every match.
 ## Found while building the typed program
 
 `checker.aster` now builds the whole typed program, mirroring `check/types.ts` (127 lines of TypeScript), and
-`typed_dump.aster` (299 lines, 11 `dump_` functions) prints it. `checker.aster` grew from 2,492 lines to 2,713 (+221), and
+`typed_dump.aster` (299 lines, 11 `dump_` functions) prints it. `checker.aster` grew from 2,492 lines to 2,714 (+222), and
 `typed.aster` matches `tests/typed_dump.ts`'s dump on every program the TypeScript front end accepts, including the
 compiler's own closure. No compiler bug turned up and no file needed a rename.
 
@@ -157,7 +159,7 @@ compiler's own closure. No compiler bug turned up and no file needed a rename.
   would make it a one-liner, and the dump's `\xHH` output also builds its digits with `substring` on a 16-character
   string.
 - **No tag on a variant.** `TVariant` has no tag field, so `check_try` writes the `Option` and `Result` tags as the
-  literals 0 and 1 (4 sites, `ok_tag` and `fail_tag` in two places) and `TVariantRef.tag` is the variant's index. It
+  literals 0 and 1 (6 sites: `ok_tag`, `fail_tag` and `return_fail_tag` in two places) and `TVariantRef.tag` is the variant's index. It
   relies on index == tag, which `missing_values` already assumed.
 - **A `match` arm can't be a block with a trailing value.** A first draft of `typed_pattern` used one and failed with
   `expected ';'`. It became early returns.
@@ -165,7 +167,7 @@ compiler's own closure. No compiler bug turned up and no file needed a rename.
   lookups with `panic` instead.
 - **The flat namespace held.** New names: `CheckedStmt`, `CheckedBlock`, `ForBody`, `check_else`, `error_expr`,
   `has_field_init`, `string_literal_value`, `typed_pattern`, `refutable_arms`, plus `dump_`-prefixed dumper functions
-  (11). The prefix is what keeps the dumper's names clear of the other 227+ in the closure. Nothing collided.
+  (11). The prefix is what keeps the dumper's names clear of the other 248 in the closure. Nothing collided.
 - **No runner for one TypeScript dump.** Diffing a failing file against TS meant a throwaway vitest file that printed
   `dumpTyped`, because the repo has no `tsx` script. A `pnpm dump-typed <file>` would have saved that on every
   mismatch.
@@ -176,7 +178,7 @@ compiler's own closure. No compiler bug turned up and no file needed a rename.
 ## Found while building check.aster
 
 `checker.aster` ports `check/checker.ts`, `check/generics.ts`, `check/builtins.ts` and `types/type.ts` (1,493 lines of
-TypeScript) in 2,558 lines, about 1.7 times as long, though it builds no typed tree. Entries 10 and 11 cost the most.
+TypeScript) in 2,558 lines at the time, about 1.7 times as long, though until #16 it built no typed tree. Entries 10 and 11 cost the most.
 
 ### 10. Unwrapping an `Option` outside `?` takes a match, a sentinel or a wrapper (costly)
 
