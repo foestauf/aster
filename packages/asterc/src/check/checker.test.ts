@@ -16,6 +16,8 @@ function checkText(text: string) {
   return { source, ...check(parsed.program) };
 }
 
+const msgs = (text: string) => checkText(text).diagnostics.map((d) => d.message);
+
 /** Two files laid out as the loader would: the root at base 0, the import right after it. */
 function checkFiles(rootText: string, libText: string) {
   const root = makeSource('main.aster', rootText);
@@ -683,5 +685,58 @@ describe('generic enums', () => {
 
   it('does not let ? end a control path', () => {
     expect(messages(`fn f(o: Option[int]): Option[int] { o?; }\n${MAIN}`)).toEqual(["function 'f' is missing a return on some paths"]);
+  });
+
+  describe('never', () => {
+    it('lets panic and exit fit any expected type', () => {
+      expect(
+        msgs(`${MAIN}fn f(c: bool): int { let x: int = if c { 1 } else { panic("no") }; return x; }\nfn g(): string { return exit(1); }`),
+      ).toEqual([]);
+    });
+
+    it('accepts user never functions that diverge', () => {
+      expect(
+        msgs(
+          `${MAIN}fn die(m: string): never { eprint(m); exit(1); }\nfn f(): int { die("x"); }\nfn g(o: Option[int]): int { return match o { Option::Some(v) => v, Option::None => die("none") }; }`,
+        ),
+      ).toEqual([]);
+    });
+
+    it('rejects never functions that can reach their end or return', () => {
+      expect(msgs(`${MAIN}fn a(): never { }\nfn b(): never { return; }\nfn c(): never { return 1; }`)).toEqual([
+        "function 'a' returns 'never' but can reach its end",
+        "cannot return from a function that returns 'never'",
+        "cannot return from a function that returns 'never'",
+      ]);
+    });
+
+    it('allows never only as a return type', () => {
+      expect(
+        msgs(`${MAIN}struct S { f: never }\nenum E { V(never) }\nfn f(p: never) { let x: [never] = []; let o: Option[never] = Option::None; }`),
+      ).toEqual([
+        "'never' is only allowed as a return type",
+        "'never' is only allowed as a return type",
+        "'never' is only allowed as a return type",
+        "'never' is only allowed as a return type",
+        "'never' is only allowed as a return type",
+      ]);
+    });
+
+    it('rejects redefining never and a never main', () => {
+      expect(msgs(`${MAIN}struct never { }`)).toEqual(["'never' is a built-in type and cannot be redefined"]);
+      expect(msgs('fn main(): never { exit(0); }')).toEqual([
+        "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'",
+      ]);
+    });
+
+    it('treats never as a wrong type where nothing is expected', () => {
+      const m = msgs(`${MAIN}fn f() { let x: int = panic("a") + 1; print(panic("b")); }`);
+      expect(m.length).toBe(2); // the existing operator and print messages, naming 'never'
+      expect(m.every((s) => s.includes('never'))).toBe(true);
+    });
+
+    it('unifies if and match arms around never', () => {
+      expect(msgs(`${MAIN}fn f(c: bool): never { let x: int = if c { panic("a") } else { panic("b") }; }`)).toEqual([]);
+    });
   });
 });

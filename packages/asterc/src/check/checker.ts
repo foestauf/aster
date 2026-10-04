@@ -6,7 +6,7 @@ import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import { makeSource, type Span } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
-import { BOOL, ERROR, INT, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
+import { BOOL, ERROR, INT, NEVER, STRING, VOID, instanceName, typeEquals, typeToString, type Type } from '../types/type.js';
 import {
   BUILTIN_SIGNATURES, OPTION, PRELUDE_SOURCE, RESULT, isBuiltin, isSignatureBuiltin, type Signature,
   type SignatureBuiltin,
@@ -52,6 +52,7 @@ const PRIMITIVES: ReadonlyMap<string, Type> = new Map<string, Type>([
   ['bool', BOOL],
   ['string', STRING],
   ['void', VOID],
+  ['never', NEVER],
 ]);
 
 const report = (env: Env, message: string, span: Span): void => {
@@ -77,7 +78,7 @@ const errorExpr = (): TExpr => ({ kind: 'int', type: ERROR, value: 0n });
  * off, a valid instantiation resolves to the error type instead of being created, so validating a template's
  * payloads registers nothing.
  */
-function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Type>, quiet = false, instantiates = true): Type {
+function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Type>, quiet = false, instantiates = true, allowNever = false): Type {
   const say = (message: string, span: Span): void => {
     if (!quiet) report(env, message, span);
   };
@@ -112,6 +113,10 @@ function resolveType(env: Env, ref: TypeExpr, bindings?: ReadonlyMap<string, Typ
     return instantiate(env, template, args);
   }
   let type: Type | null = PRIMITIVES.get(ref.name) ?? null;
+  if (type !== null && type.kind === 'never' && !allowNever) {
+    say("'never' is only allowed as a return type", ref.span);
+    return ERROR;
+  }
   if (env.structs.has(ref.name)) type = { kind: 'struct', name: ref.name };
   if (env.enums.has(ref.name)) type = { kind: 'enum', name: ref.name };
   if (type === null) {
@@ -336,7 +341,7 @@ export function check(program: Program, options: CheckOptions = {}): CheckResult
       report(env, 'parameter cannot have type void', p.type.span);
       return ERROR;
     });
-    const sig: Signature = { params, returnType: decl.returnType ? resolveType(env, decl.returnType) : VOID };
+    const sig: Signature = { params, returnType: decl.returnType ? resolveType(env, decl.returnType, undefined, false, true, true) : VOID };
     signatures.set(decl.name, sig);
     declared.push({ decl, sig });
   }
@@ -366,7 +371,9 @@ function checkFunction(env: Env, signatures: Map<string, Signature>, decl: FnDec
   };
   const params = decl.params.map((p, i) => declare(ctx, p.name, p.nameSpan, sig.params[i], false));
   const body = checkBlock(ctx, decl.body);
-  if (!body.diverges && sig.returnType.kind !== 'void' && !isError(sig.returnType)) {
+  if (sig.returnType.kind === 'never') {
+    if (!body.diverges) report(ctx, `function '${decl.name}' returns 'never' but can reach its end`, decl.nameSpan);
+  } else if (!body.diverges && sig.returnType.kind !== 'void' && !isError(sig.returnType)) {
     report(ctx, `function '${decl.name}' is missing a return on some paths`, decl.nameSpan);
   }
   return { name: decl.name, params, locals: ctx.locals, returnType: sig.returnType, body: body.node };
@@ -392,7 +399,7 @@ function lookup(ctx: Ctx, name: string): Local | undefined {
 const isFunctionName = (ctx: Ctx, name: string): boolean => ctx.signatures.has(name) || isBuiltin(name);
 
 function expectType(ctx: Ctx, expected: Type, actual: TExpr, span: Span): void {
-  if (isError(expected) || isError(actual.type) || typeEquals(expected, actual.type)) return;
+  if (isError(expected) || isError(actual.type) || actual.type.kind === 'never' || typeEquals(expected, actual.type)) return;
   report(ctx, `type mismatch: expected ${typeToString(expected)}, found ${typeToString(actual.type)}`, span);
 }
 
@@ -430,7 +437,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       const init = checkExpr(ctx, stmt.init, type);
       expectType(ctx, type, init, stmt.init.span);
       const local = declare(ctx, stmt.name, stmt.nameSpan, type, stmt.mutable);
-      return { node: { kind: 'let', local, init }, diverges: false };
+      return { node: { kind: 'let', local, init }, diverges: init.type.kind === 'never' };
     }
     case 'assign': {
       const place = checkPlace(ctx, stmt.target);
@@ -477,6 +484,11 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
       return { node: stmt.kind === 'break' ? { kind: 'break' } : { kind: 'continue' }, diverges: true };
     }
     case 'return': {
+      if (ctx.returnType.kind === 'never') {
+        report(ctx, "cannot return from a function that returns 'never'", stmt.span);
+        const value = stmt.value === null ? null : checkExpr(ctx, stmt.value);
+        return { node: { kind: 'return', value }, diverges: true };
+      }
       if (stmt.value === null) {
         if (ctx.returnType.kind !== 'void' && !isError(ctx.returnType)) {
           report(ctx, `missing return value: expected ${typeToString(ctx.returnType)}`, stmt.span);
@@ -523,8 +535,7 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
     }
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
-      const diverges = expr.kind === 'builtin' && (expr.builtin === 'panic' || expr.builtin === 'exit');
-      return { node: { kind: 'expr', expr }, diverges };
+      return { node: { kind: 'expr', expr }, diverges: expr.type.kind === 'never' };
     }
   }
 }
@@ -613,15 +624,17 @@ function checkExpr(ctx: Ctx, expr: Expr, expected?: Type): TExpr {
       const then = checkExpr(ctx, expr.then, expected);
       const other = checkExpr(ctx, expr.else, expected);
       if (isError(then.type) || isError(other.type)) return errorExpr();
-      if (!typeEquals(then.type, other.type)) {
+      // A branch of type never doesn't take part in the "same type" rule.
+      const type = then.type.kind === 'never' ? other.type : then.type;
+      if (then.type.kind !== 'never' && other.type.kind !== 'never' && !typeEquals(then.type, other.type)) {
         report(ctx, `if branches have different types: ${typeToString(then.type)} and ${typeToString(other.type)}`, expr.span);
         return errorExpr();
       }
-      if (then.type.kind === 'void') {
+      if (type.kind === 'void') {
         report(ctx, 'if expression cannot have type void', expr.span);
         return errorExpr();
       }
-      return { kind: 'if', type: then.type, cond, then, else: other };
+      return { kind: 'if', type, cond, then, else: other };
     }
     case 'field': {
       const object = checkExpr(ctx, expr.object);
@@ -1069,8 +1082,10 @@ function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): 
   if (hasBlockArm) return errorExpr();
   if (bodies.some((b) => isError(b.type))) return errorExpr();
   // The parser guarantees at least one arm.
-  const type = bodies[0].type;
-  const other = bodies.find((b) => !typeEquals(b.type, type));
+  // Arms of type never don't take part in the "same type" rule; the expression is never only if every arm is.
+  const live = bodies.filter((b) => b.type.kind !== 'never');
+  const type = live.length > 0 ? live[0].type : NEVER;
+  const other = live.find((b) => !typeEquals(b.type, type));
   if (other !== undefined) {
     report(ctx, `match arms have different types: ${typeToString(type)} and ${typeToString(other.type)}`, expr.span);
     return errorExpr();

@@ -6,7 +6,7 @@ import type { Type } from '../types/type.js';
  */
 
 /** Every Aster type except the checker-only `error`. */
-export type IrType = Exclude<Type, { kind: 'error' }>;
+export type IrType = Exclude<Type, { kind: 'error' | 'never' }>;
 
 export interface IrLocal {
   id: number;

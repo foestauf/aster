@@ -22,7 +22,8 @@ function cType(t: Type): string {
     case 'void':
       return 'void';
     case 'error':
-      throw new Error('internal: error type reached codegen');
+    case 'never':
+      throw new Error(`internal: ${t.kind} type reached codegen`);
   }
 }
 

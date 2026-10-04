@@ -154,4 +154,26 @@ fn main(): int {
       else process.env.ASTER_CC = previous;
     }
   });
+
+  it('runs programs that use never', () => {
+    const text = [
+      'fn die(m: string): never { eprint(m); exit(3); }',
+      'fn pick(c: bool): int { return if c { 7 } else { die("nope") }; }',
+      'fn add(a: int, b: int): int { return a + b; }',
+      'fn main(): int {',
+      '    print(pick(true));',
+      '    let x: int = if false { panic("never") } else { 5 };',
+      '    print(add(x, 1));',
+      '    print(pick(false));',
+      '    return 0;',
+      '}',
+    ].join('\n');
+    expect(buildAndRun(text)).toEqual({ stdout: '7\n6\n', stderr: 'nope\n', status: 3 });
+  });
+
+  it('compiles a never value used as an argument and in &&', () => {
+    const text =
+      'fn f(a: int, b: int): int { return a; }\nfn g(c: bool): bool { return c && (if c { panic("x") } else { true }); }\nfn main(): int { if false { print(f(1, panic("y"))); print(g(true)); } return 0; }';
+    expect(buildAndRun(text).status).toBe(0);
+  });
 });

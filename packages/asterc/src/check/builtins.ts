@@ -1,4 +1,4 @@
-import { INT, STRING, VOID, type Type } from '../types/type.js';
+import { INT, NEVER, STRING, VOID, type Type } from '../types/type.js';
 import type { BuiltinName } from './types.js';
 
 export interface Signature {
@@ -22,8 +22,8 @@ export const BUILTIN_SIGNATURES: Record<SignatureBuiltin, Signature> = {
   byte_at: { params: [STRING, INT], returnType: INT },
   substring: { params: [STRING, INT, INT], returnType: STRING },
   int_to_string: { params: [INT], returnType: STRING },
-  panic: { params: [STRING], returnType: VOID },
-  exit: { params: [INT], returnType: VOID },
+  panic: { params: [STRING], returnType: NEVER },
+  exit: { params: [INT], returnType: NEVER },
   read_stdin: { params: [], returnType: STRING },
   // The checker types read_file's call as Result[string, string].
   read_file: { params: [STRING], returnType: VOID },

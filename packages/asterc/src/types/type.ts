@@ -9,6 +9,7 @@ export type Type =
   | { kind: 'bool' }
   | { kind: 'string' }
   | { kind: 'void' }
+  | { kind: 'never' }
   | { kind: 'struct'; name: string }
   | { kind: 'enum'; name: string; generic?: { base: string; args: Type[] } }
   | { kind: 'array'; elem: Type }
@@ -18,6 +19,7 @@ export const INT: Type = { kind: 'int' };
 export const BOOL: Type = { kind: 'bool' };
 export const STRING: Type = { kind: 'string' };
 export const VOID: Type = { kind: 'void' };
+export const NEVER: Type = { kind: 'never' };
 export const ERROR: Type = { kind: 'error' };
 
 /** The type string of an instantiation; it is injective, so names alone identify instantiations. */

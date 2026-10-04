@@ -562,4 +562,22 @@ describe('lower', () => {
       ),
     );
   });
+
+  describe('never', () => {
+    it('ends the block after a call to a never function', () => {
+      const ir = irOf(`${MAIN}fn die(m: string): never { exit(1); }\nfn f(): int { die("x"); }`, 'f');
+      expect(ir).toMatch(/call die\b.*\n\s*unreachable/);
+    });
+
+    it('lowers a never function as void', () => {
+      const fn = lowerText(`${MAIN}fn die(m: string): never { exit(1); }`).functions.find((f) => f.name === 'die');
+      expect(fn?.returnType).toEqual({ kind: 'void' });
+    });
+
+    it('drops blocks unreachable from the entry block', () => {
+      const ir = irOf(`${MAIN}fn f(c: bool): int { panic("x"); while c { print(1); } return 1; }`, 'f');
+      // Only the entry block remains; the loop blocks after the panic are gone.
+      expect(ir.match(/^\S+:/gm)?.length ?? 0).toBeLessThanOrEqual(1);
+    });
+  });
 });
