@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend, typeToString, type SourceFile } from '../packages/asterc/src/index.js';
+import { makeSource, runFrontend, typeToString, type SourceFile } from '../packages/asterc/src/index.js';
+import { buildDriver } from './stage.js';
 
 // Checks tests/programs/programs/check.aster, the Aster type checker written in Aster, against the compiler's own
 // front end (`runFrontend`). Both sides render the result in the format of
@@ -187,13 +188,13 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-check-'));
 const exe = join(workDir, 'check');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// A driver build is cc -O2 on the compiler's C, or a stage build of the driver: both can outlast vitest's 10 s default.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
   const path = join(PROGRAMS_DIR, 'programs', 'check.aster');
-  const compiled = compileToC(makeSource(path, readFileSync(path, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, exe, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-});
+  buildDriver(path, exe);
+}, CC_HOOK_TIMEOUT);
 
 describe('check.aster matches the TypeScript front end', () => {
   it('has a corpus that includes itself, its libraries and the checker fixtures', () => {

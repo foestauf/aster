@@ -18,6 +18,9 @@ function memoryHost(files: Record<string, string>): LoadHost {
   };
 }
 
+/** The physical path of a spelling in the symlink fixture: /p/entry/link points at /p/other/dir. */
+const physical = (path: string) => (path.startsWith('/p/entry/link/..') ? path.replace('/p/entry/link/..', '/p/other') : path);
+
 const MAIN = 'fn main(): int { return 0; }\n';
 
 function load(files: Record<string, string>, rootPath = '/r/main.aster') {
@@ -139,6 +142,24 @@ describe('loadProgram', () => {
     });
     const files = result.diagnostics.map((d) => formatShort(result.map, d).split(':')[0]);
     expect(files).toContain('a.aster');
+  });
+
+  it('keys the root by its physical path, so an import cycle back to it loads nothing twice (#12)', () => {
+    const alias = '/p/entry/link/../root.aster';
+    const files: Record<string, string> = {
+      '/p/other/root.aster': `import "helper.aster";\n${MAIN}`,
+      '/p/other/helper.aster': 'import "/p/other/root.aster";\nfn helper(): int { return 0; }\n',
+    };
+    const host: LoadHost = {
+      readFile: (path) => {
+        const text = files[physical(path)];
+        return text === undefined ? { ok: false, reason: 'No such file or directory' } : { ok: true, text };
+      },
+      realPath: physical,
+    };
+    const result = loadProgram(makeSource(alias, files['/p/other/root.aster']), host);
+    expect(result.map.files.map((f) => f.path)).toEqual([alias, '/p/entry/link/../helper.aster']);
+    expect(result.diagnostics).toEqual([]);
   });
 });
 

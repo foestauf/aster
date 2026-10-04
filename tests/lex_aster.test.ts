@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, formatDiagnostic, lex, makeSource } from '../packages/asterc/src/index.js';
+import { lex, makeSource } from '../packages/asterc/src/index.js';
+import { buildDriver } from './stage.js';
 
 // Checks tests/programs/programs/lex.aster, the Aster lexer written in Aster, against the compiler's own lexer.
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
@@ -37,13 +38,12 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-lex-'));
 const exe = join(workDir, 'lex');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// A driver build is cc -O2 on the compiler's C, or a stage build of the driver: both can outlast vitest's 10 s default.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
-  const source = makeSource(join(PROGRAMS_DIR, 'programs', 'lex.aster'), readFileSync(join(PROGRAMS_DIR, 'programs', 'lex.aster'), 'utf8'));
-  const compiled = compileToC(source);
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, exe, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-});
+  buildDriver(join(PROGRAMS_DIR, 'programs', 'lex.aster'), exe);
+}, CC_HOOK_TIMEOUT);
 
 describe('lex.aster matches the TypeScript lexer', () => {
   it('has a corpus that includes itself and the error fixture', () => {

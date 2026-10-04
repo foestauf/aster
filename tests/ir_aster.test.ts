@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, formatDiagnostic, lower, makeSource, printIr } from '../packages/asterc/src/index.js';
+import { lower, printIr } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { buildDriver } from './stage.js';
 
 // Checks tests/programs/programs/ir.aster, which lowers a program with packages/asterc-self/lower.aster and prints it
 // with packages/asterc-self/ir_print.aster, against the compiler's own printIr(lower(typed)), byte for byte, on the
@@ -17,13 +18,13 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-ir-'));
 const exe = join(workDir, 'ir');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// A driver build is cc -O2 on the compiler's C, or a stage build of the driver: both can outlast vitest's 10 s default.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
   const path = join(PROGRAMS_DIR, 'programs', 'ir.aster');
-  const compiled = compileToC(makeSource(path, readFileSync(path, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, exe, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-});
+  buildDriver(path, exe);
+}, CC_HOOK_TIMEOUT);
 
 describe('ir.aster matches the TypeScript IR', () => {
   it('has a corpus that includes the drivers and the IR fixtures', () => {

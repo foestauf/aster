@@ -128,8 +128,10 @@ type count and adds a `.node` to every match.
 - **Fixed:** the TypeScript lexer advanced by two on a one-character punctuator at the very end of the file, so
   `fn main() {}` with no trailing newline gave `}` a span past the end of the file. `parse.aster`'s lexer had the
   right bounds check. The fix is in its own commit, and `fixtures/parse_no_newline.txt` pins it.
-- **Open:** for an invalid escape followed by an astral character (`"\😀"`), the TypeScript lexer's message quotes half
-  of a surrogate pair. `lex.aster` and `parse.aster` quote the whole character. Spans agree, and no fixture covers it.
+- **Fixed (#13):** for an invalid escape followed by an astral character (`"\😀"`), the TypeScript lexer's message
+  quoted half of a surrogate pair, with span `[1,3)` ending mid-character. `lex.aster` and `parse.aster` quoted the whole
+  character. Confirmed and fixed in stage 0 by consuming the whole code point: the span is now `[1,4)` in UTF-16 units
+  (`[1,6)` in bytes). `fixtures/lex_escape_astral.txt` and `errors/invalid_escape_astral.aster` pin it.
 
 ## What worked well
 

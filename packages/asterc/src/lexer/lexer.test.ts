@@ -77,6 +77,24 @@ describe('lex', () => {
     expect(r.tokens[0].stringValue).toBe('ab');
   });
 
+  it('consumes a whole astral character after an invalid backslash', () => {
+    const r = run('"\\😀" tail');
+    expect(r.diagnostics).toEqual([{ message: "invalid escape sequence '\\😀'", span: { start: 1, end: 4 } }]);
+    expect(r.tokens.map((t) => t.kind)).toEqual(['string', 'ident', 'eof']);
+    expect(r.tokens[0].stringValue).toBe('');
+    expect(r.tokens[1].span).toEqual({ start: 6, end: 10 });
+  });
+
+  it('consumes a whole BMP character after an invalid backslash', () => {
+    const r = run('"\\é"');
+    expect(r.diagnostics).toEqual([{ message: "invalid escape sequence '\\é'", span: { start: 1, end: 3 } }]);
+  });
+
+  it('keeps an invalid backslash before a newline or end of file one unit wide', () => {
+    expect(run('"\\').diagnostics[0]).toEqual({ message: "invalid escape sequence '\\'", span: { start: 1, end: 2 } });
+    expect(run('"\\\nx').diagnostics[0]).toEqual({ message: "invalid escape sequence '\\'", span: { start: 1, end: 2 } });
+  });
+
   it('reports strings left open at a newline or end of file', () => {
     expect(messages('"abc\nx')).toEqual(['unterminated string literal']);
     expect(messages('"abc')).toEqual(['unterminated string literal']);

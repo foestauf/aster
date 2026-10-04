@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { buildDriver } from './stage.js';
 import { dumpTyped } from './typed_dump.js';
 
 // Checks tests/programs/programs/typed.aster, which prints the typed program built by packages/asterc-self/checker.aster
@@ -20,13 +20,13 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-typed-'));
 const exe = join(workDir, 'typed');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// A driver build is cc -O2 on the compiler's C, or a stage build of the driver: both can outlast vitest's 10 s default.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
   const path = join(PROGRAMS_DIR, 'programs', 'typed.aster');
-  const compiled = compileToC(makeSource(path, readFileSync(path, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, exe, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-});
+  buildDriver(path, exe);
+}, CC_HOOK_TIMEOUT);
 
 describe('typed.aster matches the TypeScript typed program', () => {
   it('has a corpus that includes the drivers and the typed fixtures', () => {

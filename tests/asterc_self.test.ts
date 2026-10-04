@@ -4,36 +4,25 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, emitC, formatDiagnostic, lower, makeSource } from '../packages/asterc/src/index.js';
+import { emitC, lower } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { parseExpectations } from './harness.js';
+import { stage } from './stage.js';
 
-// Checks packages/asterc-self/asterc.aster, the self-hosted compiler (S1, built by stage 0), against the stage-0 CLI
+// Checks the self-hosted compiler under test (S1 by default; see tests/stage.ts), built from
+// packages/asterc-self/asterc.aster, against the stage-0 CLI
 // (S0, packages/asterc/dist/cli/bin.js) on stdout, stderr and exit status, byte for byte. The only allowed difference
 // is the usage text's `--emit=c` (self-hosting contract §4.1, §4.5). Both run with LC_ALL=C and a private TMPDIR that
 // must be empty after every test.
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const S0_BIN = join(REPO_ROOT, 'packages', 'asterc', 'dist', 'cli', 'bin.js');
-const S1_SOURCE = join(REPO_ROOT, 'packages', 'asterc-self', 'asterc.aster');
+const SELF_SOURCE = join(REPO_ROOT, 'packages', 'asterc-self', 'asterc.aster');
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-self-'));
 const tmpDir = join(workDir, 'tmp');
 mkdirSync(tmpDir);
-const s1 = join(workDir, 's1');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
-
-// cc -O2 on the compiler's ~1 MB of C can exceed vitest's default 10 s hook timeout on a slow machine.
-const CC_HOOK_TIMEOUT = 60_000;
-
-beforeAll(() => {
-  // tests/global-setup.ts builds dist before any test runs.
-  if (!existsSync(S0_BIN)) throw new Error(`${S0_BIN} is missing: tests/global-setup.ts should have built it`);
-  const compiled = compileToC(makeSource(S1_SOURCE, readFileSync(S1_SOURCE, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, s1, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-}, CC_HOOK_TIMEOUT);
 
 afterEach(() => {
   const left = readdirSync(tmpDir);
@@ -65,11 +54,11 @@ function spawn(command: string, argv: readonly string[], opts: RunOptions = {}):
   return { stdout: r.stdout, stderr: r.stderr, status: r.status };
 }
 
-const runS1 = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(s1, argv, opts);
+const runSn = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(stage().bin, argv, opts);
 const runS0 = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(process.execPath, [S0_BIN, ...argv], opts);
 
 /** S0's outcome with its usage text narrowed to the emit stages S1 supports: the one allowed text difference. */
-function s0UsageToS1(o: Outcome): Outcome {
+function s0UsageToSn(o: Outcome): Outcome {
   return { ...o, stderr: o.stderr.replace('--emit=tokens|ast|ir|c', '--emit=c') };
 }
 
@@ -90,7 +79,7 @@ describe('usage errors', () => {
   ])('%j', (argv) => {
     const s0 = runS0(argv);
     expect(s0.status).toBe(2);
-    expect(runS1(argv)).toEqual(s0UsageToS1(s0));
+    expect(runSn(argv)).toEqual(s0UsageToSn(s0));
   });
 });
 
@@ -98,7 +87,7 @@ describe('an unreadable file', () => {
   it('check missing.aster', () => {
     const s0 = runS0(['check', 'missing.aster']);
     expect(s0).toEqual({ stdout: '', stderr: "error: cannot read 'missing.aster'\n", status: 2 });
-    expect(runS1(['check', 'missing.aster'])).toEqual(s0);
+    expect(runSn(['check', 'missing.aster'])).toEqual(s0);
   });
 });
 
@@ -110,7 +99,7 @@ describe('check, accepted programs', () => {
   });
 
   it.for(accepted)('%s', (file) => {
-    expect(runS1(['check', join(PROGRAMS_DIR, file)])).toEqual({ stdout: '', stderr: '', status: 0 });
+    expect(runSn(['check', join(PROGRAMS_DIR, file)])).toEqual({ stdout: '', stderr: '', status: 0 });
   });
 });
 
@@ -129,7 +118,7 @@ describe('check, programs with errors', () => {
   it.for(errorGoldens)('%s', (file) => {
     const s0 = runS0(['check', file]);
     expect(s0.status).toBe(1);
-    expect(runS1(['check', file])).toEqual(s0);
+    expect(runSn(['check', file])).toEqual(s0);
   });
 
   // Diagnostics exit 1 before any cc call, so `build` is cheap. -o goes into the work dir: a wrongly successful build
@@ -138,7 +127,7 @@ describe('check, programs with errors', () => {
     const out = join(workDir, 'error-golden-out');
     const s0 = runS0(['build', file, '-o', out]);
     expect(s0.status).toBe(1);
-    expect(runS1(['build', file, '-o', out])).toEqual(s0);
+    expect(runSn(['build', file, '-o', out])).toEqual(s0);
     expect(existsSync(out)).toBe(false);
   });
 });
@@ -173,7 +162,7 @@ describe('path spellings', () => {
   it.for(cases.flatMap(({ dir, file }) => spellings(dir, file).map((s) => ({ ...s, label: `${dir}/${file} ${s.name}` }))))(
     '$label',
     ({ path, cwd }) => {
-      expect(runS1(['check', path], { cwd })).toEqual(runS0(['check', path], { cwd }));
+      expect(runSn(['check', path], { cwd })).toEqual(runS0(['check', path], { cwd }));
     },
   );
 });
@@ -201,7 +190,7 @@ describe('diagnostic layout edge cases', () => {
   it.for(cases.map((c) => c.name))('%s', (name) => {
     const s0 = runS0(['check', name], { cwd: edgeDir });
     expect(s0.status).toBe(1);
-    expect(runS1(['check', name], { cwd: edgeDir })).toEqual(s0);
+    expect(runSn(['check', name], { cwd: edgeDir })).toEqual(s0);
   });
 });
 
@@ -209,11 +198,11 @@ describe('build --emit=c, accepted programs', () => {
   const corpus = acceptedCorpus().map(({ file, typed }) => ({ file, c: emitC(lower(typed)) }));
 
   it.for(corpus)('$file', ({ file, c }) => {
-    expect(runS1(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: c, stderr: '', status: 0 });
+    expect(runSn(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: c, stderr: '', status: 0 });
   });
 
   it('prints about a megabyte for the compiler itself', () => {
-    const r = runS1(['build', S1_SOURCE, '--emit=c']);
+    const r = runSn(['build', SELF_SOURCE, '--emit=c']);
     expect(r.status).toBe(0);
     expect(r.stdout.length).toBeGreaterThan(500_000);
   });
@@ -238,7 +227,7 @@ describe('build', () => {
     const dir = freshDir('build-o', { 'hello.aster': HELLO });
     const s0 = runS0(['build', 'hello.aster', '-o', join(dir, 'h0')], { cwd: dir });
     expect(s0).toEqual({ stdout: '', stderr: '', status: 0 });
-    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'h1')], { cwd: dir })).toEqual(s0);
+    expect(runSn(['build', 'hello.aster', '-o', join(dir, 'h1')], { cwd: dir })).toEqual(s0);
     for (const exe of ['h0', 'h1']) expect(spawn(join(dir, exe), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
   });
 
@@ -250,7 +239,7 @@ describe('build', () => {
   ])('without -o: $name', ({ name, file, out }) => {
     const outcomes = (['s0', 's1'] as const).map((who) => {
       const dir = freshDir(`build-default-${name.replaceAll(/\W/g, '_')}-${who}`, { [file]: HELLO });
-      const r = (who === 's0' ? runS0 : runS1)(['build', file], { cwd: dir });
+      const r = (who === 's0' ? runS0 : runSn)(['build', file], { cwd: dir });
       expect(readdirSync(dir).toSorted()).toEqual([file.split('/')[0], out].toSorted());
       expect(spawn(join(dir, out), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
       return r;
@@ -264,7 +253,7 @@ describe('a directory as input', () => {
   it('check <a directory>', () => {
     const s0 = runS0(['check', 'tests']);
     expect(s0).toEqual({ stdout: '', stderr: "error: cannot read 'tests'\n", status: 2 });
-    expect(runS1(['check', 'tests'])).toEqual(s0);
+    expect(runSn(['check', 'tests'])).toEqual(s0);
   });
 });
 
@@ -277,7 +266,7 @@ describe('run', () => {
     expect(args).toEqual(['one', 'two', '-3', 'é']);
     const s0 = runS0(['run', file, '--', ...args]);
     expect(s0.status).toBe(0);
-    expect(runS1(['run', file, '--', ...args])).toEqual(s0);
+    expect(runSn(['run', file, '--', ...args])).toEqual(s0);
   });
 
   it('passes stdin through', () => {
@@ -285,7 +274,7 @@ describe('run', () => {
     const input = parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).stdin;
     const s0 = runS0(['run', file], { input });
     expect(s0).toEqual({ stdout: '13\nhello\n0\n', stderr: '', status: 0 });
-    expect(runS1(['run', file], { input })).toEqual(s0);
+    expect(runSn(['run', file], { input })).toEqual(s0);
   });
 
   const dir = freshDir('run', {
@@ -304,7 +293,7 @@ describe('run', () => {
   ])('$file exits $expected.status', ({ file, expected }) => {
     const s0 = runS0(['run', file], { cwd: dir });
     expect(s0).toEqual(expected);
-    expect(runS1(['run', file], { cwd: dir })).toEqual(s0);
+    expect(runSn(['run', file], { cwd: dir })).toEqual(s0);
   });
 });
 
@@ -314,9 +303,9 @@ describe('divergences from stage 0', () => {
 
   it('--emit=ir is an unknown emit stage', () => {
     // S0's rejection of a stage neither supports, with the stage name swapped.
-    const llvm = s0UsageToS1(runS0(['build', 'hello.aster', '--emit=llvm'], { cwd: dir }));
+    const llvm = s0UsageToSn(runS0(['build', 'hello.aster', '--emit=llvm'], { cwd: dir }));
     expect(llvm.status).toBe(2);
-    expect(runS1(['build', 'hello.aster', '--emit=ir'], { cwd: dir })).toEqual({
+    expect(runSn(['build', 'hello.aster', '--emit=ir'], { cwd: dir })).toEqual({
       ...llvm,
       stderr: llvm.stderr.replace("'llvm'", "'ir'"),
     });
@@ -324,7 +313,7 @@ describe('divergences from stage 0', () => {
 
   it('ASTER_CC is ignored', () => {
     const out = join(dir, 'x');
-    expect(runS1(['build', 'hello.aster', '-o', out], { cwd: dir, env: { ASTER_CC: 'false' } })).toEqual({
+    expect(runSn(['build', 'hello.aster', '-o', out], { cwd: dir, env: { ASTER_CC: 'false' } })).toEqual({
       stdout: '',
       stderr: '',
       status: 0,
@@ -334,12 +323,12 @@ describe('divergences from stage 0', () => {
 
   it("cc's stderr streams first, then the internal error", () => {
     const env = { PATH: `${join(dir, 'fakecc')}:${process.env.PATH ?? ''}` };
-    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'y')], { cwd: dir, env })).toEqual({
+    expect(runSn(['build', 'hello.aster', '-o', join(dir, 'y')], { cwd: dir, env })).toEqual({
       stdout: '',
       stderr: "cc: boom\ninternal compiler error: C compiler 'cc' failed\n",
       status: 3,
     });
-    expect(runS1(['run', 'hello.aster'], { cwd: dir, env })).toEqual({
+    expect(runSn(['run', 'hello.aster'], { cwd: dir, env })).toEqual({
       stdout: '',
       stderr: "cc: boom\ninternal compiler error: C compiler 'cc' failed\n",
       status: 3,
@@ -349,7 +338,7 @@ describe('divergences from stage 0', () => {
   // Untested: the driver's cleanup when write_file fails (driver.aster pushes the path before writing, so the partial
   // file is removed). A write failure cannot be triggered reliably here: `ulimit -f` raises SIGXFSZ instead of failing.
   it('a real cc failure (an unwritable -o) also cleans up', () => {
-    const r = runS1(['build', 'hello.aster', '-o', join(dir, 'missing', 'z')], { cwd: dir });
+    const r = runSn(['build', 'hello.aster', '-o', join(dir, 'missing', 'z')], { cwd: dir });
     expect(r.status).toBe(3);
     expect(r.stdout).toBe('');
     expect(r.stderr).toMatch(/\ninternal compiler error: C compiler 'cc' failed\n$/);
@@ -360,7 +349,7 @@ describe('divergences from stage 0', () => {
     // ENOENT message and a stack). The test's own TMPDIR keeps
     // the harness's empty-TMPDIR check on the shared one meaningful.
     const missing = join(dir, 'no-such-tmp');
-    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'w')], { cwd: dir, env: { TMPDIR: missing } })).toEqual({
+    expect(runSn(['build', 'hello.aster', '-o', join(dir, 'w')], { cwd: dir, env: { TMPDIR: missing } })).toEqual({
       stdout: '',
       stderr: `internal compiler error: ${missing}/aster-cc-XXXXXX: No such file or directory\n`,
       status: 3,
@@ -370,7 +359,7 @@ describe('divergences from stage 0', () => {
   it('a compiler panic is panic: …, exit 101', () => {
     // 64 MiB of address space must stay below the compiler's peak for its own source, so an allocation fails.
     for (let i = 0; i < 3; i++) {
-      const r = spawnSync('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', s1, S1_SOURCE], {
+      const r = spawnSync('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', stage().bin, SELF_SOURCE], {
         cwd: REPO_ROOT,
         env: { ...process.env, TMPDIR: tmpDir, LC_ALL: 'C' },
         encoding: 'utf8',
@@ -384,9 +373,9 @@ describe('divergences from stage 0', () => {
   });
 });
 
-describe('S2: the compiler built by itself', () => {
-  const s2 = join(workDir, 's2');
-  const runS2 = (argv: readonly string[]): Outcome => spawn(s2, argv);
+describe('the next stage', () => {
+  const next = join(workDir, 'next');
+  const runNext = (argv: readonly string[]): Outcome => spawn(next, argv);
   const corpus = acceptedCorpus();
   const emitOf = (file: string): string => {
     const entry = corpus.find((e) => e.file === file);
@@ -395,8 +384,8 @@ describe('S2: the compiler built by itself', () => {
   };
 
   beforeAll(() => {
-    const r = runS1(['build', join('packages', 'asterc-self', 'asterc.aster'), '-o', s2]);
-    if (r.status !== 0 || r.stderr !== '') throw new Error(`S1 failed to build S2 (status ${r.status}): ${r.stderr}`);
+    const r = runSn(['build', join('packages', 'asterc-self', 'asterc.aster'), '-o', next]);
+    if (r.status !== 0 || r.stderr !== '') throw new Error(`${stage().name} failed to build the next stage (status ${r.status}): ${r.stderr}`);
   }, 120_000);
 
   it.for([
@@ -404,7 +393,7 @@ describe('S2: the compiler built by itself', () => {
     join('programs', 'fib.aster'),
     join('io', 'files.aster'),
     join('programs', 'emit.aster'),
-  ])('--emit=c of %s', (file) => {
-    expect(runS2(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: emitOf(file), stderr: '', status: 0 });
+  ])(`${stage().name} builds the next stage, whose C matches stage 0: --emit=c of %s`, (file) => {
+    expect(runNext(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: emitOf(file), stderr: '', status: 0 });
   });
 });
