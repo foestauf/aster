@@ -502,13 +502,18 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     case 'match': {
       if (e.type.kind === 'never') {
         lowerMatch(st, e.scrutinee, e.arms.map((a) => a.pattern), (i) => {
-          lowerValue(st, e.arms[i].body);
+          const body = e.arms[i].body;
+          if (body.kind === 'block') lowerBlock(st, body);
+          else lowerValue(st, body);
         });
         return PLACEHOLDER;
       }
       const dst = newTemp(st, irType(e.type));
       lowerMatch(st, e.scrutinee, e.arms.map((a) => a.pattern), (i) => {
-        emit(st, { kind: 'copy', dst, src: lowerValue(st, e.arms[i].body) });
+        const body = e.arms[i].body;
+        // A block arm diverges, so it has no value to copy.
+        if (body.kind === 'block') lowerBlock(st, body);
+        else emit(st, { kind: 'copy', dst, src: lowerValue(st, body) });
       });
       return { kind: 'local', id: dst };
     }

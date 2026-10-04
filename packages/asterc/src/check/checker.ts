@@ -1,5 +1,5 @@
 import {
-  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
+  binaryOpOf, type AssignStmt, type BinaryExpr, type BinaryOp, type Block, type Alternative, type ArrayLitExpr, type CallExpr, type EnumDecl, type Expr, type FnDecl, type IfLetStmt, type IfStmt, type MatchExpr, type Pattern, type Program, type Stmt, type StructDecl,
   type StructLitExpr, type TypeExpr, type VariantDecl, type VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
@@ -388,6 +388,13 @@ function declare(ctx: Ctx, name: string, nameSpan: Span, type: Type, mutable: bo
   return local;
 }
 
+/** Puts an already-allocated local into the current scope, reporting a clash like `declare` does. */
+function declareExisting(ctx: Ctx, name: string, nameSpan: Span, local: Local): void {
+  const scope = ctx.scopes[ctx.scopes.length - 1];
+  if (scope.has(name)) report(ctx, `'${name}' is already declared in this scope`, nameSpan);
+  scope.set(name, local);
+}
+
 function lookup(ctx: Ctx, name: string): Local | undefined {
   for (let i = ctx.scopes.length - 1; i >= 0; i--) {
     const local = ctx.scopes[i].get(name);
@@ -519,20 +526,30 @@ function checkStmt(ctx: Ctx, stmt: Stmt): Checked<TStmt> {
     }
     case 'block':
       return checkBlock(ctx, stmt);
-    // Stubs until Task 4: check the scrutinee and the blocks, produce nothing.
-    case 'letElse':
-      checkExpr(ctx, stmt.init);
-      checkBlock(ctx, stmt.else);
-      return { node: { kind: 'block', statements: [] }, diverges: false };
-    case 'ifLet': {
-      checkExpr(ctx, stmt.scrutinee);
-      checkBlock(ctx, stmt.then);
-      if (stmt.else !== null) {
-        if (stmt.else.kind === 'block') checkBlock(ctx, stmt.else);
-        else checkStmt(ctx, stmt.else);
+    case 'letElse': {
+      let binders = new Map<string, Local>();
+      let elseBlock: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: true };
+      const { scrutinee, patterns } = checkMatch(ctx, stmt.init, stmt.pattern.span, [stmt.pattern, { kind: 'wildcard', span: stmt.pattern.span }], (i) => {
+        if (i === 0) binders = new Map(ctx.scopes[ctx.scopes.length - 1]); // the arm scope holds exactly the binders
+        else elseBlock = checkBlock(ctx, stmt.else);
+      }, { refutable: true });
+      if (!elseBlock.diverges) report(ctx, "'else' block of 'let' must diverge", stmt.elseKeywordSpan);
+      const declared = new Set<string>();
+      for (const b of stmt.pattern.kind === 'variant' ? stmt.pattern.binders : []) {
+        const local = b === null || declared.has(b.name) ? undefined : binders.get(b.name);
+        if (b !== null && local !== undefined) {
+          declared.add(b.name);
+          declareExisting(ctx, b.name, b.span, local);
+        }
       }
-      return { node: { kind: 'block', statements: [] }, diverges: false };
+      const arms = [
+        { pattern: patterns[0], body: { kind: 'block', statements: [] } as TBlock },
+        { pattern: patterns[1], body: elseBlock.node },
+      ];
+      return { node: { kind: 'match', scrutinee, arms }, diverges: false };
     }
+    case 'ifLet':
+      return checkIfLet(ctx, stmt);
     case 'expr': {
       const expr = checkExpr(ctx, stmt.expr);
       return { node: { kind: 'expr', expr }, diverges: expr.type.kind === 'never' };
@@ -546,20 +563,32 @@ function checkIf(ctx: Ctx, stmt: IfStmt): Checked<TStmt> {
   if (stmt.else === null) {
     return { node: { kind: 'if', cond, then: then.node, else: null }, diverges: false };
   }
-  let other: Checked<TBlock>;
-  if (stmt.else.kind === 'ifLet') {
-    const nested = checkStmt(ctx, stmt.else);
-    other = { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
-  } else if (stmt.else.kind === 'if') {
-    const nested = checkIf(ctx, stmt.else);
-    other = { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
-  } else {
-    other = checkBlock(ctx, stmt.else);
-  }
+  const other = checkElse(ctx, stmt.else);
   return {
     node: { kind: 'if', cond, then: then.node, else: other.node },
     diverges: then.diverges && other.diverges,
   };
+}
+
+/** Checks the else branch of an `if` or `if let`: a block, or a chained `if`/`if let` wrapped in a block. */
+function checkElse(ctx: Ctx, other: Block | IfStmt | IfLetStmt): Checked<TBlock> {
+  if (other.kind === 'block') return checkBlock(ctx, other);
+  const nested = other.kind === 'if' ? checkIf(ctx, other) : checkIfLet(ctx, other);
+  return { node: { kind: 'block', statements: [nested.node] }, diverges: nested.diverges };
+}
+
+function checkIfLet(ctx: Ctx, stmt: IfLetStmt): Checked<TStmt> {
+  let then: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: false };
+  let other: Checked<TBlock> = { node: { kind: 'block', statements: [] }, diverges: false };
+  const { scrutinee, patterns } = checkMatch(ctx, stmt.scrutinee, stmt.pattern.span, [stmt.pattern, { kind: 'wildcard', span: stmt.pattern.span }], (i) => {
+    if (i === 0) then = checkBlock(ctx, stmt.then);
+    else if (stmt.else !== null) other = checkElse(ctx, stmt.else);
+  }, { refutable: true });
+  const arms = [
+    { pattern: patterns[0], body: then.node },
+    { pattern: patterns[1], body: other.node },
+  ];
+  return { node: { kind: 'match', scrutinee, arms }, diverges: stmt.else !== null && then.diverges && other.diverges };
 }
 
 function checkRangeBound(ctx: Ctx, expr: Expr): TExpr {
@@ -869,6 +898,7 @@ function checkMatch(
   keywordSpan: Span,
   patterns: readonly Pattern[],
   checkArm: (index: number) => void,
+  options: { refutable?: boolean } = {},
 ): { scrutinee: TExpr; patterns: TPattern[] } {
   const scrutinee = checkExpr(ctx, scrutineeExpr);
   const st = scrutinee.type;
@@ -885,14 +915,23 @@ function checkMatch(
       pattern.kind === 'wildcard' ? [] : pattern.kind === 'or' ? pattern.alternatives : [pattern];
     let resolved: (ResolvedAlternative | null)[] = [];
     let fresh: ResolvedAlternative[] = [];
+    const diagnosticsBefore = ctx.diagnostics.length;
     if (category !== null) {
       resolved = alternatives.map((alt) => resolveAlternative(ctx, st, decl, alt));
       if (resolved.includes(null)) allResolved = false;
       if (pattern.kind === 'wildcard') {
-        if (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0) report(ctx, 'unreachable match arm', pattern.span);
+        // let-else and if-let supply a synthetic wildcard, which is never unreachable: `pattern always matches` covers it.
+        if (!options.refutable && (wildcardSeen || missingValues(category, st, decl, covered)?.length === 0)) {
+          report(ctx, 'unreachable match arm', pattern.span);
+        }
       } else {
         fresh = checkReachability(ctx, pattern, alternatives, resolved, covered, wildcardSeen);
         for (const r of fresh) covered.add(r.key);
+        // A pattern with any error of its own is not also called irrefutable.
+        if (options.refutable && index === 0 && ctx.diagnostics.length === diagnosticsBefore && !resolved.includes(null)
+          && missingValues(category, st, decl, covered)?.length === 0) {
+          report(ctx, 'pattern always matches', pattern.span);
+        }
       }
     }
     if (pattern.kind === 'wildcard') wildcardSeen = true;
@@ -1066,24 +1105,22 @@ function resolvePatternVariant(ctx: Ctx, st: Type, decl: TEnum, pattern: Extract
 }
 
 function checkMatchExpr(ctx: Ctx, expr: MatchExpr, expected: Type | undefined): TExpr {
-  const bodies: TExpr[] = [];
-  let hasBlockArm = false;
+  const bodies: (TExpr | TBlock)[] = [];
   const { scrutinee, patterns } = checkMatch(ctx, expr.scrutinee, expr.keywordSpan, expr.arms.map((a) => a.pattern), (i) => {
     const body = expr.arms[i].body;
     if (body.kind === 'block') {
-      // Stub until Task 4.
-      hasBlockArm = true;
-      checkBlock(ctx, body);
-      bodies.push(errorExpr());
+      const block = checkBlock(ctx, body);
+      if (!block.diverges) report(ctx, 'match arm block must diverge', expr.arms[i].pattern.span);
+      bodies.push(block.node);
     } else {
       bodies.push(checkExpr(ctx, body, expected));
     }
   });
-  if (hasBlockArm) return errorExpr();
-  if (bodies.some((b) => isError(b.type))) return errorExpr();
+  const exprs = bodies.filter((b): b is TExpr => b.kind !== 'block');
+  if (exprs.some((b) => isError(b.type))) return errorExpr();
   // The parser guarantees at least one arm.
   // Arms of type never don't take part in the "same type" rule; the expression is never only if every arm is.
-  const live = bodies.filter((b) => b.type.kind !== 'never');
+  const live = exprs.filter((b) => b.type.kind !== 'never');
   const type = live.length > 0 ? live[0].type : NEVER;
   const other = live.find((b) => !typeEquals(b.type, type));
   if (other !== undefined) {

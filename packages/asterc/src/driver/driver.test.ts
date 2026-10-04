@@ -181,4 +181,37 @@ fn main(): int {
     const text = 'fn main(): int { if false { let xs: [int] = [1, panic("x")]; print(len(xs)); } print(5); return 0; }';
     expect(buildAndRun(text)).toEqual({ stdout: '5\n', stderr: '', status: 0 });
   });
+
+  it('runs let-else, if let and block arms', () => {
+    const text = [
+      'fn first_even(xs: [int]): Option[int] { for x in xs { if x % 2 == 0 { return Option::Some(x); } } return Option::None; }',
+      'fn sum_evens(rows: [[int]]): int {',
+      '    var total: int = 0;',
+      '    for r in rows {',
+      '        let Option::Some(e) = first_even(r) else { continue; };',
+      '        total += e;',
+      '    }',
+      '    return total;',
+      '}',
+      'fn describe(o: Option[int]): string {',
+      '    if let Option::Some(n) = o {',
+      '        if let 1 | 2 = n { return "small"; }',
+      '        return int_to_string(n);',
+      '    } else {',
+      '        return "none";',
+      '    }',
+      '}',
+      'fn half(n: int): int { return match n % 2 { 0 => n / 2, _ => { print(-1); return 0; } }; }',
+      'fn main(): int {',
+      '    print(sum_evens([[1, 4, 6], [3], [8]]));',
+      '    print(describe(Option::Some(2)));',
+      '    print(describe(Option::Some(9)));',
+      '    print(describe(Option::None));',
+      '    print(half(10));',
+      '    print(half(3));',
+      '    return 0;',
+      '}',
+    ].join('\n');
+    expect(buildAndRun(text)).toEqual({ stdout: '12\nsmall\n9\nnone\n5\n-1\n0\n', stderr: '', status: 0 });
+  });
 });

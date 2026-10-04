@@ -600,4 +600,9 @@ describe('lower', () => {
       expect(seen.size).toBe(fn.blocks.length);
     });
   });
+
+  it('lowers a block arm without copying into the result', () => {
+    const ir = irOf(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { return -1; } }; return v; }`, 'f');
+    expect(ir).toContain('ret -1');
+  });
 });

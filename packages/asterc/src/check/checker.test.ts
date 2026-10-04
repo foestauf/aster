@@ -759,4 +759,72 @@ describe('generic enums', () => {
       ]);
     });
   });
+
+  describe('let-else and if let', () => {
+
+    it('binds let-else names after the statement', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([]);
+    });
+
+    it('requires the else block to diverge', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { print(1); }; return x; }`)).toEqual([
+        "'else' block of 'let' must diverge",
+      ]);
+    });
+
+    it('accepts break, continue, panic and never calls as divergence', () => {
+      expect(msgs(`${MAIN}fn die(): never { exit(1); }\nfn f(xs: [Option[int]]): int { var t: int = 0; for o in xs { let Option::Some(a) = o else { continue; }; let Option::Some(b) = o else { break; }; let Option::Some(c) = o else { panic("p"); }; let Option::Some(d) = o else { die(); }; t += a + b + c + d; } return t; }`)).toEqual([]);
+    });
+
+    it('hides let-else binders from their else block and checks conflicts', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(x) = o else { return x; }; return x; }`)).toEqual([
+        "undefined name 'x'",
+      ]);
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let x: int = 1; let Option::Some(x) = o else { return 0; }; return x; }`)).toEqual([
+        "'x' is already declared in this scope",
+      ]);
+    });
+
+    it('scopes if-let binders to the then block', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } return x; }`)).toEqual([
+        "undefined name 'x'",
+      ]);
+    });
+
+    it('rejects irrefutable patterns', () => {
+      expect(msgs(`${MAIN}enum W { V(int) }\nfn f(w: W, b: bool): int { let W::V(x) = w else { return 0; }; if let true | false = b { } return x; }`)).toEqual([
+        'pattern always matches',
+        'pattern always matches',
+      ]);
+    });
+
+    it('reuses match pattern errors', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let Option::Some(a, b) = o else { return 0; }; if let 1 = "s" { } return 0; }`).length).toBe(2);
+    });
+
+    it('treats an if let with two diverging branches as diverging', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { if let Option::Some(x) = o { return x; } else { return 0; } }`)).toEqual([]);
+    });
+
+    it('checks else-if-let chains', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int], p: Option[int]): int { if let Option::Some(x) = o { return x; } else if let Option::Some(y) = p { return y; } else { return 0; } }`)).toEqual([]);
+    });
+  });
+
+  describe('block arms in match expressions', () => {
+
+    it('accepts a diverging block arm', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { let v: int = match o { Option::Some(x) => x, Option::None => { print(0); return -1; } }; return v; }`)).toEqual([]);
+    });
+
+    it('rejects a block arm that falls through', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => x, Option::None => { print(0); } }; }`)).toEqual([
+        'match arm block must diverge',
+      ]);
+    });
+
+    it('sees binders in a block arm', () => {
+      expect(msgs(`${MAIN}fn f(o: Option[int]): int { return match o { Option::Some(x) => { return x; }, Option::None => 0 }; }`)).toEqual([]);
+    });
+  });
 });
