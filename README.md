@@ -1,14 +1,14 @@
 # Aster
 
-A small, statically typed, compiled language, and a place to learn how compilers work. The bootstrap compiler `asterc` is written in TypeScript. It compiles Aster to C and builds a native executable with your system C compiler. The long-term goals are an LLVM backend and a compiler written in Aster itself.
+A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. The TypeScript `asterc` is the bootstrap seed and the test oracle. An LLVM backend is the next goal.
 
 ## Quick start
 
-Requirements: Node 24+, pnpm, and a C compiler (`cc`, or set `ASTER_CC`).
+Requirements: Linux x86_64, gcc 13 as `cc`, Node 24+ and pnpm. See [docs/self-host/building.md](docs/self-host/building.md).
 
 ```sh
 pnpm install
-pnpm build
+pnpm bootstrap
 pnpm aster run tests/programs/basics/hello.aster      # prints 30
 pnpm aster run tests/programs/programs/rpn.aster      # an RPN calculator using structs, arrays and for
 pnpm aster run tests/programs/programs/calc.aster     # a tokenizer, parser and evaluator using enums and match
@@ -55,7 +55,8 @@ aster run   <file.aster> [-- <args>...]                     # build to a temp di
 
 A program can span several files: `import "other.aster";` is a top-level item, and every loaded file joins one flat namespace (no qualified names yet). Paths resolve against the importing file's directory, each file loads once (cycles are fine), and `main` must live in the file you pass to the compiler. `--emit=tokens` and `--emit=ast` show that root file only, and `--emit=ir` and `--emit=c` show the whole program.
 
-Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through. `run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
+Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through. 
+`pnpm aster` is the self-hosted compiler (`build/asterc`, built by `pnpm bootstrap`). `pnpm aster:seed` is the TypeScript compiler, and it alone supports `--emit=tokens|ast|ir` and `ASTER_CC`. `build/asterc run` passes arguments to the program as raw bytes. `pnpm aster:seed run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
 
 ## System builtins
 
@@ -71,15 +72,14 @@ Failures are `Err("<subject>: <reason>")`. The subject is the path; for `make_te
 
 ## Self-hosted compiler
 
-`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. Stage 0 (the TypeScript compiler) builds it once, and after that it needs only `cc`:
+`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the TypeScript compiler, and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
 
 ```
-pnpm build
-pnpm aster build packages/asterc-self/asterc.aster -o asterc     # S1, built by stage 0
-./asterc check   <file.aster>
-./asterc build   <file.aster> [-o <out>] [--emit=c]
-./asterc run     <file.aster> [-- <args>...]
-./asterc build packages/asterc-self/asterc.aster -o asterc2       # S2, built by S1
+pnpm bootstrap
+build/asterc check   <file.aster>
+build/asterc build   <file.aster> [-o <out>] [--emit=c]
+build/asterc run     <file.aster> [-- <args>...]
+build/asterc build packages/asterc-self/asterc.aster -o asterc2   # rebuilds itself
 ```
 
 The commands, output, diagnostics and exit codes match the stage-0 CLI byte for byte (`tests/asterc_self.test.ts` compares them), and `--emit=c` prints the same C. S2's `--emit=c` of its own source equals stage 0's. It was tested on Linux x86_64 (WSL2, kernel 6.6) with gcc 13.3 as `cc`. It uses `-std=c11 -O2 -Wall`, with a private directory under `$TMPDIR` for the intermediate files.
@@ -95,7 +95,19 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 
 ## Self-hosting
 
-`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster. `pnpm selfhost` proves it compiles itself: stage 0 (TypeScript) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
+`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (TypeScript) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
+
+The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. The TypeScript compiler stays as the bootstrap seed, the recovery path and the test oracle.
+
+## Remaining work
+
+These are not part of self-hosting:
+
+- `--emit=tokens|ast|ir` and `ASTER_CC` in the self-hosted CLI.
+- Import identity through symlinks.
+- The runtime never frees memory.
+- Compile-time performance.
+- An LLVM backend. Planning is next.
 
 ## How it works
 
@@ -118,6 +130,8 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - v0.6 design (`import` and multi-file programs): [`docs/superpowers/specs/2026-10-03-aster-v0.6-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.6-design.md)
 - v0.7 design (`let … else`, `if let`, the `never` type, diverging `match` arms): [`docs/superpowers/specs/2026-10-03-aster-v0.7-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.7-design.md)
 - check.aster design (the self-hosted type checker): [`docs/superpowers/specs/2026-10-03-aster-check-aster-design.md`](docs/superpowers/specs/2026-10-03-aster-check-aster-design.md)
+- Building the compiler (tools, commands, artifacts, recovery): [`docs/self-host/building.md`](docs/self-host/building.md)
+- Normal build path design (the self-hosted compiler by default): [`docs/superpowers/specs/2026-10-04-aster-normal-build-path-design.md`](docs/superpowers/specs/2026-10-04-aster-normal-build-path-design.md)
 - Self-hosting friction log and shortlist: [`docs/self-host/friction.md`](docs/self-host/friction.md)
 
 ## Tests
