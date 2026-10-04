@@ -1,0 +1,116 @@
+// expect-stdout:
+// some 3
+// after
+// none
+// circle 2
+// square 5
+// other
+// small
+// big 12
+// neg
+// 7
+// inner 9
+// outer 1
+// 4
+// -1
+// last
+// expect-stderr: if_let: no value
+// expect-exit: 3
+enum Shape {
+    Circle(int),
+    Square(int),
+    Dot,
+}
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(3);
+}
+
+// Without else, and with an else whose locals sit beside the then-block's.
+fn show(o: Option[int]) {
+    if let Option::Some(v) = o {
+        let text: string = "some " + int_to_string(v);
+        print(text);
+    }
+    if let Option::Some(v) = o {
+        let unused: int = v;
+        print("after");
+    } else {
+        let text: string = "none";
+        print(text);
+    }
+}
+
+// `else if let` and `else` chains.
+fn describe(s: Shape) {
+    if let Shape::Circle(r) = s {
+        print("circle " + int_to_string(r));
+    } else if let Shape::Square(w) = s {
+        print("square " + int_to_string(w));
+    } else {
+        print("other");
+    }
+}
+
+// An `if let` chaining into `else if`, and a plain `if` chaining into `else if let`.
+fn size(o: Option[int]) {
+    if let Option::Some(n) = o {
+        if n < 10 {
+            print("small");
+        } else if n < 100 {
+            print("big " + int_to_string(n));
+        }
+    } else if true {
+        print("nothing");
+    }
+}
+
+fn sign(n: int, o: Option[int]) {
+    if n < 0 {
+        print("neg");
+    } else if let Option::Some(m) = o {
+        print(m);
+    } else {
+        print("none");
+    }
+}
+
+// Both branches diverge, so the function needs no trailing return.
+fn value_or(o: Option[int], fallback: int): int {
+    if let Option::Some(v) = o {
+        let got: int = v;
+        return got;
+    } else {
+        let other: int = fallback;
+        return other;
+    }
+}
+
+fn main(): int {
+    show(Option::Some(3));
+    show(Option::None);
+    describe(Shape::Circle(2));
+    describe(Shape::Square(5));
+    describe(Shape::Dot);
+    size(Option::Some(1));
+    size(Option::Some(12));
+    sign(-5, Option::None);
+    sign(3, Option::Some(7));
+    // Shadowing an outer name inside the then-block.
+    let x: int = 1;
+    if let Option::Some(x) = Option::Some(9) {
+        print("inner " + int_to_string(x));
+    }
+    print("outer " + int_to_string(x));
+    print(value_or(Option::Some(4), 0));
+    print(value_or(Option::None, -1));
+    print("last");
+    // A user never helper in value position, on the path that runs: the program ends here.
+    let o: Option[int] = Option::None;
+    let final: int = match o {
+        Option::Some(v) => v,
+        Option::None => die("if_let: no value"),
+    };
+    return final;
+}

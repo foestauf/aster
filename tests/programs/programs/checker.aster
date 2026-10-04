@@ -1147,13 +1147,13 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
             declare(ctx, name, t, mutable);
             return is_never(init_type);
         }
-        StmtNode::LetElse(_, _, _, _) => {
-            // Stub until the checker learns let-else.
+        StmtNode::LetElse(pattern, init, else_keyword, other) => {
+            check_let_else(ctx, pattern, init, else_keyword, other);
+            // The statement falls through whenever the pattern matches.
             return false;
         }
-        StmtNode::IfLet(_, _, _, _) => {
-            // Stub until the checker learns if let.
-            return false;
+        StmtNode::IfLet(pattern, scrutinee, then, other) => {
+            return check_if_let(ctx, pattern, scrutinee, then, other);
         }
         StmtNode::Assign(op, target, value) => {
             // check_place gives the error type for a target that was already reported: it has no type to guide the
@@ -1289,11 +1289,95 @@ fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
             }
             return then_diverges && other_diverges;
         }
-        Else::IfLet(_) => {
-            // Stub until the checker learns if let.
-            return false;
+        Else::IfLet(nested) => {
+            var other_diverges: bool = false;
+            match nested.node {
+                StmtNode::IfLet(p, sc, t, e) => {
+                    other_diverges = check_if_let(ctx, p, sc, t, e);
+                }
+                _ => {}
+            }
+            return then_diverges && other_diverges;
         }
     }
+}
+
+// Puts an already-allocated local into the current scope, reporting a clash like `declare` does.
+fn declare_existing(ctx: Ctx, name: Ident, local: Local) {
+    let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
+    if is_found(find_local(scope, name.name)) {
+        report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
+    }
+    push(scope, local);
+}
+
+// The arms let-else and if-let check as a match: the pattern with `body`, then a synthetic wildcard (at the pattern's
+// span) with `other`.
+fn refutable_arms(pattern: Pattern, body: Block, other: Block): [Arm] {
+    let wildcard: Pattern = Pattern { start: pattern.start, end: pattern.end, node: PatternNode::Wildcard };
+    return [Arm { pattern: pattern, body: ArmBody::Block(body) }, Arm { pattern: wildcard, body: ArmBody::Block(other) }];
+}
+
+fn empty_block(start: int, end: int): Block {
+    return Block { start: start, end: end, stmts: [] };
+}
+
+// `let P = init else { ... };`: the scrutinee, then the pattern's binders (allocated in the first arm's scope, which
+// fixes their local ids), then the else block, which can't see them. The binders then enter the enclosing scope.
+fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, other: Block) {
+    let keyword: Ident = Ident { name: "let", start: pattern.start, end: pattern.end };
+    let arms: [Arm] = refutable_arms(pattern, empty_block(pattern.start, pattern.end), other);
+    let m: MatchArms = check_arms(ctx, keyword, init, arms, false, Option::None, true);
+    if !m.diverges[1] {
+        report(ctx.env, "'else' block of 'let' must diverge", else_keyword.start, else_keyword.end);
+    }
+    match pattern.node {
+        PatternNode::Variant(_, _, binders) => {
+            let declared: [string] = [];
+            for b in binders {
+                match b {
+                    Binder::Named(id) => {
+                        if !contains(declared, id.name) {
+                            match find_local(m.binders, id.name) {
+                                Option::Some(j) => {
+                                    push(declared, id.name);
+                                    declare_existing(ctx, id, m.binders[j]);
+                                }
+                                Option::None => {}
+                            }
+                        }
+                    }
+                    Binder::Wild => {}
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+// `if let P = scrutinee { ... } else ...`: the scrutinee, then the pattern's binders (scoped to the then block), then
+// the then block, then the else branch. A chained `if` or `if let` is checked as a block holding just that statement.
+// It diverges when it has an else branch and both branches diverge.
+fn check_if_let(ctx: Ctx, pattern: Pattern, scrutinee: Expr, then: Block, other: Else): bool {
+    var has_else: bool = true;
+    var other_block: Block = empty_block(pattern.start, pattern.end);
+    match other {
+        Else::None => {
+            has_else = false;
+        }
+        Else::Block(b) => {
+            other_block = b;
+        }
+        Else::If(nested) => {
+            other_block = Block { start: nested.start, end: nested.end, stmts: [nested] };
+        }
+        Else::IfLet(nested) => {
+            other_block = Block { start: nested.start, end: nested.end, stmts: [nested] };
+        }
+    }
+    let keyword: Ident = Ident { name: "if", start: pattern.start, end: pattern.end };
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, refutable_arms(pattern, then, other_block), false, Option::None, true);
+    return has_else && m.diverges[0] && m.diverges[1];
 }
 
 fn check_range_bound(ctx: Ctx, e: Expr): Type {
@@ -1767,16 +1851,18 @@ struct ResolvedAlt {
 }
 
 // What check_arms found: the scrutinee's type and, per arm in order, the body's type (an expression match) or whether
-// it diverges (a statement match). TS's `checkArm` callback becomes the `as_expr` flag.
+// it diverges (a statement match), and the scope holding the first arm's binders (which let-else declares again after
+// its else block). TS's `checkArm` callback becomes the `as_expr` flag.
 struct MatchArms {
     scrutinee: Type,
     types: [Type],
     diverges: [bool],
+    binders: [Local],
 }
 
 // A match statement; returns whether it diverges.
 fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
-    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None);
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None, false);
     // Every match is exhaustive, so it ends a control path exactly when every arm does.
     if len(m.diverges) == 0 {
         return false;
@@ -1798,7 +1884,10 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check. For a match
 // expression (`as_expr`) `types` gets one type per arm, a block arm (which must diverge) counting as never; for a match
 // statement `diverges` gets one entry per arm.
-fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
+// `refutable` is set by let-else and if-let, which pass their pattern and then a synthetic wildcard: that wildcard is
+// never unreachable, and a first pattern that covers every value is reported as `pattern always matches` instead,
+// unless the pattern has an error of its own (any diagnostic from resolving it or declaring its binders).
+fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type], refutable: bool): MatchArms {
     let st: Type = check_expr(ctx, scrutinee, Option::None);
     var has_decl: bool = false;
     var variants: [TVariant] = [];
@@ -1822,7 +1911,8 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
     let covered: [string] = [];
     var wildcard_seen: bool = false;
     var all_resolved: bool = true;
-    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [] };
+    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [], binders: [] };
+    var index: int = 0;
     for arm in arms {
         let pattern: Pattern = arm.pattern;
         let is_wildcard: bool = match pattern.node {
@@ -1835,16 +1925,20 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             _ => [pattern],
         };
         var single: int = -1;
+        let diags_before: int = len(ctx.env.diags);
+        var irrefutable: bool = false;
         if category != "" {
             let resolved: [Option[ResolvedAlt]] = [];
             for alt in alternatives {
                 push(resolved, resolve_alternative(ctx, st, has_decl, variants, alt));
             }
+            var pattern_resolved: bool = true;
             for r in resolved {
                 match r {
                     Option::Some(_) => {}
                     Option::None => {
                         all_resolved = false;
+                        pattern_resolved = false;
                     }
                 }
             }
@@ -1856,12 +1950,20 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                     }
                     Option::None => {}
                 }
-                if wildcard_seen || none_missing {
+                if !refutable && (wildcard_seen || none_missing) {
                     report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
                 }
             } else {
                 for key in check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen) {
                     push(covered, key);
+                }
+                if refutable && index == 0 && pattern_resolved {
+                    match missing_values(ctx.env, category, st, variants, covered) {
+                        Option::Some(missing) => {
+                            irrefutable = len(missing) == 0;
+                        }
+                        Option::None => {}
+                    }
                 }
             }
             match pattern.node {
@@ -1882,6 +1984,12 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
 
         push(ctx.scopes, []);
         declare_binders(ctx, pattern, variants, single);
+        if irrefutable && len(ctx.env.diags) == diags_before {
+            report(ctx.env, "pattern always matches", pattern.start, pattern.end);
+        }
+        if index == 0 {
+            result.binders = ctx.scopes[len(ctx.scopes) - 1];
+        }
         match arm.body {
             ArmBody::Block(b) => {
                 let diverges: bool = check_block(ctx, b);
@@ -1904,6 +2012,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             }
         }
         pop(ctx.scopes);
+        index += 1;
     }
 
     if category != "" && all_resolved && !wildcard_seen {
@@ -2161,7 +2270,7 @@ fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Patter
 
 // A match expression.
 fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
-    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected);
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected, false);
     for t in m.types {
         if is_error(t) {
             return Type::Error;

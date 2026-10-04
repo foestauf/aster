@@ -1,0 +1,20 @@
+// expect-error: 5:16 undefined name 'v'
+// expect-error: 12:22 'v' is already declared in this scope
+fn own_else(o: Option[int]): int {
+    let Option::Some(v) = o else {
+        return v;
+    };
+    return v;
+}
+
+fn conflict(o: Option[int]): int {
+    let v: int = 1;
+    let Option::Some(v) = o else {
+        return 0;
+    };
+    return v;
+}
+
+fn main(): int {
+    return 0;
+}

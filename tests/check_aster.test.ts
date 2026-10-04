@@ -110,11 +110,14 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //   1274  function '<len|push|pop>' expects <n> argument(s), found <m>     errors/array_errors.aster
 //   1281  function 'len' expects a string or array, found <T>              errors/array_errors.aster
 //   1287  function '<push|pop>' expects an array, found <T>                errors/array_errors.aster
-//   v0.7 rows (never and block arms), by line in checker.ts as of that milestone:
+//   v0.7 rows (never, block arms, let-else and if let), by line in checker.ts as of that milestone:
 //    117  'never' is only allowed as a return type                         errors/never_positions.aster, fixtures/check_unwrap.txt
 //    181  'never' is a built-in type and cannot be redefined               errors/never_errors.aster
 //    375  function '<f>' returns 'never' but can reach its end             errors/never_errors.aster
+//    394  '<x>' is already declared in this scope (let-else binder)        errors/let_else_scope.aster, fixtures/check_unwrap.txt
 //    495  cannot return from a function that returns 'never'              errors/never_errors.aster, fixtures/check_unwrap.txt
+//    536  'else' block of 'let' must diverge                               errors/let_else_errors.aster, fixtures/check_unwrap.txt
+//    941  pattern always matches                                           errors/irrefutable.aster, fixtures/check_unwrap.txt
 //   1113  match arm block must diverge                                     errors/block_arm_errors.aster, fixtures/check_unwrap.txt
 //   1200  cannot infer type of empty array (every element never)          fixtures/check_unwrap.txt
 //   1277  operator '<op>' cannot be applied to never and <T> (never operand) errors/never_errors.aster, fixtures/check_unwrap.txt

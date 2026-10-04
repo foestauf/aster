@@ -1,0 +1,43 @@
+// expect-error: 11:29 'else' block of 'let' must diverge
+// expect-error: 18:9 pattern type 'Result' does not match 'Option[int]'
+// expect-error: 21:9 pattern type 'int' does not match 'string'
+// expect-error: 28:9 variant 'Option::Some' expects 1 value, got 2
+// expect-error: 35:27 cannot match on 'Point' values
+struct Point {
+    x: int,
+}
+
+fn falls_through(o: Option[int]): int {
+    let Option::Some(v) = o else {
+        print(0);
+    };
+    return v;
+}
+
+fn wrong_type(o: Option[int]): int {
+    let Result::Ok(v) = o else {
+        return 0;
+    };
+    let 1 = "one" else {
+        return 0;
+    };
+    return v;
+}
+
+fn wrong_arity(o: Option[int]): int {
+    let Option::Some(a, b) = o else {
+        return 0;
+    };
+    return a + b;
+}
+
+fn struct_scrutinee(p: Point): int {
+    let Option::Some(v) = p else {
+        return 0;
+    };
+    return v;
+}
+
+fn main(): int {
+    return 0;
+}

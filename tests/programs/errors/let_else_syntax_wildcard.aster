@@ -1,0 +1,9 @@
+// expect-error: 3:9 expected identifier, found '_'
+fn f(x: int): int {
+    let _ = x;
+    return x;
+}
+
+fn main(): int {
+    return 0;
+}

@@ -1,0 +1,9 @@
+// expect-error: 3:28 expected 'else', found ';'
+fn f(o: Option[int]): int {
+    let Option::Some(x) = o;
+    return x;
+}
+
+fn main(): int {
+    return 0;
+}

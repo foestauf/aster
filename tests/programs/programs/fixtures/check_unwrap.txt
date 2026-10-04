@@ -102,6 +102,78 @@ fn statement_arms(e: E): int {
     }
 }
 
+// let-else and if-let: irrefutability with errors in the pattern, and rules no errors/ program reaches.
+enum Two { T(int, int) }
+enum AB { A(int), B }
+
+fn unwrapping(t: Two, ab: AB, o: Option[int], c: bool): int {
+    let Two::T(a, a) = t else {
+        return 0;
+    };
+    let AB::A(n) | AB::B = ab else {
+        return 0;
+    };
+    let AB::A(_) | AB::B = ab else {
+        return 0;
+    };
+    let true | false | true = c else {
+        return 0;
+    };
+    let Two::T(p, q) = missing else {
+        return 0;
+    };
+    let Option::Some(r) = panic("s") else {
+        return 0;
+    };
+    let AB::C(u) = ab else {
+        return 0;
+    };
+    let Option::Some(w, z) = o else {
+        return 0;
+    };
+    let Option::Some(m) = o else {
+        if c {
+            return 1;
+        } else {
+            return 2;
+        }
+    };
+    let Option::Some(m) = o else {
+        return 3;
+    };
+    let Option::Some(k) = o else {
+        let inner: int = k;
+        if c {
+            return 4;
+        }
+    };
+    let total: int = a + p + r + u + w + z + m + k;
+    if let Option::Some(v) = o {
+        return v;
+    } else if c {
+        return 5;
+    } else if let AB::A(y) = ab {
+        let y2: int = y;
+        return y2;
+    } else {
+        return 6;
+    }
+}
+
+fn if_let_falls(o: Option[int], c: bool): int {
+    if let Option::Some(v) = o {
+        return v;
+    } else if let Option::None = o {
+        print(c);
+    }
+}
+
+fn if_let_no_else(o: Option[int]): int {
+    if let Option::Some(v) = o {
+        return v;
+    }
+}
+
 fn main(): int {
     return 0;
 }
