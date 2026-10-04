@@ -110,8 +110,8 @@ corresponding `types.ts` node.
 There are two printers, one TypeScript and one Aster, with the same output. Both are test-side code.
 
 - `tests/typed_dump.ts` exports `dumpTyped(program: TypedProgram): string`.
-- `packages/asterc-self/typed_dump.aster` provides `dump_typed(c: Checked): string`, and
-  `tests/programs/programs/typed.aster` prints that. The dumper sits in the compiler directory so #17 can reuse it
+- `packages/asterc-self/typed_dump.aster` provides `dump_typed(c: Checked): [string]` (one entry per line, so a large
+  dump is not built by quadratic concatenation), and `tests/programs/programs/typed.aster` prints each line. The dumper sits in the compiler directory so #17 can reuse it
   while debugging, but nothing in the compiler's closure imports it.
 
 **Layout.** The output is one node per line, indented two spaces per level, and ends with a newline:
@@ -132,13 +132,13 @@ fn main int
         init x
           int 1 : int
     match
-      local 1 : Option[int]
+      local 1 o : Option[int]
       arm
         variants Some/0
         binders 2
         block
           return
-            local 2 : int
+            local 2 x : int
       arm
         wildcard
         block
@@ -195,7 +195,8 @@ examples above are normative for the kinds they show.
    changes, and it is its own commit.
 2. **TypeScript `dumpTyped`** and its unit test.
 3. **The typed-tree types and `typed_dump.aster`.** Add `typed.aster` and `typed_aster.test.ts`. The bodies start out
-   empty, so the test is expected to fail until the work is done; it is not skipped.
+   empty, so failing files are listed in a `PENDING` set (as in `check_aster.test.ts`'s history). Each later task
+   shrinks it, and it must be empty before merge.
 4. **Typed nodes, one construct family per task**, each adding its fixture and turning more of the corpus green:
    - literals and names,
    - operators and calls/builtins,
