@@ -1,0 +1,280 @@
+// expect-library
+// Lowering, written in Aster: a port of packages/asterc/src/ir/lower.ts, function by function. `lower_program` turns
+// the checked program into the IR. It allocates temps, labels and interned strings in exactly the order lower.ts does,
+// because tests/ir_aster.test.ts compares the printed IR byte for byte.
+//
+// Aster has no closures or maps. lower.ts's callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`
+// and `IrPlaceRef`. Its maps become linear scans: `intern_ir_string`, `ir_find_struct` and `ir_block_index`.
+
+import "ir.aster";
+
+// The interned string literals, in first-use order, shared by every function.
+struct IrStrings { values: [string] }
+
+// An enclosing loop: where `continue` and `break` jump, and whether a `continue` targets it (so its continue block is
+// reachable).
+struct IrLoop { continue_label: string, break_label: string, continued: bool }
+
+// The block being filled.
+struct IrOpen { label: string, instrs: [IrInstr] }
+
+// Per-function lowering state. `current` is the open block, or `None` when the position is unreachable.
+struct IrState {
+    locals: [IrLocal],
+    blocks: [IrBlock],
+    current: Option[IrOpen],
+    label_count: int,
+    loops: [IrLoop],
+    strings: IrStrings,
+    structs: [TStruct],
+}
+
+fn lower_program(c: Checked): IrProgram {
+    let strings: IrStrings = IrStrings { values: [] };
+    let functions: [IrFunction] = [];
+    for f in c.functions {
+        push(functions, lower_function(f, strings, c.structs));
+    }
+    let structs: [IrStruct] = [];
+    for s in c.structs {
+        let fields: [IrField] = [];
+        for f in s.fields {
+            push(fields, IrField { name: f.name, ty: ir_type(f.ty) });
+        }
+        push(structs, IrStruct { name: s.name, fields: fields });
+    }
+    let enums: [IrEnum] = [];
+    for e in c.enums {
+        let variants: [IrVariant] = [];
+        for i in 0..len(e.variants) {
+            let payload: [Type] = [];
+            for p in e.variants[i].payload {
+                push(payload, ir_type(p));
+            }
+            push(variants, IrVariant { name: e.variants[i].name, tag: i, payload: payload });
+        }
+        push(enums, IrEnum { name: e.name, payload_free: e.payload_free, variants: variants });
+    }
+    return IrProgram { structs: structs, enums: enums, functions: functions, strings: strings.values };
+}
+
+// Every type except the checker-only `error` and `never`.
+fn ir_type(t: Type): Type {
+    return match t {
+        Type::Error => panic("internal: error type reached lowering"),
+        Type::Never => panic("internal: never type reached lowering"),
+        _ => t,
+    };
+}
+
+fn lower_function(f: TFunction, strings: IrStrings, structs: [TStruct]): IrFunction {
+    let locals: [IrLocal] = [];
+    for l in f.locals {
+        push(locals, IrLocal { id: l.id, name: Option::Some(l.name), ty: ir_type(l.ty) });
+    }
+    let st: IrState = IrState {
+        locals: locals,
+        blocks: [],
+        current: Option::Some(IrOpen { label: "entry", instrs: [] }),
+        label_count: 0,
+        loops: [],
+        strings: strings,
+        structs: structs,
+    };
+    lower_block(st, f.body);
+    // The checker guarantees non-void functions never fall off the end. A never function is void in the IR: its body
+    // diverges, so this is a no-op for it.
+    let ret: Type = match f.ret {
+        Type::Never => Type::Void,
+        _ => ir_type(f.ret),
+    };
+    if kind_of_type(ret) == "void" {
+        ir_terminate(st, IrTerm::Ret(Option::None));
+    } else {
+        ir_terminate(st, IrTerm::Unreachable);
+    }
+    return IrFunction { name: f.name, param_count: f.params, locals: st.locals, ret: ret, blocks: prune_unreachable(st.blocks) };
+}
+
+fn ir_block_index(blocks: [IrBlock], label: string): int {
+    for i in 0..len(blocks) {
+        if blocks[i].label == label {
+            return i;
+        }
+    }
+    panic("internal: no block " + label);
+}
+
+// Keeps only the blocks reachable from the entry block, in their original order.
+fn prune_unreachable(blocks: [IrBlock]): [IrBlock] {
+    if len(blocks) == 0 {
+        return blocks;
+    }
+    let reached: [bool] = [];
+    for b in blocks {
+        push(reached, false);
+    }
+    let work: [string] = [blocks[0].label];
+    while len(work) > 0 {
+        let i: int = ir_block_index(blocks, pop(work));
+        if reached[i] {
+            continue;
+        }
+        reached[i] = true;
+        match blocks[i].term {
+            IrTerm::Jmp(target) => push(work, target),
+            IrTerm::Br(_, then, otherwise) => {
+                push(work, then);
+                push(work, otherwise);
+            }
+            IrTerm::Switch(_, cases, fallback) => {
+                for c in cases {
+                    push(work, c.target);
+                }
+                if let Option::Some(d) = fallback {
+                    push(work, d);
+                }
+            }
+            _ => {}
+        }
+    }
+    let kept: [IrBlock] = [];
+    for i in 0..len(blocks) {
+        if reached[i] {
+            push(kept, blocks[i]);
+        }
+    }
+    return kept;
+}
+
+// ---- block plumbing
+
+fn ir_new_label(st: IrState, hint: string): string {
+    st.label_count += 1;
+    return hint + int_to_string(st.label_count);
+}
+
+fn ir_new_temp(st: IrState, ty: Type): int {
+    let id: int = len(st.locals);
+    push(st.locals, IrLocal { id: id, name: Option::None, ty: ty });
+    return id;
+}
+
+// Code after a never expression is unreachable: it is dropped rather than emitted.
+fn ir_emit(st: IrState, i: IrInstr) {
+    if let Option::Some(open) = st.current {
+        push(open.instrs, i);
+    }
+}
+
+// Closes the open block with `t`. A no-op when the position is already unreachable.
+fn ir_terminate(st: IrState, t: IrTerm) {
+    if let Option::Some(open) = st.current {
+        push(st.blocks, IrBlock { label: open.label, instrs: open.instrs, term: t });
+        st.current = Option::None;
+    }
+}
+
+// Opens a new block, falling through into it from the open block if there is one.
+fn ir_start_block(st: IrState, label: string) {
+    ir_terminate(st, IrTerm::Jmp(label));
+    st.current = Option::Some(IrOpen { label: label, instrs: [] });
+}
+
+fn ir_reachable(st: IrState): bool {
+    return match st.current {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn intern_ir_string(table: IrStrings, value: string): int {
+    for i in 0..len(table.values) {
+        if table.values[i] == value {
+            return i;
+        }
+    }
+    push(table.values, value);
+    return len(table.values) - 1;
+}
+
+fn ir_current_loop(st: IrState): IrLoop {
+    if len(st.loops) == 0 {
+        panic("internal: break/continue outside loop");
+    }
+    return st.loops[len(st.loops) - 1];
+}
+
+fn ir_ref(id: int): IrOperand {
+    return IrOperand::Local(id);
+}
+
+// Stands in for the value of an expression in unreachable code. It is only ever used there, and that code is pruned.
+fn ir_placeholder(): IrOperand {
+    return IrOperand::Int("0");
+}
+
+// ---- statements
+
+fn lower_block(st: IrState, b: TBlock) {
+    for s in b.stmts {
+        if !ir_reachable(st) {
+            return; // the rest is unreachable
+        }
+        lower_stmt(st, s);
+    }
+}
+
+fn lower_stmt(st: IrState, s: TStmt) {
+    match s {
+        TStmt::Let(local, init) => {
+            let v: IrOperand = lower_value(st, init);
+            ir_emit(st, IrInstr::Copy(local.id, v));
+        }
+        TStmt::Expr(e) => {
+            lower_expr(st, e);
+        }
+        TStmt::Block(b) => lower_block(st, b),
+        TStmt::Return(value) => {
+            if let Option::Some(e) = value {
+                let v: IrOperand = lower_value(st, e);
+                ir_terminate(st, IrTerm::Ret(Option::Some(v)));
+            } else {
+                ir_terminate(st, IrTerm::Ret(Option::None));
+            }
+        }
+        _ => panic("internal: statement not lowered yet"),
+    }
+}
+
+// ---- expressions
+
+fn lower_value(st: IrState, e: TExpr): IrOperand {
+    return match lower_expr(st, e) {
+        Option::Some(v) => v,
+        Option::None => panic("internal: void expression used as a value"),
+    };
+}
+
+// Lowers each of `es` in order.
+fn lower_args(st: IrState, es: [TExpr]): [IrOperand] {
+    let out: [IrOperand] = [];
+    for e in es {
+        push(out, lower_value(st, e));
+    }
+    return out;
+}
+
+// Lowers an expression and returns its value, or `None` for a void expression.
+fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
+    if !ir_reachable(st) {
+        return Option::Some(ir_placeholder());
+    }
+    return match e.node {
+        TExprNode::Int(value) => Option::Some(IrOperand::Int(value)),
+        TExprNode::Bool(value) => Option::Some(IrOperand::Bool(value)),
+        TExprNode::Str(value) => Option::Some(IrOperand::Str(intern_ir_string(st.strings, value))),
+        TExprNode::Local(l) => Option::Some(ir_ref(l.id)),
+        _ => panic("internal: expression not lowered yet"),
+    };
+}

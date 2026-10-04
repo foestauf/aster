@@ -1,0 +1,231 @@
+// expect-library
+// The IR in packages/asterc/src/ir/print.ts's format, character for character. `print_ir` returns the output's lines
+// without their newlines. Sections (structs, enums, strings, then each function) are separated by one blank line, as
+// printIr's join does. tests/ir_aster.test.ts checks it, through ir.aster, against printIr.
+
+import "ir.aster";
+
+fn ir_join(items: [string], sep: string): string {
+    var out: string = "";
+    for i in 0..len(items) {
+        if i > 0 {
+            out += sep;
+        }
+        out += items[i];
+    }
+    return out;
+}
+
+fn ir_braces(items: [string]): string {
+    if len(items) == 0 {
+        return "{}";
+    }
+    return "{ " + ir_join(items, ", ") + " }";
+}
+
+// JSON.stringify of `s`, over its bytes: `"` and `\` escaped, \b \f \n \r \t short, other bytes below 32 as \u00xx
+// (lowercase), and everything else, including 127 and every byte of a multi-byte UTF-8 sequence, copied through.
+fn ir_json_string(s: string): string {
+    let hex: string = "0123456789abcdef";
+    var out: string = "\"";
+    for i in 0..len(s) {
+        let b: int = byte_at(s, i);
+        if b == '"' {
+            out += "\\\"";
+        } else if b == '\\' {
+            out += "\\\\";
+        } else if b == 8 {
+            out += "\\b";
+        } else if b == 12 {
+            out += "\\f";
+        } else if b == '\n' {
+            out += "\\n";
+        } else if b == '\r' {
+            out += "\\r";
+        } else if b == '\t' {
+            out += "\\t";
+        } else if b < 32 {
+            out += "\\u00" + substring(hex, b / 16, b / 16 + 1) + substring(hex, b % 16, b % 16 + 1);
+        } else {
+            out += substring(s, i, i + 1);
+        }
+    }
+    return out + "\"";
+}
+
+fn ir_operand(o: IrOperand): string {
+    return match o {
+        IrOperand::Local(id) => "%" + int_to_string(id),
+        IrOperand::Int(value) => value,
+        IrOperand::Bool(value) => ir_bool_text(value),
+        IrOperand::Str(index) => "str#" + int_to_string(index),
+    };
+}
+
+fn ir_bool_text(b: bool): string {
+    if b {
+        return "true";
+    }
+    return "false";
+}
+
+fn ir_operands(os: [IrOperand]): string {
+    let parts: [string] = [];
+    for o in os {
+        push(parts, ir_operand(o));
+    }
+    return ir_join(parts, ", ");
+}
+
+fn ir_dst(d: Option[int]): string {
+    return match d {
+        Option::Some(id) => "%" + int_to_string(id) + " = ",
+        Option::None => "",
+    };
+}
+
+fn ir_instr_text(i: IrInstr): string {
+    return match i {
+        IrInstr::Copy(dst, src) => "%" + int_to_string(dst) + " = copy " + ir_operand(src),
+        IrInstr::Unop(dst, op, operand) => "%" + int_to_string(dst) + " = " + op + " " + ir_operand(operand),
+        IrInstr::Binop(dst, op, left, right) => "%" + int_to_string(dst) + " = " + op + " " + ir_operand(left) + ", " + ir_operand(right),
+        IrInstr::Call(dst, name, args) => ir_dst(dst) + "call " + name + "(" + ir_operands(args) + ")",
+        IrInstr::CallBuiltin(dst, name, args) => ir_dst(dst) + "call_builtin " + name + "(" + ir_operands(args) + ")",
+        IrInstr::StructNew(dst, name, fields) => "%" + int_to_string(dst) + " = struct_new " + name + " " + ir_braces(ir_field_values(fields)),
+        IrInstr::FieldGet(dst, object, field) => "%" + int_to_string(dst) + " = field_get " + ir_operand(object) + "." + field,
+        IrInstr::FieldSet(object, field, value) => "field_set " + ir_operand(object) + "." + field + ", " + ir_operand(value),
+        IrInstr::ArrayNew(dst, elem, elements) => "%" + int_to_string(dst) + " = array_new " + type_to_string(elem) + " [" + ir_operands(elements) + "]",
+        IrInstr::IndexGet(dst, array, index) => "%" + int_to_string(dst) + " = index_get " + ir_operand(array) + "[" + ir_operand(index) + "]",
+        IrInstr::IndexSet(array, index, value) => "index_set " + ir_operand(array) + "[" + ir_operand(index) + "], " + ir_operand(value),
+        IrInstr::ArrayLen(dst, array) => "%" + int_to_string(dst) + " = array_len " + ir_operand(array),
+        IrInstr::ArrayPush(array, value) => "array_push " + ir_operand(array) + ", " + ir_operand(value),
+        IrInstr::ArrayPop(dst, array) => "%" + int_to_string(dst) + " = array_pop " + ir_operand(array),
+        IrInstr::EnumNew(dst, name, variant, _, args) => "%" + int_to_string(dst) + " = enum_new " + name + "::" + variant + ir_variant_args(args),
+        IrInstr::EnumTag(dst, value) => "%" + int_to_string(dst) + " = enum_tag " + ir_operand(value),
+        IrInstr::EnumField(dst, value, name, variant, _, index) => "%" + int_to_string(dst) + " = enum_field " + ir_operand(value) + ", " + name + "::" + variant + "." + int_to_string(index),
+        IrInstr::ReadFile(ok, text, path) => "%" + int_to_string(ok) + ", %" + int_to_string(text) + " = read_file " + ir_operand(path),
+    };
+}
+
+fn ir_field_values(fields: [IrFieldValue]): [string] {
+    let parts: [string] = [];
+    for f in fields {
+        push(parts, f.name + ": " + ir_operand(f.value));
+    }
+    return parts;
+}
+
+fn ir_variant_args(args: [IrOperand]): string {
+    if len(args) == 0 {
+        return "";
+    }
+    return "(" + ir_operands(args) + ")";
+}
+
+fn ir_switch_text(value: IrOperand, cases: [IrCase], fallback: Option[string]): string {
+    let parts: [string] = [];
+    for c in cases {
+        push(parts, c.value + ": " + c.target);
+    }
+    var d: string = "unreachable";
+    if let Option::Some(label) = fallback {
+        d = label;
+    }
+    return "switch " + ir_operand(value) + " [" + ir_join(parts, ", ") + "], default " + d;
+}
+
+fn ir_ret_text(value: Option[IrOperand]): string {
+    if let Option::Some(v) = value {
+        return "ret " + ir_operand(v);
+    }
+    return "ret";
+}
+
+fn ir_term_text(t: IrTerm): string {
+    return match t {
+        IrTerm::Jmp(target) => "jmp " + target,
+        IrTerm::Br(cond, then, otherwise) => "br " + ir_operand(cond) + ", " + then + ", " + otherwise,
+        IrTerm::Switch(value, cases, fallback) => ir_switch_text(value, cases, fallback),
+        IrTerm::Ret(value) => ir_ret_text(value),
+        IrTerm::Unreachable => "unreachable",
+    };
+}
+
+fn ir_local_decl(l: IrLocal): string {
+    var name: string = "";
+    if let Option::Some(n) = l.name {
+        name = " " + n;
+    }
+    return "%" + int_to_string(l.id) + name + ": " + type_to_string(l.ty);
+}
+
+fn ir_variant_decl(v: IrVariant): string {
+    if len(v.payload) == 0 {
+        return v.name;
+    }
+    let parts: [string] = [];
+    for p in v.payload {
+        push(parts, type_to_string(p));
+    }
+    return v.name + "(" + ir_join(parts, ", ") + ")";
+}
+
+// Appends one function's lines: its signature, its non-param locals, then each block's label, instructions and
+// terminator.
+fn print_ir_function(out: [string], f: IrFunction) {
+    let params: [string] = [];
+    for i in 0..f.param_count {
+        push(params, ir_local_decl(f.locals[i]));
+    }
+    push(out, "fn " + f.name + "(" + ir_join(params, ", ") + "): " + type_to_string(f.ret));
+    for i in f.param_count..len(f.locals) {
+        push(out, "  local " + ir_local_decl(f.locals[i]));
+    }
+    for b in f.blocks {
+        push(out, b.label + ":");
+        for i in b.instrs {
+            push(out, "  " + ir_instr_text(i));
+        }
+        push(out, "  " + ir_term_text(b.term));
+    }
+}
+
+fn print_ir(p: IrProgram): [string] {
+    let out: [string] = [];
+    if len(p.structs) > 0 {
+        for s in p.structs {
+            let fields: [string] = [];
+            for f in s.fields {
+                push(fields, f.name + ": " + type_to_string(f.ty));
+            }
+            push(out, "struct " + s.name + " " + ir_braces(fields));
+        }
+    }
+    if len(p.enums) > 0 {
+        if len(out) > 0 {
+            push(out, "");
+        }
+        for e in p.enums {
+            let variants: [string] = [];
+            for v in e.variants {
+                push(variants, ir_variant_decl(v));
+            }
+            push(out, "enum " + e.name + " " + ir_braces(variants));
+        }
+    }
+    if len(p.strings) > 0 {
+        if len(out) > 0 {
+            push(out, "");
+        }
+        for i in 0..len(p.strings) {
+            push(out, "string #" + int_to_string(i) + " = " + ir_json_string(p.strings[i]));
+        }
+    }
+    for f in p.functions {
+        if len(out) > 0 {
+            push(out, "");
+        }
+        print_ir_function(out, f);
+    }
+    return out;
+}
