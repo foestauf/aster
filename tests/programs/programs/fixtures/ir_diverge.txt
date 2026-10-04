@@ -9,6 +9,10 @@ fn die_int(): int {
     die("int");
 }
 
+fn die_str(): string {
+    die("str");
+}
+
 fn die_bool(): bool {
     panic("bool");
 }
@@ -59,6 +63,10 @@ fn after(flag: bool): int {
     match die_int() {
         0 => print("zero"),
         _ => print("other"),
+    }
+    match die_str() {
+        "zz_unreachable" => print("a"),
+        _ => print("b"),
     }
     return 1;
 }
