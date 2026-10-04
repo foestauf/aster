@@ -58,7 +58,8 @@ describe('emit.aster built from its own C (E1) matches the TypeScript C emitter'
     if (expected === undefined || own.stdout !== expected.c) throw new Error('E0 C for its own closure differs from stage 0');
     const built = buildExecutable(own.stdout, e1, ['-Werror']);
     if (!built.ok) throw new Error(built.message);
-  });
+    // cc -O2 on the compiler's ~960 KB of C can exceed vitest's default 10 s hook timeout on a slow machine.
+  }, 60_000);
 
   it.for(accepted)('$file', ({ file, c }) => {
     expect(emitWith(e1, file)).toEqual({ stdout: c, stderr: '', status: 0 });
