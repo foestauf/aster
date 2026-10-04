@@ -88,6 +88,10 @@ It matches `packages/asterc/src/cli/cli.ts` in these ways:
   `error: <reason>\n` followed by the same usage text, and exits 2. The usage text drops `tokens|ast|ir` from
   `--emit=`, so it reads `--emit=c`. That is the only change to the text.
 - **Unreadable input.** `error: cannot read '<file>'\n`, exit 2.
+- **Malformed UTF-8 source.** Checked before anything else reads the text, with the same algorithm in both compilers
+  (`driver/utf8.ts`, `loader.aster`). A root file that is not well-formed UTF-8 prints
+  `<file>: error: invalid UTF-8 at line <L>, byte <B>\n` and exits 1, for every command. An imported one is reported
+  at its import, `cannot import '<path>': invalid UTF-8 at line <L>, byte <B>`, as a compile error. Added in #25.
 - **Compile errors.** Every diagnostic is printed through the human format (§4.2), sorted and deduplicated as by
   `sortDiagnostics`, and the exit code is 1. A program that has errors never reaches lowering.
 - **`--emit=c`.** It writes the C text to stdout and exits 0. Nothing else goes to stdout.

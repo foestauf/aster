@@ -101,6 +101,7 @@ fn norm2(p: Point): int {
 
 ## Lexical structure
 
+- Source encoding: every source file, the root and each import, must be well-formed UTF-8 (Unicode Table 3-7). A leading byte order mark is ignored. Anything else is a compile error at the first byte of the first ill-formed sequence: `<file>: error: invalid UTF-8 at line <L>, byte <B>` for the root, and `cannot import '<path>': invalid UTF-8 at line <L>, byte <B>` at the import of any other file. `L` is 1-based; `B` is the 0-based byte offset into the file as stored, BOM included. String values stay byte sequences at run time; this rule only covers source text.
 - Comments: `//` to end of line. No block comments.
 - Whitespace is insignificant except as a separator.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`, excluding keywords.
