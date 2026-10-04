@@ -17,6 +17,7 @@
     "lint:fix": "oxlint --fix",
     "aster": "node packages/asterc/dist/cli/bin.js",
     "gen:runtime": "node scripts/gen-runtime.ts",
+    "selfhost": "node scripts/selfhost.ts",
     "prepare": "husky"
   },
   "devDependencies": {
