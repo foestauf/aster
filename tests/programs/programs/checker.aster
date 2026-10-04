@@ -49,27 +49,18 @@ fn kind_of_type(t: Type): string {
 fn type_equals(a: Type, b: Type): bool {
     match a {
         Type::Struct(x) => {
-            match b {
-                Type::Struct(y) => {
-                    return x == y;
-                }
-                _ => {}
+            if let Type::Struct(y) = b {
+                return x == y;
             }
         }
         Type::Enum(x) => {
-            match b {
-                Type::Enum(y) => {
-                    return x == y;
-                }
-                _ => {}
+            if let Type::Enum(y) = b {
+                return x == y;
             }
         }
         Type::Array(x) => {
-            match b {
-                Type::Array(y) => {
-                    return type_equals(x, y);
-                }
-                _ => {}
+            if let Type::Array(y) = b {
+                return type_equals(x, y);
             }
         }
         _ => {}
@@ -140,15 +131,11 @@ fn find_signature(sigs: [Signature], name: string): Option[int] {
     return Option::None;
 }
 
-fn is_signature_builtin(name: string): bool {
-    return match find_signature(builtin_signatures(), name) {
-        Option::Some(_) => true,
-        Option::None => false,
-    };
-}
-
 fn is_builtin(name: string): bool {
-    return contains(special_builtins(), name) || is_signature_builtin(name);
+    if let Option::Some(_) = find_signature(builtin_signatures(), name) {
+        return true;
+    }
+    return contains(special_builtins(), name);
 }
 
 // ---- the typed program (check/types.ts)
@@ -267,11 +254,8 @@ fn find_node(g: ExpansionGraph, key: string): Option[int] {
 
 // The index of the node `key`, adding it (with no successors) if it is new.
 fn intern_node(g: ExpansionGraph, key: string): int {
-    match find_node(g, key) {
-        Option::Some(i) => {
-            return i;
-        }
-        Option::None => {}
+    if let Option::Some(i) = find_node(g, key) {
+        return i;
     }
     push(g.nodes, key);
     push(g.successors, []);
@@ -308,26 +292,23 @@ fn walk_expansion(g: ExpansionGraph, templates: [Template], template: Template, 
         TypeNode::Named(name, args) => {
             // A type parameter that shadows a template's name is a parameter here, not a reference to the template.
             if !contains(template.params, name) {
-                match find_template_in(templates, name) {
-                    Option::Some(ti) => {
-                        let target: Template = templates[ti];
-                        if len(target.params) == len(args) {
-                            for i in 0..len(args) {
-                                let arg: TypeExpr = args[i];
-                                for param in template.params {
-                                    if !mentions_param(arg, param) {
-                                        continue;
-                                    }
-                                    let exact: bool = match arg.node {
-                                        TypeNode::Named(n, a) => len(a) == 0 && n == param,
-                                        _ => false,
-                                    };
-                                    add_edge(g, node_key(template.decl.name.name, param), node_key(target.decl.name.name, target.params[i]), !exact);
+                if let Option::Some(ti) = find_template_in(templates, name) {
+                    let target: Template = templates[ti];
+                    if len(target.params) == len(args) {
+                        for i in 0..len(args) {
+                            let arg: TypeExpr = args[i];
+                            for param in template.params {
+                                if !mentions_param(arg, param) {
+                                    continue;
                                 }
+                                let exact: bool = match arg.node {
+                                    TypeNode::Named(n, a) => len(a) == 0 && n == param,
+                                    _ => false,
+                                };
+                                add_edge(g, node_key(template.decl.name.name, param), node_key(target.decl.name.name, target.params[i]), !exact);
                             }
                         }
                     }
-                    Option::None => {}
                 }
             }
             for arg in args {
@@ -377,14 +358,11 @@ fn find_expanding_enums(templates: [Template]): [string] {
     for template in templates {
         var on_cycle: bool = false;
         for param in template.params {
-            match find_node(g, node_key(template.decl.name.name, param)) {
-                Option::Some(n) => {
-                    let c: int = g.component[n];
-                    if c >= 0 && expanding_components[c] {
-                        on_cycle = true;
-                    }
+            if let Option::Some(n) = find_node(g, node_key(template.decl.name.name, param)) {
+                let c: int = g.component[n];
+                if c >= 0 && expanding_components[c] {
+                    on_cycle = true;
                 }
-                Option::None => {}
             }
         }
         if on_cycle {
@@ -531,19 +509,15 @@ fn find_template(env: Env, name: string): Option[int] {
     return find_template_in(env.templates, name);
 }
 
-fn is_found(i: Option[int]): bool {
-    return match i {
-        Option::Some(_) => true,
-        Option::None => false,
-    };
-}
-
 // "struct" / "enum" when `name` is already taken in the type namespace, else "". Templates count as enums.
 fn type_kind_of(env: Env, name: string): string {
-    if is_found(find_struct(env, name)) {
+    if let Option::Some(_) = find_struct(env, name) {
         return "struct";
     }
-    if is_found(find_enum(env, name)) || is_found(find_template(env, name)) {
+    if let Option::Some(_) = find_enum(env, name) {
+        return "enum";
+    }
+    if let Option::Some(_) = find_template(env, name) {
         return "enum";
     }
     return "";
@@ -588,13 +562,6 @@ fn find_binding(bindings: [Binding], name: string): Option[Type] {
     return Option::None;
 }
 
-fn is_bound(bindings: [Binding], name: string): bool {
-    return match find_binding(bindings, name) {
-        Option::Some(_) => true,
-        Option::None => false,
-    };
-}
-
 // Resolves a written type with no type parameters in scope, reporting its errors and instantiating what it names:
 // TS's `resolveType(env, ref)` with its defaults.
 fn resolve_type(env: Env, ref: TypeExpr): Type {
@@ -620,69 +587,59 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
             return Type::Array(elem);
         }
         TypeNode::Named(name, args) => {
-            match find_binding(bindings, name) {
-                Option::Some(bound) => {
-                    if len(args) > 0 {
-                        say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
-                        return Type::Error;
-                    }
-                    return bound;
+            if let Option::Some(bound) = find_binding(bindings, name) {
+                if len(args) > 0 {
+                    say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                    return Type::Error;
                 }
-                Option::None => {}
+                return bound;
             }
-            match find_template(env, name) {
-                Option::Some(ti) => {
-                    let template: Template = env.templates[ti];
-                    let expected: int = len(template.params);
-                    if len(args) != expected {
-                        let noun: string = if expected == 1 { "argument" } else { "arguments" };
-                        say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
-                        return Type::Error;
-                    }
-                    let types: [Type] = [];
-                    var any_error: bool = false;
-                    for arg in args {
-                        var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates, false);
-                        if is_void(t) {
-                            say(env, quiet, "type argument cannot be void", arg.start, arg.end);
-                            t = Type::Error;
-                        }
-                        if is_error(t) {
-                            any_error = true;
-                        }
-                        push(types, t);
-                    }
-                    if any_error || template.broken || !instantiates {
-                        return Type::Error;
-                    }
-                    return instantiate(env, template, types);
+            if let Option::Some(ti) = find_template(env, name) {
+                let template: Template = env.templates[ti];
+                let expected: int = len(template.params);
+                if len(args) != expected {
+                    let noun: string = if expected == 1 { "argument" } else { "arguments" };
+                    say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+                    return Type::Error;
                 }
-                Option::None => {}
+                let types: [Type] = [];
+                var any_error: bool = false;
+                for arg in args {
+                    var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates, false);
+                    if is_void(t) {
+                        say(env, quiet, "type argument cannot be void", arg.start, arg.end);
+                        t = Type::Error;
+                    }
+                    if is_error(t) {
+                        any_error = true;
+                    }
+                    push(types, t);
+                }
+                if any_error || template.broken || !instantiates {
+                    return Type::Error;
+                }
+                return instantiate(env, template, types);
             }
             var found: Option[Type] = primitive_type(name);
             if name == "never" && !allow_never {
                 say(env, quiet, "'never' is only allowed as a return type", ref.start, ref.end);
                 return Type::Error;
             }
-            if is_found(find_struct(env, name)) {
+            if let Option::Some(_) = find_struct(env, name) {
                 found = Option::Some(Type::Struct(name));
             }
-            if is_found(find_enum(env, name)) {
+            if let Option::Some(_) = find_enum(env, name) {
                 found = Option::Some(Type::Enum(name));
             }
-            match found {
-                Option::Some(t) => {
-                    if len(args) > 0 {
-                        say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
-                        return Type::Error;
-                    }
-                    return t;
-                }
-                Option::None => {
-                    say(env, quiet, "unknown type '" + name + "'", ref.start, ref.end);
-                    return Type::Error;
-                }
+            let Option::Some(t) = found else {
+                say(env, quiet, "unknown type '" + name + "'", ref.start, ref.end);
+                return Type::Error;
+            };
+            if len(args) > 0 {
+                say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                return Type::Error;
             }
+            return t;
         }
     }
 }
@@ -699,7 +656,7 @@ fn say(env: Env, quiet: bool, message: string, start: int, end: int) {
 fn instantiate(env: Env, template: Template, args: [Type]): Type {
     let base: string = template.decl.name.name;
     let name: string = instance_name(base, args);
-    if is_found(find_enum(env, name)) {
+    if let Option::Some(_) = find_enum(env, name) {
         return Type::Enum(name);
     }
     let enum_type: TEnum = TEnum { name: name, payload_free: false, variants: [], base: base, args: args };
@@ -710,7 +667,7 @@ fn instantiate(env: Env, template: Template, args: [Type]): Type {
     }
     for variant in template.decl.variants {
         // Validating the template already reported the duplicate.
-        if is_found(find_tvariant(enum_type.variants, variant.name.name)) {
+        if let Option::Some(_) = find_tvariant(enum_type.variants, variant.name.name) {
             continue;
         }
         let payload: [Type] = [];
@@ -778,7 +735,7 @@ fn collect_types(env: Env, items: [Item]) {
             continue;
         }
         let previous: string = type_kind_of(env, name.name);
-        if is_primitive(name.name) {
+        if let Option::Some(_) = primitive_type(name.name) {
             report(env, "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
         } else if is_builtin_type(name.name) {
             report(env, builtin_type_message(name.name), name.start, name.end);
@@ -861,7 +818,7 @@ fn collect_types(env: Env, items: [Item]) {
     for i in 0..len(struct_decls) {
         let st: TStruct = env.structs[i];
         for field in struct_decls[i].fields {
-            if is_found(find_tfield(st.fields, field.name.name)) {
+            if let Option::Some(_) = find_tfield(st.fields, field.name.name) {
                 report(env, "duplicate field '" + field.name.name + "'", field.name.start, field.name.end);
                 continue;
             }
@@ -877,7 +834,7 @@ fn collect_types(env: Env, items: [Item]) {
         let en: TEnum = env.enums[i];
         let decl: EnumDecl = enum_decls[i];
         for variant in decl.variants {
-            if is_found(find_tvariant(en.variants, variant.name.name)) {
+            if let Option::Some(_) = find_tvariant(en.variants, variant.name.name) {
                 report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
                 continue;
             }
@@ -943,15 +900,12 @@ fn prelude_templates(): [Template] {
     let p: Parser = new_parser(lex(prelude_source()));
     let templates: [Template] = [];
     for item in parse_program(p) {
-        match item {
-            Item::Enum(d) => {
-                let params: [string] = [];
-                for tp in d.params {
-                    push(params, tp.name);
-                }
-                push(templates, Template { decl: d, params: params, broken: false, has_errors: false });
+        if let Item::Enum(d) = item {
+            let params: [string] = [];
+            for tp in d.params {
+                push(params, tp.name);
             }
-            _ => {}
+            push(templates, Template { decl: d, params: params, broken: false, has_errors: false });
         }
     }
     return templates;
@@ -979,7 +933,7 @@ fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): 
         report(env, "'" + name + "' is already declared as " + article(type_kind), decl.name.start, decl.name.end);
         return false;
     }
-    if is_found(find_signature(sigs, name)) {
+    if let Option::Some(_) = find_signature(sigs, name) {
         report(env, "duplicate function '" + name + "'", decl.name.start, decl.name.end);
         return false;
     }
@@ -1011,24 +965,20 @@ fn check_program(items: [Item], root_end: int): Checked {
     let sigs: [Signature] = [];
     let declared: [FnDecl] = [];
     for item in items {
-        match item {
-            Item::Fn(decl) => {
-                if collect_signature(env, sigs, decl, root_end) {
-                    push(declared, decl);
-                }
+        if let Item::Fn(decl) = item {
+            if collect_signature(env, sigs, decl, root_end) {
+                push(declared, decl);
             }
-            _ => {}
         }
     }
 
-    match find_signature(sigs, "main") {
-        Option::Some(i) => {
-            if !is_main_signature(sigs[i]) {
-                let name: Ident = declared[i].name;
-                report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
-            }
+    if let Option::Some(i) = find_signature(sigs, "main") {
+        if !is_main_signature(sigs[i]) {
+            let name: Ident = declared[i].name;
+            report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
         }
-        Option::None => report(env, "missing 'fn main(): int'", 0, 0),
+    } else {
+        report(env, "missing 'fn main(): int'", 0, 0);
     }
 
     // Pass 2: check bodies.
@@ -1069,7 +1019,7 @@ fn find_local(scope: [Local], name: string): Option[int] {
 
 fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
     let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
-    if is_found(find_local(scope, name.name)) {
+    if let Option::Some(_) = find_local(scope, name.name) {
         report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
@@ -1082,26 +1032,19 @@ fn lookup(ctx: Ctx, name: string): Option[Local] {
     var i: int = len(ctx.scopes) - 1;
     while i >= 0 {
         let scope: [Local] = ctx.scopes[i];
-        match find_local(scope, name) {
-            Option::Some(j) => {
-                return Option::Some(scope[j]);
-            }
-            Option::None => {}
+        if let Option::Some(j) = find_local(scope, name) {
+            return Option::Some(scope[j]);
         }
         i -= 1;
     }
     return Option::None;
 }
 
-fn is_local(ctx: Ctx, name: string): bool {
-    return match lookup(ctx, name) {
-        Option::Some(_) => true,
-        Option::None => false,
-    };
-}
-
 fn is_function_name(ctx: Ctx, name: string): bool {
-    return is_found(find_signature(ctx.signatures, name)) || is_builtin(name);
+    if let Option::Some(_) = find_signature(ctx.signatures, name) {
+        return true;
+    }
+    return is_builtin(name);
 }
 
 // A `never` value fits any expected type.
@@ -1219,11 +1162,8 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
         StmtNode::Return(value) => {
             if is_never(ctx.ret) {
                 report(ctx.env, "cannot return from a function that returns 'never'", s.start, s.end);
-                match value {
-                    Option::Some(v) => {
-                        check_expr(ctx, v, Option::None);
-                    }
-                    Option::None => {}
+                if let Option::Some(v) = value {
+                    check_expr(ctx, v, Option::None);
                 }
                 return true;
             }
@@ -1281,21 +1221,15 @@ fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
         }
         Else::If(nested) => {
             var other_diverges: bool = false;
-            match nested.node {
-                StmtNode::If(c, t, e) => {
-                    other_diverges = check_if(ctx, c, t, e);
-                }
-                _ => {}
+            if let StmtNode::If(c, t, e) = nested.node {
+                other_diverges = check_if(ctx, c, t, e);
             }
             return then_diverges && other_diverges;
         }
         Else::IfLet(nested) => {
             var other_diverges: bool = false;
-            match nested.node {
-                StmtNode::IfLet(p, sc, t, e) => {
-                    other_diverges = check_if_let(ctx, p, sc, t, e);
-                }
-                _ => {}
+            if let StmtNode::IfLet(p, sc, t, e) = nested.node {
+                other_diverges = check_if_let(ctx, p, sc, t, e);
             }
             return then_diverges && other_diverges;
         }
@@ -1305,7 +1239,7 @@ fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
 // Puts an already-allocated local into the current scope, reporting a clash like `declare` does.
 fn declare_existing(ctx: Ctx, name: Ident, local: Local) {
     let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
-    if is_found(find_local(scope, name.name)) {
+    if let Option::Some(_) = find_local(scope, name.name) {
         report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     push(scope, local);
@@ -1331,27 +1265,24 @@ fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, o
     if !m.diverges[1] {
         report(ctx.env, "'else' block of 'let' must diverge", else_keyword.start, else_keyword.end);
     }
-    match pattern.node {
-        PatternNode::Variant(_, _, binders) => {
-            let declared: [string] = [];
-            for b in binders {
-                match b {
-                    Binder::Named(id) => {
-                        if !contains(declared, id.name) {
-                            match find_local(m.binders, id.name) {
-                                Option::Some(j) => {
-                                    push(declared, id.name);
-                                    declare_existing(ctx, id, m.binders[j]);
-                                }
-                                Option::None => {}
-                            }
-                        }
-                    }
-                    Binder::Wild => {}
-                }
-            }
+    // `m.binders` holds the binders' locals but not their spans, which a clash in the enclosing scope is reported at,
+    // so walk the pattern again for each binder's name. `declared` skips a name the pattern repeats (already reported
+    // as a duplicate binding), and only a variant pattern binds names.
+    let PatternNode::Variant(_, _, binders) = pattern.node else {
+        return;
+    };
+    let declared: [string] = [];
+    for b in binders {
+        let Binder::Named(id) = b else {
+            continue;
+        };
+        if contains(declared, id.name) {
+            continue;
         }
-        _ => {}
+        if let Option::Some(j) = find_local(m.binders, id.name) {
+            push(declared, id.name);
+            declare_existing(ctx, id, m.binders[j]);
+        }
     }
 }
 
@@ -1416,11 +1347,8 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
             return Type::Bool;
         }
         ExprNode::Name(name) => {
-            match lookup(ctx, name) {
-                Option::Some(local) => {
-                    return local.ty;
-                }
-                Option::None => {}
+            if let Option::Some(local) = lookup(ctx, name) {
+                return local.ty;
             }
             let message: string = if is_function_name(ctx, name) { "'" + name + "' is a function, not a value" } else { "undefined name '" + name + "'" };
             report(ctx.env, message, e.start, e.end);
@@ -1471,16 +1399,10 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
             if is_error(t) {
                 return Type::Error;
             }
-            match t {
-                Type::Struct(name) => {
-                    match find_field(ctx.env, name, field.name) {
-                        Option::Some(f) => {
-                            return f.ty;
-                        }
-                        Option::None => {}
-                    }
+            if let Type::Struct(name) = t {
+                if let Option::Some(f) = find_field(ctx.env, name, field.name) {
+                    return f.ty;
                 }
-                _ => {}
             }
             report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(t) + "'", field.start, field.end);
             return Type::Error;
@@ -1525,19 +1447,13 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
 // The index in `env.enums` of `t`'s instantiation when `t` is an `Option` or `Result`, else None: TS's `tryable`, whose
 // name, base and arguments the TEnum holds.
 fn tryable(env: Env, t: Type): Option[int] {
-    match t {
-        Type::Enum(name) => {
-            match find_enum(env, name) {
-                Option::Some(ei) => {
-                    let base: string = env.enums[ei].base;
-                    if base == "Option" || base == "Result" {
-                        return Option::Some(ei);
-                    }
-                }
-                Option::None => {}
-            }
-        }
-        _ => {}
+    let Type::Enum(name) = t else {
+        return Option::None;
+    };
+    let ei: int = find_enum(env, name)?;
+    let base: string = env.enums[ei].base;
+    if base == "Option" || base == "Result" {
+        return Option::Some(ei);
     }
     return Option::None;
 }
@@ -1548,17 +1464,10 @@ fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
     if is_error(t) {
         return Type::Error;
     }
-    var oi: int = -1;
-    match tryable(ctx.env, t) {
-        Option::Some(i) => {
-            oi = i;
-        }
-        Option::None => {}
-    }
-    if oi < 0 {
+    let Option::Some(oi) = tryable(ctx.env, t) else {
         report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
         return Type::Error;
-    }
+    };
     let op: TEnum = ctx.env.enums[oi];
     let is_result: bool = op.base == "Result";
     let ty: Type = op.variants[0].payload[0];
@@ -1566,19 +1475,18 @@ fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
     if is_error(ctx.ret) {
         return ty;
     }
-    var ri: int = -1;
-    match tryable(ctx.env, ctx.ret) {
-        Option::Some(i) => {
-            ri = i;
-        }
-        Option::None => {}
-    }
-    if ri < 0 || ctx.env.enums[ri].base != op.base {
-        let kind: string = if is_result { "a Result" } else { "an Option" };
-        report(ctx.env, "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'", e.start, e.end);
+    // A return type that isn't tryable at all and one of the other kind get the same message.
+    let kind: string = if is_result { "a Result" } else { "an Option" };
+    let wrong_return: string = "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'";
+    let Option::Some(ri) = tryable(ctx.env, ctx.ret) else {
+        report(ctx.env, wrong_return, e.start, e.end);
+        return Type::Error;
+    };
+    let ret: TEnum = ctx.env.enums[ri];
+    if ret.base != op.base {
+        report(ctx.env, wrong_return, e.start, e.end);
         return Type::Error;
     }
-    let ret: TEnum = ctx.env.enums[ri];
     if is_result && !type_equals(op.args[1], ret.args[1]) {
         let mine: string = type_to_string(op.args[1]);
         let theirs: string = type_to_string(ret.args[1]);
@@ -1603,39 +1511,29 @@ enum FoundVariant {
 
 // Resolves `E::V`, reporting an unknown enum, a non-enum type or an unknown variant.
 fn resolve_variant(env: Env, enum_name: Ident, variant_name: Ident): FoundVariant {
-    match find_template(env, enum_name.name) {
-        Option::Some(ti) => {
-            let template: Template = env.templates[ti];
-            for v in template.decl.variants {
-                if v.name.name == variant_name.name {
-                    return FoundVariant::Generic(template, v);
-                }
-            }
-            report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
-            return FoundVariant::Missing;
-        }
-        Option::None => {}
-    }
-    match find_enum(env, enum_name.name) {
-        Option::Some(ei) => {
-            let enum_type: TEnum = env.enums[ei];
-            match find_tvariant(enum_type.variants, variant_name.name) {
-                Option::Some(vi) => {
-                    return FoundVariant::Plain(enum_type, enum_type.variants[vi]);
-                }
-                Option::None => {
-                    report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
-                    return FoundVariant::Missing;
-                }
+    if let Option::Some(ti) = find_template(env, enum_name.name) {
+        let template: Template = env.templates[ti];
+        for v in template.decl.variants {
+            if v.name.name == variant_name.name {
+                return FoundVariant::Generic(template, v);
             }
         }
-        Option::None => {
-            let is_type: bool = is_found(find_struct(env, enum_name.name)) || is_primitive(enum_name.name);
-            let message: string = if is_type { "'" + enum_name.name + "' is not an enum" } else { "unknown enum '" + enum_name.name + "'" };
-            report(env, message, enum_name.start, enum_name.end);
-            return FoundVariant::Missing;
-        }
+        report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+        return FoundVariant::Missing;
     }
+    let Option::Some(ei) = find_enum(env, enum_name.name) else {
+        // Not an enum or a template, so type_kind_of finds a struct or nothing.
+        let is_type: bool = type_kind_of(env, enum_name.name) == "struct" || is_primitive(enum_name.name);
+        let message: string = if is_type { "'" + enum_name.name + "' is not an enum" } else { "unknown enum '" + enum_name.name + "'" };
+        report(env, message, enum_name.start, enum_name.end);
+        return FoundVariant::Missing;
+    };
+    let enum_type: TEnum = env.enums[ei];
+    let Option::Some(vi) = find_tvariant(enum_type.variants, variant_name.name) else {
+        report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+        return FoundVariant::Missing;
+    };
+    return FoundVariant::Plain(enum_type, enum_type.variants[vi]);
 }
 
 // `E::V(...)`, generic or not.
@@ -1684,27 +1582,18 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
     }
     let bindings: [Binding] = [];
     var expected_error: bool = false;
-    match expected {
-        Option::Some(t) => {
-            expected_error = is_error(t);
-            match t {
-                Type::Enum(name) => {
-                    match find_enum(ctx.env, name) {
-                        Option::Some(ei) => {
-                            let en: TEnum = ctx.env.enums[ei];
-                            if en.base == base {
-                                for i in 0..len(en.args) {
-                                    push(bindings, Binding { name: template.params[i], ty: en.args[i] });
-                                }
-                            }
-                        }
-                        Option::None => {}
+    if let Option::Some(t) = expected {
+        expected_error = is_error(t);
+        if let Type::Enum(name) = t {
+            if let Option::Some(ei) = find_enum(ctx.env, name) {
+                let en: TEnum = ctx.env.enums[ei];
+                if en.base == base {
+                    for i in 0..len(en.args) {
+                        push(bindings, Binding { name: template.params[i], ty: en.args[i] });
                     }
                 }
-                _ => {}
             }
         }
-        Option::None => {}
     }
     let slots: [TypeExpr] = variant_decl.payload;
     let types: [Type] = [];
@@ -1716,7 +1605,10 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         let slot: TypeExpr = slots[i];
         var known: bool = true;
         for p in template.params {
-            if !is_bound(bindings, p) && mentions_param(slot, p) {
+            if let Option::Some(_) = find_binding(bindings, p) {
+                continue;
+            }
+            if mentions_param(slot, p) {
                 known = false;
             }
         }
@@ -1731,42 +1623,36 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
     }
     let type_args: [Type] = [];
     for p in template.params {
-        match find_binding(bindings, p) {
-            Option::Some(t) => push(type_args, t),
-            Option::None => {
-                // An unknown parameter that an error-typed value or context would have fixed was already reported.
-                var reported: bool = expected_error;
-                for t in types {
-                    if is_error(t) {
-                        reported = true;
-                    }
+        let Option::Some(t) = find_binding(bindings, p) else {
+            // An unknown parameter that an error-typed value or context would have fixed was already reported.
+            var reported: bool = expected_error;
+            for t in types {
+                if is_error(t) {
+                    reported = true;
                 }
-                if !reported {
-                    report(ctx.env, "cannot infer type arguments for '" + base + "'", e.start, e.end);
-                }
-                return Type::Error;
             }
-        }
+            if !reported {
+                report(ctx.env, "cannot infer type arguments for '" + base + "'", e.start, e.end);
+            }
+            return Type::Error;
+        };
+        push(type_args, t);
     }
     let ty: Type = instantiate(ctx.env, template, type_args);
     let name: string = type_to_string(ty);
-    var payload: [Type] = [];
-    match find_enum(ctx.env, name) {
-        Option::Some(ei) => {
-            let en: TEnum = ctx.env.enums[ei];
-            match find_tvariant(en.variants, variant_decl.name.name) {
-                Option::Some(vi) => {
-                    payload = en.variants[vi].payload;
-                }
-                Option::None => panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'"),
-            }
-        }
-        Option::None => panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'"),
-    }
+    let Option::Some(payload) = variant_payload(ctx.env, name, variant_decl.name.name) else {
+        panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'");
+    };
     for i in 0..len(types) {
         expect_type(ctx, payload[i], types[i], args[i].start, args[i].end);
     }
     return ty;
+}
+
+// The payload of variant `variant` of the enum (or instantiation) named `enum_name`, if both exist.
+fn variant_payload(env: Env, enum_name: string, variant: string): Option[[Type]] {
+    let en: TEnum = env.enums[find_enum(env, enum_name)?];
+    return Option::Some(en.variants[find_tvariant(en.variants, variant)?].payload);
 }
 
 // Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
@@ -1778,34 +1664,31 @@ fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Bi
     }
     match slot.node {
         TypeNode::Array(elem) => {
-            match actual {
-                Type::Array(actual_elem) => unify(env, params, elem, actual_elem, bindings),
-                _ => {}
+            if let Type::Array(actual_elem) = actual {
+                unify(env, params, elem, actual_elem, bindings);
             }
         }
         TypeNode::Named(name, slot_args) => {
             if contains(params, name) {
-                if len(slot_args) == 0 && !is_bound(bindings, name) {
-                    push(bindings, Binding { name: name, ty: actual });
+                if len(slot_args) == 0 {
+                    if let Option::None = find_binding(bindings, name) {
+                        push(bindings, Binding { name: name, ty: actual });
+                    }
                 }
                 return;
             }
-            match actual {
-                Type::Enum(actual_name) => {
-                    match find_enum(env, actual_name) {
-                        Option::Some(ei) => {
-                            let en: TEnum = env.enums[ei];
-                            if en.base != name || len(en.args) != len(slot_args) {
-                                return;
-                            }
-                            for i in 0..len(slot_args) {
-                                unify(env, params, slot_args[i], en.args[i], bindings);
-                            }
-                        }
-                        Option::None => {}
-                    }
-                }
-                _ => {}
+            let Type::Enum(actual_name) = actual else {
+                return;
+            };
+            let Option::Some(ei) = find_enum(env, actual_name) else {
+                return;
+            };
+            let en: TEnum = env.enums[ei];
+            if en.base != name || len(en.args) != len(slot_args) {
+                return;
+            }
+            for i in 0..len(slot_args) {
+                unify(env, params, slot_args[i], en.args[i], bindings);
             }
         }
     }
@@ -1817,13 +1700,10 @@ fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Bi
 fn enum_base_name(env: Env, t: Type): string {
     match t {
         Type::Enum(name) => {
-            match find_enum(env, name) {
-                Option::Some(ei) => {
-                    if env.enums[ei].base != "" {
-                        return env.enums[ei].base;
-                    }
+            if let Option::Some(ei) = find_enum(env, name) {
+                if env.enums[ei].base != "" {
+                    return env.enums[ei].base;
                 }
-                Option::None => {}
             }
             return name;
         }
@@ -1891,17 +1771,11 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
     let st: Type = check_expr(ctx, scrutinee, Option::None);
     var has_decl: bool = false;
     var variants: [TVariant] = [];
-    match st {
-        Type::Enum(name) => {
-            match find_enum(ctx.env, name) {
-                Option::Some(ei) => {
-                    has_decl = true;
-                    variants = ctx.env.enums[ei].variants;
-                }
-                Option::None => {}
-            }
+    if let Type::Enum(name) = st {
+        if let Option::Some(ei) = find_enum(ctx.env, name) {
+            has_decl = true;
+            variants = ctx.env.enums[ei].variants;
         }
-        _ => {}
     }
     if match_category(st) == "" && !is_error(st) {
         report(ctx.env, "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
@@ -1934,21 +1808,15 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             }
             var pattern_resolved: bool = true;
             for r in resolved {
-                match r {
-                    Option::Some(_) => {}
-                    Option::None => {
-                        all_resolved = false;
-                        pattern_resolved = false;
-                    }
+                if let Option::None = r {
+                    all_resolved = false;
+                    pattern_resolved = false;
                 }
             }
             if is_wildcard {
                 var none_missing: bool = false;
-                match missing_values(ctx.env, category, st, variants, covered) {
-                    Option::Some(missing) => {
-                        none_missing = len(missing) == 0;
-                    }
-                    Option::None => {}
+                if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
+                    none_missing = len(missing) == 0;
                 }
                 if !refutable && (wildcard_seen || none_missing) {
                     report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
@@ -1958,24 +1826,15 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                     push(covered, key);
                 }
                 if refutable && index == 0 && pattern_resolved {
-                    match missing_values(ctx.env, category, st, variants, covered) {
-                        Option::Some(missing) => {
-                            irrefutable = len(missing) == 0;
-                        }
-                        Option::None => {}
+                    if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
+                        irrefutable = len(missing) == 0;
                     }
                 }
             }
-            match pattern.node {
-                PatternNode::Variant(_, _, _) => {
-                    match resolved[0] {
-                        Option::Some(r) => {
-                            single = r.variant;
-                        }
-                        Option::None => {}
-                    }
+            if let PatternNode::Variant(_, _, _) = pattern.node {
+                if let Option::Some(r) = resolved[0] {
+                    single = r.variant;
                 }
-                _ => {}
             }
         }
         if is_wildcard {
@@ -2038,24 +1897,19 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
 // Resolves one alternative against the scrutinee type `st`, reporting a pattern that does not fit. Returns None after
 // any report. `has_decl` says whether the scrutinee is an enum, and `variants` are then its variants.
 fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant], alt: Pattern): Option[ResolvedAlt] {
-    match alt.node {
-        PatternNode::Variant(enum_name, variant_name, binders) => {
-            if has_decl {
-                let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders);
-                if vi < 0 {
-                    return Option::None;
-                }
-                return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
-            }
-            // Only the enum name matters here: any variant of it is the wrong type.
-            if is_found(find_enum(ctx.env, enum_name.name)) || is_found(find_template(ctx.env, enum_name.name)) {
-                report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
-            } else {
-                resolve_variant(ctx.env, enum_name, variant_name);
-            }
-            return Option::None;
+    if let PatternNode::Variant(enum_name, variant_name, binders) = alt.node {
+        if has_decl {
+            let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders)?;
+            return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
         }
-        _ => {}
+        // Only the enum name matters here: any variant of it is the wrong type. Templates count as enums, and the type
+        // namespace holds each name at most once.
+        if type_kind_of(ctx.env, enum_name.name) == "enum" {
+            report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
+        } else {
+            resolve_variant(ctx.env, enum_name, variant_name);
+        }
+        return Option::None;
     }
     let pattern_type: Type = match alt.node {
         PatternNode::StringPat(_) => Type::Str,
@@ -2147,15 +2001,12 @@ fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resol
     let fresh: [string] = [];
     let stale: [Pattern] = [];
     for i in 0..len(resolved) {
-        match resolved[i] {
-            Option::Some(r) => {
-                if contains(covered, r.key) || contains(fresh, r.key) {
-                    push(stale, alternatives[i]);
-                } else {
-                    push(fresh, r.key);
-                }
+        if let Option::Some(r) = resolved[i] {
+            if contains(covered, r.key) || contains(fresh, r.key) {
+                push(stale, alternatives[i]);
+            } else {
+                push(fresh, r.key);
             }
-            Option::None => {}
         }
     }
     if len(fresh) + len(stale) == 0 {
@@ -2200,16 +2051,12 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
     match pattern.node {
         PatternNode::Or(alts) => {
             for alt in alts {
-                match alt.node {
-                    PatternNode::Variant(_, _, binders) => {
-                        for binder in binders {
-                            match binder {
-                                Binder::Named(id) => report(ctx.env, "or-pattern alternatives cannot bind names", id.start, id.end),
-                                Binder::Wild => {}
-                            }
+                if let PatternNode::Variant(_, _, binders) = alt.node {
+                    for binder in binders {
+                        if let Binder::Named(id) = binder {
+                            report(ctx.env, "or-pattern alternatives cannot bind names", id.start, id.end);
                         }
                     }
-                    _ => {}
                 }
             }
         }
@@ -2222,17 +2069,15 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
             }
             let seen: [string] = [];
             for i in 0..len(binders) {
-                match binders[i] {
-                    Binder::Wild => {}
-                    Binder::Named(id) => {
-                        if contains(seen, id.name) {
-                            report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
-                        } else {
-                            push(seen, id.name);
-                            let ty: Type = if has_slots { slots[i] } else { Type::Error };
-                            declare(ctx, id, ty, false);
-                        }
-                    }
+                let Binder::Named(id) = binders[i] else {
+                    continue;
+                };
+                if contains(seen, id.name) {
+                    report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                } else {
+                    push(seen, id.name);
+                    let ty: Type = if has_slots { slots[i] } else { Type::Error };
+                    declare(ctx, id, ty, false);
                 }
             }
         }
@@ -2241,9 +2086,9 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
 }
 
 // Resolves `F::V(...)` against the scrutinee's enum (whose variants are `variants`), returning the variant's index.
-// Returns -1 after reporting an unknown or wrong enum or an unknown variant. A wrong binder count is reported, but the
+// Returns None after reporting an unknown or wrong enum or an unknown variant. A wrong binder count is reported, but the
 // variant is still returned, so it still counts as covered.
-fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Pattern, enum_name: Ident, variant_name: Ident, binders: [Binder]): int {
+fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Pattern, enum_name: Ident, variant_name: Ident, binders: [Binder]): Option[int] {
     // Patterns never carry type arguments, so a pattern names an instantiation by its generic enum's name.
     let base: string = enum_base_name(ctx.env, st);
     if enum_name.name != base {
@@ -2251,21 +2096,17 @@ fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Patter
             FoundVariant::Missing => {}
             _ => report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end),
         }
-        return -1;
+        return Option::None;
     }
-    match find_tvariant(variants, variant_name.name) {
-        Option::Some(vi) => {
-            let payload: [Type] = variants[vi].payload;
-            if len(binders) != len(payload) {
-                report(ctx.env, variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
-            }
-            return vi;
-        }
-        Option::None => {
-            report(ctx.env, "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
-            return -1;
-        }
+    let Option::Some(vi) = find_tvariant(variants, variant_name.name) else {
+        report(ctx.env, "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
+        return Option::None;
+    };
+    let payload: [Type] = variants[vi].payload;
+    if len(binders) != len(payload) {
+        report(ctx.env, variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
     }
+    return Option::Some(vi);
 }
 
 // A match expression.
@@ -2302,19 +2143,8 @@ fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [A
 }
 
 fn find_field(env: Env, struct_name: string, name: string): Option[TField] {
-    match find_struct(env, struct_name) {
-        Option::Some(si) => {
-            let fields: [TField] = env.structs[si].fields;
-            match find_tfield(fields, name) {
-                Option::Some(fi) => {
-                    return Option::Some(fields[fi]);
-                }
-                Option::None => {}
-            }
-        }
-        Option::None => {}
-    }
-    return Option::None;
+    let fields: [TField] = env.structs[find_struct(env, struct_name)?].fields;
+    return Option::Some(fields[find_tfield(fields, name)?]);
 }
 
 // Struct and array values are heap references; v0.1 defines no equality for them.
@@ -2327,14 +2157,7 @@ fn is_reference(t: Type): bool {
 }
 
 fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
-    var si: int = -1;
-    match find_struct(ctx.env, name.name) {
-        Option::Some(i) => {
-            si = i;
-        }
-        Option::None => {}
-    }
-    if si < 0 {
+    let Option::Some(si) = find_struct(ctx.env, name.name) else {
         report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
         // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
         // reported as uninferable.
@@ -2342,7 +2165,7 @@ fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
             check_expr(ctx, init.value, Option::Some(Type::Error));
         }
         return Type::Error;
-    }
+    };
     let st: TStruct = ctx.env.structs[si];
     // The names of the fields initialised so far.
     let seen: [string] = [];
@@ -2377,34 +2200,24 @@ fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
 
 fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]): Type {
     var elem: Option[Type] = Option::None;
-    match expected {
-        Option::Some(t) => {
-            if is_error(t) {
-                // The expected type was already reported as wrong; only look for errors inside the elements.
-                for el in elements {
-                    check_expr(ctx, el, Option::Some(Type::Error));
-                }
-                return Type::Error;
+    if let Option::Some(t) = expected {
+        if is_error(t) {
+            // The expected type was already reported as wrong; only look for errors inside the elements.
+            for el in elements {
+                check_expr(ctx, el, Option::Some(Type::Error));
             }
-            match t {
-                Type::Array(x) => {
-                    elem = Option::Some(x);
-                }
-                _ => {}
-            }
+            return Type::Error;
         }
-        Option::None => {}
+        if let Type::Array(x) = t {
+            elem = Option::Some(x);
+        }
     }
     if len(elements) == 0 {
-        match elem {
-            Option::Some(x) => {
-                return Type::Array(x);
-            }
-            Option::None => {
-                report(ctx.env, "cannot infer type of empty array", e.start, e.end);
-                return Type::Error;
-            }
-        }
+        let Option::Some(x) = elem else {
+            report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+            return Type::Error;
+        };
+        return Type::Array(x);
     }
     for el in elements {
         let value: Type = check_expr(ctx, el, elem);
@@ -2425,18 +2238,14 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
             }
         }
     }
-    match elem {
-        Option::Some(x) => {
-            if is_error(x) {
-                return Type::Error;
-            }
-            return Type::Array(x);
-        }
-        Option::None => {
-            report(ctx.env, "cannot infer type of empty array", e.start, e.end);
-            return Type::Error;
-        }
+    let Option::Some(x) = elem else {
+        report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+        return Type::Error;
+    };
+    if is_error(x) {
+        return Type::Error;
     }
+    return Type::Array(x);
 }
 
 // Resolves an assignment target to its type, or to the error type once it has been reported. Only a bare local needs
@@ -2445,19 +2254,15 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
 fn check_place(ctx: Ctx, target: Expr): Type {
     match target.node {
         ExprNode::Name(name) => {
-            match lookup(ctx, name) {
-                Option::Some(local) => {
-                    if !local.mutable {
-                        report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
-                    }
-                    return local.ty;
-                }
-                Option::None => {
-                    let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
-                    report(ctx.env, message, target.start, target.end);
-                    return Type::Error;
-                }
+            let Option::Some(local) = lookup(ctx, name) else {
+                let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
+                report(ctx.env, message, target.start, target.end);
+                return Type::Error;
+            };
+            if !local.mutable {
+                report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
             }
+            return local.ty;
         }
         ExprNode::Field(_, _) | ExprNode::Index(_, _) => {
             return check_expr(ctx, target, Option::None);
@@ -2531,17 +2336,11 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
     if (op == "==" || op == "!=") && type_equals(left, right) {
         var is_enum: bool = false;
         var payload_free_enum: bool = false;
-        match left {
-            Type::Enum(name) => {
-                is_enum = true;
-                match find_enum(ctx.env, name) {
-                    Option::Some(i) => {
-                        payload_free_enum = ctx.env.enums[i].payload_free;
-                    }
-                    Option::None => {}
-                }
+        if let Type::Enum(name) = left {
+            is_enum = true;
+            if let Option::Some(i) = find_enum(ctx.env, name) {
+                payload_free_enum = ctx.env.enums[i].payload_free;
             }
-            _ => {}
         }
         if is_reference(left) || (is_enum && !payload_free_enum) {
             report(ctx.env, "cannot compare '" + type_to_string(left) + "' values", e.start, e.end);
@@ -2551,15 +2350,11 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
             return Type::Bool;
         }
     }
-    match binary_result_type(op, left, right) {
-        Option::Some(t) => {
-            return t;
-        }
-        Option::None => {
-            report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
-            return Type::Error;
-        }
-    }
+    let Option::Some(t) = binary_result_type(op, left, right) else {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
+        return Type::Error;
+    };
+    return t;
 }
 
 fn arity_message(name: string, expected: int, found: int): string {
@@ -2574,13 +2369,10 @@ fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
     let types: [Type] = [];
     for i in 0..len(args) {
         var expected: Type = Type::Error;
-        match params {
-            Option::Some(ps) => {
-                if i < len(ps) {
-                    expected = ps[i];
-                }
+        if let Option::Some(ps) = params {
+            if i < len(ps) {
+                expected = ps[i];
             }
-            Option::None => {}
         }
         push(types, check_expr(ctx, args[i], Option::Some(expected)));
     }
@@ -2588,18 +2380,12 @@ fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
 }
 
 fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
-    var name: string = "";
-    match callee.node {
-        ExprNode::Name(n) => {
-            name = n;
-        }
-        _ => {
-            check_args(ctx, args, Option::None);
-            report(ctx.env, "only named functions can be called", callee.start, callee.end);
-            return Type::Error;
-        }
-    }
-    if is_local(ctx, name) {
+    let ExprNode::Name(name) = callee.node else {
+        check_args(ctx, args, Option::None);
+        report(ctx.env, "only named functions can be called", callee.start, callee.end);
+        return Type::Error;
+    };
+    if let Option::Some(_) = lookup(ctx, name) {
         check_args(ctx, args, Option::None);
         report(ctx.env, "'" + name + "' is not a function", callee.start, callee.end);
         return Type::Error;
@@ -2617,40 +2403,33 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
         return check_collection_builtin(ctx, name, e, args);
     }
 
-    let sig: Option[Signature] = if is_signature_builtin(name) { find_signature_of(builtin_signatures(), name) } else { find_signature_of(ctx.signatures, name) };
-    match sig {
-        Option::None => {
-            check_args(ctx, args, Option::None);
-            report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
-            return Type::Error;
-        }
-        Option::Some(sg) => {
-            let types: [Type] = check_args(ctx, args, Option::Some(sg.params));
-            if len(types) != len(sg.params) {
-                report(ctx.env, arity_message(name, len(sg.params), len(types)), e.start, e.end);
-            } else {
-                for i in 0..len(types) {
-                    expect_type(ctx, sg.params[i], types[i], args[i].start, args[i].end);
-                }
-            }
-            if name == "read_file" {
-                match find_template(ctx.env, "Result") {
-                    Option::Some(ti) => {
-                        return instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
-                    }
-                    Option::None => panic("internal: no Result template"),
-                }
-            }
-            return sg.ret;
+    // A builtin's signature, else the user function's.
+    let builtins: [Signature] = builtin_signatures();
+    var sigs: [Signature] = ctx.signatures;
+    if let Option::Some(_) = find_signature(builtins, name) {
+        sigs = builtins;
+    }
+    let Option::Some(si) = find_signature(sigs, name) else {
+        check_args(ctx, args, Option::None);
+        report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
+        return Type::Error;
+    };
+    let sg: Signature = sigs[si];
+    let types: [Type] = check_args(ctx, args, Option::Some(sg.params));
+    if len(types) != len(sg.params) {
+        report(ctx.env, arity_message(name, len(sg.params), len(types)), e.start, e.end);
+    } else {
+        for i in 0..len(types) {
+            expect_type(ctx, sg.params[i], types[i], args[i].start, args[i].end);
         }
     }
-}
-
-fn find_signature_of(sigs: [Signature], name: string): Option[Signature] {
-    return match find_signature(sigs, name) {
-        Option::Some(i) => Option::Some(sigs[i]),
-        Option::None => Option::None,
-    };
+    if name == "read_file" {
+        let Option::Some(ti) = find_template(ctx.env, "Result") else {
+            panic("internal: no Result template");
+        };
+        return instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
+    }
+    return sg.ret;
 }
 
 // `name` is print or eprint; `types` are the types of `args`.
@@ -2674,11 +2453,8 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type
         t = check_expr(ctx, args[0], Option::None);
     }
     var elem: Option[Type] = Option::None;
-    match t {
-        Type::Array(x) => {
-            elem = Option::Some(x);
-        }
-        _ => {}
+    if let Type::Array(x) = t {
+        elem = Option::Some(x);
     }
     // When the first argument is not an array it is reported below (or already was), so the rest must not cascade.
     let rest_expected: Type = match elem {
@@ -2702,19 +2478,15 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type
         // len is an int whatever its argument, so a bad argument doesn't cascade.
         return Type::Int;
     }
-    match elem {
-        Option::None => {
-            if !is_error(t) {
-                report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
-            }
-            return Type::Error;
+    let Option::Some(x) = elem else {
+        if !is_error(t) {
+            report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
         }
-        Option::Some(x) => {
-            if name == "push" {
-                expect_type(ctx, x, rest[0], args[1].start, args[1].end);
-                return Type::Void;
-            }
-            return x;
-        }
+        return Type::Error;
+    };
+    if name == "push" {
+        expect_type(ctx, x, rest[0], args[1].start, args[1].end);
+        return Type::Void;
     }
+    return x;
 }
