@@ -1,0 +1,72 @@
+// IR fixture: early returns from loops and arms, code after diverging calls (pruned), an if expression whose branches
+// both diverge, a never match expression, a never function, and statements whose sub-expressions diverge.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(3);
+}
+
+fn die_int(): int {
+    die("int");
+}
+
+fn die_bool(): bool {
+    panic("bool");
+}
+
+fn find(xs: [int], want: int): int {
+    for i in 0..len(xs) {
+        if xs[i] == want {
+            return i;
+        }
+    }
+    return -1;
+}
+
+fn pick(o: Option[int]): int {
+    let Option::Some(v) = o else {
+        return 0;
+    };
+    if let Option::Some(w) = o {
+        return v + w;
+    }
+    return v;
+}
+
+fn never_if(b: bool): int {
+    let x: int = if b { die("a") } else { die("b") };
+    return x;
+}
+
+fn never_match(o: Option[int]): int {
+    let y: int = match o {
+        Option::Some(_) => die("some"),
+        Option::None => {
+            panic("none");
+        }
+    };
+    return y;
+}
+
+fn after(flag: bool): int {
+    if flag {
+        for k in 0..die_int() {
+            print(k);
+        }
+    }
+    if die_bool() {
+        print("then");
+    }
+    match die_int() {
+        0 => print("zero"),
+        _ => print("other"),
+    }
+    return 1;
+}
+
+fn main(): int {
+    print(find([1, 2, 3], 2) + pick(Option::Some(4)));
+    if false {
+        print(never_if(true) + never_match(Option::None) + after(true));
+    }
+    return 0;
+}

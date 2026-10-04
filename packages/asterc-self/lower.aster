@@ -301,7 +301,7 @@ fn lower_stmt(st: IrState, s: TStmt) {
             ir_emit(st, IrInstr::Copy(local.id, v));
         }
         TStmt::Assign(place, op, value) => lower_assign(st, place, op, value),
-        TStmt::Match(_, _) => panic("internal: statement not lowered yet"),
+        TStmt::Match(scrutinee, arms) => lower_match(st, scrutinee, arms, Option::None),
         TStmt::Expr(e) => {
             lower_expr(st, e);
         }
@@ -519,7 +519,8 @@ fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
         TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
         TExprNode::If(cond, then, otherwise) => Option::Some(lower_if_expr(st, e.ty, cond, then, otherwise)),
         TExprNode::Error => panic("internal: error expression reached lowering"),
-        _ => panic("internal: expression not lowered yet"),
+        TExprNode::Match(scrutinee, arms) => Option::Some(lower_match_expr(st, e.ty, scrutinee, arms)),
+        TExprNode::Try(x) => Option::Some(lower_try(st, e.ty, x)),
     };
 }
 
@@ -636,7 +637,7 @@ fn ir_builtin_name(name: string, args: [TExpr]): string {
 fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
     let a: [IrOperand] = lower_args(st, args);
     if name == "read_file" {
-        panic("internal: read_file is lowered in Task 4");
+        return Option::Some(lower_read_file(st, a[0], ty));
     }
     if name == "push" {
         ir_emit(st, IrInstr::ArrayPush(a[0], a[1]));
@@ -736,5 +737,175 @@ fn lower_struct_lit(st: IrState, ty: Type, name: string, fields: [TFieldInit]): 
     }
     let dst: int = ir_new_temp(st, ir_type(ty));
     ir_emit(st, IrInstr::StructNew(dst, name, ordered));
+    return ir_ref(dst);
+}
+
+// The shape of a match:
+//   enum:     entry: t = enum_tag s; switch t [tag: armN, ...], default <the `_` arm, or unreachable>
+//   int/bool: entry: switch s [value: armN, ...], default <the `_` arm, or unreachable>
+//   string:   entry: a chain of `str_eq s, "lit"` tests, each br armN / next test, in arm order;
+//             a `_` arm ends the chain with a jmp, otherwise the chain ends in unreachable
+//   armN:     binder = enum_field s, Enum::Variant.slot (for each binder); body; jmp endmatch
+//   endmatch: (only when some arm falls through; an unused label would warn)
+// The scrutinee is evaluated once, and binders are read before the body runs. An expression arm's value is copied
+// into `into` when it is `Some`; a statement match and a never match pass `None`.
+fn lower_match(st: IrState, scrutinee: TExpr, arms: [TArm], into: Option[int]) {
+    let value: IrOperand = lower_value(st, scrutinee);
+    let labels: [string] = [];
+    for a in arms {
+        push(labels, ir_new_label(st, "arm"));
+    }
+    let end: string = ir_new_label(st, "endmatch");
+    var enum_name: string = "";
+    match scrutinee.ty {
+        Type::Enum(name) => {
+            enum_name = name;
+            ir_lower_switch(st, ir_enum_tag(st, value), arms, labels);
+        }
+        Type::Str => ir_lower_string_tests(st, value, arms, labels),
+        _ => ir_lower_switch(st, value, arms, labels),
+    }
+    var reaches_end: bool = false;
+    for i in 0..len(arms) {
+        ir_start_block(st, labels[i]);
+        if let TPattern::Variants(variants, binders) = arms[i].pattern {
+            if len(variants) == 1 {
+                for slot in 0..len(binders) {
+                    if let Option::Some(b) = binders[slot] {
+                        ir_emit(st, IrInstr::EnumField(b.id, value, enum_name, variants[0].name, variants[0].tag, slot));
+                    }
+                }
+            }
+        }
+        match arms[i].body {
+            TArmBody::Block(b) => lower_block(st, b),
+            TArmBody::Expr(e) => {
+                let v: IrOperand = lower_value(st, e);
+                if let Option::Some(dst) = into {
+                    ir_emit(st, IrInstr::Copy(dst, v));
+                }
+            }
+        }
+        if ir_reachable(st) {
+            reaches_end = true;
+        }
+        ir_terminate(st, IrTerm::Jmp(end));
+    }
+    if reaches_end {
+        ir_start_block(st, end);
+    }
+}
+
+// Terminates the current block with a switch on an enum tag, an int or a bool.
+fn ir_lower_switch(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
+    let cases: [IrCase] = [];
+    var fallback: Option[string] = Option::None;
+    for i in 0..len(arms) {
+        match arms[i].pattern {
+            TPattern::Wildcard => {
+                fallback = Option::Some(labels[i]);
+            }
+            TPattern::Variants(variants, _) => {
+                for v in variants {
+                    push(cases, IrCase { value: int_to_string(v.tag), target: labels[i] });
+                }
+            }
+            TPattern::Ints(values) => {
+                for v in values {
+                    push(cases, IrCase { value: v, target: labels[i] });
+                }
+            }
+            TPattern::Strings(_) => panic("internal: string pattern on a non-string match"),
+        }
+    }
+    ir_terminate(st, IrTerm::Switch(on, cases, fallback));
+}
+
+// A string match is a chain of equality tests, in arm order; a `_` arm ends it. Each literal is interned before the
+// test is emitted, even at an unreachable position, as lower.ts builds the instruction before `emit` drops it.
+fn ir_lower_string_tests(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
+    for i in 0..len(arms) {
+        match arms[i].pattern {
+            TPattern::Wildcard => {
+                ir_terminate(st, IrTerm::Jmp(labels[i]));
+                return;
+            }
+            TPattern::Strings(values) => {
+                for v in values {
+                    let test: int = ir_new_temp(st, Type::Bool);
+                    let lit: int = intern_ir_string(st.strings, v);
+                    ir_emit(st, IrInstr::Binop(test, "str_eq", on, IrOperand::Str(lit)));
+                    let next: string = ir_new_label(st, "test");
+                    ir_terminate(st, IrTerm::Br(ir_ref(test), labels[i], next));
+                    ir_start_block(st, next);
+                }
+            }
+            _ => panic("internal: non-string pattern on a string match"),
+        }
+    }
+    ir_terminate(st, IrTerm::Unreachable);
+}
+
+fn lower_match_expr(st: IrState, ty: Type, scrutinee: TExpr, arms: [TArm]): IrOperand {
+    if kind_of_type(ty) == "never" {
+        lower_match(st, scrutinee, arms, Option::None);
+        return ir_placeholder();
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    lower_match(st, scrutinee, arms, Option::Some(dst));
+    return ir_ref(dst);
+}
+
+// `operand?`: branch on the tag; the failure path builds the return enum's failure value and returns it.
+fn lower_try(st: IrState, ty: Type, x: TTry): IrOperand {
+    let operand_enum: string = match x.operand.ty {
+        Type::Enum(name) => name,
+        _ => panic("internal: ? on a non-enum operand"),
+    };
+    let value: IrOperand = lower_value(st, x.operand);
+    let tag: IrOperand = ir_enum_tag(st, value);
+    let is_ok: int = ir_new_temp(st, Type::Bool);
+    ir_emit(st, IrInstr::Binop(is_ok, "eq", tag, IrOperand::Int(int_to_string(x.ok_tag))));
+    let ok_label: string = ir_new_label(st, "try_ok");
+    let fail_label: string = ir_new_label(st, "try_fail");
+    ir_terminate(st, IrTerm::Br(ir_ref(is_ok), ok_label, fail_label));
+    ir_start_block(st, fail_label);
+    let args: [IrOperand] = [];
+    if let Option::Some(pt) = x.fail_payload_type {
+        let payload: int = ir_new_temp(st, ir_type(pt));
+        ir_emit(st, IrInstr::EnumField(payload, value, operand_enum, x.fail_variant, x.fail_tag, 0));
+        push(args, ir_ref(payload));
+    }
+    let fail_value: int = ir_new_temp(st, ir_type(x.return_type));
+    ir_emit(st, IrInstr::EnumNew(fail_value, x.return_enum, x.return_fail_variant, x.return_fail_tag, args));
+    ir_terminate(st, IrTerm::Ret(Option::Some(ir_ref(fail_value))));
+    // The fail block is terminated, so opening the ok block adds no fall-through jump.
+    ir_start_block(st, ok_label);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::EnumField(dst, value, operand_enum, x.ok_variant, x.ok_tag, 0));
+    return ir_ref(dst);
+}
+
+// `read_file(p)`: the runtime fills an ok flag and a string, then each outcome builds its Result variant.
+fn lower_read_file(st: IrState, path: IrOperand, ty: Type): IrOperand {
+    let result_enum: string = match ty {
+        Type::Enum(name) => name,
+        _ => panic("internal: read_file without a Result type"),
+    };
+    let ok: int = ir_new_temp(st, Type::Bool);
+    let text: int = ir_new_temp(st, Type::Str);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::ReadFile(ok, text, path));
+    let ok_label: string = ir_new_label(st, "read_ok");
+    let err_label: string = ir_new_label(st, "read_err");
+    let end_label: string = ir_new_label(st, "read_end");
+    ir_terminate(st, IrTerm::Br(ir_ref(ok), ok_label, err_label));
+    ir_start_block(st, ok_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Ok", 0, [ir_ref(text)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, err_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Err", 1, [ir_ref(text)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, end_label);
     return ir_ref(dst);
 }
