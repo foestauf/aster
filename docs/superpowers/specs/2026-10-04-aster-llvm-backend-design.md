@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-04
 **Status:** Approved in brainstorming
-**Issue:** #33 (planning only). It defines issues L1 to L5 (§6), which carry out the work.
+**Issue:** #33 (planning only). It defines issues L1 to L5 (§6): #34 to #38, in the milestone "LLVM backend — faster programs".
 **Baseline:** `f3a5f36` (normal build path, PR #32).
 **Builds on:** [`2026-10-04-aster-self-hosting-contract-design.md`](2026-10-04-aster-self-hosting-contract-design.md)
 (cited as "contract §n") and [`2026-10-04-aster-normal-build-path-design.md`](2026-10-04-aster-normal-build-path-design.md).
@@ -156,7 +156,7 @@ default and the decision record says what was measured and what might change the
 Each issue gets its own spec, then a plan, then a PR, as #16 to #21 did. The order is strict: each depends on the one
 before it.
 
-### L1: `bench`: benchmark suite and C baseline
+### L1 (#34): `bench`: benchmark suite and C baseline
 
 - `bench/` programs with expected outputs; `pnpm bench [--record]` (§5); C configurations `c-O2`, `c-O3`, `c-lto`.
 - `docs/perf/baseline.md` recorded on the reference machine, with its environment.
@@ -164,7 +164,7 @@ before it.
   `tests/selfhost_script.test.ts`.
 - No compiler change.
 
-### L2: `--backend` and `--emit=llvm` surface, and the toolchain contract
+### L2 (#35): `--backend` and `--emit=llvm` surface, and the toolchain contract
 
 - Self-hosted CLI: `--backend=c|llvm` and `--emit=llvm`, parsed and validated. `--backend=llvm` and `--emit=llvm` exit
   2 with `llvm backend not implemented yet` until L3.
@@ -173,7 +173,7 @@ before it.
 - CI installs `clang-18` and `lld-18` and checks their versions.
 - Tests: CLI parsing and the usage errors, through `tests/asterc_self.test.ts`.
 
-### L3: `emit_llvm.aster` and the LLVM driver path
+### L3 (#36): `emit_llvm.aster` and the LLVM driver path
 
 - The emitter (§4) and the driver path. `--emit=llvm` is deterministic.
 - **Parity:** every runnable golden program (the conformance corpus, contract §6) gives byte-identical stdout, stderr
@@ -181,14 +181,14 @@ before it.
 - ABI tests for strings, bools and out-parameters across every runtime entry point (§4, the ABI trap).
 - Tests for wrapping arithmetic, `INT64_MIN / -1`, `% -1`, and division by zero.
 
-### L4: self-hosting on LLVM
+### L4 (#37): self-hosting on LLVM
 
 - `pnpm selfhost` gains an LLVM leg. S1 builds the compiler with `--backend=llvm` to give SL1. SL1 builds SL2. The two
   must be fixed points (`--emit=llvm` of the compiler identical), and both must emit C identical to S0's.
 - The stage-aware suites run against SL1.
 - The CI `proof` job runs the LLVM leg. `docs/self-host/proof.md` gains its rows.
 
-### L5: make the LLVM path fast, then decide
+### L5 (#38): make the LLVM path fast, then decide
 
 - Optimisation guided by the benchmarks. For example: confirm that LTO inlines the hot runtime helpers; add
   `nounwind`, `noreturn` and `willreturn` attributes to the runtime declarations; choose IR shapes that clang optimises
