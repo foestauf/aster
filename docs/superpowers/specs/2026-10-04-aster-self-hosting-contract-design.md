@@ -153,8 +153,9 @@ line `#include "aster_rt.h"`, so `--emit=c` stays comparable to stage 0.
 | Behaviour | Stage 0 (TS) | Self-hosted | Why accepted |
 |---|---|---|---|
 | `--emit=tokens\|ast\|ir` | Supported | Unknown emit stage (exit 2) | Debug aids. `lex/parse.aster` already prove token/AST parity. |
-| `--backend=c\|llvm`, `--emit=llvm` | Rejected (exit 2) | Backend selection for build/run, LLVM textual emission for build; default C. At L2 LLVM selections report `llvm backend not implemented yet` (exit 2). | LLVM is self-hosted only. |
+| `--backend=c\|llvm`, `--emit=llvm` | Rejected (exit 2) | Backend selection for build/run, LLVM textual emission for build; default C. LLVM uses textual IR and the unchanged C runtime. | LLVM is self-hosted only. |
 | `ASTER_CC` | Overrides `cc` | Ignored, always `cc` | Would need an `env` builtin, and nothing in self-hosting uses it. |
+| LLVM tool failure | Not applicable | clang stderr streams, then `internal compiler error: C compiler 'clang' failed`, exit 3 | Same driver-failure convention as C. |
 | `cc` failure text | `cc`'s stderr inside the internal-error message | `cc`'s stderr streams first, then `internal compiler error: C compiler 'cc' failed` | Exit code 3 matches. Only reachable if emitted C is broken, which §6 catches. |
 | Import identity | `realPath` of each import | Lexically normalised path (the `loader.aster` rule) | No `realpath` builtin. See §7. |
 | A panic inside the compiler | Caught: `internal compiler error: <stack>`, exit 3 | `panic: <message>`, exit 101 | Aster cannot catch a panic. Failures the driver detects itself still exit 3. Added in #19. |

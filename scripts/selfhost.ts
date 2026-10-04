@@ -16,6 +16,7 @@ const COMPILER = 'packages/asterc-self/asterc.aster';
 const S0 = 'packages/asterc/dist/cli/bin.js';
 export const STAGE_SUITES = [
   'tests/asterc_self.test.ts',
+  'tests/llvm_backend.test.ts',
   'tests/selfhost_golden.test.ts',
   'tests/load_symlink.test.ts',
   'tests/source_encoding.test.ts',

@@ -38,7 +38,17 @@ fn build_c(c: string, out: string): Result[int, string] {
 
 // build_c's work inside its temp dir `tmp`, which it removes along with everything written there.
 fn driver_build_in(tmp: string, c: string, out: string): Result[int, string] {
-    let names: [string] = ["aster_rt.h", "aster_rt.c", "program.c"];
+    return driver_build_backend_in(tmp, c, out, false);
+}
+
+fn build_llvm(ir: string, out: string): Result[int, string] {
+    let tmp: string = make_temp_dir("aster-clang-")?;
+    return driver_build_backend_in(tmp, ir, out, true);
+}
+
+fn driver_build_backend_in(tmp: string, c: string, out: string, llvm: bool): Result[int, string] {
+    let program: string = if llvm { "program.ll" } else { "program.c" };
+    let names: [string] = ["aster_rt.h", "aster_rt.c", program];
     let texts: [string] = [runtime_h(), runtime_c(), c];
     let written: [string] = [];
     for i in 0..len(names) {
@@ -51,10 +61,19 @@ fn driver_build_in(tmp: string, c: string, out: string): Result[int, string] {
             return Result::Err(e);
         }
     }
-    let argv: [string] = ["cc", "-std=c11", "-O2", "-Wall", "-I" + tmp, tmp + "/program.c", tmp + "/aster_rt.c", "-o", out];
+    let compiler: string = if llvm { "clang" } else { "cc" };
+    let argv: [string] = [compiler, "-std=c11", "-O2", "-Wall", "-I" + tmp];
+    if llvm {
+        push(argv, "-flto");
+        push(argv, "-fuse-ld=lld");
+    }
+    push(argv, tmp + "/" + program);
+    push(argv, tmp + "/aster_rt.c");
+    push(argv, "-o");
+    push(argv, out);
     let result: Result[int, string] = match run_process(argv) {
-        Result::Ok(status) => if status == 0 { Result::Ok(0) } else { Result::Err("C compiler 'cc' failed") },
-        Result::Err(e) => Result::Err("failed to run C compiler 'cc': " + e),
+        Result::Ok(status) => if status == 0 { Result::Ok(0) } else { Result::Err("C compiler '" + compiler + "' failed") },
+        Result::Err(e) => Result::Err("failed to run C compiler '" + compiler + "': " + e),
     };
     push(written, tmp);
     return driver_remove_then(written, result);
@@ -62,9 +81,18 @@ fn driver_build_in(tmp: string, c: string, out: string): Result[int, string] {
 
 // Builds `c` in a fresh temp dir and runs it with `args` and inherited stdio: its exit status, or 128 + signal.
 fn run_c(c: string, args: [string]): Result[int, string] {
+    return run_backend(c, args, false);
+}
+
+fn run_llvm(ir: string, args: [string]): Result[int, string] {
+    return run_backend(ir, args, true);
+}
+
+fn run_backend(c: string, args: [string], llvm: bool): Result[int, string] {
     let dir: string = make_temp_dir("aster-run-")?;
     let exe: string = dir + "/program";
-    if let Result::Err(e) = build_c(c, exe) {
+    let built: Result[int, string] = if llvm { build_llvm(c, exe) } else { build_c(c, exe) };
+    if let Result::Err(e) = built {
         // cc may have left a partial executable behind.
         remove_path(exe);
         return driver_remove_then([dir], Result::Err(e));

@@ -70,4 +70,4 @@ The self-hosted CLI diverges from the TypeScript one in a few places, listed in 
 
 ## Experimental LLVM surface
 
-The self-hosted CLI recognizes `--backend=c|llvm` for `build` and `run`, and `--emit=llvm` for `build`. The TypeScript seed rejects the new options (exit 2). At the L2 checkpoint, LLVM selections report `llvm backend not implemented yet` (exit 2); L3 supplies the emitter. C builds require neither clang nor lld.
+The self-hosted CLI recognizes `--backend=c|llvm` for `build` and `run`, and `--emit=llvm` for `build`. The TypeScript seed rejects the new options (exit 2). LLVM emission is implemented in `packages/asterc-self/emit_llvm.aster`. Executable production uses `clang -O2 -flto -fuse-ld=lld` and the unchanged C runtime. C builds require neither clang nor lld.
