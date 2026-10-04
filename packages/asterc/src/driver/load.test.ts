@@ -177,6 +177,13 @@ describe('nodeHost', () => {
     expect(nodeHost.readFile(join(dir, 'x\0y'))).toEqual({ ok: false, reason: 'invalid path' });
   });
 
+  it('refuses malformed UTF-8 instead of replacing it with U+FFFD', () => {
+    writeFileSync(join(dir, 'bad.aster'), Uint8Array.from([0x61, 0x0a, 0x62, 0xff]));
+    writeFileSync(join(dir, 'bom.aster'), Uint8Array.from([0xef, 0xbb, 0xbf, 0xc3, 0xa9]));
+    expect(nodeHost.readFile(join(dir, 'bad.aster'))).toEqual({ ok: false, reason: 'invalid UTF-8 at line 2, byte 3' });
+    expect(nodeHost.readFile(join(dir, 'bom.aster'))).toEqual({ ok: true, text: '\uFEFFé' });
+  });
+
   it('resolves real paths, falling back to path.resolve', () => {
     expect(nodeHost.realPath(join(dir, 'd', '..', 'x.aster'))).toBe(nodeHost.realPath(join(dir, 'x.aster')));
     expect(nodeHost.realPath(join(dir, 'missing'))).toBe(resolve(dir, 'missing'));
