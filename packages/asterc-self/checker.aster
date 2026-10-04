@@ -120,6 +120,11 @@ fn builtin_signatures(): [Signature] {
         Signature { name: "read_stdin", params: [], ret: Type::Str },
         // The checker types read_file's call as Result[string, string].
         Signature { name: "read_file", params: [Type::Str], ret: Type::Void },
+        // Likewise: write_file, remove_path and run_process return Result[int, string], make_temp_dir Result[string, string].
+        Signature { name: "write_file", params: [Type::Str, Type::Str], ret: Type::Void },
+        Signature { name: "make_temp_dir", params: [Type::Str], ret: Type::Void },
+        Signature { name: "remove_path", params: [Type::Str], ret: Type::Void },
+        Signature { name: "run_process", params: [Type::Array(Type::Str)], ret: Type::Void },
     ];
 }
 
@@ -2640,16 +2645,28 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
         }
     }
     var ret: Type = sg.ret;
-    if name == "read_file" {
+    if let Option::Some(ok) = builtin_result_ok(name) {
         let Option::Some(ti) = find_template(ctx.env, "Result") else {
             panic("internal: no Result template");
         };
-        ret = instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
+        ret = instantiate(ctx.env, ctx.env.templates[ti], [ok, Type::Str]);
     }
     if builtin {
         return TExpr { ty: ret, node: TExprNode::Builtin(name, values) };
     }
     return TExpr { ty: ret, node: TExprNode::Call(name, values) };
+}
+
+// read_file and the four POSIX builtins return a Result the checker builds by hand; this is its Ok type, or None for
+// every other builtin (builtinReturnType).
+fn builtin_result_ok(name: string): Option[Type] {
+    if name == "read_file" || name == "make_temp_dir" {
+        return Option::Some(Type::Str);
+    }
+    if name == "write_file" || name == "remove_path" || name == "run_process" {
+        return Option::Some(Type::Int);
+    }
+    return Option::None;
 }
 
 // `name` is print or eprint; `values` are the checked `args`.

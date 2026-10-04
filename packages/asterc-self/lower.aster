@@ -639,6 +639,9 @@ fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrO
     if name == "read_file" {
         return Option::Some(lower_read_file(st, a[0], ty));
     }
+    if is_sys_builtin(name) {
+        return Option::Some(lower_sys(st, name, a, ty));
+    }
     if name == "push" {
         ir_emit(st, IrInstr::ArrayPush(a[0], a[1]));
         return Option::None;
@@ -908,4 +911,39 @@ fn lower_read_file(st: IrState, path: IrOperand, ty: Type): IrOperand {
     ir_terminate(st, IrTerm::Jmp(end_label));
     ir_start_block(st, end_label);
     return ir_ref(dst);
+}
+
+// The four POSIX builtins: the runtime fills an ok flag, a value and an error, then each outcome builds its Result
+// variant (lowerSys).
+fn lower_sys(st: IrState, name: string, args: [IrOperand], ty: Type): IrOperand {
+    let result_enum: string = match ty {
+        Type::Enum(n) => n,
+        _ => panic("internal: " + name + " without a Result type"),
+    };
+    let ok: int = ir_new_temp(st, Type::Bool);
+    var value_ty: Type = Type::Int;
+    if name == "make_temp_dir" {
+        value_ty = Type::Str;
+    }
+    let value: int = ir_new_temp(st, value_ty);
+    let err: int = ir_new_temp(st, Type::Str);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Sys(name, ok, value, err, args));
+    let ok_label: string = ir_new_label(st, "sys_ok");
+    let err_label: string = ir_new_label(st, "sys_err");
+    let end_label: string = ir_new_label(st, "sys_end");
+    ir_terminate(st, IrTerm::Br(ir_ref(ok), ok_label, err_label));
+    ir_start_block(st, ok_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Ok", 0, [ir_ref(value)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, err_label);
+    ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Err", 1, [ir_ref(err)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, end_label);
+    return ir_ref(dst);
+}
+
+// write_file, make_temp_dir, remove_path and run_process: the builtins lowered to a `Sys` instruction.
+fn is_sys_builtin(name: string): bool {
+    return name == "write_file" || name == "make_temp_dir" || name == "remove_path" || name == "run_process";
 }

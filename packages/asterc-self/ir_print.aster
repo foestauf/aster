@@ -104,6 +104,7 @@ fn ir_instr_text(i: IrInstr): string {
         IrInstr::EnumTag(dst, value) => "%" + int_to_string(dst) + " = enum_tag " + ir_operand(value),
         IrInstr::EnumField(dst, value, name, variant, _, index) => "%" + int_to_string(dst) + " = enum_field " + ir_operand(value) + ", " + name + "::" + variant + "." + int_to_string(index),
         IrInstr::ReadFile(ok, text, path) => "%" + int_to_string(ok) + ", %" + int_to_string(text) + " = read_file " + ir_operand(path),
+        IrInstr::Sys(name, ok, value, err, args) => "%" + int_to_string(ok) + ", %" + int_to_string(value) + ", %" + int_to_string(err) + " = " + name + " " + ir_operands(args),
     };
 }
 

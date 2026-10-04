@@ -301,6 +301,17 @@ fn c_args(f: IrFunction, args: [IrOperand]): string {
     return c_join(parts, ", ");
 }
 
+// A POSIX builtin's C arguments: its operands, then the addresses of the `value` and `err` locals it fills.
+fn c_sys_args(f: IrFunction, args: [IrOperand], value: int, err: int): string {
+    let parts: [string] = [];
+    for a in args {
+        push(parts, c_operand(f, a));
+    }
+    push(parts, "&" + c_mangle_local(f.locals[value]));
+    push(parts, "&" + c_mangle_local(f.locals[err]));
+    return c_join(parts, ", ");
+}
+
 // An lvalue of C type `t` at the address a runtime array call returns.
 fn c_slot(t: string, call: string): string {
     return "*(" + t + " *)" + call;
@@ -385,6 +396,7 @@ fn emit_instr(f: IrFunction, enums: [IrEnum], i: IrInstr): string {
         IrInstr::EnumTag(dst, value) => c_set(f, dst, c_enum_tag(f, enums, value)),
         IrInstr::EnumField(dst, value, _, variant, _, index) => c_set(f, dst, c_operand(f, value) + "->u." + c_mangle_variant(variant) + ".p" + int_to_string(index)),
         IrInstr::ReadFile(ok, text, path) => c_mangle_local(f.locals[text]) + " = aster_rt_read_file(" + c_operand(f, path) + ", &" + c_mangle_local(f.locals[ok]) + ");",
+        IrInstr::Sys(name, ok, value, err, args) => c_mangle_local(f.locals[ok]) + " = aster_rt_" + name + "(" + c_sys_args(f, args, value, err) + ");",
     };
 }
 
