@@ -8,9 +8,12 @@
 // Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
 // returns the index of the entry, if any.
 //
-// Ported so far: types, declarations and function signatures. Function bodies are not checked yet (only their
-// parameters are declared), and generic enums are registered by name but never instantiated: a use of one resolves
-// to the error type.
+// `check_expr` returns only an expression's type, and statements only whether they diverge (spec §2, "Types only, no
+// typed tree").
+//
+// Ported so far: types, declarations, function signatures, statements and expressions. Generic enums are registered by
+// name but never instantiated: a use of one resolves to the error type. Variant expressions, `match` and `?` go to
+// stubs (check_variant_expr, check_match, check_match_expr, check_try) that report nothing and give the error type.
 
 import "loader.aster";
 
@@ -163,9 +166,11 @@ struct TVariant {
     payload: [Type],
 }
 
-// Variants in declaration order.
+// Variants in declaration order. `payload_free` is true for a non-generic enum none of whose variants has a payload:
+// only those enums can be compared with `==` and `!=`.
 struct TEnum {
     name: string,
+    payload_free: bool,
     variants: [TVariant],
 }
 
@@ -198,13 +203,20 @@ struct Env {
     templates: [Template],
 }
 
-// Per-function checking state. `scopes` is a stack of scopes, each holding its locals in declaration order.
+// An enclosing loop, and whether a `break` leaves it.
+struct Loop {
+    has_break: bool,
+}
+
+// Per-function checking state. `scopes` is a stack of scopes, each holding its locals in declaration order, and
+// `loops` the stack of loops around the statement being checked.
 struct Ctx {
     env: Env,
     signatures: [Signature],
     ret: Type,
     locals: [Local],
     scopes: [[Local]],
+    loops: [Loop],
 }
 
 // The checker's result: its diagnostics, unsorted, and the typed program.
@@ -444,7 +456,13 @@ fn collect_types(env: Env, items: [Item]) {
                         }
                         push(env.templates, Template { decl: d, params: params, broken: false, has_errors: false });
                     } else {
-                        push(env.enums, TEnum { name: d.name.name, variants: [] });
+                        var payload_free: bool = true;
+                        for v in d.variants {
+                            if len(v.payload) > 0 {
+                                payload_free = false;
+                            }
+                        }
+                        push(env.enums, TEnum { name: d.name.name, payload_free: payload_free, variants: [] });
                         push(enum_decls, d);
                     }
                 }
@@ -609,10 +627,14 @@ fn check_program(items: [Item], root_end: int): Checked {
 }
 
 fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TFunction {
-    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [[]] };
+    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [[]], loops: [] };
     for i in 0..len(decl.params) {
         let p: Typed = decl.params[i];
         declare(ctx, p.name, sig.params[i], false);
+    }
+    let diverges: bool = check_block(ctx, decl.body);
+    if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
+        report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
     return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
 }
@@ -637,4 +659,786 @@ fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
     push(ctx.locals, local);
     push(scope, local);
     return local;
+}
+
+fn lookup(ctx: Ctx, name: string): Option[Local] {
+    var i: int = len(ctx.scopes) - 1;
+    while i >= 0 {
+        let scope: [Local] = ctx.scopes[i];
+        match find_local(scope, name) {
+            Option::Some(j) => {
+                return Option::Some(scope[j]);
+            }
+            Option::None => {}
+        }
+        i -= 1;
+    }
+    return Option::None;
+}
+
+fn is_local(ctx: Ctx, name: string): bool {
+    return match lookup(ctx, name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn is_function_name(ctx: Ctx, name: string): bool {
+    return is_found(find_signature(ctx.signatures, name)) || is_builtin(name);
+}
+
+fn expect_type(ctx: Ctx, expected: Type, actual: Type, start: int, end: int) {
+    if is_error(expected) || is_error(actual) || type_equals(expected, actual) {
+        return;
+    }
+    report(ctx.env, "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
+}
+
+fn check_condition(ctx: Ctx, e: Expr): Type {
+    let cond: Type = check_expr(ctx, e, Option::None);
+    if kind_of_type(cond) != "bool" && !is_error(cond) {
+        report(ctx.env, "condition must be bool, found " + type_to_string(cond), e.start, e.end);
+    }
+    return cond;
+}
+
+// ---- statements. Each returns true when control can never continue past it.
+
+fn check_block(ctx: Ctx, b: Block): bool {
+    push(ctx.scopes, []);
+    var diverges: bool = false;
+    for s in b.stmts {
+        if check_stmt(ctx, s) {
+            diverges = true;
+        }
+    }
+    pop(ctx.scopes);
+    return diverges;
+}
+
+fn check_stmt(ctx: Ctx, s: Stmt): bool {
+    match s.node {
+        StmtNode::Let(mutable, name, ty, init) => {
+            var t: Type = resolve_type(ctx.env, ty);
+            if is_void(t) {
+                report(ctx.env, "variable cannot have type void", ty.start, ty.end);
+                t = Type::Error;
+            }
+            let init_type: Type = check_expr(ctx, init, Option::Some(t));
+            expect_type(ctx, t, init_type, init.start, init.end);
+            declare(ctx, name, t, mutable);
+            return false;
+        }
+        StmtNode::Assign(op, target, value) => {
+            // check_place gives the error type for a target that was already reported: it has no type to guide the
+            // value, and must not cascade into it. A place whose type is an error behaves the same from here on.
+            let place: Type = check_place(ctx, target);
+            let value_type: Type = check_expr(ctx, value, Option::Some(place));
+            if is_error(place) {
+                return false;
+            }
+            if op == "=" {
+                expect_type(ctx, place, value_type, value.start, value.end);
+            } else {
+                check_compound(ctx, s, op, place, value_type);
+            }
+            return false;
+        }
+        StmtNode::If(cond, then, other) => {
+            return check_if(ctx, cond, then, other);
+        }
+        StmtNode::While(cond, body) => {
+            check_condition(ctx, cond);
+            let lp: Loop = Loop { has_break: false };
+            push(ctx.loops, lp);
+            check_block(ctx, body);
+            pop(ctx.loops);
+            let literal_true: bool = match cond.node {
+                ExprNode::Bool(v) => v,
+                _ => false,
+            };
+            return literal_true && !lp.has_break;
+        }
+        StmtNode::ForRange(name, start, end, body) => {
+            check_range_bound(ctx, start);
+            check_range_bound(ctx, end);
+            check_for_body(ctx, name, Type::Int, body);
+            // A for loop may run zero times, so it never ends a control path on its own.
+            return false;
+        }
+        StmtNode::ForEach(name, iterable, body) => {
+            let array: Type = check_expr(ctx, iterable, Option::None);
+            var elem: Type = Type::Error;
+            match array {
+                Type::Array(t) => {
+                    elem = t;
+                }
+                _ => {
+                    if !is_error(array) {
+                        report(ctx.env, "cannot iterate over a value of type " + type_to_string(array), iterable.start, iterable.end);
+                    }
+                }
+            }
+            check_for_body(ctx, name, elem, body);
+            return false;
+        }
+        StmtNode::Break => {
+            check_loop_exit(ctx, s, "break");
+            return true;
+        }
+        StmtNode::Continue => {
+            check_loop_exit(ctx, s, "continue");
+            return true;
+        }
+        StmtNode::Return(value) => {
+            match value {
+                Option::None => {
+                    if !is_void(ctx.ret) && !is_error(ctx.ret) {
+                        report(ctx.env, "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
+                    }
+                }
+                Option::Some(v) => {
+                    // In a void function the value is wrong whatever it is, so `[]` must not also be reported as
+                    // uninferable.
+                    let expected: Type = if is_void(ctx.ret) { Type::Error } else { ctx.ret };
+                    let t: Type = check_expr(ctx, v, Option::Some(expected));
+                    if is_void(ctx.ret) {
+                        report(ctx.env, "void function cannot return a value", v.start, v.end);
+                    } else {
+                        expect_type(ctx, ctx.ret, t, v.start, v.end);
+                    }
+                }
+            }
+            return true;
+        }
+        StmtNode::Match(keyword, scrutinee, arms) => {
+            return check_match(ctx, keyword, scrutinee, arms);
+        }
+        StmtNode::Block(b) => {
+            return check_block(ctx, b);
+        }
+        StmtNode::Expr(e) => {
+            check_expr(ctx, e, Option::None);
+            return is_diverging_call(ctx, e);
+        }
+    }
+}
+
+// `break` or `continue` (`kind`): reported outside a loop; a `break` marks its loop as left.
+fn check_loop_exit(ctx: Ctx, s: Stmt, kind: string) {
+    if len(ctx.loops) == 0 {
+        report(ctx.env, "'" + kind + "' outside of loop", s.start, s.end);
+    } else if kind == "break" {
+        ctx.loops[len(ctx.loops) - 1].has_break = true;
+    }
+}
+
+// Whether expression statement `e` is a call of the `panic` or `exit` builtin, which checkStmt finds from its typed
+// node. A local of that name makes it a call of a non-function instead.
+fn is_diverging_call(ctx: Ctx, e: Expr): bool {
+    match e.node {
+        ExprNode::Call(callee, _) => {
+            match callee.node {
+                ExprNode::Name(name) => {
+                    return (name == "panic" || name == "exit") && !is_local(ctx, name);
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+    return false;
+}
+
+fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
+    check_condition(ctx, cond);
+    let then_diverges: bool = check_block(ctx, then);
+    match other {
+        Else::None => {
+            return false;
+        }
+        Else::Block(b) => {
+            let other_diverges: bool = check_block(ctx, b);
+            return then_diverges && other_diverges;
+        }
+        Else::If(nested) => {
+            var other_diverges: bool = false;
+            match nested.node {
+                StmtNode::If(c, t, e) => {
+                    other_diverges = check_if(ctx, c, t, e);
+                }
+                _ => {}
+            }
+            return then_diverges && other_diverges;
+        }
+    }
+}
+
+fn check_range_bound(ctx: Ctx, e: Expr): Type {
+    let bound: Type = check_expr(ctx, e, Option::None);
+    if !is_error(bound) && kind_of_type(bound) != "int" {
+        report(ctx.env, "range bound must be int, found " + type_to_string(bound), e.start, e.end);
+    }
+    return bound;
+}
+
+// Checks a for-loop body with the immutable loop variable declared in a scope of its own.
+fn check_for_body(ctx: Ctx, name: Ident, ty: Type, b: Block) {
+    push(ctx.scopes, []);
+    declare(ctx, name, ty, false);
+    push(ctx.loops, Loop { has_break: false });
+    check_block(ctx, b);
+    pop(ctx.loops);
+    pop(ctx.scopes);
+}
+
+// ---- expressions
+
+// `expected` only guides array literals (and passes into if-expression branches); callers still check the result.
+fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
+    match e.node {
+        ExprNode::Int(_) => {
+            return Type::Int;
+        }
+        ExprNode::Char(_) => {
+            return Type::Int;
+        }
+        ExprNode::Str => {
+            return Type::Str;
+        }
+        ExprNode::Bool(_) => {
+            return Type::Bool;
+        }
+        ExprNode::Name(name) => {
+            match lookup(ctx, name) {
+                Option::Some(local) => {
+                    return local.ty;
+                }
+                Option::None => {}
+            }
+            let message: string = if is_function_name(ctx, name) { "'" + name + "' is a function, not a value" } else { "undefined name '" + name + "'" };
+            report(ctx.env, message, e.start, e.end);
+            return Type::Error;
+        }
+        ExprNode::Unary(op, operand) => {
+            let t: Type = check_expr(ctx, operand, Option::None);
+            if is_error(t) {
+                return Type::Error;
+            }
+            let want: Type = if op == "-" { Type::Int } else { Type::Bool };
+            if !type_equals(t, want) {
+                report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(t), e.start, e.end);
+                return Type::Error;
+            }
+            return want;
+        }
+        ExprNode::Binary(op, left, right) => {
+            return check_binary(ctx, e, op, left, right);
+        }
+        ExprNode::Call(callee, args) => {
+            return check_call(ctx, e, callee, args);
+        }
+        ExprNode::Match(keyword, scrutinee, arms) => {
+            return check_match_expr(ctx, e, keyword, scrutinee, arms, expected);
+        }
+        ExprNode::If(cond, then, other) => {
+            check_condition(ctx, cond);
+            let a: Type = check_expr(ctx, then, expected);
+            let b: Type = check_expr(ctx, other, expected);
+            if is_error(a) || is_error(b) {
+                return Type::Error;
+            }
+            if !type_equals(a, b) {
+                report(ctx.env, "if branches have different types: " + type_to_string(a) + " and " + type_to_string(b), e.start, e.end);
+                return Type::Error;
+            }
+            if is_void(a) {
+                report(ctx.env, "if expression cannot have type void", e.start, e.end);
+                return Type::Error;
+            }
+            return a;
+        }
+        ExprNode::Field(object, field) => {
+            let t: Type = check_expr(ctx, object, Option::None);
+            if is_error(t) {
+                return Type::Error;
+            }
+            match t {
+                Type::Struct(name) => {
+                    match find_field(ctx.env, name, field.name) {
+                        Option::Some(f) => {
+                            return f.ty;
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+            report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(t) + "'", field.start, field.end);
+            return Type::Error;
+        }
+        ExprNode::StructLit(name, fields) => {
+            return check_struct_lit(ctx, name, fields);
+        }
+        ExprNode::Try(operand) => {
+            return check_try(ctx, e, operand);
+        }
+        ExprNode::Index(array_expr, index_expr) => {
+            let array: Type = check_expr(ctx, array_expr, Option::None);
+            let index: Type = check_expr(ctx, index_expr, Option::None);
+            if !is_error(index) && kind_of_type(index) != "int" {
+                report(ctx.env, "array index must be int, found " + type_to_string(index), index_expr.start, index_expr.end);
+            }
+            if is_error(array) {
+                return Type::Error;
+            }
+            match array {
+                Type::Array(elem) => {
+                    if kind_of_type(index) != "int" {
+                        return Type::Error;
+                    }
+                    return elem;
+                }
+                _ => {
+                    report(ctx.env, "cannot index a value of type " + type_to_string(array), array_expr.start, array_expr.end);
+                    return Type::Error;
+                }
+            }
+        }
+        ExprNode::ArrayLit(elements) => {
+            return check_array_lit(ctx, e, elements, expected);
+        }
+        ExprNode::Variant(enum_name, variant, args) => {
+            return check_variant_expr(ctx, e, enum_name, variant, args, expected);
+        }
+    }
+}
+
+// ---- stubs for the generic, match and `?` paths, which Tasks 5 and 6 port. Each reports nothing and gives the error
+// type, or does not diverge.
+
+// `e?` (§3.7). Task 6.
+fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
+    return Type::Error;
+}
+
+// `E::V(...)`, generic or not. Task 5.
+fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant: Ident, args: [Expr], expected: Option[Type]): Type {
+    return Type::Error;
+}
+
+// A match statement; returns whether it diverges. Task 6.
+fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
+    return false;
+}
+
+// A match expression. Task 6.
+fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
+    return Type::Error;
+}
+
+fn find_field(env: Env, struct_name: string, name: string): Option[TField] {
+    match find_struct(env, struct_name) {
+        Option::Some(si) => {
+            let fields: [TField] = env.structs[si].fields;
+            match find_tfield(fields, name) {
+                Option::Some(fi) => {
+                    return Option::Some(fields[fi]);
+                }
+                Option::None => {}
+            }
+        }
+        Option::None => {}
+    }
+    return Option::None;
+}
+
+// Struct and array values are heap references; v0.1 defines no equality for them.
+fn is_reference(t: Type): bool {
+    return match t {
+        Type::Struct(_) => true,
+        Type::Array(_) => true,
+        _ => false,
+    };
+}
+
+fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
+    var si: int = -1;
+    match find_struct(ctx.env, name.name) {
+        Option::Some(i) => {
+            si = i;
+        }
+        Option::None => {}
+    }
+    if si < 0 {
+        report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
+        // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
+        // reported as uninferable.
+        for init in inits {
+            check_expr(ctx, init.value, Option::Some(Type::Error));
+        }
+        return Type::Error;
+    }
+    let st: TStruct = ctx.env.structs[si];
+    // The names of the fields initialised so far.
+    let seen: [string] = [];
+    for init in inits {
+        let decl: Option[TField] = find_field(ctx.env, st.name, init.name.name);
+        let field_type: Type = match decl {
+            Option::Some(f) => f.ty,
+            Option::None => Type::Error,
+        };
+        let value: Type = check_expr(ctx, init.value, Option::Some(field_type));
+        match decl {
+            Option::None => {
+                report(ctx.env, "unknown field '" + init.name.name + "' on '" + name.name + "'", init.name.start, init.name.end);
+            }
+            Option::Some(f) => {
+                if contains(seen, init.name.name) {
+                    report(ctx.env, "duplicate field '" + init.name.name + "'", init.name.start, init.name.end);
+                } else {
+                    expect_type(ctx, f.ty, value, init.value.start, init.value.end);
+                    push(seen, init.name.name);
+                }
+            }
+        }
+    }
+    for f in st.fields {
+        if !contains(seen, f.name) {
+            report(ctx.env, "missing field '" + f.name + "' in '" + name.name + "'", name.start, name.end);
+        }
+    }
+    return Type::Struct(st.name);
+}
+
+fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]): Type {
+    var elem: Option[Type] = Option::None;
+    match expected {
+        Option::Some(t) => {
+            if is_error(t) {
+                // The expected type was already reported as wrong; only look for errors inside the elements.
+                for el in elements {
+                    check_expr(ctx, el, Option::Some(Type::Error));
+                }
+                return Type::Error;
+            }
+            match t {
+                Type::Array(x) => {
+                    elem = Option::Some(x);
+                }
+                _ => {}
+            }
+        }
+        Option::None => {}
+    }
+    if len(elements) == 0 {
+        match elem {
+            Option::Some(x) => {
+                return Type::Array(x);
+            }
+            Option::None => {
+                report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+                return Type::Error;
+            }
+        }
+    }
+    for el in elements {
+        let value: Type = check_expr(ctx, el, elem);
+        match elem {
+            Option::None => {
+                // Without an expected type, the first element decides.
+                if is_void(value) {
+                    report(ctx.env, "array element cannot have type void", el.start, el.end);
+                    return Type::Error;
+                }
+                elem = Option::Some(value);
+            }
+            Option::Some(x) => {
+                expect_type(ctx, x, value, el.start, el.end);
+            }
+        }
+    }
+    match elem {
+        Option::Some(x) => {
+            if is_error(x) {
+                return Type::Error;
+            }
+            return Type::Array(x);
+        }
+        Option::None => {
+            return Type::Error;
+        }
+    }
+}
+
+// Resolves an assignment target to its type, or to the error type once it has been reported. Only a bare local needs
+// to be `var`; writing through a field or an element is always allowed, because `let` only fixes the binding, not the
+// object it refers to.
+fn check_place(ctx: Ctx, target: Expr): Type {
+    match target.node {
+        ExprNode::Name(name) => {
+            match lookup(ctx, name) {
+                Option::Some(local) => {
+                    if !local.mutable {
+                        report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
+                    }
+                    return local.ty;
+                }
+                Option::None => {
+                    let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
+                    report(ctx.env, message, target.start, target.end);
+                    return Type::Error;
+                }
+            }
+        }
+        ExprNode::Field(_, _) | ExprNode::Index(_, _) => {
+            return check_expr(ctx, target, Option::None);
+        }
+        _ => {
+            report(ctx.env, "invalid assignment target", target.start, target.end);
+            return Type::Error;
+        }
+    }
+}
+
+// `s` is the assignment `target op value`, with `op` a compound operator such as `+=`.
+fn check_compound(ctx: Ctx, s: Stmt, op: string, target: Type, value: Type) {
+    if op == "=" || is_error(target) || is_error(value) {
+        return;
+    }
+    let applies: bool = match binary_result_type(substring(op, 0, len(op) - 1), target, value) {
+        Option::Some(result) => type_equals(result, target),
+        Option::None => false,
+    };
+    if !applies {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(target) + " and " + type_to_string(value), s.start, s.end);
+    }
+}
+
+fn binary_result_type(op: string, left: Type, right: Type): Option[Type] {
+    let same: bool = type_equals(left, right);
+    let l: string = kind_of_type(left);
+    let r: string = kind_of_type(right);
+    match op {
+        "+" => {
+            if same && (l == "int" || l == "string") {
+                return Option::Some(left);
+            }
+        }
+        "-" | "*" | "/" | "%" => {
+            if l == "int" && r == "int" {
+                return Option::Some(Type::Int);
+            }
+        }
+        "<" | "<=" | ">" | ">=" => {
+            if l == "int" && r == "int" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        "==" | "!=" => {
+            if same && l != "void" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        "&&" | "||" => {
+            if l == "bool" && r == "bool" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        _ => {}
+    }
+    return Option::None;
+}
+
+fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr): Type {
+    let left: Type = check_expr(ctx, left_expr, Option::None);
+    let right: Type = check_expr(ctx, right_expr, Option::None);
+    if is_error(left) || is_error(right) {
+        return Type::Error;
+    }
+    if (op == "==" || op == "!=") && type_equals(left, right) {
+        var is_enum: bool = false;
+        var payload_free_enum: bool = false;
+        match left {
+            Type::Enum(name) => {
+                is_enum = true;
+                match find_enum(ctx.env, name) {
+                    Option::Some(i) => {
+                        payload_free_enum = ctx.env.enums[i].payload_free;
+                    }
+                    Option::None => {}
+                }
+            }
+            _ => {}
+        }
+        if is_reference(left) || (is_enum && !payload_free_enum) {
+            report(ctx.env, "cannot compare '" + type_to_string(left) + "' values", e.start, e.end);
+            return Type::Error;
+        }
+        if payload_free_enum {
+            return Type::Bool;
+        }
+    }
+    match binary_result_type(op, left, right) {
+        Option::Some(t) => {
+            return t;
+        }
+        Option::None => {
+            report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
+            return Type::Error;
+        }
+    }
+}
+
+fn arity_message(name: string, expected: int, found: int): string {
+    let noun: string = if expected == 1 { "argument" } else { "arguments" };
+    return "function '" + name + "' expects " + int_to_string(expected) + " " + noun + ", found " + int_to_string(found);
+}
+
+// checkCall's `checkArgs`. Only used once a problem with the call itself has been reported (or the signature is
+// known): the `error` type keeps `[]` arguments from cascading. Calls nothing has complained about yet must not use
+// it.
+fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
+    let types: [Type] = [];
+    for i in 0..len(args) {
+        var expected: Type = Type::Error;
+        match params {
+            Option::Some(ps) => {
+                if i < len(ps) {
+                    expected = ps[i];
+                }
+            }
+            Option::None => {}
+        }
+        push(types, check_expr(ctx, args[i], Option::Some(expected)));
+    }
+    return types;
+}
+
+fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
+    var name: string = "";
+    match callee.node {
+        ExprNode::Name(n) => {
+            name = n;
+        }
+        _ => {
+            check_args(ctx, args, Option::None);
+            report(ctx.env, "only named functions can be called", callee.start, callee.end);
+            return Type::Error;
+        }
+    }
+    if is_local(ctx, name) {
+        check_args(ctx, args, Option::None);
+        report(ctx.env, "'" + name + "' is not a function", callee.start, callee.end);
+        return Type::Error;
+    }
+    if name == "print" || name == "eprint" {
+        // A wrong argument count is reported by check_print; its arguments must not cascade then.
+        let types: [Type] = [];
+        for a in args {
+            let expected: Option[Type] = if len(args) == 1 { Option::None } else { Option::Some(Type::Error) };
+            push(types, check_expr(ctx, a, expected));
+        }
+        return check_print(ctx, e, name, args, types);
+    }
+    if name == "len" || name == "push" || name == "pop" {
+        return check_collection_builtin(ctx, name, e, args);
+    }
+
+    let sig: Option[Signature] = if is_signature_builtin(name) { find_signature_of(builtin_signatures(), name) } else { find_signature_of(ctx.signatures, name) };
+    match sig {
+        Option::None => {
+            check_args(ctx, args, Option::None);
+            report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
+            return Type::Error;
+        }
+        Option::Some(sg) => {
+            let types: [Type] = check_args(ctx, args, Option::Some(sg.params));
+            if len(types) != len(sg.params) {
+                report(ctx.env, arity_message(name, len(sg.params), len(types)), e.start, e.end);
+            } else {
+                for i in 0..len(types) {
+                    expect_type(ctx, sg.params[i], types[i], args[i].start, args[i].end);
+                }
+            }
+            if name == "read_file" {
+                // Result[string, string], once Task 5 instantiates generic enums.
+                return Type::Error;
+            }
+            return sg.ret;
+        }
+    }
+}
+
+fn find_signature_of(sigs: [Signature], name: string): Option[Signature] {
+    return match find_signature(sigs, name) {
+        Option::Some(i) => Option::Some(sigs[i]),
+        Option::None => Option::None,
+    };
+}
+
+// `name` is print or eprint; `types` are the types of `args`.
+fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], types: [Type]): Type {
+    if len(types) != 1 {
+        report(ctx.env, arity_message(name, 1, len(types)), e.start, e.end);
+        return Type::Error;
+    }
+    let t: Type = types[0];
+    let k: string = kind_of_type(t);
+    if !is_error(t) && k != "int" && k != "bool" && k != "string" {
+        report(ctx.env, "cannot print a value of type " + type_to_string(t), args[0].start, args[0].end);
+    }
+    return Type::Void;
+}
+
+// `len` (string or array), `push` and `pop` (any array). Typed by hand because they work on any array.
+fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type {
+    var t: Type = Type::Error;
+    if len(args) > 0 {
+        t = check_expr(ctx, args[0], Option::None);
+    }
+    var elem: Option[Type] = Option::None;
+    match t {
+        Type::Array(x) => {
+            elem = Option::Some(x);
+        }
+        _ => {}
+    }
+    // When the first argument is not an array it is reported below (or already was), so the rest must not cascade.
+    let rest_expected: Type = match elem {
+        Option::Some(x) => x,
+        Option::None => Type::Error,
+    };
+    let rest: [Type] = [];
+    for i in 1..len(args) {
+        push(rest, check_expr(ctx, args[i], Option::Some(rest_expected)));
+    }
+    let arity: int = if name == "push" { 2 } else { 1 };
+    if len(args) == 0 || len(args) != arity {
+        report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
+        return Type::Error;
+    }
+    if name == "len" {
+        let k: string = kind_of_type(t);
+        if !is_error(t) && k != "string" && k != "array" {
+            report(ctx.env, "function 'len' expects a string or array, found " + type_to_string(t), args[0].start, args[0].end);
+        }
+        // len is an int whatever its argument, so a bad argument doesn't cascade.
+        return Type::Int;
+    }
+    match elem {
+        Option::None => {
+            if !is_error(t) {
+                report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
+            }
+            return Type::Error;
+        }
+        Option::Some(x) => {
+            if name == "push" {
+                expect_type(ctx, x, rest[0], args[1].start, args[1].end);
+                return Type::Void;
+            }
+            return x;
+        }
+    }
 }

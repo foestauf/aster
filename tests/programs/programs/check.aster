@@ -15,6 +15,10 @@
 //   variant Red
 //   variant Green
 // fn main(): int
+//   let 0 p Point
+//   let 1 c Color
+//   let 2 o error
+//   var 3 n int
 
 import "loader.aster";
 import "checker.aster";

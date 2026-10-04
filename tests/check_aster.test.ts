@@ -50,18 +50,18 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //    370  function '<f>' is missing a return on some paths                 errors/for_errors.aster
 //    377  '<x>' is already declared in this scope                          fixtures/check_decls.txt (a parameter)
 //    396  type mismatch: expected <T>, found <U>                            errors/type_mismatch.aster (+11)
-//    402  condition must be bool, found <T>                                NONE -> fixtures/check_stmts.txt [Task 4]
-//    427  variable cannot have type void                                   NONE -> fixtures/check_stmts.txt [Task 4]
+//    402  condition must be bool, found <T>                                fixtures/check_stmts.txt
+//    427  variable cannot have type void                                   fixtures/check_stmts.txt
 //    467  cannot iterate over a value of type <T>                          errors/for_errors.aster
 //    475  'break'|'continue' outside of loop                               errors/multiple_errors.aster
-//    482  missing return value: expected <T>                               NONE -> fixtures/check_stmts.txt [Task 4]
-//    488  void function cannot return a value                              NONE -> fixtures/check_stmts.txt [Task 4]
+//    482  missing return value: expected <T>                               fixtures/check_stmts.txt
+//    488  void function cannot return a value                              fixtures/check_stmts.txt
 //    540  range bound must be int, found <T>                               errors/for_errors.aster
-//    575  '<x>' is a function, not a value                                 NONE -> fixtures/check_stmts.txt [Task 4]
+//    575  '<x>' is a function, not a value                                 fixtures/check_stmts.txt
 //    575  undefined name '<x>'                                             errors/undefined_name.aster
-//    583  operator '<op>' cannot be applied to <T> (unary)                 NONE -> fixtures/check_stmts.txt [Task 4]
+//    583  operator '<op>' cannot be applied to <T> (unary)                 fixtures/check_stmts.txt
 //    600  if branches have different types: <T> and <U>                   errors/if_branch_types.aster
-//    604  if expression cannot have type void                              NONE -> fixtures/check_stmts.txt [Task 4]
+//    604  if expression cannot have type void                              fixtures/check_stmts.txt
 //    614  unknown field '<f>' on '<T>' (field access)                      errors/struct_exprs.aster
 //    627  array index must be int, found <T>                               errors/array_errors.aster
 //    631  cannot index a value of type <T>                                 errors/array_errors.aster
@@ -95,15 +95,15 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //   1082  missing field '<f>' in '<S>'                                     errors/struct_exprs.aster
 //   1096  cannot infer type of empty array                                 errors/array_errors.aster
 //   1107  array element cannot have type void                              errors/array_errors.aster
-//   1132  cannot assign to function '<f>' / undefined name '<x>' (target)  NONE -> fixtures/check_stmts.txt [Task 4]
+//   1132  cannot assign to function '<f>' / undefined name '<x>' (target)  fixtures/check_stmts.txt
 //   1135  cannot assign to immutable variable '<x>'                        errors/immutable_assign.aster
 //   1146  invalid assignment target                                        errors/assign_errors.aster
 //   1155  operator '<op>=' cannot be applied to <T> and <U>                errors/assign_errors.aster
 //   1191  cannot compare '<T>' values                                      errors/array_errors.aster
 //   1198  operator '<op>' cannot be applied to <T> and <U>                 errors/variant_exprs.aster
 //   1218  only named functions can be called                               errors/postfix_errors.aster
-//   1224  '<x>' is not a function                                          NONE -> fixtures/check_stmts.txt [Task 4]
-//   1238  undefined function '<f>'                                         NONE -> fixtures/check_stmts.txt [Task 4]
+//   1224  '<x>' is not a function                                          fixtures/check_stmts.txt
+//   1238  undefined function '<f>'                                         fixtures/check_stmts.txt
 //   1243  function '<f>' expects <n> argument(s), found <m> (user fn)      errors/call_errors.aster
 //   1256  function '<print>' expects 1 argument, found <m>                 errors/eprint_exit_calls.aster
 //   1261  cannot print a value of type <T>                                 errors/array_errors.aster
@@ -117,47 +117,27 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/]check_\w+\.txt$/.test(f))
   .toSorted();
 
-/** Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes. */
+/**
+ * Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes. Until
+ * Task 6 ports `match`, a match statement never diverges, so a function that ends in one (programs/checker.aster,
+ * io/exit_nested_arms.aster) is wrongly missing a return.
+ */
 const PENDING = new Set<string>([
-  'arith/self_compare.aster', 'arith/wrapping.aster',
-  'arrays/aliasing.aster', 'arrays/basics.aster', 'arrays/empty_inference.aster', 'arrays/nested_and_structs.aster',
-  'basics/hello.aster',
-  'bool/short_circuit.aster',
-  'compound/elements.aster', 'compound/fields.aster', 'compound/locals.aster',
-  'control/if_expr.aster', 'control/nested_loops.aster', 'control/while_loop.aster', 'control/while_true_return.aster',
-  'enums/aliasing.aster', 'enums/c_names.aster', 'enums/construction_order.aster', 'enums/linked_list.aster',
-  'enums/read_result_name.aster', 'enums/unit_equality.aster',
-  'errors/array_errors.aster', 'errors/assign_errors.aster', 'errors/builtin_and_unknown_type.aster',
-  'errors/call_errors.aster', 'errors/eprint_exit_calls.aster', 'errors/for_errors.aster',
-  'errors/generic_decls.aster', 'errors/generic_expansion.aster', 'errors/generic_inference.aster',
-  'errors/generic_ops.aster', 'errors/generic_types.aster', 'errors/if_branch_types.aster',
-  'errors/immutable_assign.aster', 'errors/import_type.aster', 'errors/import_type_lib.aster',
-  'errors/match_coverage.aster', 'errors/match_literals.aster', 'errors/match_missing_return.aster',
-  'errors/match_or_patterns.aster', 'errors/match_patterns.aster', 'errors/missing_return.aster',
-  'errors/multiple_errors.aster', 'errors/postfix_errors.aster', 'errors/read_file_calls.aster',
-  'errors/read_file_match.aster', 'errors/read_result_ops.aster', 'errors/read_stdin_call.aster',
-  'errors/struct_exprs.aster', 'errors/try_errors.aster', 'errors/type_mismatch.aster', 'errors/undefined_name.aster',
-  'errors/variant_exprs.aster',
+  'enums/aliasing.aster', 'enums/linked_list.aster',
+  'errors/eprint_exit_calls.aster', 'errors/generic_decls.aster', 'errors/generic_expansion.aster',
+  'errors/generic_inference.aster', 'errors/generic_ops.aster', 'errors/generic_types.aster',
+  'errors/match_coverage.aster', 'errors/match_literals.aster', 'errors/match_or_patterns.aster',
+  'errors/match_patterns.aster', 'errors/read_file_match.aster', 'errors/read_result_ops.aster',
+  'errors/try_errors.aster', 'errors/variant_exprs.aster',
   'generics/basic.aster', 'generics/c_names.aster', 'generics/inference.aster', 'generics/list.aster',
   'generics/match.aster', 'generics/nested.aster', 'generics/shared_instance.aster', 'generics/struct_field.aster',
   'generics/tree.aster', 'generics/two_params.aster',
-  'io/args.aster', 'io/exit_nested.aster', 'io/read_file.aster', 'io/read_file_errors.aster',
-  'io/read_file_result.aster', 'io/stdin.aster',
-  'loops/break_continue.aster', 'loops/foreach.aster', 'loops/range.aster', 'loops/shadowing_and_returns.aster',
-  'match/bool.aster', 'match/control_flow.aster', 'match/expressions.aster', 'match/int.aster',
-  'match/or_patterns.aster', 'match/scrutinee_once.aster', 'match/statements.aster',
-  'modules/basic.aster', 'modules/generic.aster',
-  'panics/compound_div_zero.aster', 'panics/div_zero.aster', 'panics/explicit_panic.aster',
-  'panics/index_negative.aster', 'panics/index_oob_read.aster', 'panics/index_oob_write.aster',
-  'panics/pop_empty.aster', 'panics/stack_underflow.aster',
-  'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/fib.aster',
-  'programs/fixtures/check_bom.txt', 'programs/fixtures/check_bom_lib.txt', 'programs/fixtures/check_small.txt',
-  'programs/fizzbuzz.aster', 'programs/lex.aster', 'programs/parse.aster', 'programs/rpn.aster',
-  'programs/tokenizer.aster', 'programs/tokenizer_structs.aster',
-  'scoping/shadowing.aster',
-  'strings/equality.aster',
-  'structs/basics.aster', 'structs/c_names.aster', 'structs/declaration_order.aster', 'structs/init_order.aster',
-  'structs/mutation_aliasing.aster',
+  'io/exit_nested_arms.aster', 'io/read_file.aster', 'io/read_file_errors.aster', 'io/read_file_result.aster',
+  'match/control_flow.aster', 'match/expressions.aster', 'match/int.aster', 'match/or_patterns.aster',
+  'match/scrutinee_once.aster', 'match/statements.aster',
+  'modules/generic.aster',
+  'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/checker.aster',
+  'programs/fixtures/check_small.txt', 'programs/lex.aster', 'programs/parse.aster',
   'try/chain.aster', 'try/loops.aster', 'try/option.aster', 'try/order.aster', 'try/positions.aster',
   'try/read_file.aster', 'try/result.aster',
 ]);
@@ -232,7 +212,7 @@ describe('check.aster matches the TypeScript front end', () => {
     for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
       expect(corpus).toContain(join('programs', f));
     }
-    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls']) {
+    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
     for (const f of PENDING) expect(corpus).toContain(f);
