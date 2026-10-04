@@ -16,6 +16,7 @@
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --fix",
     "aster": "node packages/asterc/dist/cli/bin.js",
+    "gen:runtime": "node scripts/gen-runtime.ts",
     "prepare": "husky"
   },
   "devDependencies": {

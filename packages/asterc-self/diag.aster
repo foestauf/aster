@@ -1,0 +1,87 @@
+// expect-library
+// Human diagnostics, as packages/asterc/src/diagnostics/diagnostic.ts's formatDiagnostic prints them. Spans are byte
+// offsets into the BOM-stripped source; lines and columns count UTF-16 code units, as the TypeScript compiler's strings
+// do.
+
+import "loader.aster";
+
+// The larger of two ints.
+fn diag_max(a: int, b: int): int {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+
+// UTF-16 code units in src[from..to): one per UTF-8 lead byte, two for a 4-byte sequence's lead, none for a
+// continuation byte.
+fn diag_utf16_len(src: string, from: int, to: int): int {
+    var n: int = 0;
+    for i in from..to {
+        let b: int = byte_at(src, i);
+        if b < 128 || b >= 192 {
+            n += 1;
+            if b >= 240 {
+                n += 1;
+            }
+        }
+    }
+    return n;
+}
+
+// `<path>:<line>:<col>: error: <message>`, the line's text and a caret line under the span, against the file the
+// diagnostic starts in (the last one whose base is at or before its start). The end is clamped to that file.
+fn format_diag(files: [SourceFile], d: Diag): string {
+    var f: SourceFile = files[0];
+    for candidate in files {
+        if candidate.base <= d.start {
+            f = candidate;
+        }
+    }
+    let start: int = d.start - f.base;
+    let end: int = min(d.end - f.base, len(f.src));
+    var line_start: int = 0;
+    var line: int = 1;
+    for i in 0..start {
+        if byte_at(f.src, i) == '\n' {
+            line += 1;
+            line_start = i + 1;
+        }
+    }
+    var line_end: int = line_start;
+    while line_end < len(f.src) && byte_at(f.src, line_end) != '\n' {
+        line_end += 1;
+    }
+    // lineText drops one `\r` before the line break.
+    var text_end: int = line_end;
+    if text_end > line_start && byte_at(f.src, text_end - 1) == '\r' {
+        text_end -= 1;
+    }
+    let text: string = substring(f.src, line_start, text_end);
+    let col: int = 1 + diag_utf16_len(f.src, line_start, start);
+    // The line's text before the column, tabs kept and every other UTF-16 unit a space. A start on the dropped `\r`
+    // (or the line break after it) pads only the text.
+    var padding: string = "";
+    for i in line_start..min(start, text_end) {
+        let b: int = byte_at(f.src, i);
+        if b == '\t' {
+            padding += "\t";
+        } else if b < 128 || b >= 192 {
+            padding += " ";
+            if b >= 240 {
+                padding += " ";
+            }
+        }
+    }
+    var span_units: int = 0;
+    if end > start {
+        span_units = diag_utf16_len(f.src, start, end);
+    }
+    let width: int = diag_max(1, min(span_units, diag_utf16_len(text, 0, len(text)) - (col - 1)));
+    var carets: string = "";
+    for k in 0..width {
+        carets += "^";
+    }
+    let head: string = f.path + ":" + int_to_string(line) + ":" + int_to_string(col) + ": error: " + d.message;
+    return head + "\n  " + text + "\n  " + padding + carets;
+}

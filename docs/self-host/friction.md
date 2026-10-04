@@ -138,6 +138,34 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building the driver
+
+`asterc.aster` (the CLI) and `driver.aster` (the `cc` invocation) finish the self-hosted compiler: S1 (built by stage 0)
+checks, builds and runs programs, and S1 builds itself into S2 whose `--emit=c` is byte-identical to stage 0's. Nothing
+in the language blocked it, and no stage-0 compiler bug turned up. The four new builtins were enough. What cost
+something:
+
+- **No way to join arrays.** `[exe] + args` doesn't exist, so building `run_process`'s argv is a `for` loop of `push`
+  calls, and so is the list of paths to clean up in `driver_build_in`. This is item 8's family (small gaps) with a
+  third and fourth site.
+- **`let … else` can't see the error.** After `if let Result::Err(msg) = result { …; return 3; }`, the rest of `main`
+  still needs the `Ok` payload, and `let Result::Ok(status) = result else { … }` has a branch that can't run, because
+  `else` can't bind `msg` and the `Err` case already returned. It is a commented, unreachable `return 3`. This is
+  item 10 again, from the other side: the unwrap is easy, but proving the other arm is dead isn't something the checker
+  can use.
+- **No tuples or records for pairs of literals.** The three runtime files are two parallel arrays (names and texts)
+  that `driver_build_in` walks by index. Part of item 11's evidence: a map or a tuple would be a pair.
+- **Strings have no builder.** Printing about 1 MB of C means `join` has to build it by halves, because repeated `+`
+  copies the whole prefix each time and is quadratic. A `join` builtin (item 8) would also remove that helper.
+- **A panic can't be caught.** The compiler's failures that the driver detects itself exit 3, but a panic inside the
+  compiler is `panic: …`/101 where stage 0 prints `internal compiler error: <stack>`/3. It's in contract section 4.5.
+- **`-O2` and the signal test.** The obvious unbounded recursion (`f(n) = f(n + 1) + 1`) is turned into a loop by
+  `cc -O2` and hangs instead of overflowing the stack. Keeping an array alive across the call stops that, but then gcc
+  warns `-Winfinite-recursion`. The test program has an unreachable base case to keep `cc` quiet. S1 passes `cc`'s
+  stderr through when `cc` succeeds, and stage 0 discards it (contract section 4.5).
+- **What worked well.** `?` in `build_c` and `run_c`, `if let` for the cleanup helper, and `let … else` for
+  `read_file` in `main` all read like the TypeScript. The cleanup-on-every-path rule fits one helper, `driver_remove_then`.
+
 ## Found while building emission
 
 `emit.aster` ports `codegen/c/emit.ts` (297 lines of TypeScript) in 476 lines, about 1.6 times as long. The driver
