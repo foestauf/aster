@@ -139,7 +139,7 @@ Its output is quoted in the PR.
 
 - Required tools: Linux x86_64, gcc 13 as `cc`, Node 24 or later and pnpm. Node and pnpm are needed only for the
   bootstrap, the orchestration scripts and the tests.
-- Permitted dependencies: `build/asterc` needs only `cc` and libc at run time (the C runtime is embedded, contract §3).
+- Permitted dependencies: `build/asterc` needs only `cc` and libc at run time (the C runtime is embedded, contract §4.4).
   The `sh` wrapper and the Node orchestration scripts never run the TypeScript compiler.
 - Artifact locations: `build/asterc`, `.selfhost/`, and the temp directories under `$TMPDIR`.
 - Commands: the §2 table, the edit-and-rebuild loop, and how to run the proof and the normal-path check.
