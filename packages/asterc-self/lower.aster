@@ -93,7 +93,7 @@ fn lower_function(f: TFunction, strings: IrStrings, structs: [TStruct]): IrFunct
     } else {
         ir_terminate(st, IrTerm::Unreachable);
     }
-    return IrFunction { name: f.name, param_count: f.params, locals: st.locals, ret: ret, blocks: prune_unreachable(st.blocks) };
+    return IrFunction { name: f.name, param_count: f.params, locals: st.locals, ret: ret, blocks: ir_prune_unreachable(st.blocks) };
 }
 
 fn ir_block_index(blocks: [IrBlock], label: string): int {
@@ -106,7 +106,7 @@ fn ir_block_index(blocks: [IrBlock], label: string): int {
 }
 
 // Keeps only the blocks reachable from the entry block, in their original order.
-fn prune_unreachable(blocks: [IrBlock]): [IrBlock] {
+fn ir_prune_unreachable(blocks: [IrBlock]): [IrBlock] {
     if len(blocks) == 0 {
         return blocks;
     }
@@ -361,7 +361,7 @@ fn lower_stmt(st: IrState, s: TStmt) {
 fn lower_if_stmt(st: IrState, cond: TExpr, then: TBlock, otherwise: Option[TBlock]) {
     let c: IrOperand = lower_value(st, cond);
     let then_label: string = ir_new_label(st, "then");
-    var else_label: string = "";
+    var else_label: string = "";  // "" means no else (labels are never empty)
     if let Option::Some(_) = otherwise {
         else_label = ir_new_label(st, "else");
     }
