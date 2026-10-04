@@ -300,6 +300,8 @@ fn lower_stmt(st: IrState, s: TStmt) {
             let v: IrOperand = lower_value(st, init);
             ir_emit(st, IrInstr::Copy(local.id, v));
         }
+        TStmt::Assign(place, op, value) => lower_assign(st, place, op, value),
+        TStmt::Match(_, _) => panic("internal: statement not lowered yet"),
         TStmt::Expr(e) => {
             lower_expr(st, e);
         }
@@ -312,11 +314,79 @@ fn lower_stmt(st: IrState, s: TStmt) {
                 ir_terminate(st, IrTerm::Ret(Option::None));
             }
         }
-        TStmt::Assign(place, op, value) => lower_assign(st, place, op, value),
-        _ => panic("internal: statement not lowered yet"),
+        TStmt::Break => {
+            let lp: IrLoop = ir_current_loop(st);
+            ir_terminate(st, IrTerm::Jmp(lp.break_label));
+        }
+        TStmt::Continue => {
+            let lp: IrLoop = ir_current_loop(st);
+            lp.continued = true;
+            ir_terminate(st, IrTerm::Jmp(lp.continue_label));
+        }
+        TStmt::If(cond, then, otherwise) => lower_if_stmt(st, cond, then, otherwise),
+        TStmt::While(cond, body) => {
+            let head: string = ir_new_label(st, "while_head");
+            let body_label: string = ir_new_label(st, "while_body");
+            let end: string = ir_new_label(st, "while_end");
+            ir_start_block(st, head);
+            let c: IrOperand = lower_value(st, cond);
+            ir_terminate(st, IrTerm::Br(c, body_label, end));
+            ir_start_block(st, body_label);
+            push(st.loops, IrLoop { continue_label: head, break_label: end, continued: false });
+            lower_block(st, body);
+            pop(st.loops);
+            ir_terminate(st, IrTerm::Jmp(head));
+            ir_start_block(st, end);
+        }
+        TStmt::ForRange(local, start, end, body) => {
+            let s0: IrOperand = lower_value(st, start);
+            let e0: IrOperand = lower_value(st, end);
+            let counter: int = ir_new_temp(st, Type::Int);
+            let limit: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::Copy(counter, s0));
+            ir_emit(st, IrInstr::Copy(limit, e0));
+            lower_for(st, body, counter, IrForKind::Range(limit, local.id));
+        }
+        TStmt::ForEach(local, array, body) => {
+            let source: IrOperand = lower_value(st, array);
+            let arr: int = ir_new_temp(st, ir_type(array.ty));
+            let index: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::Copy(arr, source));
+            ir_emit(st, IrInstr::Copy(index, IrOperand::Int("0")));
+            lower_for(st, body, index, IrForKind::Each(arr, local.id));
+        }
     }
 }
 
+fn lower_if_stmt(st: IrState, cond: TExpr, then: TBlock, otherwise: Option[TBlock]) {
+    let c: IrOperand = lower_value(st, cond);
+    let then_label: string = ir_new_label(st, "then");
+    var else_label: string = "";
+    if let Option::Some(_) = otherwise {
+        else_label = ir_new_label(st, "else");
+    }
+    let end_label: string = ir_new_label(st, "endif");
+    if else_label == "" {
+        ir_terminate(st, IrTerm::Br(c, then_label, end_label));
+    } else {
+        ir_terminate(st, IrTerm::Br(c, then_label, else_label));
+    }
+    ir_start_block(st, then_label);
+    lower_block(st, then);
+    var reaches_end: bool = ir_reachable(st) || else_label == "";
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    if let Option::Some(b) = otherwise {
+        ir_start_block(st, else_label);
+        lower_block(st, b);
+        if ir_reachable(st) {
+            reaches_end = true;
+        }
+        ir_terminate(st, IrTerm::Jmp(end_label));
+    }
+    if reaches_end {
+        ir_start_block(st, end_label);
+    }
+}
 
 fn lower_assign(st: IrState, place: TPlace, op: string, value: TExpr) {
     match place.node {
@@ -381,6 +451,52 @@ fn lower_args(st: IrState, es: [TExpr]): [IrOperand] {
     return out;
 }
 
+// What a for loop iterates: `Range(limit, local)` counts the hidden counter up to the `limit` local and binds it to
+// `local`; `Each(array, local)` walks the `array` local and binds each element to `local`.
+enum IrForKind { Range(int, int), Each(int, int) }
+
+// The shared shape of both for loops (`counter` is the hidden int local that the step block increments):
+//   head: br cond, body, end
+//   body: bind the loop variable; body; jmp step
+//   step: counter += 1; jmp head   (only when the body can fall through or continue; an unused label would warn)
+//   end:
+fn lower_for(st: IrState, body: TBlock, counter: int, kind: IrForKind) {
+    let head: string = ir_new_label(st, "for_head");
+    let body_label: string = ir_new_label(st, "for_body");
+    let step: string = ir_new_label(st, "for_step");
+    let end: string = ir_new_label(st, "for_end");
+    ir_start_block(st, head);
+    var cond: int = 0;
+    match kind {
+        IrForKind::Range(limit, _) => {
+            cond = ir_new_temp(st, Type::Bool);
+            ir_emit(st, IrInstr::Binop(cond, "lt", ir_ref(counter), ir_ref(limit)));
+        }
+        IrForKind::Each(array, _) => {
+            let n: int = ir_new_temp(st, Type::Int);
+            ir_emit(st, IrInstr::ArrayLen(n, ir_ref(array)));
+            cond = ir_new_temp(st, Type::Bool);
+            ir_emit(st, IrInstr::Binop(cond, "lt", ir_ref(counter), ir_ref(n)));
+        }
+    }
+    ir_terminate(st, IrTerm::Br(ir_ref(cond), body_label, end));
+    ir_start_block(st, body_label);
+    match kind {
+        IrForKind::Range(_, local) => ir_emit(st, IrInstr::Copy(local, ir_ref(counter))),
+        IrForKind::Each(array, local) => ir_emit(st, IrInstr::IndexGet(local, ir_ref(array), ir_ref(counter))),
+    }
+    let lp: IrLoop = IrLoop { continue_label: step, break_label: end, continued: false };
+    push(st.loops, lp);
+    lower_block(st, body);
+    pop(st.loops);
+    if ir_reachable(st) || lp.continued {
+        ir_start_block(st, step);
+        ir_emit(st, IrInstr::Binop(counter, "add", ir_ref(counter), IrOperand::Int("1")));
+        ir_terminate(st, IrTerm::Jmp(head));
+    }
+    ir_start_block(st, end);
+}
+
 // Lowers an expression and returns its value, or `None` for a void expression.
 fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
     if !ir_reachable(st) {
@@ -401,6 +517,7 @@ fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
         TExprNode::StructLit(name, fields) => Option::Some(lower_struct_lit(st, e.ty, name, fields)),
         TExprNode::Variant(enum_name, variant, tag, args) => Option::Some(lower_variant(st, e.ty, enum_name, variant, tag, args)),
         TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
+        TExprNode::If(cond, then, otherwise) => Option::Some(lower_if_expr(st, e.ty, cond, then, otherwise)),
         TExprNode::Error => panic("internal: error expression reached lowering"),
         _ => panic("internal: expression not lowered yet"),
     };
@@ -418,10 +535,70 @@ fn lower_unary(st: IrState, ty: Type, op: string, operand: TExpr): IrOperand {
 }
 
 fn lower_binary(st: IrState, ty: Type, op: string, left: TExpr, right: TExpr): IrOperand {
+    if op == "&&" || op == "||" {
+        return lower_short_circuit(st, op, left, right);
+    }
     let l: IrOperand = lower_value(st, left);
     let r: IrOperand = lower_value(st, right);
     let dst: int = ir_new_temp(st, ir_type(ty));
     ir_emit(st, IrInstr::Binop(dst, ir_bin_op(op, left.ty), l, r));
+    return ir_ref(dst);
+}
+
+fn lower_short_circuit(st: IrState, op: string, left: TExpr, right: TExpr): IrOperand {
+    let l: IrOperand = lower_value(st, left);
+    var rhs: string = "";
+    var end: string = "";
+    if op == "&&" {
+        rhs = ir_new_label(st, "and_rhs");
+        end = ir_new_label(st, "and_end");
+    } else {
+        rhs = ir_new_label(st, "or_rhs");
+        end = ir_new_label(st, "or_end");
+    }
+    let dst: int = ir_new_temp(st, Type::Bool);
+    ir_emit(st, IrInstr::Copy(dst, l));
+    if op == "&&" {
+        ir_terminate(st, IrTerm::Br(l, rhs, end));
+    } else {
+        ir_terminate(st, IrTerm::Br(l, end, rhs));
+    }
+    ir_start_block(st, rhs);
+    let r: IrOperand = lower_value(st, right);
+    ir_emit(st, IrInstr::Copy(dst, r));
+    ir_terminate(st, IrTerm::Jmp(end));
+    ir_start_block(st, end);
+    return ir_ref(dst);
+}
+
+// When both branches diverge nothing reaches the end, so the position stays unreachable.
+fn lower_if_expr(st: IrState, ty: Type, cond: TExpr, then: TExpr, otherwise: TExpr): IrOperand {
+    let c: IrOperand = lower_value(st, cond);
+    let then_label: string = ir_new_label(st, "then");
+    let else_label: string = ir_new_label(st, "else");
+    let end_label: string = ir_new_label(st, "endif");
+    let never: bool = kind_of_type(ty) == "never";
+    var dst: int = -1;
+    if !never {
+        dst = ir_new_temp(st, ir_type(ty));
+    }
+    ir_terminate(st, IrTerm::Br(c, then_label, else_label));
+    ir_start_block(st, then_label);
+    let tv: IrOperand = lower_value(st, then);
+    if !never {
+        ir_emit(st, IrInstr::Copy(dst, tv));
+    }
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, else_label);
+    let ev: IrOperand = lower_value(st, otherwise);
+    if !never {
+        ir_emit(st, IrInstr::Copy(dst, ev));
+    }
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    if never {
+        return ir_placeholder();
+    }
+    ir_start_block(st, end_label);
     return ir_ref(dst);
 }
 

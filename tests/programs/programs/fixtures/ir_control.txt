@@ -1,0 +1,73 @@
+// IR fixture: if/else chains, while, both for loops, nested break/continue, a for that only continues, if expressions
+// and short-circuit operators with side effects.
+fn check(log: [int], v: int, r: bool): bool {
+    push(log, v);
+    return r;
+}
+
+fn classify(n: int): string {
+    if n < 0 {
+        return "neg";
+    } else if n == 0 {
+        return "zero";
+    }
+    return "pos";
+}
+
+fn main(): int {
+    let log: [int] = [];
+    var total: int = 0;
+    var i: int = 0;
+    while i < 10 {
+        i += 1;
+        if i % 2 == 0 {
+            continue;
+        }
+        for j in 0..i {
+            if j == 3 {
+                break;
+            }
+            if j == 1 {
+                continue;
+            }
+            total += j;
+        }
+        if total > 100 {
+            break;
+        }
+    }
+    // The body never falls through: every path continues, so the step block exists only because of `continued`.
+    for k in 0..3 {
+        if k == 1 {
+            total += 1;
+            continue;
+        } else {
+            continue;
+        }
+    }
+    // The body always breaks: no step block.
+    for v in [1, 2, 3] {
+        total += v;
+        break;
+    }
+    for w in log {
+        if w > 0 {
+            total -= w;
+        }
+    }
+    while true {
+        break;
+    }
+    let pick: int = if total > 5 { 1 } else { 2 };
+    let both: bool = check(log, 1, true) && check(log, 2, false);
+    let either: bool = check(log, 3, false) || check(log, 4, true) && both;
+    if both {
+        print(classify(pick));
+    }
+    if either {
+        print(classify(-pick));
+    } else {
+        print("neither");
+    }
+    return 0;
+}
