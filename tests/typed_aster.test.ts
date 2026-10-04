@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { buildDriver } from './stage.js';
 import { dumpTyped } from './typed_dump.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/typed.aster, which prints the typed program built by packages/asterc-self/checker.aster
 // in the canonical dump format (packages/asterc-self/typed_dump.aster), against the compiler's own typed program
@@ -40,7 +40,7 @@ describe('typed.aster matches the TypeScript typed program', () => {
   });
 
   it.for(accepted)('$file', ({ file, typed }) => {
-    const run = spawnSync(exe, [join(PROGRAMS_DIR, file)], { encoding: 'utf8', timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
+    const run = spawnStrict(exe, [join(PROGRAMS_DIR, file)], { timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual({ stdout: dumpTyped(typed), stderr: '', status: 0 });
   });
 });

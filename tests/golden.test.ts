@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildExecutable, compileToC, formatDiagnostic, formatShort, makeSource } from '../packages/asterc/src/index.js';
 import { parseExpectations } from './harness.js';
+import { spawnStrict } from './spawn.js';
 
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
 const programs = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
@@ -39,10 +39,9 @@ describe('golden programs: run', () => {
     const exe = join(workDir, file.replace(/[\\/]/g, '__').replace(/\.aster$/, ''));
     const built = buildExecutable(compiled.c, exe, ['-Werror']);
     if (!built.ok) throw new Error(built.message);
-    const run = spawnSync(exe, expected.args, {
+    const run = spawnStrict(exe, expected.args, {
       cwd: dirname(join(PROGRAMS_DIR, file)),
       input: expected.stdin,
-      encoding: 'utf8',
       timeout: 10_000,
       maxBuffer: 64 * 1024 * 1024,
     });

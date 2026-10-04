@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { parseExpectations } from './harness.js';
 import { stage } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Contract §6.3: every runnable golden program, run through the stage under test with `run <file> -- <args>` and its
 // expect-stdin, must meet its expect-stdout, expect-stderr and expect-exit unchanged. Runs from the program's own
@@ -33,11 +33,10 @@ describe(`golden programs run through ${stage().name}`, () => {
   });
 
   it.for(runnable)('$file', ({ file, expected }) => {
-    const r = spawnSync(stage().bin, ['run', basename(file), '--', ...expected.args], {
+    const r = spawnStrict(stage().bin, ['run', basename(file), '--', ...expected.args], {
       cwd: dirname(join(PROGRAMS_DIR, file)),
       env: { ...process.env, TMPDIR: tmpDir, LC_ALL: 'C' },
       input: expected.stdin,
-      encoding: 'utf8',
       timeout: 60_000,
       maxBuffer: 64 * 1024 * 1024,
     });

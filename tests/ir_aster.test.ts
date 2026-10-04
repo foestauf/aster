@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lower, printIr } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { buildDriver } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/ir.aster, which lowers a program with packages/asterc-self/lower.aster and prints it
 // with packages/asterc-self/ir_print.aster, against the compiler's own printIr(lower(typed)), byte for byte, on the
@@ -37,7 +37,7 @@ describe('ir.aster matches the TypeScript IR', () => {
   });
 
   it.for(accepted)('$file', ({ file, typed }) => {
-    const run = spawnSync(exe, [join(PROGRAMS_DIR, file)], { encoding: 'utf8', timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
+    const run = spawnStrict(exe, [join(PROGRAMS_DIR, file)], { timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
     const actual = { stdout: run.stdout, stderr: run.stderr, status: run.status };
     const expected = { stdout: printIr(lower(typed)), stderr: '', status: 0 };
     expect(actual).toEqual(expected);

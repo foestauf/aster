@@ -1,10 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { renderRuntimeAster } from '../scripts/gen-runtime.js';
 import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
+import { spawnStrict } from './spawn.js';
 
 const RUNTIME_DIR = resolve('packages/asterc/runtime');
 const RUNTIME_AST = resolve('packages/asterc-self/runtime.aster');
@@ -32,7 +32,7 @@ describe('runtime.aster', () => {
     const exe = join(workDir, 'main');
     const built = buildExecutable(compiled.c, exe, ['-Werror']);
     if (!built.ok) throw new Error(built.message);
-    const run = spawnSync(exe, [], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    const run = spawnStrict(exe, [], { maxBuffer: 16 * 1024 * 1024 });
     expect(run.status).toBe(0);
     // print appends a newline after each string.
     expect(run.stdout).toBe(`${h}\n${c}\n`);
