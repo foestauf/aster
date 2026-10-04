@@ -12,6 +12,7 @@
     "build": "node scripts/build-compiler.ts build",
     "build:seed": "pnpm --filter asterc build",
     "bootstrap": "node scripts/build-compiler.ts bootstrap",
+    "release": "node scripts/release.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
