@@ -1,0 +1,5 @@
+// Emit fixture: main taking its arguments (the aster_rt_args shim).
+fn main(args: [string]): int {
+    print(len(args));
+    return 0;
+}

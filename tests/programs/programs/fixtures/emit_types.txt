@@ -1,0 +1,43 @@
+// Emit fixture: struct and enum declarations, self and mutual references (Node -> Shape -> Node),
+// generic-instantiation mangling, and C keywords used as Aster names.
+struct Empty {}
+struct my_pair { char: int, long: string }
+struct Node { value: int, children: [Node], shape: Shape }
+enum Shape { Dot, Line(int, int), Group([Shape]), Tree(Node) }
+enum Color { Red, Green, FILE }
+
+fn wrap(p: my_pair): Option[Result[my_pair, int]] {
+    return Option::Some(Result::Ok(p));
+}
+
+fn main(): int {
+    let e: Empty = Empty {};
+    let p: my_pair = my_pair { char: 1, long: "c" };
+    let n: Node = Node { value: 2, children: [], shape: Shape::Line(1, 2) };
+    let unsigned: Color = Color::FILE;
+    print(unsigned == Color::Red);
+    match n.shape {
+        Shape::Line(a, b) => print(a + b),
+        _ => print(0),
+    }
+    match wrap(p) {
+        Option::Some(r) => {
+            match r {
+                Result::Ok(q) => print(q.char),
+                Result::Err(code) => print(code),
+            }
+        }
+        Option::None => print(-1),
+    }
+    let g: Shape = Shape::Group([Shape::Dot]);
+    match g {
+        Shape::Group(items) => print(len(items)),
+        _ => print(0),
+    }
+    let t: Shape = Shape::Tree(n);
+    match t {
+        Shape::Tree(inner) => print(inner.value),
+        _ => print(0),
+    }
+    return 0;
+}
