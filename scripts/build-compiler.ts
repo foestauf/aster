@@ -1,12 +1,15 @@
 import { spawnSync } from 'node:child_process';
 import { accessSync, chmodSync, constants, copyFileSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prepareRelease } from './release-bootstrap.ts';
 import { firstDifference } from './selfhost.ts';
 
-// `pnpm bootstrap` and `pnpm build` (issue #21): install the self-hosted compiler as build/asterc. The builder (stage
-// 0 for bootstrap, the installed compiler for build) builds c1 from packages/asterc-self/asterc.aster, c1 builds c2,
+// `pnpm bootstrap`, `pnpm bootstrap:seed` and `pnpm build` (issue #21): install the self-hosted compiler as
+// build/asterc. `bootstrap` uses the nearest ancestor release (or --release <tag>, or ASTER_BOOTSTRAP_DIR);
+// `bootstrap-seed` is the TypeScript seed; `build` uses the installed compiler. The builder builds c1 from
+// packages/asterc-self/asterc.aster, c1 builds c2,
 // and c2 is installed only if c1 and c2 emit identical C. A failure leaves any installed compiler untouched.
 // Orchestration only: it spawns compilers and never imports the TypeScript compiler.
 
@@ -16,15 +19,24 @@ export const MISSING = 'aster: no compiler at build/asterc; run `pnpm bootstrap`
 const COMPILER = 'packages/asterc-self/asterc.aster';
 const S0 = 'packages/asterc/dist/cli/bin.js';
 
-export type Mode = 'bootstrap' | 'build';
 export interface Builder {
   cmd: string;
   args: string[];
 }
 export type BuildResult = { ok: true } | { ok: false; step: string; message: string };
 
+export type Mode = 'bootstrap' | 'bootstrap-seed' | 'build';
+export const TWO_STEP =
+  'the release cannot build this compiler source; land the feature first, then use it (two-step rule, docs/self-host/building.md)';
+
+export function parseArgs(argv: string[]): { mode: Mode; release: string | null } | null {
+  if (argv.length === 1 && (argv[0] === 'bootstrap' || argv[0] === 'bootstrap-seed' || argv[0] === 'build')) return { mode: argv[0], release: null };
+  if (argv.length === 3 && argv[0] === 'bootstrap' && argv[1] === '--release' && argv[2] !== '') return { mode: 'bootstrap', release: argv[2]! };
+  return null;
+}
+
 export function parseMode(argv: string[]): Mode | null {
-  return argv.length === 1 && (argv[0] === 'bootstrap' || argv[0] === 'build') ? argv[0] : null;
+  return parseArgs(argv)?.mode ?? null;
 }
 
 function run(cmd: string, args: string[]) {
@@ -88,35 +100,55 @@ function executable(path: string): boolean {
 }
 
 export function main(argv: string[]): number {
-  const mode = parseMode(argv);
-  if (mode === null) {
-    console.error('usage: node scripts/build-compiler.ts bootstrap|build');
+  const args = parseArgs(argv);
+  if (args === null) {
+    console.error('usage: node scripts/build-compiler.ts bootstrap [--release <tag>] | bootstrap-seed | build');
     return 2;
   }
+  const { mode } = args;
   const installed = join(REPO_ROOT, INSTALLED);
-  let builder: Builder;
-  if (mode === 'bootstrap') {
-    const seed = spawnSync('pnpm', ['build:seed'], { cwd: REPO_ROOT, stdio: 'inherit' });
-    if (seed.error || seed.status !== 0) {
-      console.error('bootstrap: pnpm build:seed failed');
+  const work = mkdtempSync(join(tmpdir(), 'aster-bootstrap-'));
+  try {
+    let builder: Builder;
+    let from: string;
+    if (mode === 'bootstrap') {
+      const assetsDir = process.env.ASTER_BOOTSTRAP_DIR;
+      const p = prepareRelease({ root: REPO_ROOT, release: args.release, assetsDir: assetsDir === undefined ? undefined : resolve(assetsDir), work });
+      if (!p.ok) {
+        console.error(p.message);
+        return 1;
+      }
+      for (const note of p.notes) console.error(note);
+      builder = p.builder;
+      from = `from ${p.source}, ${p.origin}`;
+    } else if (mode === 'bootstrap-seed') {
+      const seed = spawnSync('pnpm', ['build:seed'], { cwd: REPO_ROOT, stdio: 'inherit' });
+      if (seed.error || seed.status !== 0) {
+        console.error('bootstrap-seed: pnpm build:seed failed');
+        return 1;
+      }
+      builder = { cmd: process.execPath, args: [join(REPO_ROOT, S0)] };
+      from = 'from the TypeScript seed';
+    } else {
+      if (!executable(installed)) {
+        console.error(MISSING);
+        return 2;
+      }
+      builder = { cmd: installed, args: [] };
+      from = 'rebuilt by itself';
+    }
+    const r = buildCompiler(builder, COMPILER, installed);
+    if (!r.ok) {
+      console.error(`${mode}: ${r.step} failed: ${r.message}`);
+      if (mode === 'bootstrap' && r.step === 'build c1') console.error(TWO_STEP);
+      console.error(mode === 'build' ? 'build/asterc is unchanged; `pnpm bootstrap` rebuilds it from a release' : 'build/asterc is unchanged');
       return 1;
     }
-    builder = { cmd: process.execPath, args: [join(REPO_ROOT, S0)] };
-  } else {
-    if (!executable(installed)) {
-      console.error(MISSING);
-      return 2;
-    }
-    builder = { cmd: installed, args: [] };
+    console.log(`${mode}: installed ${INSTALLED} (${from})`);
+    return 0;
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  const r = buildCompiler(builder, COMPILER, installed);
-  if (!r.ok) {
-    console.error(`${mode}: ${r.step} failed: ${r.message}`);
-    console.error(mode === 'build' ? 'build/asterc is unchanged; `pnpm bootstrap` rebuilds it from the TypeScript seed' : 'build/asterc is unchanged');
-    return 1;
-  }
-  console.log(`${mode}: installed ${INSTALLED} (${mode === 'bootstrap' ? 'from the TypeScript seed' : 'rebuilt by itself'})`);
-  return 0;
 }
 
 if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
