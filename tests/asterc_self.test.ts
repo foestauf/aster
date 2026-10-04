@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
+import { buildExecutable, compileToC, emitC, formatDiagnostic, lower, makeSource } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { parseExpectations } from './harness.js';
 
@@ -186,5 +186,19 @@ describe('diagnostic layout edge cases', () => {
     const s0 = runS0(['check', name], { cwd: edgeDir });
     expect(s0.status).toBe(1);
     expect(runS1(['check', name], { cwd: edgeDir })).toEqual(s0);
+  });
+});
+
+describe('build --emit=c, accepted programs', () => {
+  const corpus = acceptedCorpus().map(({ file, typed }) => ({ file, c: emitC(lower(typed)) }));
+
+  it.for(corpus)('$file', ({ file, c }) => {
+    expect(runS1(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: c, stderr: '', status: 0 });
+  });
+
+  it('prints about a megabyte for the compiler itself', () => {
+    const r = runS1(['build', S1_SOURCE, '--emit=c']);
+    expect(r.status).toBe(0);
+    expect(r.stdout.length).toBeGreaterThan(500_000);
   });
 });

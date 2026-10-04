@@ -6,6 +6,8 @@ import "loader.aster";
 import "checker.aster";
 import "report.aster";
 import "diag.aster";
+import "lower.aster";
+import "emit.aster";
 
 // Parsed command-line arguments. `program_args` are the arguments after `--`, for `run`.
 struct CliArgs {
@@ -116,6 +118,24 @@ fn cli_report(files: [SourceFile], diags: [Diag]) {
     }
 }
 
+// Joins lines[from..to) with newlines, by halves so the total copying is O(n log n) rather than quadratic.
+fn join_lines(lines: [string], from: int, to: int): string {
+    if to - from == 0 {
+        return "";
+    }
+    if to - from == 1 {
+        return lines[from];
+    }
+    let mid: int = from + (to - from) / 2;
+    return join_lines(lines, from, mid) + "\n" + join_lines(lines, mid, to);
+}
+
+// The C for a checked program, without its final newline (print adds it): emit_c's lines end in "", so the last is dropped.
+fn compile_c(loaded: Loaded, checked: Checked): string {
+    let lines: [string] = emit_c(lower_program(checked));
+    return join_lines(lines, 0, len(lines) - 1);
+}
+
 fn main(args: [string]): int {
     let parsed: CliArgs = match parse_cli(args) {
         Result::Ok(a) => a,
@@ -142,7 +162,11 @@ fn main(args: [string]): int {
     if parsed.command == "check" {
         return 0;
     }
-    // `build` and `run` come with the C back end and driver.
+    if parsed.command == "build" && parsed.emit_c {
+        print(compile_c(loaded, checked));
+        return 0;
+    }
+    // Compiling to an executable and `run` come with the driver.
     eprint("internal compiler error: not implemented");
     return 3;
 }
