@@ -5,7 +5,7 @@ import { cpus } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// L1: orchestration only. No compiler implementation imports or changed driver flags.
+// L1/L5: orchestration and measurement decisions only. No compiler implementation imports or changed driver flags.
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const C_CONFIGS = ['c-O2', 'c-O3', 'c-lto'] as const;
 export type Configuration = (typeof C_CONFIGS)[number] | 'llvm';
@@ -43,6 +43,38 @@ export interface Result {
   medianWallMs: number | null;
   medianPeakRssKiB: number | null;
 }
+export interface Variability {
+  benchmark: string;
+  configuration: Configuration;
+  kind: Result['kind'];
+  timedRuns: number;
+  minMs: number | null;
+  maxMs: number | null;
+  relativeSpread: number | null;
+  noisy: boolean;
+}
+export interface L5Workload {
+  benchmark: string;
+  llvmVsBestCSpeedup: number;
+  regression: number;
+  pass: boolean;
+  fastestC: Configuration;
+  llvmVsFastestCSpeedup: number;
+}
+export interface L5Decision {
+  status: 'not-evaluated' | 'inconclusive' | 'passes' | 'fails';
+  reason: string;
+  bestC: Configuration | null;
+  suiteSpeedup: number | null;
+  suitePass: boolean | null;
+  selfBuildSpeedup: number | null;
+  selfBuildPass: boolean | null;
+  runtimePass: boolean | null;
+  measuredGatesPass: boolean | null;
+  workloads: L5Workload[];
+  variability: Variability[];
+  qualityIssues: string[];
+}
 export interface Environment {
   recordedAt: string;
   gitCommit: string;
@@ -54,6 +86,7 @@ export interface Environment {
   osRelease: string;
   cpu: string;
   cpuCount: number;
+  cpuAffinity: string;
   governor: string;
   cc: string;
   clang: string;
@@ -71,6 +104,7 @@ export interface Report {
   results: Result[];
   bestC: Configuration | null;
   geometricMeanSpeedups: Partial<Record<Configuration, number>>;
+  decision: L5Decision;
   ok: boolean;
   failure: string | null;
 }
@@ -175,7 +209,7 @@ export function compareConfigurations(results: readonly Result[], configs: reado
   for (const config of configs) {
     const ratios = baseline.map((base) => {
       const candidate = results.find((r) => r.kind === 'runtime' && r.benchmark === base.benchmark && r.configuration === config);
-      if (!candidate?.medianWallMs || !base.medianWallMs) throw new Error(`missing or nonpositive median for ${config}/${base.benchmark}`);
+      if (!candidate?.medianWallMs || !base.medianWallMs || candidate.medianWallMs < 0 || base.medianWallMs < 0 || !Number.isFinite(candidate.medianWallMs) || !Number.isFinite(base.medianWallMs)) throw new Error(`missing or nonpositive median for ${config}/${base.benchmark}`);
       return base.medianWallMs / candidate.medianWallMs;
     });
     geometricMeanSpeedups[config] = geometricMean(ratios);
@@ -185,6 +219,137 @@ export function compareConfigurations(results: readonly Result[], configs: reado
     if ((geometricMeanSpeedups[config] ?? 0) > geometricMeanSpeedups[bestC]!) bestC = config;
   }
   return { bestC, geometricMeanSpeedups };
+}
+
+// A conservative stability warning, not a statistical confidence interval or a new speed gate.
+export const NOISE_SPREAD_LIMIT = 0.20;
+export const DECISION_MIN_RUNS = 5;
+const ROUNDING_EPSILON = 1e-12;
+
+export function assessVariability(results: readonly Result[]): Variability[] {
+  return results.map((result) => {
+    const times = result.samples.filter((sample) => !sample.warmup).map((sample) => sample.elapsedMs);
+    const usable = times.length > 0 && times.every((time) => Number.isFinite(time) && time > 0);
+    const minMs = usable ? Math.min(...times) : null;
+    const maxMs = usable ? Math.max(...times) : null;
+    const relativeSpread = usable ? (maxMs! - minMs!) / median(times) : null;
+    return { benchmark: result.benchmark, configuration: result.configuration, kind: result.kind,
+      timedRuns: times.length, minMs, maxMs, relativeSpread,
+      noisy: relativeSpread !== null && relativeSpread > NOISE_SPREAD_LIMIT + ROUNDING_EPSILON };
+  });
+}
+
+/** Evaluate one fresh report only. The harness never reads or splices older benchmark records. */
+export function evaluateL5(results: readonly Result[], configs: readonly Configuration[], correctnessOk: boolean): L5Decision {
+  const decision: L5Decision = {
+    status: 'not-evaluated', reason: '', bestC: null, suiteSpeedup: null, suitePass: null,
+    selfBuildSpeedup: null, selfBuildPass: null, runtimePass: null, measuredGatesPass: null,
+    workloads: [], variability: assessVariability(results), qualityIssues: [],
+  };
+  if (!correctnessOk) {
+    decision.reason = 'Correctness checks did not pass; performance eligibility is not evaluated.';
+    return decision;
+  }
+  if (!ALL_CONFIGS.every((configuration) => configs.includes(configuration))) {
+    decision.reason = 'Requires c-O2, c-O3, c-lto and llvm together in one fresh run; older records are not combined.';
+    return decision;
+  }
+  try {
+    const runtime = results.filter((result) => result.kind === 'runtime');
+    const names = runtime.filter((result) => result.configuration === 'c-O2').map((result) => result.benchmark).toSorted();
+    if (names.length === 0 || new Set(names).size !== names.length) throw new Error('missing or duplicate baseline runtime cases');
+    for (const config of ALL_CONFIGS) {
+      const actual = runtime.filter((result) => result.configuration === config).map((result) => result.benchmark).toSorted();
+      if (JSON.stringify(actual) !== JSON.stringify(names)) throw new Error(`runtime suite differs for ${config}`);
+    }
+    const caseOf = (benchmark: string, configuration: Configuration, kind: Result['kind']): Result => {
+      const matches = results.filter((result) => result.benchmark === benchmark && result.configuration === configuration && result.kind === kind);
+      if (matches.length !== 1 || !matches[0]!.medianWallMs || matches[0]!.medianWallMs! < 0 || !Number.isFinite(matches[0]!.medianWallMs)) {
+        throw new Error(`missing, duplicate or invalid ${benchmark}/${configuration} median`);
+      }
+      return matches[0]!;
+    };
+    decision.bestC = compareConfigurations(results, ALL_CONFIGS).bestC;
+    const bestC = decision.bestC;
+    for (const name of names) {
+      const cMs = caseOf(name, bestC, 'runtime').medianWallMs!;
+      const llvmMs = caseOf(name, 'llvm', 'runtime').medianWallMs!;
+      const fastestC = C_CONFIGS.reduce((best, config) =>
+        caseOf(name, config, 'runtime').medianWallMs! < caseOf(name, best, 'runtime').medianWallMs! ? config : best);
+      const regression = llvmMs / cMs - 1;
+      decision.workloads.push({ benchmark: name, llvmVsBestCSpeedup: cMs / llvmMs, regression,
+        pass: regression <= 0.05 + ROUNDING_EPSILON, fastestC,
+        llvmVsFastestCSpeedup: caseOf(name, fastestC, 'runtime').medianWallMs! / llvmMs });
+    }
+    decision.suiteSpeedup = geometricMean(decision.workloads.map((workload) => workload.llvmVsBestCSpeedup));
+    decision.suitePass = decision.suiteSpeedup + ROUNDING_EPSILON >= 1.10;
+    decision.runtimePass = decision.workloads.every((workload) => workload.pass);
+    const cBuildMs = caseOf('self-build', bestC, 'self-build').medianWallMs!;
+    const llvmBuildMs = caseOf('self-build', 'llvm', 'self-build').medianWallMs!;
+    decision.selfBuildSpeedup = cBuildMs / llvmBuildMs;
+    decision.selfBuildPass = decision.selfBuildSpeedup + ROUNDING_EPSILON >= 1;
+    decision.measuredGatesPass = decision.suitePass && decision.runtimePass && decision.selfBuildPass;
+
+    // All C runtime rows affect selection of best C. Only the chosen C and LLVM
+    // self-build rows affect that gate; self-emission remains diagnostic only.
+    const compared = results.filter((result) => result.kind === 'runtime' && ALL_CONFIGS.includes(result.configuration) ||
+      result.kind === 'self-build' && (result.configuration === bestC || result.configuration === 'llvm'));
+    for (const result of compared) {
+      const label = `${result.benchmark}/${result.configuration}`;
+      const timed = result.samples.filter((sample) => !sample.warmup);
+      if (timed.length < DECISION_MIN_RUNS) decision.qualityIssues.push(`${label}: fewer than ${DECISION_MIN_RUNS} timed samples`);
+      if (result.samples.some((sample) => !sample.valid || !Number.isFinite(sample.elapsedMs) || sample.elapsedMs <= 0)) {
+        decision.qualityIssues.push(`${label}: invalid or unchecked samples`);
+      }
+      if (result.samples.filter((sample) => sample.warmup).length !== 1 || timed.some((sample, index) => sample.round !== index + 1)) {
+        decision.qualityIssues.push(`${label}: missing warmup or noncontiguous sample rounds`);
+      }
+      if (timed.length > 0 && timed.every((sample) => Number.isFinite(sample.elapsedMs) && sample.elapsedMs > 0) &&
+        Math.abs(median(timed.map((sample) => sample.elapsedMs)) - result.medianWallMs!) > ROUNDING_EPSILON) {
+        decision.qualityIssues.push(`${label}: stored median differs from raw samples`);
+      }
+      const variability = decision.variability.find((item) => item.benchmark === result.benchmark && item.configuration === result.configuration && item.kind === result.kind)!;
+      if (variability.noisy) decision.qualityIssues.push(`${label}: (max-min)/median is ${(variability.relativeSpread! * 100).toFixed(1)}%, above 20%`);
+    }
+    if (new Set(compared.map((result) => result.samples.filter((sample) => !sample.warmup).length)).size > 1) {
+      decision.qualityIssues.push('compared cases have different timed sample counts');
+    }
+    if (decision.qualityIssues.length > 0) {
+      decision.status = 'inconclusive';
+      decision.reason = 'Measured gates are shown, but sample quality requires a fresh, quieter combined run before a performance conclusion.';
+    } else {
+      decision.status = decision.measuredGatesPass ? 'passes' : 'fails';
+      decision.reason = decision.measuredGatesPass ? 'All three median-based L5 gates pass on this recorded run.' : 'At least one median-based L5 gate fails on this recorded run.';
+    }
+  } catch (error) {
+    decision.status = 'inconclusive';
+    decision.reason = error instanceof Error ? error.message : String(error);
+  }
+  return decision;
+}
+
+export function renderL5(decision: L5Decision): string[] {
+  const lines = ['', `L5 performance decision: ${decision.status.toUpperCase()}`, decision.reason];
+  if (decision.measuredGatesPass !== null) {
+    lines.push(`Measured median gates (${decision.bestC} is the whole-suite C comparator):`,
+      `  suite speedup: ${decision.suiteSpeedup!.toFixed(4)}x >= 1.10x: ${decision.suitePass ? 'PASS' : 'FAIL'}`,
+      `  self-build speedup: ${decision.selfBuildSpeedup!.toFixed(4)}x >= 1.00x (not slower): ${decision.selfBuildPass ? 'PASS' : 'FAIL'}`,
+      `  every runtime regression <= 5%: ${decision.runtimePass ? 'PASS' : 'FAIL'}`,
+      `  all three measured gates: ${decision.measuredGatesPass ? 'PASS' : 'FAIL'}`);
+    for (const workload of decision.workloads) {
+      lines.push(`  ${workload.benchmark}: LLVM/${decision.bestC} speedup ${workload.llvmVsBestCSpeedup.toFixed(4)}x; regression ${(100 * workload.regression).toFixed(2)}%; ${workload.pass ? 'PASS' : 'FAIL'}; fastest individual C ${workload.fastestC}, speedup ${workload.llvmVsFastestCSpeedup.toFixed(4)}x (diagnostic only)`);
+    }
+  }
+  const noisy = decision.variability.filter((item) => item.noisy);
+  lines.push('Stability heuristic: (max-min)/median > 20% flags noise; at least five timed samples are required.',
+    'This is a conservative warning heuristic, not a confidence interval or an extra speed threshold.');
+  for (const item of noisy) {
+    lines.push(`  NOISE ${item.benchmark}/${item.configuration}: ${item.minMs!.toFixed(3)}..${item.maxMs!.toFixed(3)} ms; spread ${(100 * item.relativeSpread!).toFixed(1)}%${item.kind === 'self-emit-c' ? ' (emission-only diagnostic, not a gate)' : ''}`);
+  }
+  for (const issue of decision.qualityIssues) lines.push(`  QUALITY ${issue}`);
+  lines.push('Self-emission is reported separately and is not substituted for the full self-build gate.',
+    'Platform/provenance caveats still apply. No compiler defaults are changed by this report.');
+  return lines;
 }
 
 function shellQuote(value: string): string {
@@ -222,6 +387,7 @@ export function renderReport(report: Report): string {
     `compiler    ${env.compilerSha256}`,
     `platform    ${env.uname}; ${env.osRelease}`,
     `CPU         ${env.cpu} (${env.cpuCount} visible logical CPUs); governor: ${env.governor}`,
+    `affinity    ${env.cpuAffinity}`,
     `cc          ${env.cc}`,
     `clang       ${env.clang}`,
     `lld         ${env.lld}`,
@@ -249,8 +415,8 @@ export function renderReport(report: Report): string {
     'self-build: each configured compiler completes a native rebuild; the rebuilt compiler must reproduce the C oracle.',
     'C self-build uses the unchanged driver (cc -O2) for the child binary, even when the running compiler is c-O3/c-lto.',
     'LLVM self-build selects --backend=llvm. Validation of rebuilt binaries is outside the measured interval.',
-    'No L5/default-backend decision follows from this run alone.', '',
-    report.ok ? 'PASS' : `FAIL: ${report.failure ?? 'unknown error'}`);
+    ...renderL5(report.decision), '',
+    report.ok ? 'Benchmark output checks: PASS' : `Benchmark output checks: FAIL: ${report.failure ?? 'unknown error'}`);
   return lines.join('\n') + '\n';
 }
 
@@ -304,6 +470,7 @@ function environment(options: Options, compiler: string): Environment {
     gitDirty: optional(['git', 'status', '--porcelain']) !== '', sourceRevision: options.sourceRevision,
     inputSha256, compilerSha256: sha256(readFileSync(compiler)), uname, osRelease: pretty,
     cpu: cpu[0]?.model ?? 'unavailable', cpuCount: cpu.length,
+    cpuAffinity: /^Cpus_allowed_list:\s*(.+)$/m.exec(readable('/proc/self/status'))?.[1] ?? 'unavailable',
     governor: readable('/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor'), cc,
     clang: optional(['clang', '--version']).split('\n')[0]!, lld: optional(['ld.lld', '--version']), node: process.version, note: options.environmentNote, deviations,
   };
@@ -321,8 +488,8 @@ export function main(argv: string[]): number {
   const compiler = resolve(REPO_ROOT, options.compiler);
   const report: Report = {
     schemaVersion: 1,
-    environment: { recordedAt: new Date().toISOString(), gitCommit: 'unavailable', gitDirty: true, sourceRevision: options.sourceRevision, inputSha256: '', compilerSha256: '', uname: '', osRelease: '', cpu: '', cpuCount: 0, governor: '', cc: '', clang: '', lld: '', node: process.version, note: options.environmentNote, deviations: [] },
-    options, workloadSources: [], buildCommands: [], results: [], bestC: null, geometricMeanSpeedups: {}, ok: false, failure: null,
+    environment: { recordedAt: new Date().toISOString(), gitCommit: 'unavailable', gitDirty: true, sourceRevision: options.sourceRevision, inputSha256: '', compilerSha256: '', uname: '', osRelease: '', cpu: '', cpuCount: 0, cpuAffinity: '', governor: '', cc: '', clang: '', lld: '', node: process.version, note: options.environmentNote, deviations: [] },
+    options, workloadSources: [], buildCommands: [], results: [], bestC: null, geometricMeanSpeedups: {}, decision: evaluateL5([], options.configs, false), ok: false, failure: null,
   };
   try {
     accessSync(compiler, constants.X_OK);
@@ -423,6 +590,7 @@ export function main(argv: string[]): number {
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
+  report.decision = evaluateL5(report.results, options.configs, report.ok);
   const text = renderReport(report);
   writeFileSync(join(outDir, 'report.json'), JSON.stringify(report, null, 2) + '\n');
   writeFileSync(join(outDir, 'report.txt'), text);
@@ -436,7 +604,7 @@ export function main(argv: string[]): number {
       '# Aster C / LLVM benchmark record', '',
       'This is a measurement of the machine and inputs named below. Deviations are explicit; it is not automatically a certified reference-machine result.', '',
       '```text', text.trimEnd(), '```', '',
-      '## Reproduce', '', renderReproduction(options, argv), '',
+      '## Reproduce', '', renderReproduction(options, argv, report.environment.cpuAffinity), '',
       '## Raw samples', '', rawSamples, '',
       '## Exact run data', '', 'The JSON includes source checksums, expected output, compiler provenance, commands and all samples.', '',
       '```json', JSON.stringify(report, null, 2), '```', '',
@@ -445,6 +613,6 @@ export function main(argv: string[]): number {
   return report.ok ? 0 : 1;
 }
 
-if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+if (process.argv[1] !== undefined && existsSync(process.argv[1]) && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   process.exitCode = main(process.argv.slice(2));
 }

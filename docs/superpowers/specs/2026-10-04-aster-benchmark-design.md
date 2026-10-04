@@ -74,3 +74,29 @@ Ties retain `c-O2` (then declared C order). We never pick a different C variant
 for each benchmark. This harness does not switch defaults or automatically
 assert L5 acceptance; shared/cloud-machine noise and workload coverage remain
 limitations of a performance decision.
+
+## L5 decision reporting
+
+A combined fresh run with all `c-O2,c-O3,c-lto,llvm` configurations evaluates
+three separate median-based gates against the single best whole-suite C
+configuration: suite geometric-mean speedup at least 1.10x; full `self-build`
+not slower; and no individual runtime regression above 5%. A 1e-12 numeric
+rounding tolerance handles floating-point boundary representation. The optional
+per-workload fastest-C envelope is diagnostic, not a replacement comparator.
+Self-emission is shown separately and never substitutes for full self-build.
+
+Correctness PASS and the L5 performance decision are distinct. Incomplete or
+unchecked data cannot establish performance eligibility. Fewer than five timed
+samples, inconsistent sample rounds/medians, or a timed `(max-min)/median` above
+20% in a compared case marks the performance conclusion **inconclusive**, while
+retaining each exact measured gate result. This is a conservative stability
+heuristic, not a statistical confidence interval. All C runtime cases affect
+best-C selection; only the selected C and LLVM full-build cases affect that
+gate. Emission-only variability remains diagnostic.
+
+The harness evaluates only the results of its current invocation and never
+splices an old C baseline into new LLVM samples. It records the process's Linux
+CPU-affinity mask. External `taskset` may pin a run, but the script does not
+change affinity, the governor, or compiler defaults. Record reproduction copies
+a named preserved bootstrap compiler explicitly and documents the matching
+pinned toolchain PATH.
