@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildExecutable, emitC, lower } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { buildDriver } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/emit.aster, which lowers a program with packages/asterc-self/lower.aster and emits C
 // with packages/asterc-self/emit.aster, against the compiler's own emitC(lower(typed)), byte for byte, on the accepted
@@ -22,7 +22,7 @@ afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
 /** Runs an emitter binary on a corpus file. */
 function emitWith(exe: string, file: string) {
-  const run = spawnSync(exe, [join(PROGRAMS_DIR, file)], { encoding: 'utf8', timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
+  const run = spawnStrict(exe, [join(PROGRAMS_DIR, file)], { timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
   return { stdout: run.stdout, stderr: run.stderr, status: run.status };
 }
 

@@ -1,10 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { stage } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // #12: a root spelled through a symlinked directory and `..` must get the same identity as the physical file that an
 // import cycle reaches, so it loads once. Stage 0 resolves physically. The self-hosted loader uses lexical identity,
@@ -31,7 +31,7 @@ const spellings = {
   'file symlink': join(dir, 'entry', 'root_link.aster'),
 };
 
-const s0 = (argv: string[]) => spawnSync(process.execPath, [S0_BIN, ...argv], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' } });
+const s0 = (argv: string[]) => spawnStrict(process.execPath, [S0_BIN, ...argv], { env: { ...process.env, LC_ALL: 'C' } });
 
 describe('stage 0 loads a root reached through a symlink once', () => {
   it.for(Object.entries(spellings))('%s', ([, path]) => {
@@ -44,7 +44,7 @@ describe('stage 0 loads a root reached through a symlink once', () => {
 
 describe('the self-hosted loader keeps lexical identity (documented limit)', () => {
   it(`${stage().name} loads the aliased root twice`, () => {
-    const r = spawnSync(stage().bin, ['check', spellings.aliased], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' } });
+    const r = spawnStrict(stage().bin, ['check', spellings.aliased], { env: { ...process.env, LC_ALL: 'C' } });
     // Observed: the root's lexical identity (`entry/link/../root.aster`) differs from the physical path the helper's
     // import reaches, so the file loads a second time: `main` is then outside the root, and `helper` is declared twice.
     expect(r.status).toBe(1);

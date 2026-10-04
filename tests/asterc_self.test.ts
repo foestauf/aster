@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +7,7 @@ import { emitC, lower } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
 import { parseExpectations } from './harness.js';
 import { stage } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks the self-hosted compiler under test (S1 by default; see tests/stage.ts), built from
 // packages/asterc-self/asterc.aster, against the stage-0 CLI
@@ -42,11 +42,10 @@ interface Outcome {
 }
 
 function spawn(command: string, argv: readonly string[], opts: RunOptions = {}): Outcome {
-  const r = spawnSync(command, argv, {
+  const r = spawnStrict(command, argv, {
     cwd: opts.cwd ?? REPO_ROOT,
     env: { ...process.env, TMPDIR: tmpDir, LC_ALL: 'C', ...opts.env },
     input: opts.input,
-    encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
     timeout: 60_000,
   });
@@ -359,10 +358,9 @@ describe('divergences from stage 0', () => {
   it('a compiler panic is panic: …, exit 101', () => {
     // 64 MiB of address space must stay below the compiler's peak for its own source, so an allocation fails.
     for (let i = 0; i < 3; i++) {
-      const r = spawnSync('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', stage().bin, SELF_SOURCE], {
+      const r = spawnStrict('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', stage().bin, SELF_SOURCE], {
         cwd: REPO_ROOT,
         env: { ...process.env, TMPDIR: tmpDir, LC_ALL: 'C' },
-        encoding: 'utf8',
         maxBuffer: 256 * 1024 * 1024,
         timeout: 60_000,
       });

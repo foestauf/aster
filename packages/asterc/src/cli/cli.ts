@@ -6,6 +6,7 @@ import { formatDiagnostic, sortDiagnostics, type Diagnostic } from '../diagnosti
 import { makeSource, type SourceFile, type SourceMap } from '../diagnostics/source.js';
 import { buildExecutable } from '../driver/cc.js';
 import { compileToC, runFrontend } from '../driver/pipeline.js';
+import { invalidUtf8At, invalidUtf8Reason } from '../driver/utf8.js';
 import { printIr } from '../ir/print.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
@@ -101,14 +102,20 @@ function runCommand(argv: readonly string[], io: Io): number {
     return EXIT.usage;
   }
 
-  let text: string;
+  let bytes: Buffer;
   try {
-    text = readFileSync(args.file, 'utf8');
+    bytes = readFileSync(args.file);
   } catch {
     io.stderr(`error: cannot read '${args.file}'\n`);
     return EXIT.usage;
   }
-  const source = makeSource(args.file, text);
+  // Source must be well-formed UTF-8: decoding with 'utf8' would quietly turn malformed bytes into U+FFFD.
+  const bad = invalidUtf8At(bytes);
+  if (bad !== -1) {
+    io.stderr(`${args.file}: error: ${invalidUtf8Reason(bytes, bad)}\n`);
+    return EXIT.compileError;
+  }
+  const source = makeSource(args.file, bytes.toString('utf8'));
 
   if (args.emit === 'tokens' || args.emit === 'ast') return emitFrontEnd(io, source, args.emit);
 

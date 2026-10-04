@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeSource, runFrontend, typeToString, type SourceFile } from '../packages/asterc/src/index.js';
 import { buildDriver } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/check.aster, the Aster type checker written in Aster, against the compiler's own
 // front end (`runFrontend`). Both sides render the result in the format of
@@ -209,7 +209,7 @@ describe('check.aster matches the TypeScript front end', () => {
 
   it.for(corpus)('%s', (file) => {
     const path = join(PROGRAMS_DIR, file);
-    const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
+    const run = spawnStrict(exe, [path], { timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(path));
   });
 });

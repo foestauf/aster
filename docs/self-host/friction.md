@@ -221,10 +221,11 @@ about 36 MB. No compiler bug turned up.
   jump targets, local and string ranges, and the operand types the IR fixes (integer operators take ints, comparisons
   yield bools). It isn't a type checker:
   calls, fields, arrays and enums are only range-checked. It found nothing on the corpus.
-- **Open: invalid UTF-8 in a string literal diverges.** A string literal containing raw invalid UTF-8 (say a lone
+- **Resolved in #25: invalid UTF-8 in a string literal diverged.** A string literal containing raw invalid UTF-8 (say a lone
   0xFF) prints differently: TS reads the source with `readFileSync(..., 'utf8')` and so prints U+FFFD, while `ir.aster`
   prints the raw byte. That is a front-end/IO difference, not a lowering one; the spec's escaping rule assumes valid
-  UTF-8 source.
+  UTF-8 source. The parity harness decoded output leniently, so the two compared equal. Both compilers now reject
+  malformed source, and the suites decode child output strictly (`tests/spawn.ts`).
 - **A runner existed after all.** The plan assumed there was none. `asterc build --emit=ir <file>` prints the TypeScript
   IR, and was the per-file diff tool whenever `ir.aster` and TS disagreed, unlike the typed dump's missing runner.
 - **Two TypeScript-side snags.** oxlint forbids a conditional `expect`, so the test's pending list had to compare

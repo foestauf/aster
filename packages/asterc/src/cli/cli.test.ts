@@ -14,6 +14,12 @@ function file(name: string, text: string): string {
   return path;
 }
 
+function bytes(name: string, b: number[]): string {
+  const path = join(dir, name);
+  writeFileSync(path, Uint8Array.from(b));
+  return path;
+}
+
 function cli(...argv: string[]) {
   let stdout = '';
   let stderr = '';
@@ -69,6 +75,30 @@ describe('usage errors', () => {
   it('reports unreadable files', () => {
     const missing = join(dir, 'missing.aster');
     expect(cli('check', missing)).toEqual({ code: 2, stdout: '', stderr: `error: cannot read '${missing}'\n` });
+  });
+});
+
+describe('malformed UTF-8 source', () => {
+  const MAIN_FF = [...Buffer.from('fn main(): int {\n    print("a'), 0xff, ...Buffer.from('b");\n    return 0;\n}\n')];
+
+  it.each(['check', 'build', 'run'])('rejects a malformed root file with %s', (command) => {
+    const bad = bytes('ff.aster', MAIN_FF);
+    expect(cli(command, bad)).toEqual({ code: 1, stdout: '', stderr: `${bad}: error: invalid UTF-8 at line 2, byte 29\n` });
+  });
+
+  it('rejects it before emitting tokens', () => {
+    const bad = bytes('ff.aster', MAIN_FF);
+    expect(cli('build', bad, '--emit=tokens')).toEqual({ code: 1, stdout: '', stderr: `${bad}: error: invalid UTF-8 at line 2, byte 29\n` });
+  });
+
+  it('reports a malformed imported file at its import', () => {
+    bytes('ff_lib.aster', [...Buffer.from('fn s(): string {\n    return "'), 0xc0, 0x80, ...Buffer.from('";\n}\n')]);
+    const root = file('uses_ff.aster', 'import "ff_lib.aster";\nfn main(): int { print(s()); return 0; }\n');
+    expect(cli('check', root)).toEqual({
+      code: 1,
+      stdout: '',
+      stderr: `${root}:1:8: error: cannot import 'ff_lib.aster': invalid UTF-8 at line 2, byte 29\n  import "ff_lib.aster";\n         ^^^^^^^^^^^^^^\n`,
+    });
   });
 });
 

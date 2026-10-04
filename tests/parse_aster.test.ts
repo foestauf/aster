@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +8,7 @@ import {
   type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfLetStmt, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
 } from '../packages/asterc/src/index.js';
 import { buildDriver } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
 // parser. Both sides render the AST in the indented-tree format of docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md §3.
@@ -301,7 +301,7 @@ describe('parse.aster matches the TypeScript parser', () => {
     const path = join(PROGRAMS_DIR, file);
     // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
-    const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
+    const run = spawnStrict(exe, [path], { timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(text));
   });
 });

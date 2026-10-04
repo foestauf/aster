@@ -149,6 +149,12 @@ fn main(args: [string]): int {
         eprint("error: cannot read '" + parsed.file + "'");
         return 2;
     };
+    // Source must be well-formed UTF-8, as stage 0's CLI checks before decoding.
+    let bad: int = utf8_invalid_at(src);
+    if bad != -1 {
+        eprint(parsed.file + ": error: " + utf8_reason(src, bad));
+        return 1;
+    }
     // As runFrontend does: syntax and import errors stop the program before checking.
     let loaded: Loaded = load_program(parsed.file, src);
     if len(loaded.diags) > 0 {

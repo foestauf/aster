@@ -1,9 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inject } from 'vitest';
 import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
+import { spawnStrict } from './spawn.js';
 
 // The self-hosted compiler under test. `pnpm test` uses S1, which tests/global-setup.ts builds once from stage 0.
 // `pnpm selfhost` runs the stage-aware suites once per stage with ASTER_STAGE_BIN and ASTER_STAGE set.
@@ -48,10 +48,9 @@ export function stage(): Stage {
 
 export function buildWithStage(src: string, out: string): void {
   const { name, bin } = stage();
-  const r = spawnSync(bin, ['build', src, '-o', out], {
+  const r = spawnStrict(bin, ['build', src, '-o', out], {
     cwd: REPO_ROOT,
     env: { ...process.env, LC_ALL: 'C' },
-    encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     timeout: 120_000,
   });

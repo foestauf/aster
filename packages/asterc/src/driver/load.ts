@@ -5,6 +5,7 @@ import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import { makeSource, nextBase, sourceMapOf, type SourceFile, type SourceMap } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
+import { invalidUtf8At, invalidUtf8Reason } from './utf8.js';
 
 export type ReadResult = { ok: true; text: string } | { ok: false; reason: string };
 
@@ -35,15 +36,22 @@ function reasonOf(error: unknown): string {
   return message.charAt(0).toUpperCase() + message.slice(1);
 }
 
+/** A file's text, or why it can't be used: an OS error, or bytes that are not well-formed UTF-8. */
+export function readSource(path: string): ReadResult {
+  if (path.includes('\0')) return { ok: false, reason: 'invalid path' };
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(path);
+  } catch (error) {
+    return { ok: false, reason: reasonOf(error) };
+  }
+  // Decoding with 'utf8' would turn each malformed sequence into U+FFFD; the self-hosted compiler sees raw bytes.
+  const bad = invalidUtf8At(bytes);
+  return bad === -1 ? { ok: true, text: bytes.toString('utf8') } : { ok: false, reason: invalidUtf8Reason(bytes, bad) };
+}
+
 export const nodeHost: LoadHost = {
-  readFile(path) {
-    if (path.includes('\0')) return { ok: false, reason: 'invalid path' };
-    try {
-      return { ok: true, text: readFileSync(path, 'utf8') };
-    } catch (error) {
-      return { ok: false, reason: reasonOf(error) };
-    }
-  },
+  readFile: readSource,
   realPath(path) {
     try {
       // realpathSync.native: the JS realpathSync folds `..` lexically before following links, which is wrong

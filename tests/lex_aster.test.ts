@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lex, makeSource } from '../packages/asterc/src/index.js';
 import { buildDriver } from './stage.js';
+import { spawnStrict } from './spawn.js';
 
 // Checks tests/programs/programs/lex.aster, the Aster lexer written in Aster, against the compiler's own lexer.
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
@@ -60,7 +60,7 @@ describe('lex.aster matches the TypeScript lexer', () => {
     const path = join(PROGRAMS_DIR, file);
     // Fatal decoding rejects invalid UTF-8; ignoreBOM keeps a BOM in the text so expected() can account for it.
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
-    const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
+    const run = spawnStrict(exe, [path], { timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(text));
   });
 });
