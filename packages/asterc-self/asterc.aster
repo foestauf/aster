@@ -8,6 +8,7 @@ import "report.aster";
 import "diag.aster";
 import "lower.aster";
 import "emit.aster";
+import "driver.aster";
 
 // Parsed command-line arguments. `program_args` are the arguments after `--`, for `run`.
 struct CliArgs {
@@ -162,11 +163,27 @@ fn main(args: [string]): int {
     if parsed.command == "check" {
         return 0;
     }
+    let c: string = compile_c(loaded, checked);
     if parsed.command == "build" && parsed.emit_c {
-        print(compile_c(loaded, checked));
+        print(c);
         return 0;
     }
-    // Compiling to an executable and `run` come with the driver.
-    eprint("internal compiler error: not implemented");
-    return 3;
+    // compile_c drops the final newline for print; cc gets the exact text stage 0 writes.
+    var result: Result[int, string] = Result::Ok(0);
+    if parsed.command == "build" {
+        let out: string = match parsed.out {
+            Option::Some(o) => o,
+            Option::None => default_output(parsed.file),
+        };
+        result = build_c(c + "\n", out);
+    } else {
+        result = run_c(c + "\n", parsed.program_args);
+    }
+    return match result {
+        Result::Ok(status) => status,
+        Result::Err(msg) => {
+            eprint("internal compiler error: " + msg);
+            return 3;
+        },
+    };
 }

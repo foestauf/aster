@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -200,5 +200,154 @@ describe('build --emit=c, accepted programs', () => {
     const r = runS1(['build', S1_SOURCE, '--emit=c']);
     expect(r.status).toBe(0);
     expect(r.stdout.length).toBeGreaterThan(500_000);
+  });
+});
+
+// cli.test.ts's HELLO: prints 30.
+const HELLO = 'fn main(): int {\n    let x: int = 10;\n    let y: int = 20;\n    print(x + y);\n    return 0;\n}\n';
+
+/** A fresh directory under the work dir holding `files`, for a test that builds or runs from there. */
+function freshDir(name: string, files: Record<string, string>): string {
+  const dir = join(workDir, name);
+  mkdirSync(dir, { recursive: true });
+  for (const [file, text] of Object.entries(files)) {
+    mkdirSync(join(dir, file, '..'), { recursive: true });
+    writeFileSync(join(dir, file), text);
+  }
+  return dir;
+}
+
+describe('build', () => {
+  it('with -o, to an executable that runs', () => {
+    const dir = freshDir('build-o', { 'hello.aster': HELLO });
+    const s0 = runS0(['build', 'hello.aster', '-o', join(dir, 'h0')], { cwd: dir });
+    expect(s0).toEqual({ stdout: '', stderr: '', status: 0 });
+    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'h1')], { cwd: dir })).toEqual(s0);
+    for (const exe of ['h0', 'h1']) expect(spawn(join(dir, exe), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
+  });
+
+  // Without -o, the output goes in the cwd, named by default_output: the root may be in another directory.
+  it.for([
+    { name: 'x.aster', file: 'x.aster', out: 'x' },
+    { name: 'noext.txt', file: 'noext.txt', out: 'noext.txt.out' },
+    { name: 'a root in a subdirectory', file: 'sub/x.aster', out: 'x' },
+  ])('without -o: $name', ({ name, file, out }) => {
+    const outcomes = (['s0', 's1'] as const).map((who) => {
+      const dir = freshDir(`build-default-${name.replaceAll(/\W/g, '_')}-${who}`, { [file]: HELLO });
+      const r = (who === 's0' ? runS0 : runS1)(['build', file], { cwd: dir });
+      expect(readdirSync(dir).toSorted()).toEqual([file.split('/')[0], out].toSorted());
+      expect(spawn(join(dir, out), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
+      return r;
+    });
+    expect(outcomes[0]).toEqual({ stdout: '', stderr: '', status: 0 });
+    expect(outcomes[1]).toEqual(outcomes[0]);
+  });
+});
+
+describe('a directory as input', () => {
+  it('check <a directory>', () => {
+    const s0 = runS0(['check', 'tests']);
+    expect(s0).toEqual({ stdout: '', stderr: "error: cannot read 'tests'\n", status: 2 });
+    expect(runS1(['check', 'tests'])).toEqual(s0);
+  });
+});
+
+describe('run', () => {
+  const io = join('tests', 'programs', 'io');
+
+  it('passes the arguments after --', () => {
+    const file = join(io, 'args.aster');
+    const args = parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).args;
+    expect(args).toEqual(['one', 'two', '-3', 'é']);
+    const s0 = runS0(['run', file, '--', ...args]);
+    expect(s0.status).toBe(0);
+    expect(runS1(['run', file, '--', ...args])).toEqual(s0);
+  });
+
+  it('passes stdin through', () => {
+    const file = join(io, 'stdin.aster');
+    const input = parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).stdin;
+    const s0 = runS0(['run', file], { input });
+    expect(s0).toEqual({ stdout: '13\nhello\n0\n', stderr: '', status: 0 });
+    expect(runS1(['run', file], { input })).toEqual(s0);
+  });
+
+  const dir = freshDir('run', {
+    'seven.aster': 'fn main(): int {\n    print("before");\n    return 7;\n}\n',
+    'panics.aster': 'fn main(): int {\n    print("before");\n    panic("boom");\n}\n',
+    // Recursion that overflows the stack. The array kept across the call stops cc -O2 from turning it into a loop, and
+    // the base case it never reaches keeps cc from warning about infinite recursion: S1 lets cc's stderr through.
+    'recurses.aster':
+      'fn f(n: int): int {\n    if n == -1 {\n        return 0;\n    }\n    let xs: [int] = [n];\n    let r: int = f(n + 1);\n    push(xs, r);\n    return xs[0] + xs[1];\n}\nfn main(): int {\n    return f(0);\n}\n',
+  });
+
+  it.for([
+    { file: 'seven.aster', expected: { stdout: 'before\n', stderr: '', status: 7 } },
+    { file: 'panics.aster', expected: { stdout: 'before\n', stderr: 'panic: boom\n', status: 101 } },
+    { file: 'recurses.aster', expected: { stdout: '', stderr: '', status: 139 } },
+  ])('$file exits $expected.status', ({ file, expected }) => {
+    const s0 = runS0(['run', file], { cwd: dir });
+    expect(s0).toEqual(expected);
+    expect(runS1(['run', file], { cwd: dir })).toEqual(s0);
+  });
+});
+
+describe('divergences from stage 0', () => {
+  const dir = freshDir('divergences', { 'hello.aster': HELLO, 'fakecc/cc': "#!/bin/sh\necho 'cc: boom' >&2\nexit 1\n" });
+  chmodSync(join(dir, 'fakecc', 'cc'), 0o755);
+
+  it('--emit=ir is an unknown emit stage', () => {
+    // S0's rejection of a stage neither supports, with the stage name swapped.
+    const llvm = s0UsageToS1(runS0(['build', 'hello.aster', '--emit=llvm'], { cwd: dir }));
+    expect(llvm.status).toBe(2);
+    expect(runS1(['build', 'hello.aster', '--emit=ir'], { cwd: dir })).toEqual({
+      ...llvm,
+      stderr: llvm.stderr.replace("'llvm'", "'ir'"),
+    });
+  });
+
+  it('ASTER_CC is ignored', () => {
+    const out = join(dir, 'x');
+    expect(runS1(['build', 'hello.aster', '-o', out], { cwd: dir, env: { ASTER_CC: 'false' } })).toEqual({
+      stdout: '',
+      stderr: '',
+      status: 0,
+    });
+    expect(spawn(out, []).stdout).toBe('30\n');
+  });
+
+  it("cc's stderr streams first, then the internal error", () => {
+    const env = { PATH: `${join(dir, 'fakecc')}:${process.env.PATH ?? ''}` };
+    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'y')], { cwd: dir, env })).toEqual({
+      stdout: '',
+      stderr: "cc: boom\ninternal compiler error: C compiler 'cc' failed\n",
+      status: 3,
+    });
+    expect(runS1(['run', 'hello.aster'], { cwd: dir, env })).toEqual({
+      stdout: '',
+      stderr: "cc: boom\ninternal compiler error: C compiler 'cc' failed\n",
+      status: 3,
+    });
+  });
+
+  it('a real cc failure (an unwritable -o) also cleans up', () => {
+    const r = runS1(['build', 'hello.aster', '-o', join(dir, 'missing', 'z')], { cwd: dir });
+    expect(r.status).toBe(3);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toMatch(/\ninternal compiler error: C compiler 'cc' failed\n$/);
+  });
+
+  it('a compiler panic is panic: …, exit 101', () => {
+    for (let i = 0; i < 3; i++) {
+      const r = spawnSync('sh', ['-c', 'ulimit -v 65536; exec "$0" build "$1" --emit=c', s1, S1_SOURCE], {
+        cwd: REPO_ROOT,
+        env: { ...process.env, TMPDIR: tmpDir, LC_ALL: 'C' },
+        encoding: 'utf8',
+        maxBuffer: 256 * 1024 * 1024,
+        timeout: 60_000,
+      });
+      expect(r.status).toBe(101);
+      expect(r.stderr).toMatch(/^panic: out of memory/);
+    }
   });
 });

@@ -1,0 +1,80 @@
+// expect-library
+// Builds and runs emitted C (self-hosting contract §4.4): writes the runtime and the program into a fresh temp dir,
+// runs cc, and removes everything it created whatever the outcome.
+
+import "runtime.aster";
+
+// Removes `paths` in order, ignoring failures; for cleanup after an error that is already being reported.
+fn driver_remove_all(paths: [string]) {
+    for p in paths {
+        remove_path(p);
+    }
+}
+
+// Removes `paths` in order. The result is `result` if it is an error; otherwise the first removal failure, if any.
+fn driver_remove_then(paths: [string], result: Result[int, string]): Result[int, string] {
+    var first: Option[string] = Option::None;
+    for p in paths {
+        if let Result::Err(e) = remove_path(p) {
+            if let Option::None = first {
+                first = Option::Some(e);
+            }
+        }
+    }
+    if let Result::Err(_) = result {
+        return result;
+    }
+    if let Option::Some(e) = first {
+        return Result::Err(e);
+    }
+    return result;
+}
+
+// Compiles `c` with the runtime into an executable at `out`.
+fn build_c(c: string, out: string): Result[int, string] {
+    let tmp: string = make_temp_dir("aster-cc-")?;
+    return driver_build_in(tmp, c, out);
+}
+
+// build_c's work inside its temp dir `tmp`, which it removes along with everything written there.
+fn driver_build_in(tmp: string, c: string, out: string): Result[int, string] {
+    let names: [string] = ["aster_rt.h", "aster_rt.c", "program.c"];
+    let texts: [string] = [runtime_h(), runtime_c(), c];
+    let written: [string] = [];
+    for i in 0..len(names) {
+        let path: string = tmp + "/" + names[i];
+        if let Result::Err(e) = write_file(path, texts[i]) {
+            push(written, tmp);
+            driver_remove_all(written);
+            return Result::Err(e);
+        }
+        push(written, path);
+    }
+    let argv: [string] = ["cc", "-std=c11", "-O2", "-Wall", "-I" + tmp, tmp + "/program.c", tmp + "/aster_rt.c", "-o", out];
+    let result: Result[int, string] = match run_process(argv) {
+        Result::Ok(status) => if status == 0 { Result::Ok(0) } else { Result::Err("C compiler 'cc' failed") },
+        Result::Err(e) => Result::Err("failed to run C compiler 'cc': " + e),
+    };
+    push(written, tmp);
+    return driver_remove_then(written, result);
+}
+
+// Builds `c` in a fresh temp dir and runs it with `args` and inherited stdio: its exit status, or 128 + signal.
+fn run_c(c: string, args: [string]): Result[int, string] {
+    let dir: string = make_temp_dir("aster-run-")?;
+    let exe: string = dir + "/program";
+    if let Result::Err(e) = build_c(c, exe) {
+        // cc may have left a partial executable behind.
+        remove_path(exe);
+        return driver_remove_then([dir], Result::Err(e));
+    }
+    let argv: [string] = [exe];
+    for a in args {
+        push(argv, a);
+    }
+    let status: Result[int, string] = match run_process(argv) {
+        Result::Ok(s) => Result::Ok(s),
+        Result::Err(e) => Result::Err("failed to run program: " + e),
+    };
+    return driver_remove_then([exe, dir], status);
+}
