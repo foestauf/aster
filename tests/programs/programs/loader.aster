@@ -156,7 +156,7 @@ fn visit(ld: Loaded, seen: [string], path: string, raw: string) {
         base = last.base + len(last.src) + 1;
     }
     push(ld.files, SourceFile { path: path, src: src, base: base, bom: bom });
-    let lx: Lexer = lex(src);
+    let lx: Lexer = lex_from(src, 0);
     for e in lx.errors {
         push(ld.diags, Diag { start: e.start + base, end: e.end + base, message: e.message });
     }

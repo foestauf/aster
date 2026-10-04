@@ -1,0 +1,4 @@
+﻿﻿// Two byte order marks: the compiler strips one, so the second is an unexpected character.
+fn main(): int {
+    return 0;
+}

@@ -191,7 +191,13 @@ fn bom_len(src: string): int {
 }
 
 fn lex(src: string): Lexer {
-    let lx: Lexer = Lexer { src: src, pos: bom_len(src), tokens: [], errors: [] };
+    return lex_from(src, bom_len(src));
+}
+
+// Lexes `src` from byte `pos`. The loader strips the byte order mark itself, so it starts at 0: a second mark is then
+// an unexpected character, as in the TypeScript lexer.
+fn lex_from(src: string, pos: int): Lexer {
+    let lx: Lexer = Lexer { src: src, pos: pos, tokens: [], errors: [] };
     while lx.pos < len(src) {
         let start: int = lx.pos;
         let c: int = byte_at(src, start);
