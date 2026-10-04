@@ -1125,6 +1125,14 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
             declare(ctx, name, t, mutable);
             return false;
         }
+        StmtNode::LetElse(_, _, _, _) => {
+            // Stub until the checker learns let-else.
+            return false;
+        }
+        StmtNode::IfLet(_, _, _, _) => {
+            // Stub until the checker learns if let.
+            return false;
+        }
         StmtNode::Assign(op, target, value) => {
             // check_place gives the error type for a target that was already reported: it has no type to guide the
             // value, and must not cascade into it. A place whose type is an error behaves the same from here on.
@@ -1266,6 +1274,10 @@ fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
                 _ => {}
             }
             return then_diverges && other_diverges;
+        }
+        Else::IfLet(_) => {
+            // Stub until the checker learns if let.
+            return false;
         }
     }
 }

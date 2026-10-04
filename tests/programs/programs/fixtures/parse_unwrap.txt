@@ -1,0 +1,25 @@
+fn let_else() {
+    let E::V(a, _, b) = f(x) else { return; };
+    let E::W = g() else { return; };
+    let 1 = n else { return; };
+    let -2 = n else { return; };
+    let 'c' = c else { return; };
+    let "s" = s else { return; };
+    let true = b else { return; };
+    let E::A | E::B(x) = e else { return; };
+    let n: int = 3;
+}
+fn if_let() {
+    if let E::V(a) = f(x) { g(a); }
+    if let E::V(a) = f(x) { g(a); } else { h(); }
+    if let E::V(a) = f(x) { g(a); } else if let E::W = f(y) { h(); } else { k(); }
+    if let E::V(a) = f(x) { g(a); } else if c { h(); }
+    if c { g(); } else if let E::V(a) = f(x) { h(a); }
+    if let 1 | 2 = n { g(); }
+}
+fn match_blocks() {
+    let a: int = match x { E::A => { return 1; }, E::B => 2, E::C => { return 3; } };
+    let b: int = match x { E::A => { return 1; } E::B => 2 };
+    let c: int = match x { E::A => { return 1; }, };
+    match x { E::A => { g(); } E::B => g(), E::C => { h(); }, }
+}

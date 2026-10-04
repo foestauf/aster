@@ -89,11 +89,15 @@ struct Stmt {
     node: StmtNode,
 }
 
-// `Let` is true for `var`. `Match` holds the keyword as an Ident for its span.
+// `Let` is true for `var`. `Match` holds the keyword as an Ident for its span. `LetElse` holds the pattern, the
+// initializer, the `else` keyword as an Ident and the else block; `IfLet` the pattern, the scrutinee, the then block and
+// the else branch (`Else::IfLet` holds a nested `StmtNode::IfLet` statement, `Else::If` a nested `StmtNode::If`).
 enum StmtNode {
     Let(bool, Ident, TypeExpr, Expr),
+    LetElse(Pattern, Expr, Ident, Block),
     Assign(string, Expr, Expr),
     If(Expr, Block, Else),
+    IfLet(Pattern, Expr, Block, Else),
     While(Expr, Block),
     ForRange(Ident, Expr, Expr, Block),
     ForEach(Ident, Expr, Block),
@@ -109,6 +113,7 @@ enum Else {
     None,
     Block(Block),
     If(Stmt),
+    IfLet(Stmt),
 }
 
 struct Expr {
@@ -475,11 +480,33 @@ fn sync_statement(p: Parser) {
     }
 }
 
+// After `let`: does a pattern follow (rather than `name: type`)?
+fn at_pattern_let(p: Parser): bool {
+    let k: string = peek_at(p, 1).kind;
+    if k == "ident" {
+        return peek_at(p, 2).kind == "::";
+    }
+    if k == "-" {
+        return peek_at(p, 2).kind == "int";
+    }
+    return k == "int" || k == "char" || k == "string" || k == "true" || k == "false";
+}
+
 fn parse_statement(p: Parser): Option[Stmt] {
     let t: Token = peek(p);
     let k: string = t.kind;
     match k {
         "let" | "var" => {
+            if k == "let" && at_pattern_let(p) {
+                advance(p);
+                let pattern: Pattern = parse_pattern(p)?;
+                expect(p, "=")?;
+                let init: Expr = parse_header_expr(p)?;
+                let kw: Token = expect(p, "else")?;
+                let else_block: Block = parse_block(p)?;
+                let semi: Token = expect(p, ";")?;
+                return Option::Some(Stmt { start: t.start, end: semi.end, node: StmtNode::LetElse(pattern, init, ident_of(p, kw), else_block) });
+            }
             advance(p);
             let name: Token = expect(p, "ident")?;
             expect(p, ":")?;
@@ -563,20 +590,40 @@ fn parse_for(p: Parser): Option[Stmt] {
 
 fn parse_if_stmt(p: Parser): Option[Stmt] {
     let kw: Token = expect(p, "if")?;
-    let cond: Expr = parse_header_expr(p)?;
+    var is_let: bool = false;
+    var pattern: Pattern = Pattern { start: 0, end: 0, node: PatternNode::Wildcard };
+    var cond: Expr = Expr { start: 0, end: 0, node: ExprNode::Bool(false) };
+    if eat(p, "let") {
+        is_let = true;
+        pattern = parse_pattern(p)?;
+        expect(p, "=")?;
+        cond = parse_header_expr(p)?;
+    } else {
+        cond = parse_header_expr(p)?;
+    }
     let then: Block = parse_block(p)?;
     var els: Else = Else::None;
     var end: int = then.end;
     if eat(p, "else") {
         if at(p, "if") {
             let s: Stmt = parse_if_stmt(p)?;
-            els = Else::If(s);
+            match s.node {
+                StmtNode::IfLet(_, _, _, _) => {
+                    els = Else::IfLet(s);
+                }
+                _ => {
+                    els = Else::If(s);
+                }
+            }
             end = s.end;
         } else {
             let b: Block = parse_block(p)?;
             els = Else::Block(b);
             end = b.end;
         }
+    }
+    if is_let {
+        return Option::Some(Stmt { start: kw.start, end: end, node: StmtNode::IfLet(pattern, cond, then, els) });
     }
     return Option::Some(Stmt { start: kw.start, end: end, node: StmtNode::If(cond, then, els) });
 }
@@ -964,6 +1011,15 @@ fn parse_expr_arms(p: Parser): Option[[Arm]] {
     while true {
         let pattern: Pattern = parse_pattern(p)?;
         expect(p, "=>")?;
+        if at(p, "{") {
+            let b: Block = parse_block(p)?;
+            push(arms, Arm { pattern: pattern, body: ArmBody::Block(b) });
+            eat(p, ",");
+            if at(p, "}") {
+                break;
+            }
+            continue;
+        }
         let body: Expr = parse_expr(p)?;
         push(arms, Arm { pattern: pattern, body: ArmBody::Expr(body) });
         if !eat(p, ",") || at(p, "}") {
