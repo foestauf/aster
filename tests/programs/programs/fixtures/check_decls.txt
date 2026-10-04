@@ -1,0 +1,4 @@
+// Declaration diagnostics that no corpus program triggers.
+fn takes_void(x: void): int { return 0; }
+fn twice(a: int, a: int): int { return a; }
+fn main(): int { return 0; }

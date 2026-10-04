@@ -1,0 +1,4 @@
+// Imported three times under different spellings by check_paths.txt; it must load once.
+fn from_lib(): int {
+    return 7;
+}

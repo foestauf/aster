@@ -1,0 +1,19 @@
+// Generic enums: duplicate variants and type parameters, wrong variant names and argument counts, and instantiations.
+enum Dup[T] { A(T), A(T) }
+enum Twice[T, T] { B(T) }
+enum Wrap[T] { W(T), Nothing }
+enum Pair[A, B] { P(A, B) }
+
+fn main(): int {
+    let a: Option[int] = Option::Nope;
+    let b: Option[int] = Option::Some(1, 2);
+    let c: Wrap[bool] = Wrap::Nothing;
+    let d: Twice[int, string] = Twice::B("s");
+    let e: Dup[int] = Dup::A(1);
+    let f: Pair[int, Wrap[string]] = Pair::P(1, Wrap::W(true));
+    let g: Wrap[[int]] = Wrap::W([]);
+    let h: Pair[Wrap[int], int] = Pair::P(Wrap::Nothing, 2);
+    let k: Pair[int, int] = Pair::P(1);
+    let i: Result[int, string] = read_file("x");
+    return 0;
+}

@@ -1,0 +1,8 @@
+// The same library imported under three spellings (plain, ./ and via ..) loads once, so from_lib is declared once.
+import "check_paths_lib.txt";
+import "./check_paths_lib.txt";
+import "../fixtures/check_paths_lib.txt";
+
+fn main(): int {
+    return from_lib();
+}

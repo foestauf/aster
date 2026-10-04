@@ -1,0 +1,68 @@
+// `?` and `match` checking: the operator's context rules, then pattern, exhaustiveness and reachability errors.
+enum E { A, B(int), C(int, string) }
+enum W[T] { One(T), Two(T, T), Zero }
+
+fn opt(): Option[int] {
+    let r: Result[int, string] = Result::Ok(1);
+    let x: int = r?;
+    return Option::Some(x);
+}
+
+fn res(): Result[int, bool] {
+    let r: Result[int, string] = Result::Err("e");
+    let x: int = r?;
+    let o: Option[int] = Option::None;
+    let y: int = o?;
+    return Result::Ok(x + y);
+}
+
+fn plain(): int {
+    let o: Option[string] = Option::None;
+    let s: string = o?;
+    let n: int = 3;
+    let m: int = n?;
+    return 0;
+}
+
+fn broken(): Option[Nope] {
+    let o: Option[int] = Option::None;
+    let x: int = o?;
+    return Option::None;
+}
+
+fn main(): int {
+    let e: E = E::A;
+    let o: Option[int] = Option::Some(1);
+    let w: W[bool] = W::Zero;
+    match o { Option::Some(_) => {} }
+    match w { W::One(_) => {} }
+    match w { W::Two(_) => {} W::One(a, b) => {} _ => {} }
+    match w { W::One(a) | W::Zero => {} W::Two(p, p) => {} _ => {} }
+    match o { Result::Ok(_) => {} _ => {} }
+    match o { Nope::A => {} _ => {} }
+    match o { Option::Nope => {} Option::None => {} }
+    match 1 { E::A => {} Nope::A => {} _ => {} }
+    match 1 { 007 => {} 7 => {} _ => {} }
+    match 1 { -0 => {} 0 => {} _ => {} }
+    match 1 { '\n' => {} 10 => {} _ => {} }
+    match 1 { '\'' => {} 39 => {} _ => {} }
+    match "s" { "\'" => {} "'" => {} _ => {} }
+    match "s" { "\t" => {} "	" => {} _ => {} }
+    match "s" { "\\0" => {} "\0" => {} _ => {} }
+    match "s" { "a" => {} "b" => {} }
+    match true { true | false => {} }
+    match true { _ => {} }
+    match e { E::A => {} E::B(_) => {} E::C(_, _) => {} }
+    match e { E::A | E::B(_) | E::C(_, _) => {} _ => {} }
+    match e { _ => {} _ => {} }
+    match e { E::A => {} }
+    match e { E::A => {} E::Nope => {} }
+    match nope { E::A => {} 1 => {} }
+    match nope { E::B(x) | E::A => {} E::C(y, y) => {} }
+    let k: int = match o { Option::Some(v) => v, Option::None => 0 };
+    let q: int = match nope { _ => 1 };
+    let t: int = match o { Option::Some(v) => v, Option::None => nope };
+    let f: bool = match e { E::A => true, E::B(n) => n > 0, E::C(n, s) => s == "x" };
+    let g: int = match e { E::A => 1, E::B(n) => "x", _ => true };
+    return 0;
+}

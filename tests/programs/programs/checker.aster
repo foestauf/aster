@@ -1,0 +1,2558 @@
+// expect-library
+// The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
+// builtins.ts) and the parts of types/type.ts it needs. `check_program` checks the items of a loaded program and
+// returns its diagnostics, with global byte offsets, and the typed program's structs, enums and functions (with their
+// locals) for check.aster's summary. tests/check_aster.test.ts checks it, through check.aster, against the compiler's
+// own checker. The functions follow checker.ts's order, with the same names in snake_case.
+//
+// Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
+// returns the index of the entry, if any.
+//
+// `check_expr` returns only an expression's type, and statements only whether they diverge (spec §2, "Types only, no
+// typed tree").
+//
+// Matches are checked for their diagnostics, binders and divergence only; there are no typed patterns.
+
+import "loader.aster";
+
+// ---- types (types/type.ts)
+
+// An Aster type. `Error` marks a type that could not be determined; rules involving it are suppressed. An
+// instantiation of a generic enum is an `Enum` named by its full type string (`Option[int]`).
+enum Type {
+    Int,
+    Bool,
+    Str,
+    Void,
+    Struct(string),
+    Enum(string),
+    Array(Type),
+    Error,
+}
+
+// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `struct`, `enum`, `array` or `error`.
+fn kind_of_type(t: Type): string {
+    return match t {
+        Type::Int => "int",
+        Type::Bool => "bool",
+        Type::Str => "string",
+        Type::Void => "void",
+        Type::Struct(_) => "struct",
+        Type::Enum(_) => "enum",
+        Type::Array(_) => "array",
+        Type::Error => "error",
+    };
+}
+
+fn type_equals(a: Type, b: Type): bool {
+    match a {
+        Type::Struct(x) => {
+            match b {
+                Type::Struct(y) => {
+                    return x == y;
+                }
+                _ => {}
+            }
+        }
+        Type::Enum(x) => {
+            match b {
+                Type::Enum(y) => {
+                    return x == y;
+                }
+                _ => {}
+            }
+        }
+        Type::Array(x) => {
+            match b {
+                Type::Array(y) => {
+                    return type_equals(x, y);
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+    return kind_of_type(a) == kind_of_type(b);
+}
+
+// How a type is written in Aster source and named in diagnostics.
+fn type_to_string(t: Type): string {
+    return match t {
+        Type::Struct(name) => name,
+        Type::Enum(name) => name,
+        Type::Array(elem) => "[" + type_to_string(elem) + "]",
+        _ => kind_of_type(t),
+    };
+}
+
+// The type string of an instantiation; it is injective, so names alone identify instantiations.
+fn instance_name(base: string, args: [Type]): string {
+    var s: string = base + "[";
+    for i in 0..len(args) {
+        if i > 0 {
+            s = s + ", ";
+        }
+        s = s + type_to_string(args[i]);
+    }
+    return s + "]";
+}
+
+// ---- builtins (check/builtins.ts)
+
+// A function's parameter and return types, under its name.
+struct Signature {
+    name: string,
+    params: [Type],
+    ret: Type,
+}
+
+// Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string or array), `push`/`pop`
+// (any array).
+fn special_builtins(): [string] {
+    return ["print", "eprint", "len", "push", "pop"];
+}
+
+fn prelude_source(): string {
+    return "enum Option[T] { Some(T), None }\nenum Result[T, E] { Ok(T), Err(E) }\n";
+}
+
+fn builtin_signatures(): [Signature] {
+    return [
+        Signature { name: "byte_at", params: [Type::Str, Type::Int], ret: Type::Int },
+        Signature { name: "substring", params: [Type::Str, Type::Int, Type::Int], ret: Type::Str },
+        Signature { name: "int_to_string", params: [Type::Int], ret: Type::Str },
+        Signature { name: "panic", params: [Type::Str], ret: Type::Void },
+        Signature { name: "exit", params: [Type::Int], ret: Type::Void },
+        Signature { name: "read_stdin", params: [], ret: Type::Str },
+        // The checker types read_file's call as Result[string, string].
+        Signature { name: "read_file", params: [Type::Str], ret: Type::Void },
+    ];
+}
+
+fn find_signature(sigs: [Signature], name: string): Option[int] {
+    for i in 0..len(sigs) {
+        if sigs[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn is_signature_builtin(name: string): bool {
+    return match find_signature(builtin_signatures(), name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn is_builtin(name: string): bool {
+    return contains(special_builtins(), name) || is_signature_builtin(name);
+}
+
+// ---- the typed program (check/types.ts)
+
+// A parameter or local variable. `id` is unique within its function; params come first.
+struct Local {
+    id: int,
+    name: string,
+    ty: Type,
+    mutable: bool,
+}
+
+struct TField {
+    name: string,
+    ty: Type,
+}
+
+// Fields in declaration order.
+struct TStruct {
+    name: string,
+    fields: [TField],
+}
+
+// A variant's tag is its index in its enum.
+struct TVariant {
+    name: string,
+    payload: [Type],
+}
+
+// Variants in declaration order. `payload_free` is true for a non-generic enum none of whose variants has a payload:
+// only those enums can be compared with `==` and `!=`. An instantiation of a generic enum keeps its origin, which TS
+// keeps on the type (`generic`): `base` is the generic enum's name and `args` its type arguments. For a non-generic
+// enum, `base` is "" and `args` is empty.
+struct TEnum {
+    name: string,
+    payload_free: bool,
+    variants: [TVariant],
+    base: string,
+    args: [Type],
+}
+
+// `params` is the number of parameters: they are the first locals. `locals` holds every local, indexed by id.
+struct TFunction {
+    name: string,
+    params: int,
+    locals: [Local],
+    ret: Type,
+}
+
+// A generic enum, kept as written until an instantiation names it (check/generics.ts).
+struct Template {
+    decl: EnumDecl,
+    params: [string],
+    broken: bool,
+    has_errors: bool,
+}
+
+// ---- generic enums (check/generics.ts)
+
+// True when the type parameter `param` occurs anywhere in `ref`.
+fn mentions_param(ref: TypeExpr, param: string): bool {
+    match ref.node {
+        TypeNode::Array(elem) => {
+            return mentions_param(elem, param);
+        }
+        TypeNode::Named(name, args) => {
+            if name == param {
+                return true;
+            }
+            for arg in args {
+                if mentions_param(arg, param) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+}
+
+// An edge of find_expanding_enums' graph, between node indices into `ExpansionGraph.nodes`.
+struct Edge {
+    from: int,
+    to: int,
+    expanding: bool,
+}
+
+// The graph find_expanding_enums builds. Each node is an (enum, parameter) pair, kept as its key (`node_key`), in the
+// order TS's `successors` Map first sees it; `successors` is parallel to `nodes`. The rest is Tarjan's state:
+// `index` and `low` are -1 until a node is visited, and `component` -1 until it is assigned one.
+struct ExpansionGraph {
+    edges: [Edge],
+    nodes: [string],
+    successors: [[int]],
+    index: [int],
+    low: [int],
+    stack: [int],
+    on_stack: [bool],
+    component: [int],
+    visited: int,
+    components: int,
+}
+
+// A node's key. Names never hold a space, so keys are unique, like TS's `${enumName}\0${param}`.
+fn node_key(enum_name: string, param: string): string {
+    return enum_name + " " + param;
+}
+
+fn find_node(g: ExpansionGraph, key: string): Option[int] {
+    for i in 0..len(g.nodes) {
+        if g.nodes[i] == key {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+// The index of the node `key`, adding it (with no successors) if it is new.
+fn intern_node(g: ExpansionGraph, key: string): int {
+    match find_node(g, key) {
+        Option::Some(i) => {
+            return i;
+        }
+        Option::None => {}
+    }
+    push(g.nodes, key);
+    push(g.successors, []);
+    push(g.index, -1);
+    push(g.low, -1);
+    push(g.on_stack, false);
+    push(g.component, -1);
+    return len(g.nodes) - 1;
+}
+
+fn add_edge(g: ExpansionGraph, from: string, to: string, expanding: bool) {
+    let f: int = intern_node(g, from);
+    let t: int = intern_node(g, to);
+    push(g.successors[f], t);
+    push(g.edges, Edge { from: f, to: t, expanding: expanding });
+}
+
+fn find_template_in(templates: [Template], name: string): Option[int] {
+    for i in 0..len(templates) {
+        if templates[i].decl.name.name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+// findExpandingEnums' `walk` for `template`: adds an edge for every argument of a template reference in `ref` that
+// mentions one of `template`'s parameters.
+fn walk_expansion(g: ExpansionGraph, templates: [Template], template: Template, ref: TypeExpr) {
+    match ref.node {
+        TypeNode::Array(elem) => {
+            walk_expansion(g, templates, template, elem);
+        }
+        TypeNode::Named(name, args) => {
+            // A type parameter that shadows a template's name is a parameter here, not a reference to the template.
+            if !contains(template.params, name) {
+                match find_template_in(templates, name) {
+                    Option::Some(ti) => {
+                        let target: Template = templates[ti];
+                        if len(target.params) == len(args) {
+                            for i in 0..len(args) {
+                                let arg: TypeExpr = args[i];
+                                for param in template.params {
+                                    if !mentions_param(arg, param) {
+                                        continue;
+                                    }
+                                    let exact: bool = match arg.node {
+                                        TypeNode::Named(n, a) => len(a) == 0 && n == param,
+                                        _ => false,
+                                    };
+                                    add_edge(g, node_key(template.decl.name.name, param), node_key(target.decl.name.name, target.params[i]), !exact);
+                                }
+                            }
+                        }
+                    }
+                    Option::None => {}
+                }
+            }
+            for arg in args {
+                walk_expansion(g, templates, template, arg);
+            }
+        }
+    }
+}
+
+// The generic enums that would need infinitely many instantiations (spec §3.3), in declaration order. Nodes are
+// (enum, parameter) pairs; passing an argument that mentions parameter P of E to parameter Q of F adds the edge
+// (E, P) -> (F, Q), which is expanding unless the argument is exactly P. An enum expands infinitely when one of its
+// nodes lies on a cycle through an expanding edge, which is when its strongly connected component contains one.
+fn find_expanding_enums(templates: [Template]): [string] {
+    let g: ExpansionGraph = ExpansionGraph {
+        edges: [],
+        nodes: [],
+        successors: [],
+        index: [],
+        low: [],
+        stack: [],
+        on_stack: [],
+        component: [],
+        visited: 0,
+        components: 0,
+    };
+    for template in templates {
+        for variant in template.decl.variants {
+            for ref in variant.payload {
+                walk_expansion(g, templates, template, ref);
+            }
+        }
+    }
+
+    strongly_connected_components(g);
+    let expanding_components: [bool] = [];
+    for i in 0..g.components {
+        push(expanding_components, false);
+    }
+    for edge in g.edges {
+        let c: int = g.component[edge.from];
+        if edge.expanding && c >= 0 && c == g.component[edge.to] {
+            expanding_components[c] = true;
+        }
+    }
+    let expanding: [string] = [];
+    for template in templates {
+        var on_cycle: bool = false;
+        for param in template.params {
+            match find_node(g, node_key(template.decl.name.name, param)) {
+                Option::Some(n) => {
+                    let c: int = g.component[n];
+                    if c >= 0 && expanding_components[c] {
+                        on_cycle = true;
+                    }
+                }
+                Option::None => {}
+            }
+        }
+        if on_cycle {
+            push(expanding, template.decl.name.name);
+        }
+    }
+    return expanding;
+}
+
+// Tarjan's algorithm: sets the component of every node in `g`.
+fn strongly_connected_components(g: ExpansionGraph) {
+    for node in 0..len(g.nodes) {
+        if g.index[node] < 0 {
+            scc_visit(g, node);
+        }
+    }
+}
+
+fn scc_visit(g: ExpansionGraph, node: int) {
+    g.index[node] = g.visited;
+    g.low[node] = g.visited;
+    g.visited += 1;
+    push(g.stack, node);
+    g.on_stack[node] = true;
+    for next in g.successors[node] {
+        if g.index[next] < 0 {
+            scc_visit(g, next);
+            if g.low[next] < g.low[node] {
+                g.low[node] = g.low[next];
+            }
+        } else if g.on_stack[next] {
+            if g.index[next] < g.low[node] {
+                g.low[node] = g.index[next];
+            }
+        }
+    }
+    if g.low[node] != g.index[node] {
+        return;
+    }
+    var member: int = -1;
+    while member != node {
+        member = pop(g.stack);
+        g.on_stack[member] = false;
+        g.component[member] = g.components;
+    }
+    g.components += 1;
+}
+
+// ---- checker state
+
+// State shared by the whole program check. `structs` holds every accepted struct; `enums` every accepted non-generic
+// enum and then every instantiation, in order of first use (all non-generic enums are registered before any type is
+// resolved, so the two never interleave); `templates` every generic enum, the prelude's first. Struct, enum and
+// template names share the type namespace.
+struct Env {
+    diags: [Diag],
+    structs: [TStruct],
+    enums: [TEnum],
+    templates: [Template],
+}
+
+// An enclosing loop, and whether a `break` leaves it.
+struct Loop {
+    has_break: bool,
+}
+
+// Per-function checking state. `scopes` is a stack of scopes, each holding its locals in declaration order, and
+// `loops` the stack of loops around the statement being checked.
+struct Ctx {
+    env: Env,
+    signatures: [Signature],
+    ret: Type,
+    locals: [Local],
+    scopes: [[Local]],
+    loops: [Loop],
+}
+
+// The checker's result: its diagnostics, unsorted, and the typed program.
+struct Checked {
+    diags: [Diag],
+    structs: [TStruct],
+    enums: [TEnum],
+    functions: [TFunction],
+}
+
+fn primitive_type(name: string): Option[Type] {
+    if name == "int" {
+        return Option::Some(Type::Int);
+    }
+    if name == "bool" {
+        return Option::Some(Type::Bool);
+    }
+    if name == "string" {
+        return Option::Some(Type::Str);
+    }
+    if name == "void" {
+        return Option::Some(Type::Void);
+    }
+    return Option::None;
+}
+
+fn is_primitive(name: string): bool {
+    return match primitive_type(name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn report(env: Env, message: string, start: int, end: int) {
+    push(env.diags, Diag { start: start, end: end, message: message });
+}
+
+fn builtin_type_message(name: string): string {
+    return "'" + name + "' is a builtin type and cannot be redefined";
+}
+
+// Names of predeclared types, which no declaration may reuse.
+fn is_builtin_type(name: string): bool {
+    return name == "Option" || name == "Result";
+}
+
+fn find_struct(env: Env, name: string): Option[int] {
+    for i in 0..len(env.structs) {
+        if env.structs[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_enum(env: Env, name: string): Option[int] {
+    for i in 0..len(env.enums) {
+        if env.enums[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_template(env: Env, name: string): Option[int] {
+    return find_template_in(env.templates, name);
+}
+
+fn is_found(i: Option[int]): bool {
+    return match i {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+// "struct" / "enum" when `name` is already taken in the type namespace, else "". Templates count as enums.
+fn type_kind_of(env: Env, name: string): string {
+    if is_found(find_struct(env, name)) {
+        return "struct";
+    }
+    if is_found(find_enum(env, name)) || is_found(find_template(env, name)) {
+        return "enum";
+    }
+    return "";
+}
+
+fn is_error(t: Type): bool {
+    return match t {
+        Type::Error => true,
+        _ => false,
+    };
+}
+
+fn is_void(t: Type): bool {
+    return match t {
+        Type::Void => true,
+        _ => false,
+    };
+}
+
+// A type parameter bound to a type. A `[Binding]` stands in for TS's `Map<string, Type>`: `find_binding` searches it
+// from the end, so a later binding of the same name wins, as `Map.set` overwrites.
+struct Binding {
+    name: string,
+    ty: Type,
+}
+
+fn find_binding(bindings: [Binding], name: string): Option[Type] {
+    var i: int = len(bindings) - 1;
+    while i >= 0 {
+        if bindings[i].name == name {
+            return Option::Some(bindings[i].ty);
+        }
+        i -= 1;
+    }
+    return Option::None;
+}
+
+fn is_bound(bindings: [Binding], name: string): bool {
+    return match find_binding(bindings, name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+// Resolves a written type with no type parameters in scope, reporting its errors and instantiating what it names:
+// TS's `resolveType(env, ref)` with its defaults.
+fn resolve_type(env: Env, ref: TypeExpr): Type {
+    return resolve_type_with(env, ref, [], false, true);
+}
+
+// Resolves a written type. `bindings` maps the type parameters in scope to their types, and `quiet` suppresses
+// diagnostics (used when instantiating, since the template's declaration was already checked). With `instantiates`
+// off, a valid instantiation resolves to the error type instead of being created, so validating a template's
+// payloads registers nothing.
+fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, instantiates: bool): Type {
+    match ref.node {
+        TypeNode::Array(elem_ref) => {
+            let elem: Type = resolve_type_with(env, elem_ref, bindings, quiet, instantiates);
+            if is_void(elem) {
+                say(env, quiet, "array element type cannot be void", elem_ref.start, elem_ref.end);
+                return Type::Error;
+            }
+            if is_error(elem) {
+                return Type::Error;
+            }
+            return Type::Array(elem);
+        }
+        TypeNode::Named(name, args) => {
+            match find_binding(bindings, name) {
+                Option::Some(bound) => {
+                    if len(args) > 0 {
+                        say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                        return Type::Error;
+                    }
+                    return bound;
+                }
+                Option::None => {}
+            }
+            match find_template(env, name) {
+                Option::Some(ti) => {
+                    let template: Template = env.templates[ti];
+                    let expected: int = len(template.params);
+                    if len(args) != expected {
+                        let noun: string = if expected == 1 { "argument" } else { "arguments" };
+                        say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+                        return Type::Error;
+                    }
+                    let types: [Type] = [];
+                    var any_error: bool = false;
+                    for arg in args {
+                        var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates);
+                        if is_void(t) {
+                            say(env, quiet, "type argument cannot be void", arg.start, arg.end);
+                            t = Type::Error;
+                        }
+                        if is_error(t) {
+                            any_error = true;
+                        }
+                        push(types, t);
+                    }
+                    if any_error || template.broken || !instantiates {
+                        return Type::Error;
+                    }
+                    return instantiate(env, template, types);
+                }
+                Option::None => {}
+            }
+            var found: Option[Type] = primitive_type(name);
+            if is_found(find_struct(env, name)) {
+                found = Option::Some(Type::Struct(name));
+            }
+            if is_found(find_enum(env, name)) {
+                found = Option::Some(Type::Enum(name));
+            }
+            match found {
+                Option::Some(t) => {
+                    if len(args) > 0 {
+                        say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                        return Type::Error;
+                    }
+                    return t;
+                }
+                Option::None => {
+                    say(env, quiet, "unknown type '" + name + "'", ref.start, ref.end);
+                    return Type::Error;
+                }
+            }
+        }
+    }
+}
+
+// resolveType's `say`: reports unless `quiet`.
+fn say(env: Env, quiet: bool, message: string, start: int, end: int) {
+    if !quiet {
+        report(env, message, start, end);
+    }
+}
+
+// The type of `template` instantiated with `args`. The first use creates its TEnum, registering it before resolving
+// the payloads so recursive enums terminate; the expansion check guarantees there are finitely many instantiations.
+fn instantiate(env: Env, template: Template, args: [Type]): Type {
+    let base: string = template.decl.name.name;
+    let name: string = instance_name(base, args);
+    if is_found(find_enum(env, name)) {
+        return Type::Enum(name);
+    }
+    let enum_type: TEnum = TEnum { name: name, payload_free: false, variants: [], base: base, args: args };
+    push(env.enums, enum_type);
+    let bindings: [Binding] = [];
+    for i in 0..len(template.params) {
+        push(bindings, Binding { name: template.params[i], ty: args[i] });
+    }
+    for variant in template.decl.variants {
+        // Validating the template already reported the duplicate.
+        if is_found(find_tvariant(enum_type.variants, variant.name.name)) {
+            continue;
+        }
+        let payload: [Type] = [];
+        for ref in variant.payload {
+            let t: Type = resolve_type_with(env, ref, bindings, true, true);
+            push(payload, if is_void(t) { Type::Error } else { t });
+        }
+        push(enum_type.variants, TVariant { name: variant.name.name, payload: payload });
+    }
+    return Type::Enum(name);
+}
+
+fn find_tfield(fields: [TField], name: string): Option[int] {
+    for i in 0..len(fields) {
+        if fields[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+fn find_tvariant(variants: [TVariant], name: string): Option[int] {
+    for i in 0..len(variants) {
+        if variants[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+// 'a struct' / 'an enum', for diagnostics.
+fn article(kind: string): string {
+    if kind == "struct" {
+        return "a struct";
+    }
+    return "an enum";
+}
+
+// Registers every struct and enum name before resolving any field or payload type, so types can refer to each other
+// in any order. Structs and enums share the type namespace; of two colliding declarations, the later one is reported.
+// The items are in load order and spans are global, so they are already sorted by start, as collectTypes sorts them.
+// A generic enum becomes a template: its parameters and the expansion check come before any payload is resolved, and
+// its payloads are then resolved once, with every parameter bound to the error type, only to report its errors.
+fn collect_types(env: Env, items: [Item]) {
+    // The accepted structs and non-generic enums, parallel to env.structs and env.enums.
+    let struct_decls: [StructDecl] = [];
+    let enum_decls: [EnumDecl] = [];
+    // The user's generic enums; env.templates also holds the prelude's.
+    let templates: [Template] = [];
+    for item in items {
+        var name: Ident = Ident { name: "", start: 0, end: 0 };
+        var kind: string = "";
+        match item {
+            Item::Struct(d) => {
+                name = d.name;
+                kind = "struct";
+            }
+            Item::Enum(d) => {
+                name = d.name;
+                kind = "enum";
+            }
+            _ => {}
+        }
+        if kind == "" {
+            continue;
+        }
+        let previous: string = type_kind_of(env, name.name);
+        if is_primitive(name.name) {
+            report(env, "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
+        } else if is_builtin_type(name.name) {
+            report(env, builtin_type_message(name.name), name.start, name.end);
+        } else if is_builtin(name.name) {
+            report(env, "'" + name.name + "' is a builtin function and cannot be redefined", name.start, name.end);
+        } else if previous == kind {
+            report(env, "duplicate " + kind + " '" + name.name + "'", name.start, name.end);
+        } else if previous != "" {
+            report(env, "'" + name.name + "' is already declared as " + article(previous), name.start, name.end);
+        } else {
+            match item {
+                Item::Struct(d) => {
+                    push(env.structs, TStruct { name: d.name.name, fields: [] });
+                    push(struct_decls, d);
+                }
+                Item::Enum(d) => {
+                    if len(d.params) > 0 {
+                        let params: [string] = [];
+                        for p in d.params {
+                            push(params, p.name);
+                        }
+                        let template: Template = Template { decl: d, params: params, broken: false, has_errors: false };
+                        push(env.templates, template);
+                        push(templates, template);
+                    } else {
+                        var payload_free: bool = true;
+                        for v in d.variants {
+                            if len(v.payload) > 0 {
+                                payload_free = false;
+                            }
+                        }
+                        push(env.enums, TEnum { name: d.name.name, payload_free: payload_free, variants: [], base: "", args: [] });
+                        push(enum_decls, d);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    for template in templates {
+        let decl: EnumDecl = template.decl;
+        let before: int = len(env.diags);
+        let seen: [string] = [];
+        for param in decl.params {
+            if contains(seen, param.name) {
+                report(env, "duplicate type parameter '" + param.name + "'", param.start, param.end);
+                continue;
+            }
+            push(seen, param.name);
+            // A conflicting parameter stays bound, so the payloads that use it report nothing more.
+            if is_primitive(param.name) || type_kind_of(env, param.name) != "" || is_builtin(param.name) {
+                report(env, "type parameter '" + param.name + "' conflicts with a type of the same name", param.start, param.end);
+            }
+            var used: bool = false;
+            for v in decl.variants {
+                for ref in v.payload {
+                    if mentions_param(ref, param.name) {
+                        used = true;
+                    }
+                }
+            }
+            if !used {
+                report(env, "type parameter '" + param.name + "' is never used", param.start, param.end);
+            }
+        }
+        if len(env.diags) > before {
+            template.has_errors = true;
+        }
+    }
+    let expanding: [string] = find_expanding_enums(env.templates);
+    for template in templates {
+        if !contains(expanding, template.decl.name.name) {
+            continue;
+        }
+        let name: Ident = template.decl.name;
+        report(env, "generic enum '" + name.name + "' expands infinitely", name.start, name.end);
+        template.broken = true;
+        template.has_errors = true;
+    }
+    for i in 0..len(struct_decls) {
+        let st: TStruct = env.structs[i];
+        for field in struct_decls[i].fields {
+            if is_found(find_tfield(st.fields, field.name.name)) {
+                report(env, "duplicate field '" + field.name.name + "'", field.name.start, field.name.end);
+                continue;
+            }
+            var t: Type = resolve_type(env, field.ty);
+            if is_void(t) {
+                report(env, "field cannot have type void", field.ty.start, field.ty.end);
+                t = Type::Error;
+            }
+            push(st.fields, TField { name: field.name.name, ty: t });
+        }
+    }
+    for i in 0..len(enum_decls) {
+        let en: TEnum = env.enums[i];
+        let decl: EnumDecl = enum_decls[i];
+        for variant in decl.variants {
+            if is_found(find_tvariant(en.variants, variant.name.name)) {
+                report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
+                continue;
+            }
+            let payload: [Type] = [];
+            for ref in variant.payload {
+                let t: Type = resolve_type(env, ref);
+                if is_void(t) {
+                    report(env, "payload cannot have type void", ref.start, ref.end);
+                    push(payload, Type::Error);
+                } else {
+                    push(payload, t);
+                }
+            }
+            push(en.variants, TVariant { name: variant.name.name, payload: payload });
+        }
+    }
+    for template in templates {
+        let decl: EnumDecl = template.decl;
+        let before: int = len(env.diags);
+        let placeholders: [Binding] = [];
+        for param in template.params {
+            push(placeholders, Binding { name: param, ty: Type::Error });
+        }
+        let names: [string] = [];
+        for variant in decl.variants {
+            if contains(names, variant.name.name) {
+                report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
+                continue;
+            }
+            push(names, variant.name.name);
+            for ref in variant.payload {
+                let t: Type = resolve_type_with(env, ref, placeholders, false, false);
+                if is_void(t) {
+                    report(env, "payload cannot have type void", ref.start, ref.end);
+                }
+            }
+        }
+        if len(env.diags) > before {
+            template.has_errors = true;
+        }
+    }
+}
+
+// `fn main(): int`, or `fn main(args: [string]): int` with any parameter name.
+fn is_main_signature(sig: Signature): bool {
+    if kind_of_type(sig.ret) != "int" {
+        return false;
+    }
+    if len(sig.params) == 0 {
+        return true;
+    }
+    if len(sig.params) != 1 {
+        return false;
+    }
+    return match sig.params[0] {
+        Type::Array(elem) => kind_of_type(elem) == "string",
+        _ => false,
+    };
+}
+
+// Option and Result, parsed from the prelude, to be registered as templates before any user declaration.
+fn prelude_templates(): [Template] {
+    let p: Parser = new_parser(lex(prelude_source()));
+    let templates: [Template] = [];
+    for item in parse_program(p) {
+        match item {
+            Item::Enum(d) => {
+                let params: [string] = [];
+                for tp in d.params {
+                    push(params, tp.name);
+                }
+                push(templates, Template { decl: d, params: params, broken: false, has_errors: false });
+            }
+            _ => {}
+        }
+    }
+    return templates;
+}
+
+// Collects a function's signature, unless its name is taken; returns whether it was accepted. `main` declared at or
+// past `root_end` comes from an imported file and is ignored as if not declared, so the root's own main (or its
+// absence) is judged alone.
+fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): bool {
+    let name: string = decl.name.name;
+    if name == "main" && decl.name.start >= root_end {
+        report(env, "'main' must be declared in the root file", decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_builtin_type(name) {
+        report(env, builtin_type_message(name), decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_builtin(name) {
+        report(env, "'" + name + "' is a builtin function and cannot be redefined", decl.name.start, decl.name.end);
+        return false;
+    }
+    let type_kind: string = type_kind_of(env, name);
+    if type_kind != "" {
+        report(env, "'" + name + "' is already declared as " + article(type_kind), decl.name.start, decl.name.end);
+        return false;
+    }
+    if is_found(find_signature(sigs, name)) {
+        report(env, "duplicate function '" + name + "'", decl.name.start, decl.name.end);
+        return false;
+    }
+    let params: [Type] = [];
+    for p in decl.params {
+        let t: Type = resolve_type(env, p.ty);
+        if is_void(t) {
+            report(env, "parameter cannot have type void", p.ty.start, p.ty.end);
+            push(params, Type::Error);
+        } else {
+            push(params, t);
+        }
+    }
+    let ret: Type = match decl.ret {
+        Option::Some(r) => resolve_type(env, r),
+        Option::None => Type::Void,
+    };
+    push(sigs, Signature { name: name, params: params, ret: ret });
+    return true;
+}
+
+// Checks a whole program. `root_end` is the end of the root file: declarations at or past it come from imports.
+fn check_program(items: [Item], root_end: int): Checked {
+    let env: Env = Env { diags: [], structs: [], enums: [], templates: prelude_templates() };
+    collect_types(env, items);
+
+    // Pass 1: collect signatures so functions can be called before their declaration. `declared` is parallel to
+    // `sigs`.
+    let sigs: [Signature] = [];
+    let declared: [FnDecl] = [];
+    for item in items {
+        match item {
+            Item::Fn(decl) => {
+                if collect_signature(env, sigs, decl, root_end) {
+                    push(declared, decl);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    match find_signature(sigs, "main") {
+        Option::Some(i) => {
+            if !is_main_signature(sigs[i]) {
+                let name: Ident = declared[i].name;
+                report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
+            }
+        }
+        Option::None => report(env, "missing 'fn main(): int'", 0, 0),
+    }
+
+    // Pass 2: check bodies.
+    let functions: [TFunction] = [];
+    for i in 0..len(declared) {
+        push(functions, check_function(env, sigs, declared[i], sigs[i]));
+    }
+    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions };
+}
+
+fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TFunction {
+    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [[]], loops: [] };
+    for i in 0..len(decl.params) {
+        let p: Typed = decl.params[i];
+        declare(ctx, p.name, sig.params[i], false);
+    }
+    let diverges: bool = check_block(ctx, decl.body);
+    if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
+        report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
+    }
+    return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
+}
+
+fn find_local(scope: [Local], name: string): Option[int] {
+    var i: int = len(scope) - 1;
+    while i >= 0 {
+        if scope[i].name == name {
+            return Option::Some(i);
+        }
+        i -= 1;
+    }
+    return Option::None;
+}
+
+fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
+    let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
+    if is_found(find_local(scope, name.name)) {
+        report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
+    }
+    let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
+    push(ctx.locals, local);
+    push(scope, local);
+    return local;
+}
+
+fn lookup(ctx: Ctx, name: string): Option[Local] {
+    var i: int = len(ctx.scopes) - 1;
+    while i >= 0 {
+        let scope: [Local] = ctx.scopes[i];
+        match find_local(scope, name) {
+            Option::Some(j) => {
+                return Option::Some(scope[j]);
+            }
+            Option::None => {}
+        }
+        i -= 1;
+    }
+    return Option::None;
+}
+
+fn is_local(ctx: Ctx, name: string): bool {
+    return match lookup(ctx, name) {
+        Option::Some(_) => true,
+        Option::None => false,
+    };
+}
+
+fn is_function_name(ctx: Ctx, name: string): bool {
+    return is_found(find_signature(ctx.signatures, name)) || is_builtin(name);
+}
+
+fn expect_type(ctx: Ctx, expected: Type, actual: Type, start: int, end: int) {
+    if is_error(expected) || is_error(actual) || type_equals(expected, actual) {
+        return;
+    }
+    report(ctx.env, "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
+}
+
+fn check_condition(ctx: Ctx, e: Expr): Type {
+    let cond: Type = check_expr(ctx, e, Option::None);
+    if kind_of_type(cond) != "bool" && !is_error(cond) {
+        report(ctx.env, "condition must be bool, found " + type_to_string(cond), e.start, e.end);
+    }
+    return cond;
+}
+
+// ---- statements. Each returns true when control can never continue past it.
+
+fn check_block(ctx: Ctx, b: Block): bool {
+    push(ctx.scopes, []);
+    var diverges: bool = false;
+    for s in b.stmts {
+        if check_stmt(ctx, s) {
+            diverges = true;
+        }
+    }
+    pop(ctx.scopes);
+    return diverges;
+}
+
+fn check_stmt(ctx: Ctx, s: Stmt): bool {
+    match s.node {
+        StmtNode::Let(mutable, name, ty, init) => {
+            var t: Type = resolve_type(ctx.env, ty);
+            if is_void(t) {
+                report(ctx.env, "variable cannot have type void", ty.start, ty.end);
+                t = Type::Error;
+            }
+            let init_type: Type = check_expr(ctx, init, Option::Some(t));
+            expect_type(ctx, t, init_type, init.start, init.end);
+            declare(ctx, name, t, mutable);
+            return false;
+        }
+        StmtNode::Assign(op, target, value) => {
+            // check_place gives the error type for a target that was already reported: it has no type to guide the
+            // value, and must not cascade into it. A place whose type is an error behaves the same from here on.
+            let place: Type = check_place(ctx, target);
+            let value_type: Type = check_expr(ctx, value, Option::Some(place));
+            if is_error(place) {
+                return false;
+            }
+            if op == "=" {
+                expect_type(ctx, place, value_type, value.start, value.end);
+            } else {
+                check_compound(ctx, s, op, place, value_type);
+            }
+            return false;
+        }
+        StmtNode::If(cond, then, other) => {
+            return check_if(ctx, cond, then, other);
+        }
+        StmtNode::While(cond, body) => {
+            check_condition(ctx, cond);
+            let lp: Loop = Loop { has_break: false };
+            push(ctx.loops, lp);
+            check_block(ctx, body);
+            pop(ctx.loops);
+            let literal_true: bool = match cond.node {
+                ExprNode::Bool(v) => v,
+                _ => false,
+            };
+            return literal_true && !lp.has_break;
+        }
+        StmtNode::ForRange(name, start, end, body) => {
+            check_range_bound(ctx, start);
+            check_range_bound(ctx, end);
+            check_for_body(ctx, name, Type::Int, body);
+            // A for loop may run zero times, so it never ends a control path on its own.
+            return false;
+        }
+        StmtNode::ForEach(name, iterable, body) => {
+            let array: Type = check_expr(ctx, iterable, Option::None);
+            var elem: Type = Type::Error;
+            match array {
+                Type::Array(t) => {
+                    elem = t;
+                }
+                _ => {
+                    if !is_error(array) {
+                        report(ctx.env, "cannot iterate over a value of type " + type_to_string(array), iterable.start, iterable.end);
+                    }
+                }
+            }
+            check_for_body(ctx, name, elem, body);
+            return false;
+        }
+        StmtNode::Break => {
+            check_loop_exit(ctx, s, "break");
+            return true;
+        }
+        StmtNode::Continue => {
+            check_loop_exit(ctx, s, "continue");
+            return true;
+        }
+        StmtNode::Return(value) => {
+            match value {
+                Option::None => {
+                    if !is_void(ctx.ret) && !is_error(ctx.ret) {
+                        report(ctx.env, "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
+                    }
+                }
+                Option::Some(v) => {
+                    // In a void function the value is wrong whatever it is, so `[]` must not also be reported as
+                    // uninferable.
+                    let expected: Type = if is_void(ctx.ret) { Type::Error } else { ctx.ret };
+                    let t: Type = check_expr(ctx, v, Option::Some(expected));
+                    if is_void(ctx.ret) {
+                        report(ctx.env, "void function cannot return a value", v.start, v.end);
+                    } else {
+                        expect_type(ctx, ctx.ret, t, v.start, v.end);
+                    }
+                }
+            }
+            return true;
+        }
+        StmtNode::Match(keyword, scrutinee, arms) => {
+            return check_match(ctx, keyword, scrutinee, arms);
+        }
+        StmtNode::Block(b) => {
+            return check_block(ctx, b);
+        }
+        StmtNode::Expr(e) => {
+            check_expr(ctx, e, Option::None);
+            return is_diverging_call(ctx, e);
+        }
+    }
+}
+
+// `break` or `continue` (`kind`): reported outside a loop; a `break` marks its loop as left.
+fn check_loop_exit(ctx: Ctx, s: Stmt, kind: string) {
+    if len(ctx.loops) == 0 {
+        report(ctx.env, "'" + kind + "' outside of loop", s.start, s.end);
+    } else if kind == "break" {
+        ctx.loops[len(ctx.loops) - 1].has_break = true;
+    }
+}
+
+// Whether expression statement `e` is a call of the `panic` or `exit` builtin, which checkStmt finds from its typed
+// node. A local of that name makes it a call of a non-function instead.
+fn is_diverging_call(ctx: Ctx, e: Expr): bool {
+    match e.node {
+        ExprNode::Call(callee, _) => {
+            match callee.node {
+                ExprNode::Name(name) => {
+                    return (name == "panic" || name == "exit") && !is_local(ctx, name);
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+    return false;
+}
+
+fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
+    check_condition(ctx, cond);
+    let then_diverges: bool = check_block(ctx, then);
+    match other {
+        Else::None => {
+            return false;
+        }
+        Else::Block(b) => {
+            let other_diverges: bool = check_block(ctx, b);
+            return then_diverges && other_diverges;
+        }
+        Else::If(nested) => {
+            var other_diverges: bool = false;
+            match nested.node {
+                StmtNode::If(c, t, e) => {
+                    other_diverges = check_if(ctx, c, t, e);
+                }
+                _ => {}
+            }
+            return then_diverges && other_diverges;
+        }
+    }
+}
+
+fn check_range_bound(ctx: Ctx, e: Expr): Type {
+    let bound: Type = check_expr(ctx, e, Option::None);
+    if !is_error(bound) && kind_of_type(bound) != "int" {
+        report(ctx.env, "range bound must be int, found " + type_to_string(bound), e.start, e.end);
+    }
+    return bound;
+}
+
+// Checks a for-loop body with the immutable loop variable declared in a scope of its own.
+fn check_for_body(ctx: Ctx, name: Ident, ty: Type, b: Block) {
+    push(ctx.scopes, []);
+    declare(ctx, name, ty, false);
+    push(ctx.loops, Loop { has_break: false });
+    check_block(ctx, b);
+    pop(ctx.loops);
+    pop(ctx.scopes);
+}
+
+// ---- expressions
+
+// `expected` only guides array literals (and passes into if-expression branches); callers still check the result.
+fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
+    match e.node {
+        ExprNode::Int(_) => {
+            return Type::Int;
+        }
+        ExprNode::Char(_) => {
+            return Type::Int;
+        }
+        ExprNode::Str => {
+            return Type::Str;
+        }
+        ExprNode::Bool(_) => {
+            return Type::Bool;
+        }
+        ExprNode::Name(name) => {
+            match lookup(ctx, name) {
+                Option::Some(local) => {
+                    return local.ty;
+                }
+                Option::None => {}
+            }
+            let message: string = if is_function_name(ctx, name) { "'" + name + "' is a function, not a value" } else { "undefined name '" + name + "'" };
+            report(ctx.env, message, e.start, e.end);
+            return Type::Error;
+        }
+        ExprNode::Unary(op, operand) => {
+            let t: Type = check_expr(ctx, operand, Option::None);
+            if is_error(t) {
+                return Type::Error;
+            }
+            let want: Type = if op == "-" { Type::Int } else { Type::Bool };
+            if !type_equals(t, want) {
+                report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(t), e.start, e.end);
+                return Type::Error;
+            }
+            return want;
+        }
+        ExprNode::Binary(op, left, right) => {
+            return check_binary(ctx, e, op, left, right);
+        }
+        ExprNode::Call(callee, args) => {
+            return check_call(ctx, e, callee, args);
+        }
+        ExprNode::Match(keyword, scrutinee, arms) => {
+            return check_match_expr(ctx, e, keyword, scrutinee, arms, expected);
+        }
+        ExprNode::If(cond, then, other) => {
+            check_condition(ctx, cond);
+            let a: Type = check_expr(ctx, then, expected);
+            let b: Type = check_expr(ctx, other, expected);
+            if is_error(a) || is_error(b) {
+                return Type::Error;
+            }
+            if !type_equals(a, b) {
+                report(ctx.env, "if branches have different types: " + type_to_string(a) + " and " + type_to_string(b), e.start, e.end);
+                return Type::Error;
+            }
+            if is_void(a) {
+                report(ctx.env, "if expression cannot have type void", e.start, e.end);
+                return Type::Error;
+            }
+            return a;
+        }
+        ExprNode::Field(object, field) => {
+            let t: Type = check_expr(ctx, object, Option::None);
+            if is_error(t) {
+                return Type::Error;
+            }
+            match t {
+                Type::Struct(name) => {
+                    match find_field(ctx.env, name, field.name) {
+                        Option::Some(f) => {
+                            return f.ty;
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+            report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(t) + "'", field.start, field.end);
+            return Type::Error;
+        }
+        ExprNode::StructLit(name, fields) => {
+            return check_struct_lit(ctx, name, fields);
+        }
+        ExprNode::Try(operand) => {
+            return check_try(ctx, e, operand);
+        }
+        ExprNode::Index(array_expr, index_expr) => {
+            let array: Type = check_expr(ctx, array_expr, Option::None);
+            let index: Type = check_expr(ctx, index_expr, Option::None);
+            if !is_error(index) && kind_of_type(index) != "int" {
+                report(ctx.env, "array index must be int, found " + type_to_string(index), index_expr.start, index_expr.end);
+            }
+            if is_error(array) {
+                return Type::Error;
+            }
+            match array {
+                Type::Array(elem) => {
+                    if kind_of_type(index) != "int" {
+                        return Type::Error;
+                    }
+                    return elem;
+                }
+                _ => {
+                    report(ctx.env, "cannot index a value of type " + type_to_string(array), array_expr.start, array_expr.end);
+                    return Type::Error;
+                }
+            }
+        }
+        ExprNode::ArrayLit(elements) => {
+            return check_array_lit(ctx, e, elements, expected);
+        }
+        ExprNode::Variant(enum_name, variant, args) => {
+            return check_variant_expr(ctx, e, enum_name, variant, args, expected);
+        }
+    }
+}
+
+// The index in `env.enums` of `t`'s instantiation when `t` is an `Option` or `Result`, else None: TS's `tryable`, whose
+// name, base and arguments the TEnum holds.
+fn tryable(env: Env, t: Type): Option[int] {
+    match t {
+        Type::Enum(name) => {
+            match find_enum(env, name) {
+                Option::Some(ei) => {
+                    let base: string = env.enums[ei].base;
+                    if base == "Option" || base == "Result" {
+                        return Option::Some(ei);
+                    }
+                }
+                Option::None => {}
+            }
+        }
+        _ => {}
+    }
+    return Option::None;
+}
+
+// `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function.
+fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
+    let t: Type = check_expr(ctx, operand, Option::None);
+    if is_error(t) {
+        return Type::Error;
+    }
+    var oi: int = -1;
+    match tryable(ctx.env, t) {
+        Option::Some(i) => {
+            oi = i;
+        }
+        Option::None => {}
+    }
+    if oi < 0 {
+        report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
+        return Type::Error;
+    }
+    let op: TEnum = ctx.env.enums[oi];
+    let is_result: bool = op.base == "Result";
+    let ty: Type = op.variants[0].payload[0];
+    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`).
+    if is_error(ctx.ret) {
+        return ty;
+    }
+    var ri: int = -1;
+    match tryable(ctx.env, ctx.ret) {
+        Option::Some(i) => {
+            ri = i;
+        }
+        Option::None => {}
+    }
+    if ri < 0 || ctx.env.enums[ri].base != op.base {
+        let kind: string = if is_result { "a Result" } else { "an Option" };
+        report(ctx.env, "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'", e.start, e.end);
+        return Type::Error;
+    }
+    let ret: TEnum = ctx.env.enums[ri];
+    if is_result && !type_equals(op.args[1], ret.args[1]) {
+        let mine: string = type_to_string(op.args[1]);
+        let theirs: string = type_to_string(ret.args[1]);
+        report(ctx.env, "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
+        return Type::Error;
+    }
+    return ty;
+}
+
+fn variant_arity_message(enum_name: string, variant: string, expected: int, found: int): string {
+    let noun: string = if expected == 1 { "value" } else { "values" };
+    return "variant '" + enum_name + "::" + variant + "' expects " + int_to_string(expected) + " " + noun + ", got " + int_to_string(found);
+}
+
+// A resolved `E::V`: a variant of a non-generic enum, or a variant of a generic enum's template. `Missing` when
+// resolve_variant reported it (TS's null).
+enum FoundVariant {
+    Missing,
+    Plain(TEnum, TVariant),
+    Generic(Template, VariantDecl),
+}
+
+// Resolves `E::V`, reporting an unknown enum, a non-enum type or an unknown variant.
+fn resolve_variant(env: Env, enum_name: Ident, variant_name: Ident): FoundVariant {
+    match find_template(env, enum_name.name) {
+        Option::Some(ti) => {
+            let template: Template = env.templates[ti];
+            for v in template.decl.variants {
+                if v.name.name == variant_name.name {
+                    return FoundVariant::Generic(template, v);
+                }
+            }
+            report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+            return FoundVariant::Missing;
+        }
+        Option::None => {}
+    }
+    match find_enum(env, enum_name.name) {
+        Option::Some(ei) => {
+            let enum_type: TEnum = env.enums[ei];
+            match find_tvariant(enum_type.variants, variant_name.name) {
+                Option::Some(vi) => {
+                    return FoundVariant::Plain(enum_type, enum_type.variants[vi]);
+                }
+                Option::None => {
+                    report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+                    return FoundVariant::Missing;
+                }
+            }
+        }
+        Option::None => {
+            let is_type: bool = is_found(find_struct(env, enum_name.name)) || is_primitive(enum_name.name);
+            let message: string = if is_type { "'" + enum_name.name + "' is not an enum" } else { "unknown enum '" + enum_name.name + "'" };
+            report(env, message, enum_name.start, enum_name.end);
+            return FoundVariant::Missing;
+        }
+    }
+}
+
+// `E::V(...)`, generic or not.
+fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, args: [Expr], expected: Option[Type]): Type {
+    match resolve_variant(ctx.env, enum_name, variant_name) {
+        FoundVariant::Missing => {
+            // Still check the values for their own errors; the `error` type keeps `[]` from being reported as
+            // uninferable.
+            for a in args {
+                check_expr(ctx, a, Option::Some(Type::Error));
+            }
+            return Type::Error;
+        }
+        FoundVariant::Generic(template, variant_decl) => {
+            return check_generic_variant_expr(ctx, e, args, template, variant_decl, expected);
+        }
+        FoundVariant::Plain(enum_type, variant) => {
+            let types: [Type] = [];
+            for i in 0..len(args) {
+                let slot: Type = if i < len(variant.payload) { variant.payload[i] } else { Type::Error };
+                push(types, check_expr(ctx, args[i], Option::Some(slot)));
+            }
+            if len(types) != len(variant.payload) {
+                report(ctx.env, variant_arity_message(enum_type.name, variant.name, len(variant.payload), len(types)), e.start, e.end);
+                return Type::Error;
+            }
+            for i in 0..len(types) {
+                expect_type(ctx, variant.payload[i], types[i], args[i].start, args[i].end);
+            }
+            return Type::Enum(enum_type.name);
+        }
+    }
+}
+
+// Checks `E::V(...)` for a generic `E`, inferring its type arguments (spec §3.5): first from an expected
+// instantiation of `E`, then from the values left to right. Each value takes its slot type as context once every
+// parameter the slot mentions is known, and its type then fixes the parameters still unknown.
+fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Template, variant_decl: VariantDecl, expected: Option[Type]): Type {
+    let base: string = template.decl.name.name;
+    if template.broken || template.has_errors {
+        // The declaration was already reported.
+        for a in args {
+            check_expr(ctx, a, Option::Some(Type::Error));
+        }
+        return Type::Error;
+    }
+    let bindings: [Binding] = [];
+    var expected_error: bool = false;
+    match expected {
+        Option::Some(t) => {
+            expected_error = is_error(t);
+            match t {
+                Type::Enum(name) => {
+                    match find_enum(ctx.env, name) {
+                        Option::Some(ei) => {
+                            let en: TEnum = ctx.env.enums[ei];
+                            if en.base == base {
+                                for i in 0..len(en.args) {
+                                    push(bindings, Binding { name: template.params[i], ty: en.args[i] });
+                                }
+                            }
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        Option::None => {}
+    }
+    let slots: [TypeExpr] = variant_decl.payload;
+    let types: [Type] = [];
+    for i in 0..len(args) {
+        if i >= len(slots) {
+            push(types, check_expr(ctx, args[i], Option::Some(Type::Error)));
+            continue;
+        }
+        let slot: TypeExpr = slots[i];
+        var known: bool = true;
+        for p in template.params {
+            if !is_bound(bindings, p) && mentions_param(slot, p) {
+                known = false;
+            }
+        }
+        let context: Option[Type] = if known { Option::Some(resolve_type_with(ctx.env, slot, bindings, true, true)) } else { Option::None };
+        let value: Type = check_expr(ctx, args[i], context);
+        unify(ctx.env, template.params, slot, value, bindings);
+        push(types, value);
+    }
+    if len(types) != len(slots) {
+        report(ctx.env, variant_arity_message(base, variant_decl.name.name, len(slots), len(types)), e.start, e.end);
+        return Type::Error;
+    }
+    let type_args: [Type] = [];
+    for p in template.params {
+        match find_binding(bindings, p) {
+            Option::Some(t) => push(type_args, t),
+            Option::None => {
+                // An unknown parameter that an error-typed value or context would have fixed was already reported.
+                var reported: bool = expected_error;
+                for t in types {
+                    if is_error(t) {
+                        reported = true;
+                    }
+                }
+                if !reported {
+                    report(ctx.env, "cannot infer type arguments for '" + base + "'", e.start, e.end);
+                }
+                return Type::Error;
+            }
+        }
+    }
+    let ty: Type = instantiate(ctx.env, template, type_args);
+    let name: string = type_to_string(ty);
+    var payload: [Type] = [];
+    match find_enum(ctx.env, name) {
+        Option::Some(ei) => {
+            let en: TEnum = ctx.env.enums[ei];
+            match find_tvariant(en.variants, variant_decl.name.name) {
+                Option::Some(vi) => {
+                    payload = en.variants[vi].payload;
+                }
+                Option::None => panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'"),
+            }
+        }
+        Option::None => panic("internal: instantiation '" + name + "' has no variant '" + variant_decl.name.name + "'"),
+    }
+    for i in 0..len(types) {
+        expect_type(ctx, payload[i], types[i], args[i].start, args[i].end);
+    }
+    return ty;
+}
+
+// Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
+// bare parameter takes the whole type, and arrays and instantiations of the same template are matched part by part.
+// Error and void types bind nothing. `env` is only read, to find an instantiation's generic origin.
+fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Binding]) {
+    if is_error(actual) || is_void(actual) {
+        return;
+    }
+    match slot.node {
+        TypeNode::Array(elem) => {
+            match actual {
+                Type::Array(actual_elem) => unify(env, params, elem, actual_elem, bindings),
+                _ => {}
+            }
+        }
+        TypeNode::Named(name, slot_args) => {
+            if contains(params, name) {
+                if len(slot_args) == 0 && !is_bound(bindings, name) {
+                    push(bindings, Binding { name: name, ty: actual });
+                }
+                return;
+            }
+            match actual {
+                Type::Enum(actual_name) => {
+                    match find_enum(env, actual_name) {
+                        Option::Some(ei) => {
+                            let en: TEnum = env.enums[ei];
+                            if en.base != name || len(en.args) != len(slot_args) {
+                                return;
+                            }
+                            for i in 0..len(slot_args) {
+                                unify(env, params, slot_args[i], en.args[i], bindings);
+                            }
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+// ---- match (spec §3.3)
+
+// The name an enum's patterns and diagnostics write: an instantiation's generic enum, or the enum itself.
+fn enum_base_name(env: Env, t: Type): string {
+    match t {
+        Type::Enum(name) => {
+            match find_enum(env, name) {
+                Option::Some(ei) => {
+                    if env.enums[ei].base != "" {
+                        return env.enums[ei].base;
+                    }
+                }
+                Option::None => {}
+            }
+            return name;
+        }
+        _ => {
+            return type_to_string(t);
+        }
+    }
+}
+
+// "enum", "int", "bool" or "string" for a type a match can take apart, else "" (TS's null).
+fn match_category(t: Type): string {
+    let kind: string = kind_of_type(t);
+    if kind == "enum" || kind == "int" || kind == "bool" || kind == "string" {
+        return kind;
+    }
+    return "";
+}
+
+// A pattern alternative that fits the scrutinee: its key in the match's covered set, and for a variant its index (its
+// tag) in the scrutinee's enum, else -1. A key holds the alternative's value, not its spelling: `int:<decimal>` for
+// integer and character patterns, `bool:<b>`, `str:<value>`, `tag:<tag>`.
+struct ResolvedAlt {
+    key: string,
+    variant: int,
+}
+
+// What check_arms found: the scrutinee's type and, per arm in order, the body's type (an expression match) or whether
+// it diverges (a statement match). TS's `checkArm` callback becomes the `as_expr` flag.
+struct MatchArms {
+    scrutinee: Type,
+    types: [Type],
+    diverges: [bool],
+}
+
+// A match statement; returns whether it diverges.
+fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, false, Option::None);
+    // Every match is exhaustive, so it ends a control path exactly when every arm does.
+    if len(m.diverges) == 0 {
+        return false;
+    }
+    for d in m.diverges {
+        if !d {
+            return false;
+        }
+    }
+    return true;
+}
+
+// TS's checkMatch. Checks a match's scrutinee and patterns:
+// - the scrutinee must be an enum, int, bool or string
+// - each pattern alternative must fit the scrutinee's type
+// - no arm may be unreachable, and no alternative may repeat a value already covered
+// - an enum or bool match must cover every value unless there is a `_` arm; an int or string match needs `_`
+// and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed
+// or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
+fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
+    // Invariant: a match expression only ever has ArmBody::Expr arms (parser.aster builds only those), so m.types stays
+    // in step with the arms.
+    let st: Type = check_expr(ctx, scrutinee, Option::None);
+    var has_decl: bool = false;
+    var variants: [TVariant] = [];
+    match st {
+        Type::Enum(name) => {
+            match find_enum(ctx.env, name) {
+                Option::Some(ei) => {
+                    has_decl = true;
+                    variants = ctx.env.enums[ei].variants;
+                }
+                Option::None => {}
+            }
+        }
+        _ => {}
+    }
+    if match_category(st) == "" && !is_error(st) {
+        report(ctx.env, "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
+    }
+    let category: string = if kind_of_type(st) == "enum" && !has_decl { "" } else { match_category(st) };
+
+    let covered: [string] = [];
+    var wildcard_seen: bool = false;
+    var all_resolved: bool = true;
+    let result: MatchArms = MatchArms { scrutinee: st, types: [], diverges: [] };
+    for arm in arms {
+        let pattern: Pattern = arm.pattern;
+        let is_wildcard: bool = match pattern.node {
+            PatternNode::Wildcard => true,
+            _ => false,
+        };
+        let alternatives: [Pattern] = match pattern.node {
+            PatternNode::Wildcard => [],
+            PatternNode::Or(alts) => alts,
+            _ => [pattern],
+        };
+        var single: int = -1;
+        if category != "" {
+            let resolved: [Option[ResolvedAlt]] = [];
+            for alt in alternatives {
+                push(resolved, resolve_alternative(ctx, st, has_decl, variants, alt));
+            }
+            for r in resolved {
+                match r {
+                    Option::Some(_) => {}
+                    Option::None => {
+                        all_resolved = false;
+                    }
+                }
+            }
+            if is_wildcard {
+                var none_missing: bool = false;
+                match missing_values(ctx.env, category, st, variants, covered) {
+                    Option::Some(missing) => {
+                        none_missing = len(missing) == 0;
+                    }
+                    Option::None => {}
+                }
+                if wildcard_seen || none_missing {
+                    report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+                }
+            } else {
+                for key in check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen) {
+                    push(covered, key);
+                }
+            }
+            match pattern.node {
+                PatternNode::Variant(_, _, _) => {
+                    match resolved[0] {
+                        Option::Some(r) => {
+                            single = r.variant;
+                        }
+                        Option::None => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        if is_wildcard {
+            wildcard_seen = true;
+        }
+
+        push(ctx.scopes, []);
+        declare_binders(ctx, pattern, variants, single);
+        match arm.body {
+            ArmBody::Block(b) => push(result.diverges, check_block(ctx, b)),
+            ArmBody::Expr(body) => {
+                if as_expr {
+                    push(result.types, check_expr(ctx, body, expected));
+                } else {
+                    check_expr(ctx, body, Option::None);
+                    push(result.diverges, is_diverging_call(ctx, body));
+                }
+            }
+        }
+        pop(ctx.scopes);
+    }
+
+    if category != "" && all_resolved && !wildcard_seen {
+        match missing_values(ctx.env, category, st, variants, covered) {
+            Option::None => report(ctx.env, "non-exhaustive match: add a '_' arm", keyword.start, keyword.end),
+            Option::Some(missing) => {
+                if len(missing) > 0 {
+                    var list: string = "";
+                    for i in 0..len(missing) {
+                        if i > 0 {
+                            list += ", ";
+                        }
+                        list += missing[i];
+                    }
+                    report(ctx.env, "non-exhaustive match: missing " + list, keyword.start, keyword.end);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// Resolves one alternative against the scrutinee type `st`, reporting a pattern that does not fit. Returns None after
+// any report. `has_decl` says whether the scrutinee is an enum, and `variants` are then its variants.
+fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant], alt: Pattern): Option[ResolvedAlt] {
+    match alt.node {
+        PatternNode::Variant(enum_name, variant_name, binders) => {
+            if has_decl {
+                let vi: int = resolve_pattern_variant(ctx, st, variants, alt, enum_name, variant_name, binders);
+                if vi < 0 {
+                    return Option::None;
+                }
+                return Option::Some(ResolvedAlt { key: "tag:" + int_to_string(vi), variant: vi });
+            }
+            // Only the enum name matters here: any variant of it is the wrong type.
+            if is_found(find_enum(ctx.env, enum_name.name)) || is_found(find_template(ctx.env, enum_name.name)) {
+                report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
+            } else {
+                resolve_variant(ctx.env, enum_name, variant_name);
+            }
+            return Option::None;
+        }
+        _ => {}
+    }
+    let pattern_type: Type = match alt.node {
+        PatternNode::StringPat(_) => Type::Str,
+        PatternNode::BoolPat(_) => Type::Bool,
+        _ => Type::Int,
+    };
+    if !type_equals(pattern_type, st) {
+        report(ctx.env, "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
+        return Option::None;
+    }
+    let key: string = match alt.node {
+        PatternNode::IntPat(text) => "int:" + int_pattern_value(text),
+        PatternNode::CharPat(text) => "int:" + int_to_string(char_pattern_value(text)),
+        PatternNode::BoolPat(b) => if b { "bool:true" } else { "bool:false" },
+        PatternNode::StringPat(text) => "str:" + string_pattern_value(text),
+        _ => "",
+    };
+    return Option::Some(ResolvedAlt { key: key, variant: -1 });
+}
+
+// An integer pattern's value in canonical decimal (TS's bigint), so `007` and `7`, and `-0` and `0`, are one key.
+fn int_pattern_value(text: string): string {
+    if byte_at(text, 0) != '-' {
+        return canonical_digits(text);
+    }
+    let digits: string = canonical_digits(substring(text, 1, len(text)));
+    if digits == "0" {
+        return digits;
+    }
+    return "-" + digits;
+}
+
+// A character pattern's code, from its source text (the lexer has accepted it, so it is one ASCII character or an
+// escape).
+fn char_pattern_value(text: string): int {
+    let c: int = byte_at(text, 1);
+    if c != '\\' {
+        return c;
+    }
+    return escape_value(byte_at(text, 2));
+}
+
+// The byte an escape `\c` stands for.
+fn escape_value(c: int): int {
+    return match c {
+        'n' => 10,
+        't' => 9,
+        'r' => 13,
+        '0' => 0,
+        _ => c,
+    };
+}
+
+// A string pattern's value, from its source text, in a form that is equal for two literals exactly when their values
+// are: escapes are decoded, then a backslash is written `\\` and a NUL byte `\0`, so neither is ambiguous.
+fn string_pattern_value(text: string): string {
+    var out: string = "";
+    var i: int = 1;
+    while i < len(text) - 1 {
+        var c: int = byte_at(text, i);
+        var width: int = 1;
+        if c == '\\' && i + 1 < len(text) - 1 {
+            width = 2;
+            c = escape_value(byte_at(text, i + 1));
+        }
+        if c == '\\' {
+            out += "\\\\";
+        } else if c == 0 {
+            out += "\\0";
+        } else if c == 10 {
+            out += "\n";
+        } else if c == 9 {
+            out += "\t";
+        } else if c == 13 {
+            out += "\r";
+        } else if width == 2 {
+            out += substring(text, i + 1, i + 2);
+        } else {
+            out += substring(text, i, i + 1);
+        }
+        i += width;
+    }
+    return out;
+}
+
+// Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
+// otherwise each covered alternative as a duplicate. Returns the keys of the alternatives that cover something new.
+fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [string] {
+    let fresh: [string] = [];
+    let stale: [Pattern] = [];
+    for i in 0..len(resolved) {
+        match resolved[i] {
+            Option::Some(r) => {
+                if contains(covered, r.key) || contains(fresh, r.key) {
+                    push(stale, alternatives[i]);
+                } else {
+                    push(fresh, r.key);
+                }
+            }
+            Option::None => {}
+        }
+    }
+    if len(fresh) + len(stale) == 0 {
+        return fresh;
+    }
+    if wildcard_seen || len(fresh) == 0 {
+        report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+    } else {
+        for alt in stale {
+            report(ctx.env, "duplicate pattern alternative", alt.start, alt.end);
+        }
+    }
+    return fresh;
+}
+
+// The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; None for
+// int and string, whose values can never all be covered.
+fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], covered: [string]): Option[[string]] {
+    let missing: [string] = [];
+    if category == "enum" {
+        for i in 0..len(variants) {
+            if !contains(covered, "tag:" + int_to_string(i)) {
+                push(missing, "'" + enum_base_name(env, st) + "::" + variants[i].name + "'");
+            }
+        }
+        return Option::Some(missing);
+    }
+    if category == "bool" {
+        for b in ["true", "false"] {
+            if !contains(covered, "bool:" + b) {
+                push(missing, "'" + b + "'");
+            }
+        }
+        return Option::Some(missing);
+    }
+    return Option::None;
+}
+
+// Declares a single variant pattern's binders in the current scope, typed by the payload of variant `vi` (an index into
+// `variants`, or -1) when the binder count is right. Named binders in an or-pattern are reported and not declared.
+fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int) {
+    match pattern.node {
+        PatternNode::Or(alts) => {
+            for alt in alts {
+                match alt.node {
+                    PatternNode::Variant(_, _, binders) => {
+                        for binder in binders {
+                            match binder {
+                                Binder::Named(id) => report(ctx.env, "or-pattern alternatives cannot bind names", id.start, id.end),
+                                Binder::Wild => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        PatternNode::Variant(_, _, binders) => {
+            var slots: [Type] = [];
+            var has_slots: bool = false;
+            if vi >= 0 && len(binders) == len(variants[vi].payload) {
+                slots = variants[vi].payload;
+                has_slots = true;
+            }
+            let seen: [string] = [];
+            for i in 0..len(binders) {
+                match binders[i] {
+                    Binder::Wild => {}
+                    Binder::Named(id) => {
+                        if contains(seen, id.name) {
+                            report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                        } else {
+                            push(seen, id.name);
+                            let ty: Type = if has_slots { slots[i] } else { Type::Error };
+                            declare(ctx, id, ty, false);
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+// Resolves `F::V(...)` against the scrutinee's enum (whose variants are `variants`), returning the variant's index.
+// Returns -1 after reporting an unknown or wrong enum or an unknown variant. A wrong binder count is reported, but the
+// variant is still returned, so it still counts as covered.
+fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Pattern, enum_name: Ident, variant_name: Ident, binders: [Binder]): int {
+    // Patterns never carry type arguments, so a pattern names an instantiation by its generic enum's name.
+    let base: string = enum_base_name(ctx.env, st);
+    if enum_name.name != base {
+        match resolve_variant(ctx.env, enum_name, variant_name) {
+            FoundVariant::Missing => {}
+            _ => report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end),
+        }
+        return -1;
+    }
+    match find_tvariant(variants, variant_name.name) {
+        Option::Some(vi) => {
+            let payload: [Type] = variants[vi].payload;
+            if len(binders) != len(payload) {
+                report(ctx.env, variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
+            }
+            return vi;
+        }
+        Option::None => {
+            report(ctx.env, "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
+            return -1;
+        }
+    }
+}
+
+// A match expression.
+fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [Arm], expected: Option[Type]): Type {
+    let m: MatchArms = check_arms(ctx, keyword, scrutinee, arms, true, expected);
+    for t in m.types {
+        if is_error(t) {
+            return Type::Error;
+        }
+    }
+    // The parser guarantees at least one arm.
+    let ty: Type = m.types[0];
+    for t in m.types {
+        if !type_equals(t, ty) {
+            report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
+            return Type::Error;
+        }
+    }
+    if is_void(ty) {
+        report(ctx.env, "match expression cannot have type void", e.start, e.end);
+        return Type::Error;
+    }
+    if match_category(m.scrutinee) == "" {
+        return Type::Error;
+    }
+    return ty;
+}
+
+fn find_field(env: Env, struct_name: string, name: string): Option[TField] {
+    match find_struct(env, struct_name) {
+        Option::Some(si) => {
+            let fields: [TField] = env.structs[si].fields;
+            match find_tfield(fields, name) {
+                Option::Some(fi) => {
+                    return Option::Some(fields[fi]);
+                }
+                Option::None => {}
+            }
+        }
+        Option::None => {}
+    }
+    return Option::None;
+}
+
+// Struct and array values are heap references; v0.1 defines no equality for them.
+fn is_reference(t: Type): bool {
+    return match t {
+        Type::Struct(_) => true,
+        Type::Array(_) => true,
+        _ => false,
+    };
+}
+
+fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): Type {
+    var si: int = -1;
+    match find_struct(ctx.env, name.name) {
+        Option::Some(i) => {
+            si = i;
+        }
+        Option::None => {}
+    }
+    if si < 0 {
+        report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
+        // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
+        // reported as uninferable.
+        for init in inits {
+            check_expr(ctx, init.value, Option::Some(Type::Error));
+        }
+        return Type::Error;
+    }
+    let st: TStruct = ctx.env.structs[si];
+    // The names of the fields initialised so far.
+    let seen: [string] = [];
+    for init in inits {
+        let decl: Option[TField] = find_field(ctx.env, st.name, init.name.name);
+        let field_type: Type = match decl {
+            Option::Some(f) => f.ty,
+            Option::None => Type::Error,
+        };
+        let value: Type = check_expr(ctx, init.value, Option::Some(field_type));
+        match decl {
+            Option::None => {
+                report(ctx.env, "unknown field '" + init.name.name + "' on '" + name.name + "'", init.name.start, init.name.end);
+            }
+            Option::Some(f) => {
+                if contains(seen, init.name.name) {
+                    report(ctx.env, "duplicate field '" + init.name.name + "'", init.name.start, init.name.end);
+                } else {
+                    expect_type(ctx, f.ty, value, init.value.start, init.value.end);
+                    push(seen, init.name.name);
+                }
+            }
+        }
+    }
+    for f in st.fields {
+        if !contains(seen, f.name) {
+            report(ctx.env, "missing field '" + f.name + "' in '" + name.name + "'", name.start, name.end);
+        }
+    }
+    return Type::Struct(st.name);
+}
+
+fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]): Type {
+    var elem: Option[Type] = Option::None;
+    match expected {
+        Option::Some(t) => {
+            if is_error(t) {
+                // The expected type was already reported as wrong; only look for errors inside the elements.
+                for el in elements {
+                    check_expr(ctx, el, Option::Some(Type::Error));
+                }
+                return Type::Error;
+            }
+            match t {
+                Type::Array(x) => {
+                    elem = Option::Some(x);
+                }
+                _ => {}
+            }
+        }
+        Option::None => {}
+    }
+    if len(elements) == 0 {
+        match elem {
+            Option::Some(x) => {
+                return Type::Array(x);
+            }
+            Option::None => {
+                report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+                return Type::Error;
+            }
+        }
+    }
+    for el in elements {
+        let value: Type = check_expr(ctx, el, elem);
+        match elem {
+            Option::None => {
+                // Without an expected type, the first element decides.
+                if is_void(value) {
+                    report(ctx.env, "array element cannot have type void", el.start, el.end);
+                    return Type::Error;
+                }
+                elem = Option::Some(value);
+            }
+            Option::Some(x) => {
+                expect_type(ctx, x, value, el.start, el.end);
+            }
+        }
+    }
+    match elem {
+        Option::Some(x) => {
+            if is_error(x) {
+                return Type::Error;
+            }
+            return Type::Array(x);
+        }
+        Option::None => {
+            return Type::Error;
+        }
+    }
+}
+
+// Resolves an assignment target to its type, or to the error type once it has been reported. Only a bare local needs
+// to be `var`; writing through a field or an element is always allowed, because `let` only fixes the binding, not the
+// object it refers to.
+fn check_place(ctx: Ctx, target: Expr): Type {
+    match target.node {
+        ExprNode::Name(name) => {
+            match lookup(ctx, name) {
+                Option::Some(local) => {
+                    if !local.mutable {
+                        report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
+                    }
+                    return local.ty;
+                }
+                Option::None => {
+                    let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
+                    report(ctx.env, message, target.start, target.end);
+                    return Type::Error;
+                }
+            }
+        }
+        ExprNode::Field(_, _) | ExprNode::Index(_, _) => {
+            return check_expr(ctx, target, Option::None);
+        }
+        _ => {
+            report(ctx.env, "invalid assignment target", target.start, target.end);
+            return Type::Error;
+        }
+    }
+}
+
+// `s` is the assignment `target op value`, with `op` a compound operator such as `+=`.
+fn check_compound(ctx: Ctx, s: Stmt, op: string, target: Type, value: Type) {
+    if op == "=" || is_error(target) || is_error(value) {
+        return;
+    }
+    let applies: bool = match binary_result_type(substring(op, 0, len(op) - 1), target, value) {
+        Option::Some(result) => type_equals(result, target),
+        Option::None => false,
+    };
+    if !applies {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(target) + " and " + type_to_string(value), s.start, s.end);
+    }
+}
+
+fn binary_result_type(op: string, left: Type, right: Type): Option[Type] {
+    let same: bool = type_equals(left, right);
+    let l: string = kind_of_type(left);
+    let r: string = kind_of_type(right);
+    match op {
+        "+" => {
+            if same && (l == "int" || l == "string") {
+                return Option::Some(left);
+            }
+        }
+        "-" | "*" | "/" | "%" => {
+            if l == "int" && r == "int" {
+                return Option::Some(Type::Int);
+            }
+        }
+        "<" | "<=" | ">" | ">=" => {
+            if l == "int" && r == "int" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        "==" | "!=" => {
+            if same && l != "void" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        "&&" | "||" => {
+            if l == "bool" && r == "bool" {
+                return Option::Some(Type::Bool);
+            }
+        }
+        _ => {}
+    }
+    return Option::None;
+}
+
+fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr): Type {
+    let left: Type = check_expr(ctx, left_expr, Option::None);
+    let right: Type = check_expr(ctx, right_expr, Option::None);
+    if is_error(left) || is_error(right) {
+        return Type::Error;
+    }
+    if (op == "==" || op == "!=") && type_equals(left, right) {
+        var is_enum: bool = false;
+        var payload_free_enum: bool = false;
+        match left {
+            Type::Enum(name) => {
+                is_enum = true;
+                match find_enum(ctx.env, name) {
+                    Option::Some(i) => {
+                        payload_free_enum = ctx.env.enums[i].payload_free;
+                    }
+                    Option::None => {}
+                }
+            }
+            _ => {}
+        }
+        if is_reference(left) || (is_enum && !payload_free_enum) {
+            report(ctx.env, "cannot compare '" + type_to_string(left) + "' values", e.start, e.end);
+            return Type::Error;
+        }
+        if payload_free_enum {
+            return Type::Bool;
+        }
+    }
+    match binary_result_type(op, left, right) {
+        Option::Some(t) => {
+            return t;
+        }
+        Option::None => {
+            report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
+            return Type::Error;
+        }
+    }
+}
+
+fn arity_message(name: string, expected: int, found: int): string {
+    let noun: string = if expected == 1 { "argument" } else { "arguments" };
+    return "function '" + name + "' expects " + int_to_string(expected) + " " + noun + ", found " + int_to_string(found);
+}
+
+// checkCall's `checkArgs`. Only used once a problem with the call itself has been reported (or the signature is
+// known): the `error` type keeps `[]` arguments from cascading. Calls nothing has complained about yet must not use
+// it.
+fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [Type] {
+    let types: [Type] = [];
+    for i in 0..len(args) {
+        var expected: Type = Type::Error;
+        match params {
+            Option::Some(ps) => {
+                if i < len(ps) {
+                    expected = ps[i];
+                }
+            }
+            Option::None => {}
+        }
+        push(types, check_expr(ctx, args[i], Option::Some(expected)));
+    }
+    return types;
+}
+
+fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): Type {
+    var name: string = "";
+    match callee.node {
+        ExprNode::Name(n) => {
+            name = n;
+        }
+        _ => {
+            check_args(ctx, args, Option::None);
+            report(ctx.env, "only named functions can be called", callee.start, callee.end);
+            return Type::Error;
+        }
+    }
+    if is_local(ctx, name) {
+        check_args(ctx, args, Option::None);
+        report(ctx.env, "'" + name + "' is not a function", callee.start, callee.end);
+        return Type::Error;
+    }
+    if name == "print" || name == "eprint" {
+        // A wrong argument count is reported by check_print; its arguments must not cascade then.
+        let types: [Type] = [];
+        for a in args {
+            let expected: Option[Type] = if len(args) == 1 { Option::None } else { Option::Some(Type::Error) };
+            push(types, check_expr(ctx, a, expected));
+        }
+        return check_print(ctx, e, name, args, types);
+    }
+    if name == "len" || name == "push" || name == "pop" {
+        return check_collection_builtin(ctx, name, e, args);
+    }
+
+    let sig: Option[Signature] = if is_signature_builtin(name) { find_signature_of(builtin_signatures(), name) } else { find_signature_of(ctx.signatures, name) };
+    match sig {
+        Option::None => {
+            check_args(ctx, args, Option::None);
+            report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
+            return Type::Error;
+        }
+        Option::Some(sg) => {
+            let types: [Type] = check_args(ctx, args, Option::Some(sg.params));
+            if len(types) != len(sg.params) {
+                report(ctx.env, arity_message(name, len(sg.params), len(types)), e.start, e.end);
+            } else {
+                for i in 0..len(types) {
+                    expect_type(ctx, sg.params[i], types[i], args[i].start, args[i].end);
+                }
+            }
+            if name == "read_file" {
+                match find_template(ctx.env, "Result") {
+                    Option::Some(ti) => {
+                        return instantiate(ctx.env, ctx.env.templates[ti], [Type::Str, Type::Str]);
+                    }
+                    Option::None => panic("internal: no Result template"),
+                }
+            }
+            return sg.ret;
+        }
+    }
+}
+
+fn find_signature_of(sigs: [Signature], name: string): Option[Signature] {
+    return match find_signature(sigs, name) {
+        Option::Some(i) => Option::Some(sigs[i]),
+        Option::None => Option::None,
+    };
+}
+
+// `name` is print or eprint; `types` are the types of `args`.
+fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], types: [Type]): Type {
+    if len(types) != 1 {
+        report(ctx.env, arity_message(name, 1, len(types)), e.start, e.end);
+        return Type::Error;
+    }
+    let t: Type = types[0];
+    let k: string = kind_of_type(t);
+    if !is_error(t) && k != "int" && k != "bool" && k != "string" {
+        report(ctx.env, "cannot print a value of type " + type_to_string(t), args[0].start, args[0].end);
+    }
+    return Type::Void;
+}
+
+// `len` (string or array), `push` and `pop` (any array). Typed by hand because they work on any array.
+fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): Type {
+    var t: Type = Type::Error;
+    if len(args) > 0 {
+        t = check_expr(ctx, args[0], Option::None);
+    }
+    var elem: Option[Type] = Option::None;
+    match t {
+        Type::Array(x) => {
+            elem = Option::Some(x);
+        }
+        _ => {}
+    }
+    // When the first argument is not an array it is reported below (or already was), so the rest must not cascade.
+    let rest_expected: Type = match elem {
+        Option::Some(x) => x,
+        Option::None => Type::Error,
+    };
+    let rest: [Type] = [];
+    for i in 1..len(args) {
+        push(rest, check_expr(ctx, args[i], Option::Some(rest_expected)));
+    }
+    let arity: int = if name == "push" { 2 } else { 1 };
+    if len(args) == 0 || len(args) != arity {
+        report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
+        return Type::Error;
+    }
+    if name == "len" {
+        let k: string = kind_of_type(t);
+        if !is_error(t) && k != "string" && k != "array" {
+            report(ctx.env, "function 'len' expects a string or array, found " + type_to_string(t), args[0].start, args[0].end);
+        }
+        // len is an int whatever its argument, so a bad argument doesn't cascade.
+        return Type::Int;
+    }
+    match elem {
+        Option::None => {
+            if !is_error(t) {
+                report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
+            }
+            return Type::Error;
+        }
+        Option::Some(x) => {
+            if name == "push" {
+                expect_type(ctx, x, rest[0], args[1].start, args[1].end);
+                return Type::Void;
+            }
+            return x;
+        }
+    }
+}

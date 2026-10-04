@@ -2,9 +2,13 @@
 
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
 (`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4, v0.5 and v0.6 language specs. Entries 1 to 6 are now resolved.
+Entries 10 to 16 come from check.aster and scope v0.7.
 
 Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5, 1,524 before the v0.6 split, 1,292 after it)
-and has byte-for-byte parity with the TypeScript parser.
+and has byte-for-byte parity with the TypeScript parser. For check.aster the parser moved into `parser.aster` (995 lines),
+leaving `parse.aster` at 322 (the tree printer and `main`). The type checker is `checker.aster` (2,558 lines), with
+`loader.aster` (220) and `check.aster` (155). With `lexer.aster` (244) that is 4,172 lines, and check.aster matches the
+TypeScript front end byte for byte on 205 corpus files.
 
 ## Entries
 
@@ -132,6 +136,184 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building check.aster
+
+`checker.aster` ports `check/checker.ts`, `check/generics.ts`, `check/builtins.ts` and `types/type.ts` (1,493 lines of
+TypeScript) in 2,558 lines, about 1.7 times as long, though it builds no typed tree. Entries 10 and 11 cost the most.
+
+### 10. Unwrapping an `Option` outside `?` takes a match, a sentinel or a wrapper (costly)
+
+`?` only helps a function that itself returns an `Option` or a `Result`. The checker's functions report an error and
+carry on, returning a `Type` or a `bool`, so `checker.aster` uses `?` **0** times in 2,558 lines (`parser.aster` uses it
+119 times). Every lookup is unwrapped by hand, and there's no way to bail out of a binding:
+
+```aster
+var si: int = -1;
+match find_struct(ctx.env, name.name) {
+    Option::Some(i) => {
+        si = i;
+    }
+    Option::None => {}
+}
+if si < 0 {
+    report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
+    return Type::Error;
+}
+```
+
+The short form doesn't compile. `return` isn't an expression, a block can't be a match-expression arm, and an arm that
+calls `panic` is typed `void`, so `let i: int = match o { Option::Some(i) => i, Option::None => panic("…") };` fails
+with `match arms have different types: int and void`.
+
+`checker.aster` has 56 `Option::None =>` arms, and 26 of them are an empty `{}` (an `if let` written out in full). There
+are four find-or-bail sentinels: `oi` and `ri` in `check_try` (the same dance twice, once per `tryable` call), `si` in
+`check_struct_lit`, and `name = ""` in `check_call` (the same shape, but on an `ExprNode`). Five functions exist only
+to turn an `Option` into a `bool` (`is_found`, called 15 times, plus `is_signature_builtin`, `is_primitive`, `is_bound`
+and `is_local`), and `find_signature_of` only turns an `Option[int]` into an `Option[Signature]`. In
+`check_generic_variant_expr` the same `panic("internal: …")` is written out in two nested `None` arms, because neither
+arm can leave early.
+
+**Workaround:** sentinel `var`s, wrapper predicates and empty arms. Any one of these would remove most of it:
+`let … else { … }`, a diverging type for `return`, `panic` and `exit` so that they can end a match-expression arm, or
+`if let`. Generic functions alone would only fold the five wrappers into one `is_some[T]`.
+
+### 11. No maps or sets (costly)
+
+The TS checker leans on `Map` and `Set`: 38 lines of `checker.ts`, `generics.ts` and `load.ts` name one. Aster only has
+arrays, so every lookup is a linear-search helper:
+
+```aster
+fn find_struct(env: Env, name: string): Option[int] {
+    for i in 0..len(env.structs) {
+        if env.structs[i].name == name {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+```
+
+`checker.aster` has 12 `find_*` lookups. Seven are this exact loop over a different array (`find_signature`,
+`find_struct`, `find_enum`, `find_template_in`, `find_tfield`, `find_tvariant`, `find_node`), and `find_template` just calls
+`find_template_in` on `env.templates`. Two search
+backwards, so that a later entry wins as `Map.set` overwrites (`find_local`, `find_binding`), and two are built from the
+others (`find_field`, `find_signature_of`). Sets became `[string]` plus `contains`, with 13 calls (12 in `checker.aster`, 1 in `loader.aster`: covered
+pattern keys, seen params, fields and variant names, expanding enums, the loader's seen files). Tarjan's SCC in `generics.ts` keeps its state in five Maps and
+Sets. The port turned them into parallel arrays (`nodes`, `successors`, `index`, `low`, `on_stack`, `component`) in an
+`ExpansionGraph` struct, with `intern_node`, `find_node` and a string `node_key`. Scopes are `[[Local]]` in place of
+`Map<string, Local>[]`. Speed isn't the problem (check.aster checks itself in 0.03 s). The cost is code and the
+easy-to-miss last-wins search direction.
+
+**Workaround:** one hand-written search per array type, and `contains` for sets.
+
+### 12. No closures (annoying)
+
+Five TS closures became top-level functions that take their captures as parameters: `walk` and Tarjan's `visit` in
+`generics.ts` (`walk_expansion`, `scc_visit`, which take the whole graph), `say` in `resolveType` (now takes `quiet`),
+`checkArgs` in `checkCall` (`check_args`) and `checkMatch`'s `checkArm` callback. The last one costs the most. Its two
+callers, the match statement and the match expression, pass different callbacks, so `check_arms` takes an `as_expr`
+flag and an `expected` type and returns a `MatchArms` struct in which each arm records either its type or whether it
+diverges:
+
+```aster
+fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
+```
+
+**Workaround:** lift the closure and pass the captures in, or turn a callback into a flag.
+
+### 13. No default arguments or overloading (annoying)
+
+Every optional parameter becomes a second function. `resolveType(env, ref, bindings?, quiet?, instantiates?)` is
+`resolve_type_with` with all five, plus a two-argument `resolve_type`. The wrapper is called 5 times. Of the other 5
+calls to `resolve_type_with`, 2 only pass their own arguments on, and 3 spell out non-default values. The same shape
+shows up three more times: `lex` and `lex_from` (the loader strips the BOM itself, so it lexes from 0),
+`new_parser` and `new_parser_at` (the loader's global span base), and `find_template` and `find_template_in` (the
+same search over `env.templates` or over a bare array).
+
+```aster
+fn resolve_type(env: Env, ref: TypeExpr): Type {
+    return resolve_type_with(env, ref, [], false, true);
+}
+```
+
+**Workaround:** a thin wrapper per default and a suffix (`_with`, `_from`, `_at`, `_in`) on the full form.
+
+### 14. The flat namespace: every collision and rename (annoying)
+
+check.aster sees 227 top-level names from five files (`lexer.aster`, `parser.aster`, `loader.aster`, `checker.aster`
+and `check.aster`). Counting every name clash this port ran into:
+
+- **Collisions between files: 1.** Tarjan's `visit` closure in `generics.ts` became `scc_visit`, because
+  `checker.aster` imports `loader.aster`, whose `visit` is `load.ts`'s `visit`. Two TS modules can both have a `visit`.
+  One Aster program can't. That makes 2 in total, with v0.6's `peek_byte`.
+- **Collisions inside one file: 1.** TS's `checkMatch` became `check_arms`, because the match-statement wrapper the
+  port added already took `check_match`. Qualified names wouldn't fix this one.
+- **Avoided by design: 1.** TS's statement result type `Checked<T>` would have clashed with check.aster's `Checked`
+  result struct. Statements return a plain `bool` (diverges) instead, so it never existed.
+- **Shadowing, renamed for clarity: 1.** A local `fits` in `check_compound` would have shadowed `parser.aster`'s `fits`.
+  That's legal, but it became `applies`.
+- Other renames weren't collisions: `check` → `check_program`, `returnType` → `ret`, `type` → `ty`, the closure lifts
+  in entry 12 and the `_with` and `_in` forms in entry 13.
+
+**Workaround:** pick a name nothing else uses. It's cheap so far, but each new library adds to every importer's list of
+names to avoid.
+
+### 15. Path identity is lexical, and `read_file` errors carry the path (annoying)
+
+TS dedupes imports by `realpath`. Aster can't get one, so `loader.aster` normalises the display path lexically: it
+collapses `//`, drops `.` and resolves `name/..`. That agrees with TS on every corpus case (cycles, diamonds,
+self-imports, subdirectories, and the three spellings in `fixtures/check_paths.txt`). It disagrees for symlinked paths,
+and for a relative root whose imports climb out of the working directory and back in, which TS resolves against the
+working directory. Nothing tests either case.
+
+Separately, `read_file`'s `Err` text is `<path>: <reason>`, while the compiler's `cannot import` message quotes only the
+reason. The loader strips the prefix:
+
+```aster
+let prefix: string = target + ": ";
+reason = msg;
+if len(msg) >= len(prefix) && substring(msg, 0, len(prefix)) == prefix {
+    reason = substring(msg, len(prefix), len(msg));
+}
+```
+
+**Workaround:** lexical normalisation, and string surgery on the error text. A `real_path` builtin, and either a bare
+reason or a structured error, would close both gaps. Neither matters until a driver must dedupe symlinked imports or load a relative root that climbs out of the working
+directory and back (a `cwd` builtin alongside `real_path` would close that).
+
+### 16. Small gaps (annoying)
+
+- **No `join`.** Comma-separated lists are built by hand three times (`instance_name`, `type_list` in `check.aster`,
+  and the `missing 'A', 'B'` list in `check_arms`).
+- **No sort.** `sort_diags` is a hand-written stable insertion sort followed by a backwards scan to dedupe.
+- **No binding pattern in a literal match.** `other => other` in a `match` on an int doesn't parse, because an
+  identifier starts a variant pattern (`expected '::', found '=>'`). `escape_value` uses `_ => c`.
+- **No test for an enum variant without a `match`.** TS compares `t.kind === 'int'`. The port goes through
+  `kind_of_type(t)`, which returns the kind as a string (15 calls), and `type_equals` needs a nested `match` per variant
+  to compare two values.
+- **No struct extension.** `Ctx` holds an `env: Env` rather than extending it, so `ctx.env` appears 91 times.
+- Entry 7 still applies: `checker.aster` reads `.node` 21 times.
+
+### Bugs, and things that turned out not to be gaps
+
+- **No compiler bug found.** The one parity bug was in the port: the loader strips a BOM, then `lex` stripped a second
+  one where TS reports `unexpected character`. `lex_from` fixed it (entry 13), and `fixtures/check_bom2.txt` pins it.
+- **`continue` works inside a match arm.** `collect_signature` was split out of `check_program`'s pass-1 loop on the
+  belief that it didn't, but a `continue` in an arm of a `match` inside a `for` compiles and runs. That function was a
+  style choice, not a workaround.
+- **`defer`: no new evidence.** The checker never uses `?`, so its four scope and loop push/pop pairs have no early exit
+  between them. The five save/restore sites in `parser.aster` are unchanged.
+
+### What worked well
+
+- Generics carried the port: `Option[[string]]`, `[Option[ResolvedAlt]]` and the `FoundVariant` enum all needed no
+  workaround.
+- Five files with `import` and no build step. The checker is split across files the way the TS front end is.
+- Parity came in stages: the corpus went from 181 skipped files to 0 over four tasks, and the last stage passed every
+  file on its first build.
+- Struct values are heap references, so `Ctx` and `Env` shared mutation the way the TS objects do.
+- check.aster checks its own 4,172 lines in 0.03 s and about 16 MB.
+
 ## Found while building v0.6
 
 - **The flat namespace cost one rename.** The lexer's byte reader `peek` became `peek_byte`, because the parser has its
@@ -157,13 +339,35 @@ type count and adds a `.node` to every match.
 
 ## Shortlist (ranked)
 
-Every item is done: item 2 in v0.6, items 1 and 3 in v0.5, and items 4 to 6 in v0.4.
+The v0.4 to v0.6 shortlist is all done: error propagation and generic enums in v0.5 (entries 1 and 3), modules in v0.6
+(entry 2), and stderr with exit codes, `match` on strings and ints, and character literals in v0.4 (entries 4, 5 and 6, and `match` on ints
+from entry 8).
 
-1. ~~**Error propagation**~~: entry 1. Done in v0.5 (`?` on `Option` and `Result`). It removed the 110 `p.failed`
-   checks and uses.
-2. ~~**Modules or file includes**~~: entry 2. Done in v0.6 (`import "path";`, one flat namespace). It removed the
-   184-line copy of the lexer from `parse.aster`.
-3. ~~**Generic enums**~~: entry 3. Done in v0.5 (`Option[T]`, `Result[T, E]` and user-declared generic enums).
-4. ~~**Writing to stderr and exiting with a code**~~: entry 4. Done in v0.4 (`eprint`, `exit`).
-5. ~~**`match` on string and int values**~~: entries 5 and 8. Done in v0.4.
-6. ~~**Character literals**~~: entry 6. Done in v0.4.
+This is the v0.7 shortlist, ranked by what made the checker port longer, buggier or harder to read. Open items from
+earlier milestones are ranked on the same terms.
+
+1. **Unwrapping an `Option` without `?`**: entry 10. A `let … else`, or a diverging type so that `return`, `panic` and
+   `exit` can end a match-expression arm (ideally both). `?` is used 0 times in `checker.aster`'s 2,558 lines. The
+   evidence is 26 empty `Option::None => {}` arms, 4 find-or-bail sentinels, 5 Option-to-bool wrappers (`is_found`
+   alone has 15 calls) and one `panic` written out twice. The sentinel dance is the pattern most likely to hide a
+   bug: a forgotten `if si < 0` type-checks.
+2. **Maps and sets**: entry 11. A built-in map keyed by `string` or `int` (that covers every use here), and a set or an
+   idiom for one. The evidence is 12 `find_*` lookups (7 of them the same loop), 13 `contains` calls standing in for
+   sets, Tarjan's five Maps and Sets as six parallel arrays, and two last-wins backwards searches that copy `Map.set`
+   semantics by hand. TS names a `Map` or `Set` on 38 lines.
+3. **Closures**: entry 12. Five closures were lifted. One callback (`checkArm`) turned into an `as_expr` flag and a
+   result struct.
+4. **Default arguments**: entry 13. Four wrapper and full-form pairs (`resolve_type`/`resolve_type_with`,
+   `lex`/`lex_from`, `new_parser`/`new_parser_at`, `find_template`/`find_template_in`).
+5. **Qualified names**: entry 14. Two cross-file collisions in two milestones (`peek_byte`, `scc_visit`). It's cheap so far,
+   but 227 shared names grow with every library. It ranks above item 6 because collisions force renames and grow with
+   every new library, while `.node` is only noise.
+6. **Shared fields across enum variants**: entry 7. `.node` appears 21 times in `checker.aster` and the AST still
+   doubles its types.
+7. **Small gaps**: entries 8 and 16. `join` (3 hand-written loops), a sort (1 insertion sort), binding patterns in
+   literal matches, string ordering, `do … while` and string repeat.
+8. **`defer`**: the v0.5 section. There's no new evidence. The checker has 0 sites, and the 5 save/restore sites are
+   all in `parser.aster`.
+9. **`real_path` and bare error reasons**: entry 15. No test needs them. They only matter once a driver has to dedupe
+   symlinked imports or load a relative root that climbs out of the working directory and back (a `cwd` builtin
+   alongside `real_path` would close that).

@@ -1,0 +1,2 @@
+﻿// café 😀
+fn helper(): int { return "x"; }
