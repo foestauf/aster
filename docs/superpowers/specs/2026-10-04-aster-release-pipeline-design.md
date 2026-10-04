@@ -168,9 +168,12 @@ The PR job `release-bootstrap`:
 
 1. Checks out the PR with full history and tags.
 2. **Waits for the release of the base.** If `origin/main`'s HEAD has no `build-*` tag yet, it polls every 30 s for up
-   to 15 minutes. If the tag still doesn't exist, it fails with
-   `release for <sha> not published yet; re-run this job when release.yml finishes`. Without this check, a PR that
-   relies on the newest feature would fail with a misleading build error.
+   to 15 minutes. If the tag still doesn't exist, it warns
+   `release for <sha> not published yet; falling back to the nearest earlier release` and uses the nearest ancestor
+   `build-*` tag. (If no earlier release is an ancestor, it fails with
+   `release for <sha> not published yet, and no earlier release is an ancestor of it`.) An older release can only
+   reject a change, never wrongly accept it, and the next green push to `main` publishes a release again, so one failed
+   CI run can't wedge `main`.
 3. Runs `pnpm bootstrap`, then `pnpm test`.
 
 If the PR's compiler source uses a feature the base's release doesn't support, step 3 fails. The job then prints
@@ -182,8 +185,8 @@ The job runs only on `pull_request`, not on pushes to `main`.
 **Repository setting.** `main` has no branch protection today. For CI to enforce the rule rather than merely report it,
 `release-bootstrap` must be a required status check. The R1 PR says so. Claude does not change repository settings.
 
-A failed `release.yml` turns `main` red, and every later PR then fails step 2. A missing release can't go unnoticed.
-Re-running `release.yml` fixes it.
+A failed `release.yml` (or a failed CI run that prevents it) leaves a commit without a release. Later runs wait, then
+fall back to the nearest earlier release, so `main` is not wedged. Re-running `release.yml` restores the exact base.
 
 ## 7. Testing
 

@@ -37,15 +37,28 @@ describe('release-base.sh', () => {
     expect(base('HEAD^1')).toMatchObject({ status: 0, stdout: 'build-20261004-aaaaaaa\n' });
   });
 
-  it('gives up with a message when the base was never released', () => {
+  it('falls back to the nearest ancestor release with a warning', () => {
+    commit('c');
+    git('tag', 'build-20261001-aaaaaaa', 'HEAD~2');
+    const r = base('HEAD^1');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('build-20261001-aaaaaaa\n');
+    expect(r.stderr).toContain(
+      `release for ${git('rev-parse', 'HEAD^1')} not published yet; falling back to the nearest earlier release`,
+    );
+  });
+
+  it('fails when neither the revision nor its ancestors have a release', () => {
     git('tag', 'build-20261003-ccccccc', 'HEAD');
     const r = base('HEAD^1');
     expect(r.status).toBe(1);
     expect(r.stdout).toBe('');
-    expect(r.stderr).toContain(`release for ${git('rev-parse', 'HEAD^1')} not published yet; re-run this job when release.yml finishes`);
+    expect(r.stderr).toContain(
+      `release for ${git('rev-parse', 'HEAD^1')} not published yet, and no earlier release is an ancestor of it`,
+    );
   });
 
-  it('fails on a revision that does not exist (a shallow clone)', () => {
+  it('fails on a revision that does not exist', () => {
     git('tag', 'build-20261004-aaaaaaa', 'HEAD');
     const r = base('HEAD~5');
     expect(r.status).toBe(1);
