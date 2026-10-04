@@ -60,14 +60,14 @@ Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler e
 ## System builtins
 
 ```
-read_file(path: string): Result[string, string]       // Ok(file contents)
+read_file(path: string): Result[string, string]                   // Ok(file contents)
 write_file(path: string, contents: string): Result[int, string]   // Ok(bytes written); creates or truncates the file
-make_temp_dir(prefix: string): Result[string, string] // Ok(path of a new directory named <prefix>XXXXXX)
-remove_path(path: string): Result[int, string]        // Ok(0); removes a file or an empty directory
-run_process(argv: [string]): Result[int, string]      // Ok(exit status), or Ok(128 + signal) if killed
+make_temp_dir(prefix: string): Result[string, string]             // Ok(path of a new directory <prefix>XXXXXX under $TMPDIR, or /tmp)
+remove_path(path: string): Result[int, string]                    // Ok(0); removes a file or an empty directory
+run_process(argv: [string]): Result[int, string]                  // Ok(exit status), or Ok(128 + signal) if killed
 ```
 
-Failures are `Err("<path>: <reason>")`. For `make_temp_dir` the path is the template, and for `run_process` it is `argv[0]`. `run_process` searches `PATH` for `argv[0]` and shares the caller's stdin, stdout and stderr. Their names are reserved.
+Failures are `Err("<subject>: <reason>")`. The subject is the path; for `make_temp_dir` it is the template, and for `run_process` it is `argv[0]` (or the offending argument, if one contains a NUL byte). `run_process` searches `PATH` for `argv[0]` and shares the caller's stdin, stdout and stderr. These builtins' names are reserved.
 
 ## How it works
 

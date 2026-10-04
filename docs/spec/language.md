@@ -137,7 +137,7 @@ Structs and arrays are heap-allocated **references**. Assigning one, passing it 
 
 An **enum** declares variants, each with zero or more positional payload values: `enum Expr { Num(int), Add(Expr, Expr) }`. If no variant has a payload, the enum is *payload-free*: its values are plain tags that can be compared with `==`. Otherwise its values are heap-allocated references like structs, and a payload struct or array is shared, not copied. Enum types are equal when their names are equal. Two instantiations are equal when their enum names are equal and their arguments are pairwise equal.
 
-`Option` and `Result` are predeclared generic enums, as if every program declared `enum Option[T] { Some(T), None }` and `enum Result[T, E] { Ok(T), Err(E) }`. They can be used like any other generic enum. `read_file` returns `Result[string, string]`.
+`Option` and `Result` are predeclared generic enums, as if every program declared `enum Option[T] { Some(T), None }` and `enum Result[T, E] { Ok(T), Err(E) }`. They can be used like any other generic enum. `read_file`, `write_file`, `make_temp_dir`, `remove_path` and `run_process` return `Result`s (see [Builtins](#builtins)).
 
 **Generic enums.** An enum may declare type parameters: `enum Tree[T] { Node(Tree[T], T, Tree[T]), Leaf }`. Structs and functions cannot. `Name[T1, …]` names an instantiation, which behaves like a non-generic enum with the arguments substituted into its payloads. Because every parameter must appear in a payload, an instantiation always has a payload, so it is a heap-allocated reference and is not payload-free. Diagnostics write instantiations as `Option[int]` and `Result[[string], string]`, with `, ` between arguments. Each instantiation is compiled only if the program uses it.
 
@@ -427,6 +427,10 @@ Builtins are special-cased in the checker. There is no overloading in user code,
 | `substring` | `(s: string, start: int, end: int): string` | Bytes `[start, end)`. Panics unless `0 <= start <= end <= len(s)`. |
 | `int_to_string` | `(n: int): string` | Decimal representation. |
 | `read_file` | `(path: string): Result[string, string]` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
+| `write_file` | `(path: string, contents: string): Result[int, string]` | Creates or truncates the file and writes `contents` as raw bytes. `Ok(len(contents))` on success; `Err("<path>: <reason>")` on failure, with `invalid path` for a path containing `\0`. |
+| `make_temp_dir` | `(prefix: string): Result[string, string]` | Creates a new directory named `<prefix>XXXXXX` under `$TMPDIR` (or `/tmp` if it is unset or empty) and returns `Ok(path)`. On failure `Err("<template>: <reason>")`, where the template is the full path pattern, or `invalid path` if `prefix` contains `\0`. |
+| `remove_path` | `(path: string): Result[int, string]` | Removes a file or an empty directory. `Ok(0)` on success; `Err("<path>: <reason>")` on failure, with `invalid path` for a path containing `\0`. |
+| `run_process` | `(argv: [string]): Result[int, string]` | Runs `argv[0]` (searched on `PATH`) with the remaining elements as arguments, sharing the caller's stdin, stdout and stderr; the caller's buffered output is flushed first. `Ok(status)` is the exit status, or `Ok(128 + signal)` if the child was killed by a signal. `Err("<argv[0]>: <reason>")` if it cannot be started, `Err("<argument>: invalid path")` for an argument containing `\0` (shown up to the NUL), and `Err("empty argv")` for an empty array. |
 | `read_stdin` | `(): string` | Reads stdin to EOF. Later calls return `""`. |
 | `panic` | `(msg: string): never` | Writes `panic: <msg>` to stderr and exits with code 101. |
 
