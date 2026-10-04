@@ -73,7 +73,8 @@ export function lex(source: SourceFile): LexResult {
           const next = text[i + 1];
           const mapped = next === undefined ? undefined : ESCAPES.get(next);
           if (mapped === undefined) {
-            const width = next === undefined || next === '\n' ? 1 : 2;
+            // Consume the whole next code point, so an astral character is never split into a lone surrogate.
+            const width = next === undefined || next === '\n' ? 1 : 1 + String.fromCodePoint(text.codePointAt(i + 1)!).length;
             diagnostics.push({
               message: `invalid escape sequence '${text.slice(i, i + width)}'`,
               span: sp(i, i + width),

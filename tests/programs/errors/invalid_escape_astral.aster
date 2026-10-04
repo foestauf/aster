@@ -1,0 +1,6 @@
+// An invalid escape before an astral character: the diagnostic quotes the whole character, and the caret spans it.
+// expect-error: 4:20 invalid escape sequence '\😀'
+fn main(): int {
+  let s: string = "\😀";
+  return 0;
+}
