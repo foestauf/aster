@@ -24,19 +24,21 @@ enum Type {
     Bool,
     Str,
     Void,
+    Never,
     Struct(string),
     Enum(string),
     Array(Type),
     Error,
 }
 
-// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `struct`, `enum`, `array` or `error`.
+// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `never`, `struct`, `enum`, `array` or `error`.
 fn kind_of_type(t: Type): string {
     return match t {
         Type::Int => "int",
         Type::Bool => "bool",
         Type::Str => "string",
         Type::Void => "void",
+        Type::Never => "never",
         Type::Struct(_) => "struct",
         Type::Enum(_) => "enum",
         Type::Array(_) => "array",
@@ -121,8 +123,8 @@ fn builtin_signatures(): [Signature] {
         Signature { name: "byte_at", params: [Type::Str, Type::Int], ret: Type::Int },
         Signature { name: "substring", params: [Type::Str, Type::Int, Type::Int], ret: Type::Str },
         Signature { name: "int_to_string", params: [Type::Int], ret: Type::Str },
-        Signature { name: "panic", params: [Type::Str], ret: Type::Void },
-        Signature { name: "exit", params: [Type::Int], ret: Type::Void },
+        Signature { name: "panic", params: [Type::Str], ret: Type::Never },
+        Signature { name: "exit", params: [Type::Int], ret: Type::Never },
         Signature { name: "read_stdin", params: [], ret: Type::Str },
         // The checker types read_file's call as Result[string, string].
         Signature { name: "read_file", params: [Type::Str], ret: Type::Void },
@@ -481,6 +483,9 @@ fn primitive_type(name: string): Option[Type] {
     if name == "void" {
         return Option::Some(Type::Void);
     }
+    if name == "never" {
+        return Option::Some(Type::Never);
+    }
     return Option::None;
 }
 
@@ -558,6 +563,13 @@ fn is_void(t: Type): bool {
     };
 }
 
+fn is_never(t: Type): bool {
+    return match t {
+        Type::Never => true,
+        _ => false,
+    };
+}
+
 // A type parameter bound to a type. A `[Binding]` stands in for TS's `Map<string, Type>`: `find_binding` searches it
 // from the end, so a later binding of the same name wins, as `Map.set` overwrites.
 struct Binding {
@@ -586,17 +598,18 @@ fn is_bound(bindings: [Binding], name: string): bool {
 // Resolves a written type with no type parameters in scope, reporting its errors and instantiating what it names:
 // TS's `resolveType(env, ref)` with its defaults.
 fn resolve_type(env: Env, ref: TypeExpr): Type {
-    return resolve_type_with(env, ref, [], false, true);
+    return resolve_type_with(env, ref, [], false, true, false);
 }
 
 // Resolves a written type. `bindings` maps the type parameters in scope to their types, and `quiet` suppresses
 // diagnostics (used when instantiating, since the template's declaration was already checked). With `instantiates`
 // off, a valid instantiation resolves to the error type instead of being created, so validating a template's
-// payloads registers nothing.
-fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, instantiates: bool): Type {
+// payloads registers nothing. `allow_never` is set only for a function's declared return type, the one place `never`
+// may be written.
+fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, instantiates: bool, allow_never: bool): Type {
     match ref.node {
         TypeNode::Array(elem_ref) => {
-            let elem: Type = resolve_type_with(env, elem_ref, bindings, quiet, instantiates);
+            let elem: Type = resolve_type_with(env, elem_ref, bindings, quiet, instantiates, false);
             if is_void(elem) {
                 say(env, quiet, "array element type cannot be void", elem_ref.start, elem_ref.end);
                 return Type::Error;
@@ -629,7 +642,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
                     let types: [Type] = [];
                     var any_error: bool = false;
                     for arg in args {
-                        var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates);
+                        var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates, false);
                         if is_void(t) {
                             say(env, quiet, "type argument cannot be void", arg.start, arg.end);
                             t = Type::Error;
@@ -647,6 +660,10 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
                 Option::None => {}
             }
             var found: Option[Type] = primitive_type(name);
+            if name == "never" && !allow_never {
+                say(env, quiet, "'never' is only allowed as a return type", ref.start, ref.end);
+                return Type::Error;
+            }
             if is_found(find_struct(env, name)) {
                 found = Option::Some(Type::Struct(name));
             }
@@ -698,7 +715,7 @@ fn instantiate(env: Env, template: Template, args: [Type]): Type {
         }
         let payload: [Type] = [];
         for ref in variant.payload {
-            let t: Type = resolve_type_with(env, ref, bindings, true, true);
+            let t: Type = resolve_type_with(env, ref, bindings, true, true, false);
             push(payload, if is_void(t) { Type::Error } else { t });
         }
         push(enum_type.variants, TVariant { name: variant.name.name, payload: payload });
@@ -892,7 +909,7 @@ fn collect_types(env: Env, items: [Item]) {
             }
             push(names, variant.name.name);
             for ref in variant.payload {
-                let t: Type = resolve_type_with(env, ref, placeholders, false, false);
+                let t: Type = resolve_type_with(env, ref, placeholders, false, false, false);
                 if is_void(t) {
                     report(env, "payload cannot have type void", ref.start, ref.end);
                 }
@@ -977,7 +994,7 @@ fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): 
         }
     }
     let ret: Type = match decl.ret {
-        Option::Some(r) => resolve_type(env, r),
+        Option::Some(r) => resolve_type_with(env, r, [], false, true, true),
         Option::None => Type::Void,
     };
     push(sigs, Signature { name: name, params: params, ret: ret });
@@ -1029,7 +1046,11 @@ fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TF
         declare(ctx, p.name, sig.params[i], false);
     }
     let diverges: bool = check_block(ctx, decl.body);
-    if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
+    if is_never(sig.ret) {
+        if !diverges {
+            report(ctx.env, "function '" + decl.name.name + "' returns 'never' but can reach its end", decl.name.start, decl.name.end);
+        }
+    } else if !diverges && !is_void(sig.ret) && !is_error(sig.ret) {
         report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
     return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret };
@@ -1083,8 +1104,9 @@ fn is_function_name(ctx: Ctx, name: string): bool {
     return is_found(find_signature(ctx.signatures, name)) || is_builtin(name);
 }
 
+// A `never` value fits any expected type.
 fn expect_type(ctx: Ctx, expected: Type, actual: Type, start: int, end: int) {
-    if is_error(expected) || is_error(actual) || type_equals(expected, actual) {
+    if is_error(expected) || is_error(actual) || is_never(actual) || type_equals(expected, actual) {
         return;
     }
     report(ctx.env, "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
@@ -1123,7 +1145,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
             let init_type: Type = check_expr(ctx, init, Option::Some(t));
             expect_type(ctx, t, init_type, init.start, init.end);
             declare(ctx, name, t, mutable);
-            return false;
+            return is_never(init_type);
         }
         StmtNode::LetElse(_, _, _, _) => {
             // Stub until the checker learns let-else.
@@ -1195,6 +1217,16 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
             return true;
         }
         StmtNode::Return(value) => {
+            if is_never(ctx.ret) {
+                report(ctx.env, "cannot return from a function that returns 'never'", s.start, s.end);
+                match value {
+                    Option::Some(v) => {
+                        check_expr(ctx, v, Option::None);
+                    }
+                    Option::None => {}
+                }
+                return true;
+            }
             match value {
                 Option::None => {
                     if !is_void(ctx.ret) && !is_error(ctx.ret) {
@@ -1222,8 +1254,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): bool {
             return check_block(ctx, b);
         }
         StmtNode::Expr(e) => {
-            check_expr(ctx, e, Option::None);
-            return is_diverging_call(ctx, e);
+            return is_never(check_expr(ctx, e, Option::None));
         }
     }
 }
@@ -1235,23 +1266,6 @@ fn check_loop_exit(ctx: Ctx, s: Stmt, kind: string) {
     } else if kind == "break" {
         ctx.loops[len(ctx.loops) - 1].has_break = true;
     }
-}
-
-// Whether expression statement `e` is a call of the `panic` or `exit` builtin, which checkStmt finds from its typed
-// node. A local of that name makes it a call of a non-function instead.
-fn is_diverging_call(ctx: Ctx, e: Expr): bool {
-    match e.node {
-        ExprNode::Call(callee, _) => {
-            match callee.node {
-                ExprNode::Name(name) => {
-                    return (name == "panic" || name == "exit") && !is_local(ctx, name);
-                }
-                _ => {}
-            }
-        }
-        _ => {}
-    }
-    return false;
 }
 
 fn check_if(ctx: Ctx, cond: Expr, then: Block, other: Else): bool {
@@ -1356,15 +1370,17 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): Type {
             if is_error(a) || is_error(b) {
                 return Type::Error;
             }
-            if !type_equals(a, b) {
+            // A branch of type never doesn't take part in the "same type" rule.
+            let ty: Type = if is_never(a) { b } else { a };
+            if !is_never(a) && !is_never(b) && !type_equals(a, b) {
                 report(ctx.env, "if branches have different types: " + type_to_string(a) + " and " + type_to_string(b), e.start, e.end);
                 return Type::Error;
             }
-            if is_void(a) {
+            if is_void(ty) {
                 report(ctx.env, "if expression cannot have type void", e.start, e.end);
                 return Type::Error;
             }
-            return a;
+            return ty;
         }
         ExprNode::Field(object, field) => {
             let t: Type = check_expr(ctx, object, Option::None);
@@ -1620,7 +1636,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
                 known = false;
             }
         }
-        let context: Option[Type] = if known { Option::Some(resolve_type_with(ctx.env, slot, bindings, true, true)) } else { Option::None };
+        let context: Option[Type] = if known { Option::Some(resolve_type_with(ctx.env, slot, bindings, true, true, false)) } else { Option::None };
         let value: Type = check_expr(ctx, args[i], context);
         unify(ctx.env, template.params, slot, value, bindings);
         push(types, value);
@@ -1673,7 +1689,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
 // bare parameter takes the whole type, and arrays and instantiations of the same template are matched part by part.
 // Error and void types bind nothing. `env` is only read, to find an instantiation's generic origin.
 fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Binding]) {
-    if is_error(actual) || is_void(actual) {
+    if is_error(actual) || is_void(actual) || is_never(actual) {
         return;
     }
     match slot.node {
@@ -1779,10 +1795,10 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // - no arm may be unreachable, and no alternative may repeat a value already covered
 // - an enum or bool match must cover every value unless there is a `_` arm; an int or string match needs `_`
 // and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed
-// or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
+// or unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check. For a match
+// expression (`as_expr`) `types` gets one type per arm, a block arm (which must diverge) counting as never; for a match
+// statement `diverges` gets one entry per arm.
 fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
-    // Invariant: a match expression only ever has ArmBody::Expr arms (parser.aster builds only those), so m.types stays
-    // in step with the arms.
     let st: Type = check_expr(ctx, scrutinee, Option::None);
     var has_decl: bool = false;
     var variants: [TVariant] = [];
@@ -1867,13 +1883,23 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         push(ctx.scopes, []);
         declare_binders(ctx, pattern, variants, single);
         match arm.body {
-            ArmBody::Block(b) => push(result.diverges, check_block(ctx, b)),
+            ArmBody::Block(b) => {
+                let diverges: bool = check_block(ctx, b);
+                if as_expr {
+                    // A match expression's block arm must diverge, and so contributes the type never.
+                    if !diverges {
+                        report(ctx.env, "match arm block must diverge", pattern.start, pattern.end);
+                    }
+                    push(result.types, Type::Never);
+                } else {
+                    push(result.diverges, diverges);
+                }
+            }
             ArmBody::Expr(body) => {
                 if as_expr {
                     push(result.types, check_expr(ctx, body, expected));
                 } else {
-                    check_expr(ctx, body, Option::None);
-                    push(result.diverges, is_diverging_call(ctx, body));
+                    push(result.diverges, is_never(check_expr(ctx, body, Option::None)));
                 }
             }
         }
@@ -2141,10 +2167,17 @@ fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [A
             return Type::Error;
         }
     }
-    // The parser guarantees at least one arm.
-    let ty: Type = m.types[0];
+    // The parser guarantees at least one arm. Arms of type never (block arms among them) don't take part in the "same
+    // type" rule; the expression is never only if every arm is.
+    var ty: Type = Type::Never;
     for t in m.types {
-        if !type_equals(t, ty) {
+        if !is_never(t) {
+            ty = t;
+            break;
+        }
+    }
+    for t in m.types {
+        if !is_never(t) && !type_equals(t, ty) {
             report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
             return Type::Error;
         }
@@ -2268,7 +2301,10 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
         let value: Type = check_expr(ctx, el, elem);
         match elem {
             Option::None => {
-                // Without an expected type, the first element decides.
+                // Without an expected type, the first element that isn't never decides.
+                if is_never(value) {
+                    continue;
+                }
                 if is_void(value) {
                     report(ctx.env, "array element cannot have type void", el.start, el.end);
                     return Type::Error;
@@ -2288,6 +2324,7 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
             return Type::Array(x);
         }
         Option::None => {
+            report(ctx.env, "cannot infer type of empty array", e.start, e.end);
             return Type::Error;
         }
     }
@@ -2376,6 +2413,10 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
     let left: Type = check_expr(ctx, left_expr, Option::None);
     let right: Type = check_expr(ctx, right_expr, Option::None);
     if is_error(left) || is_error(right) {
+        return Type::Error;
+    }
+    if is_never(left) || is_never(right) {
+        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left) + " and " + type_to_string(right), e.start, e.end);
         return Type::Error;
     }
     if (op == "==" || op == "!=") && type_equals(left, right) {

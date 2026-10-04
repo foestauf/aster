@@ -1,0 +1,107 @@
+// `never` and diverging block arms: the rules no errors/ program reaches.
+enum E { A, B(int) }
+struct P { x: int }
+
+fn die(msg: string): never {
+    eprint(msg);
+    exit(1);
+}
+
+// A return type that only allows never at its top level.
+fn wrapped(): [never] {
+    return [];
+}
+
+fn never_returns_never(): never {
+    return panic("x");
+}
+
+fn void_returns_never(c: bool) {
+    if c {
+        return panic("v");
+    }
+}
+
+fn values(c: bool, n: int): int {
+    let a: [int] = [panic("a")];
+    let b: [int] = [1, die("b")];
+    let inferred: int = len([panic("c"), die("d")]);
+    let o: Option[int] = Option::Some(panic("e"));
+    print(Option::Some(panic("z")));
+    let p: P = P { x: die("f") };
+    let e: E = E::B(panic("g"));
+    var m: int = 0;
+    m = panic("h");
+    m += panic("i");
+    if panic("j") {
+        print(1);
+    }
+    while die("k") {
+        print(2);
+    }
+    let l: int = len(panic("l"));
+    let neg: int = -panic("m");
+    let same: bool = panic("n") == panic("o");
+    let k: int = [1, 2][panic("p")];
+    let f: int = die("q").x;
+    for i in panic("r") {
+        print(i);
+    }
+    let all_never: int = if c { panic("s") } else { die("t") };
+    let mixed: int = if c { 1 } else { "two" };
+    let never_first: string = if c { die("u") } else { "ok" };
+    return 0;
+}
+
+fn arms(e: E, b: bool): int {
+    let all: int = match e {
+        E::A => {
+            return 1;
+        },
+        E::B(n) => die("n"),
+    };
+    let mixed: int = match b {
+        true => die("x"),
+        false => "no",
+    };
+    let first_never: int = match e {
+        E::A => panic("a"),
+        E::B(n) => n,
+        _ => 3,
+    };
+    let void_arms: int = match b {
+        true => print(1),
+        false => {
+            return 0;
+        },
+    };
+    let scrutinee: int = match panic("s") {
+        _ => 1,
+    };
+    let errors: int = match e {
+        E::A => {
+            let q: int = nope;
+        },
+        E::B(n) => n + true,
+    };
+    let block_binder: int = match e {
+        E::A => 0,
+        E::B(n) => {
+            print(n);
+        },
+    };
+    return 0;
+}
+
+fn statement_arms(e: E): int {
+    match e {
+        E::A => die("a"),
+        E::B(n) => {
+            return n;
+        }
+    }
+}
+
+fn main(): int {
+    return 0;
+}
