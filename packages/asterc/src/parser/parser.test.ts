@@ -166,7 +166,7 @@ describe('statements and functions', () => {
   });
 
   it('parses an empty file to an empty program', () => {
-    expect(parseText('')).toEqual({ program: { functions: [], structs: [], enums: [] }, diagnostics: [] });
+    expect(parseText('')).toEqual({ program: { functions: [], structs: [], enums: [], imports: [] }, diagnostics: [] });
   });
 
   it('records statement spans from first to last token', () => {
@@ -186,7 +186,37 @@ describe('statements and functions', () => {
 
   it('recovers from junk at the top level', () => {
     const r = parseText('let x: int = 1;\nfn main(): int { return 0; }');
-    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', 'struct' or 'enum', found 'let'"]);
+    expect(r.diagnostics.map((d) => d.message)).toEqual(["expected 'fn', 'struct', 'enum' or 'import', found 'let'"]);
+    expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
+  });
+
+  it('parses an import item', () => {
+    const text = 'import "a.aster";\nfn main(): int { return 0; }';
+    const r = parseText(text);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.program.imports).toHaveLength(1);
+    const imp = r.program.imports[0];
+    expect(imp.path).toBe('a.aster');
+    expect(imp.pathSpan).toEqual({ start: 7, end: 16 });
+    expect(imp.span).toEqual({ start: 0, end: 17 });
+    expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
+  });
+
+  it('collects imports in source order, mixed with other items', () => {
+    const r = parseText('import "a";\nfn f() {}\nimport "b";');
+    expect(r.diagnostics).toEqual([]);
+    expect(r.program.imports.map((i) => i.path)).toEqual(['a', 'b']);
+  });
+
+  it('reports malformed imports', () => {
+    expect(errors('import;')).toEqual(["expected string literal, found ';'"]);
+    expect(errors('import "a"')).toEqual(["expected ';', found end of file"]);
+    expect(errors('import x;')).toEqual(["expected string literal, found identifier 'x'"]);
+  });
+
+  it('recovers from a malformed import and still parses the next item', () => {
+    const r = parseText('import x;\nfn main(): int { return 0; }');
+    expect(r.diagnostics).toHaveLength(1);
     expect(r.program.functions.map((f) => f.name)).toEqual(['main']);
   });
 

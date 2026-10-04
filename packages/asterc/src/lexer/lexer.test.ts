@@ -107,6 +107,10 @@ describe('lex', () => {
     expect(kinds('1..5')).toEqual(['int', '..', 'int', 'eof']);
   });
 
+  it('lexes import as a keyword', () => {
+    expect(kinds('import "a.aster";')).toEqual(['import', 'string', ';', 'eof']);
+  });
+
   it('still lexes a line comment rather than /=', () => {
     expect(kinds('x //= y')).toEqual(['ident', 'eof']);
   });

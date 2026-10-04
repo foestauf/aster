@@ -1,0 +1,8 @@
+// A root function that collides with an imported type is reported at the function, in the root.
+// expect-error: 6:4 'S' is already declared as a struct
+import "import_type_vs_fn_lib.aster";
+
+// Types are collected before functions, so the root's fn is the one that collides.
+fn S() {}
+
+fn main(): int { return 0; }

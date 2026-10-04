@@ -2,7 +2,7 @@ import type { Span } from '../diagnostics/source.js';
 
 export const KEYWORDS = [
   'fn', 'let', 'var', 'if', 'else', 'while', 'break', 'continue', 'return', 'true', 'false',
-  'struct', 'for', 'in', 'enum', 'match',
+  'struct', 'for', 'in', 'enum', 'match', 'import',
 ] as const;
 export type Keyword = (typeof KEYWORDS)[number];
 

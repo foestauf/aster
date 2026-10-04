@@ -1,0 +1,6 @@
+// expect-library
+fn f() {}
+struct S { x: int }
+enum E { A }
+struct Both { y: int }
+enum Both { B }

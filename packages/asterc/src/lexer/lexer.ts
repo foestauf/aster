@@ -1,5 +1,5 @@
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
-import type { SourceFile } from '../diagnostics/source.js';
+import type { SourceFile, Span } from '../diagnostics/source.js';
 import { KEYWORDS, PUNCTUATION, type Keyword, type Token, type TokenKind } from './token.js';
 
 const KEYWORD_SET: ReadonlySet<string> = new Set(KEYWORDS);
@@ -28,9 +28,11 @@ export function lex(source: SourceFile): LexResult {
   const tokens: Token[] = [];
   const diagnostics: Diagnostic[] = [];
   let i = 0;
+  const base = source.base;
+  const sp = (start: number, end: number): Span => ({ start: base + start, end: base + end });
 
   const push = (kind: TokenKind, start: number, extra: { intValue?: bigint; stringValue?: string } = {}): void => {
-    tokens.push({ kind, text: text.slice(start, i), span: { start, end: i }, ...extra });
+    tokens.push({ kind, text: text.slice(start, i), span: sp(start, i), ...extra });
   };
 
   while (i < text.length) {
@@ -74,7 +76,7 @@ export function lex(source: SourceFile): LexResult {
             const width = next === undefined || next === '\n' ? 1 : 2;
             diagnostics.push({
               message: `invalid escape sequence '${text.slice(i, i + width)}'`,
-              span: { start: i, end: i + width },
+              span: sp(i, i + width),
             });
             i += width;
             continue;
@@ -86,7 +88,7 @@ export function lex(source: SourceFile): LexResult {
         value += ch;
         i++;
       }
-      if (!terminated) diagnostics.push({ message: 'unterminated string literal', span: { start, end: i } });
+      if (!terminated) diagnostics.push({ message: 'unterminated string literal', span: sp(start, i) });
       push('string', start, { stringValue: value });
       continue;
     }
@@ -111,22 +113,22 @@ export function lex(source: SourceFile): LexResult {
       let value = 0n;
       let error: Diagnostic | null = null;
       if (!terminated) {
-        error = { message: 'unterminated character literal', span: { start, end: i } };
+        error = { message: 'unterminated character literal', span: sp(start, i) };
       } else if (body.length === 0) {
-        error = { message: 'empty character literal', span: { start, end: i } };
+        error = { message: 'empty character literal', span: sp(start, i) };
       } else if (body[0] === '\\') {
         const mapped = body.length === 2 ? ESCAPES.get(body[1]) : undefined;
         if (body.length === 2 && mapped === undefined) {
-          error = { message: `invalid escape sequence '${body}'`, span: { start: start + 1, end: start + 3 } };
+          error = { message: `invalid escape sequence '${body}'`, span: sp(start + 1, start + 3) };
         } else if (mapped === undefined) {
-          error = { message: 'character literal must be a single ASCII character', span: { start, end: i } };
+          error = { message: 'character literal must be a single ASCII character', span: sp(start, i) };
         } else {
           value = BigInt(mapped.charCodeAt(0));
         }
       } else if (body.length === 1 && body >= ' ' && body <= '~') {
         value = BigInt(body.charCodeAt(0));
       } else {
-        error = { message: 'character literal must be a single ASCII character', span: { start, end: i } };
+        error = { message: 'character literal must be a single ASCII character', span: sp(start, i) };
       }
       if (error !== null) diagnostics.push(error);
       push('char', start, { intValue: value });
@@ -148,9 +150,9 @@ export function lex(source: SourceFile): LexResult {
 
     const char = String.fromCodePoint(text.codePointAt(i) as number);
     i += char.length;
-    diagnostics.push({ message: `unexpected character '${char}'`, span: { start, end: i } });
+    diagnostics.push({ message: `unexpected character '${char}'`, span: sp(start, i) });
   }
 
-  tokens.push({ kind: 'eof', text: '', span: { start: text.length, end: text.length } });
+  tokens.push({ kind: 'eof', text: '', span: sp(text.length, text.length) });
   return { tokens, diagnostics };
 }

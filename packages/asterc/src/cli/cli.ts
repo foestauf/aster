@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { constants, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { formatDiagnostic, sortDiagnostics, type Diagnostic } from '../diagnostics/diagnostic.js';
-import { makeSource, type SourceFile } from '../diagnostics/source.js';
+import { makeSource, type SourceFile, type SourceMap } from '../diagnostics/source.js';
 import { buildExecutable } from '../driver/cc.js';
 import { compileToC, runFrontend } from '../driver/pipeline.js';
 import { printIr } from '../ir/print.js';
@@ -113,12 +113,12 @@ function runCommand(argv: readonly string[], io: Io): number {
   if (args.emit === 'tokens' || args.emit === 'ast') return emitFrontEnd(io, source, args.emit);
 
   if (args.command === 'check') {
-    const { diagnostics } = runFrontend(source);
-    return diagnostics.length > 0 ? reportDiagnostics(io, source, diagnostics) : EXIT.ok;
+    const { diagnostics, map } = runFrontend(source);
+    return diagnostics.length > 0 ? reportDiagnostics(io, map, diagnostics) : EXIT.ok;
   }
 
   const compiled = compileToC(source);
-  if (!compiled.ok) return reportDiagnostics(io, source, compiled.diagnostics);
+  if (!compiled.ok) return reportDiagnostics(io, compiled.map, compiled.diagnostics);
   if (args.emit === 'ir') {
     io.stdout(printIr(compiled.ir));
     return EXIT.ok;
@@ -165,8 +165,8 @@ function runProgram(io: Io, cSource: string, programArgs: readonly string[]): nu
   }
 }
 
-function reportDiagnostics(io: Io, source: SourceFile, diagnostics: readonly Diagnostic[]): number {
-  for (const d of diagnostics) io.stderr(`${formatDiagnostic(source, d)}\n`);
+function reportDiagnostics(io: Io, where: SourceFile | SourceMap, diagnostics: readonly Diagnostic[]): number {
+  for (const d of diagnostics) io.stderr(`${formatDiagnostic(where, d)}\n`);
   return EXIT.compileError;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatShort } from '../diagnostics/diagnostic.js';
-import { makeSource } from '../diagnostics/source.js';
+import { formatShort, sortDiagnostics } from '../diagnostics/diagnostic.js';
+import { makeSource, nextBase, sourceMapOf } from '../diagnostics/source.js';
 import { lex } from '../lexer/lexer.js';
 import { parse } from '../parser/parser.js';
 import { INT, STRING, typeToString, type Type } from '../types/type.js';
@@ -14,6 +14,22 @@ function checkText(text: string) {
   const parsed = parse(lexed.tokens);
   expect([...lexed.diagnostics, ...parsed.diagnostics]).toEqual([]);
   return { source, ...check(parsed.program) };
+}
+
+/** Two files laid out as the loader would: the root at base 0, the import right after it. */
+function checkFiles(rootText: string, libText: string) {
+  const root = makeSource('main.aster', rootText);
+  const lib = makeSource('lib.aster', libText, nextBase(root));
+  const map = sourceMapOf([root, lib]);
+  const programs = [root, lib].map((s) => parse(lex(s).tokens).program);
+  const program = {
+    functions: programs.flatMap((p) => p.functions),
+    structs: programs.flatMap((p) => p.structs),
+    enums: programs.flatMap((p) => p.enums),
+    imports: programs.flatMap((p) => p.imports),
+  };
+  const { diagnostics } = check(program, { rootEnd: root.text.length });
+  return sortDiagnostics(diagnostics).map((d) => formatShort(map, d));
 }
 
 /** Diagnostic messages for a whole program. */
@@ -40,6 +56,25 @@ describe('check: whole programs', () => {
   it('reports a missing main for an empty program', () => {
     const { source, diagnostics } = checkText('// nothing here\n');
     expect(diagnostics.map((d) => formatShort(source, d))).toEqual(["1:1 missing 'fn main(): int'"]);
+  });
+
+  it('requires main to be declared in the root file', () => {
+    expect(checkFiles(MAIN, 'fn main(): int { return 1; }\n')).toEqual([
+      "lib.aster:1:4 'main' must be declared in the root file",
+    ]);
+    // A misplaced main is ignored, so the root still misses one (and a bad signature is not reported for it).
+    expect(checkFiles('fn f() { }\n', 'fn main() { }\n')).toEqual([
+      "1:1 missing 'fn main(): int'",
+      "lib.aster:1:4 'main' must be declared in the root file",
+    ]);
+    expect(checkFiles(MAIN, 'fn f() { }\n')).toEqual([]);
+  });
+
+  it('reports type collisions across files at the declaration later in load order', () => {
+    expect(checkFiles(`enum S { A }\n${MAIN}`, 'struct S { x: int }\n')).toEqual([
+      "lib.aster:1:8 'S' is already declared as an enum",
+    ]);
+    expect(checkFiles(`${MAIN}struct S { x: int }\n`, 'struct S { y: int }\n')).toEqual(["lib.aster:1:8 duplicate struct 'S'"]);
   });
 
   it('checks the signature of main', () => {

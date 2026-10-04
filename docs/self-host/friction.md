@@ -1,9 +1,9 @@
 # Self-hosting friction log
 
 Pain points found while writing Aster's own compiler in Aster. Each entry says what hurt, gives a severity
-(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4 and v0.5 language specs. Entries 1 and 3 and entries 4 to 6 are now resolved.
+(`annoying`, `costly` or `blocking`) and describes the workaround. This log fed the v0.4, v0.5 and v0.6 language specs. Entries 1 to 6 are now resolved.
 
-Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5)
+Sources so far: `tests/programs/programs/lex.aster` (v0.3) and `tests/programs/programs/parse.aster`, which was 1,797 lines when this log was written (1,847 after v0.4 growth, 1,501 after v0.5, 1,524 before the v0.6 split, 1,292 after it)
 and has byte-for-byte parity with the TypeScript parser.
 
 ## Entries
@@ -37,6 +37,12 @@ copy everything before them, so a single-file compiler only gets larger from her
 
 **Workaround:** copy and paste. `tests/lex_aster.test.ts` guards the original, and the parse test guards the copy only
 indirectly.
+
+**Resolved in v0.6.** `import "path";` loads other files into one flat namespace. The lexer now lives in `lexer.aster`,
+imported by both `lex.aster` and `parse.aster`. `lex.aster` went from 302 to 73 lines, `parse.aster` from 1,524 (1,501
+after v0.5, then growth from the v0.6 syntax) to 1,292, and the new `lexer.aster` is 236. The self-hosted lexer and parser
+total went from 1,826 to 1,601 lines. The copy-paste workaround is gone: both programs share one lexer, and both
+conformance suites also lex and parse `lexer.aster` itself.
 
 ### 3. No generics, so every optional and every placeholder is hand-written (annoying)
 
@@ -126,6 +132,14 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building v0.6
+
+- **The flat namespace cost one rename.** The lexer's byte reader `peek` became `peek_byte`, because the parser has its
+  own `peek`. That is the first concrete cost of having no qualified names. Nothing else collided.
+- **No `defer`** is still open from v0.5.
+- A checker written in Aster (`check.aster`) is the next dogfood target, importing `lexer.aster` and the parser. The log
+  should keep counting flat-namespace collisions as it grows.
+
 ## Found while building v0.5
 
 - **No `defer` or `finally`.** `parse.aster` saves and restores `no_struct_lit` around some sub-parses. With `?` an early
@@ -143,12 +157,12 @@ type count and adds a `.node` to every match.
 
 ## Shortlist (ranked)
 
-Items 1 and 3 were done in v0.5 and items 4 to 6 in v0.4. Item 2 remains.
+Every item is done: item 2 in v0.6, items 1 and 3 in v0.5, and items 4 to 6 in v0.4.
 
 1. ~~**Error propagation**~~: entry 1. Done in v0.5 (`?` on `Option` and `Result`). It removed the 110 `p.failed`
    checks and uses.
-2. **Modules or file includes**: entry 2. Without them the checker can't be written without copying 1,600 lines.
-   Planned for v0.6.
+2. ~~**Modules or file includes**~~: entry 2. Done in v0.6 (`import "path";`, one flat namespace). It removed the
+   184-line copy of the lexer from `parse.aster`.
 3. ~~**Generic enums**~~: entry 3. Done in v0.5 (`Option[T]`, `Result[T, E]` and user-declared generic enums).
 4. ~~**Writing to stderr and exiting with a code**~~: entry 4. Done in v0.4 (`eprint`, `exit`).
 5. ~~**`match` on string and int values**~~: entries 5 and 8. Done in v0.4.

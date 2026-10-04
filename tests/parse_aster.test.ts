@@ -240,12 +240,13 @@ function expected(text: string): { stdout: string; stderr: string; status: numbe
 
   const lexed = lex(makeSource('corpus', text));
   const parsed = parse(lexed.tokens);
-  const items = [...parsed.program.functions, ...parsed.program.structs, ...parsed.program.enums]
+  const items = [...parsed.program.functions, ...parsed.program.structs, ...parsed.program.enums, ...parsed.program.imports]
     .toSorted((a, b) => a.span.start - b.span.start);
   for (const item of items) {
     if (item.kind === 'fn') fn(item);
     else if (item.kind === 'struct') struct(item);
-    else enumDecl(item);
+    else if (item.kind === 'enum') enumDecl(item);
+    else emit(0, `import ${sp(item.span)} ${body.slice(item.pathSpan.start, item.pathSpan.end)}`);
   }
   const diagnostics = [...lexed.diagnostics, ...parsed.diagnostics];
   const errors = diagnostics.map((d) => `error ${sp(d.span)} ${d.message}`);
@@ -257,9 +258,9 @@ const exe = join(workDir, 'parse');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
 beforeAll(() => {
-  const source = makeSource('parse.aster', readFileSync(join(PROGRAMS_DIR, 'programs', 'parse.aster'), 'utf8'));
+  const source = makeSource(join(PROGRAMS_DIR, 'programs', 'parse.aster'), readFileSync(join(PROGRAMS_DIR, 'programs', 'parse.aster'), 'utf8'));
   const compiled = compileToC(source);
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(source, d)).join('\n'));
+  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
   const built = buildExecutable(compiled.c, exe, ['-Werror']);
   if (!built.ok) throw new Error(built.message);
 });
@@ -267,7 +268,8 @@ beforeAll(() => {
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {
     expect(corpus).toContain(join('programs', 'parse.aster'));
-    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'parse_generics', 'lex_question', 'lex_bom', 'lex_chars']) {
+    expect(corpus).toContain(join('programs', 'lexer.aster'));
+    for (const f of ['parse_sample', 'parse_errors', 'parse_ints', 'parse_empty', 'parse_patterns', 'parse_generics', 'parse_imports', 'lex_question', 'lex_bom', 'lex_chars']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
   });

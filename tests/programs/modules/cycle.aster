@@ -1,0 +1,16 @@
+// Two files importing each other: each calls a function from the other.
+// expect-stdout:
+// ping 2
+// pong 1
+// ping 0
+import "cycle_lib.aster";
+
+fn ping(n: int) {
+    print("ping " + int_to_string(n));
+    if n > 0 { pong(n - 1); }
+}
+
+fn main(): int {
+    ping(2);
+    return 0;
+}

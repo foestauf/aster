@@ -1,5 +1,5 @@
 // expect-error: 5:16 expected '::', found ':'
-// expect-error: 5:22 expected 'fn', 'struct' or 'enum', found '{'
+// expect-error: 5:22 expected 'fn', 'struct', 'enum' or 'import', found '{'
 struct P { x: int }
 fn main(): int {
     match P { x: 1 } {

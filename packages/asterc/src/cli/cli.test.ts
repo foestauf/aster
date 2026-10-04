@@ -85,6 +85,16 @@ describe('check', () => {
       stderr: `${bad}:2:12: error: type mismatch: expected int, found string\n      return "s";\n             ^^^\n`,
     });
   });
+
+  it('reports an error in an imported file with that file\'s path', () => {
+    const lib = file('lib.aster', 'fn bad(): int {\n    return "s";\n}\n');
+    const root = file('uses_lib.aster', 'import "lib.aster";\nfn main(): int { return bad(); }\n');
+    expect(cli('check', root)).toEqual({
+      code: 1,
+      stdout: '',
+      stderr: `${lib}:2:12: error: type mismatch: expected int, found string\n      return "s";\n             ^^^\n`,
+    });
+  });
 });
 
 describe('build --emit', () => {
@@ -105,6 +115,34 @@ describe('build --emit', () => {
 
   it('stops at syntax errors when emitting the AST', () => {
     expect(cli('build', file('syntax.aster', 'fn main(): int { return 0 }'), '--emit=ast').code).toBe(1);
+  });
+
+  describe('with imports', () => {
+    file('emitlib.aster', 'fn libhelper(): int { return 7; }\n');
+    const root = file('emitroot.aster', 'import "emitlib.aster";\nfn main(): int { return libhelper(); }\n');
+
+    it('emits only the root file\'s tokens', () => {
+      const r = cli('build', root, '--emit=tokens');
+      expect(r.code).toBe(0);
+      const texts = JSON.parse(r.stdout).map((t: { text: string }) => t.text);
+      expect(texts).toContain('import');
+      expect(texts.filter((t: string) => t === 'libhelper')).toHaveLength(1); // the call in main, not the lib's fn
+      expect(texts).not.toContain('7');
+    });
+
+    it('emits only the root file\'s AST', () => {
+      const r = cli('build', root, '--emit=ast');
+      expect(r.code).toBe(0);
+      const ast = JSON.parse(r.stdout);
+      expect(ast.functions.map((f: { name: string }) => f.name)).toEqual(['main']);
+      expect(ast.imports.map((i: { path: string }) => i.path)).toEqual(['emitlib.aster']);
+    });
+
+    it('emits C for the whole program, imports included', () => {
+      const r = cli('build', root, '--emit=c');
+      expect(r.code).toBe(0);
+      expect(r.stdout).toContain('aster_fn_libhelper(');
+    });
   });
 
   it('emits IR and C', () => {

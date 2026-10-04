@@ -36,9 +36,9 @@ const exe = join(workDir, 'lex');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
 beforeAll(() => {
-  const source = makeSource('lex.aster', readFileSync(join(PROGRAMS_DIR, 'programs', 'lex.aster'), 'utf8'));
+  const source = makeSource(join(PROGRAMS_DIR, 'programs', 'lex.aster'), readFileSync(join(PROGRAMS_DIR, 'programs', 'lex.aster'), 'utf8'));
   const compiled = compileToC(source);
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(source, d)).join('\n'));
+  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
   const built = buildExecutable(compiled.c, exe, ['-Werror']);
   if (!built.ok) throw new Error(built.message);
 });
@@ -46,6 +46,7 @@ beforeAll(() => {
 describe('lex.aster matches the TypeScript lexer', () => {
   it('has a corpus that includes itself and the error fixture', () => {
     expect(corpus).toContain(join('programs', 'lex.aster'));
+    expect(corpus).toContain(join('programs', 'lexer.aster'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_errors.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_bom.txt'));
     expect(corpus).toContain(join('programs', 'fixtures', 'lex_chars.txt'));

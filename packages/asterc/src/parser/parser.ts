@@ -1,5 +1,5 @@
 import type {
-  Alternative, AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
+  Alternative, AssignOp, BinaryOp, Binder, Block, EnumDecl, Expr, FieldDecl, FieldInit, FnDecl, IfExpr, ImportDecl, IfStmt, MatchExpr, MatchExprArm, MatchStmt, MatchStmtArm, Param, Pattern, Program, Stmt, StructDecl, StructLitExpr, TypeExpr, VariantDecl, VariantExpr,
 } from '../ast/ast.js';
 import type { Diagnostic } from '../diagnostics/diagnostic.js';
 import type { Span } from '../diagnostics/source.js';
@@ -67,7 +67,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
   };
   const eat = (kind: TokenKind): Token | null => (at(kind) ? advance() : null);
 
-  const atItem = (): boolean => at('fn') || at('struct') || at('enum');
+  const atItem = (): boolean => at('fn') || at('struct') || at('enum') || at('import');
 
   /** True while parsing an `if`/`while`/`for` header, where `Name {` starts the body rather than a struct literal. */
   let noStructLit = false;
@@ -92,7 +92,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
 
   function expect(kind: TokenKind): Token {
     if (at(kind)) return advance();
-    const what = kind === 'ident' ? 'identifier' : `'${kind}'`;
+    const what = kind === 'ident' ? 'identifier' : kind === 'string' ? 'string literal' : `'${kind}'`;
     return fail(`expected ${what}, found ${describe(peek())}`, peek().span);
   }
 
@@ -106,28 +106,38 @@ export function parse(tokens: readonly Token[]): ParseResult {
     const functions: FnDecl[] = [];
     const structs: StructDecl[] = [];
     const enums: EnumDecl[] = [];
+    const imports: ImportDecl[] = [];
     while (!at('eof')) {
       if (!atItem()) {
-        diagnostics.push({ message: `expected 'fn', 'struct' or 'enum', found ${describe(peek())}`, span: peek().span });
+        diagnostics.push({ message: `expected 'fn', 'struct', 'enum' or 'import', found ${describe(peek())}`, span: peek().span });
         syncToItem();
         continue;
       }
       try {
         if (at('fn')) functions.push(parseFunction());
         else if (at('struct')) structs.push(parseStruct());
-        else enums.push(parseEnum());
+        else if (at('enum')) enums.push(parseEnum());
+        else imports.push(parseImport());
       } catch (e) {
         if (e !== SYNC) throw e;
         syncToItem();
       }
     }
-    return { functions, structs, enums };
+    return { functions, structs, enums, imports };
   }
 
-  /** Skips to the next `fn`, `struct`, `enum` or EOF. Consumes at least one token unless already at an item. */
+  /** Skips to the next `fn`, `struct`, `enum`, `import` or EOF. Consumes at least one token unless already at an item. */
   function syncToItem(): void {
     if (!atItem()) advance();
     while (!atItem() && !at('eof')) advance();
+  }
+
+  /** `import "path";` */
+  function parseImport(): ImportDecl {
+    const kw = expect('import');
+    const path = expect('string');
+    const semi = expect(';');
+    return { kind: 'import', path: path.stringValue ?? '', pathSpan: path.span, span: join(kw.span, semi.span) };
   }
 
   function parseFunction(): FnDecl {

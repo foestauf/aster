@@ -288,7 +288,13 @@ function preludeTemplates(): Map<string, Template> {
   return new Map(program.enums.map((decl) => [decl.name, { decl, params: decl.typeParams.map((p) => p.name), broken: false, hasErrors: false }]));
 }
 
-export function check(program: Program): CheckResult {
+export interface CheckOptions {
+  /** End offset of the root file; declarations at or past it come from imported files. Defaults to no limit. */
+  rootEnd?: number;
+}
+
+export function check(program: Program, options: CheckOptions = {}): CheckResult {
+  const rootEnd = options.rootEnd ?? Infinity;
   const env: Env = {
     diagnostics: [],
     structs: new Map(),
@@ -302,6 +308,11 @@ export function check(program: Program): CheckResult {
   const signatures = new Map<string, Signature>();
   const declared: { decl: FnDecl; sig: Signature }[] = [];
   for (const decl of program.functions) {
+    if (decl.name === 'main' && decl.nameSpan.start >= rootEnd) {
+      // Ignored as if not declared, so the root's own main (or its absence) is judged alone.
+      report(env, "'main' must be declared in the root file", decl.nameSpan);
+      continue;
+    }
     if (isBuiltinType(decl.name)) {
       report(env, builtinTypeMessage(decl.name), decl.nameSpan);
       continue;

@@ -1,0 +1,2 @@
+// expect-library
+fn inner() { print("inner"); }

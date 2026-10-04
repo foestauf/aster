@@ -1,4 +1,4 @@
-# Aster v0.5 Language Reference
+# Aster v0.6 Language Reference
 
 Aster is a small, statically typed, compiled language. It compiles to C and then to a native executable.
 
@@ -49,12 +49,36 @@ fn main(): int {
 
 Run it with `pnpm build && pnpm aster run example.aster`. It prints `6` and `12`, then the read error on stderr.
 
+A program may span several files. This one is two, `main.aster` and `geometry.aster` in the same directory:
+
+```aster
+// main.aster
+import "geometry.aster";
+
+fn main(): int {
+    let p: Point = Point { x: 3, y: 4 };
+    print(norm2(p));   // 25
+    return 0;
+}
+```
+
+```aster
+// geometry.aster
+struct Point { x: int, y: int }
+
+fn norm2(p: Point): int {
+    return p.x * p.x + p.y * p.y;
+}
+```
+
+`pnpm aster run main.aster` prints `25`.
+
 ## Lexical structure
 
 - Comments: `//` to end of line. No block comments.
 - Whitespace is insignificant except as a separator.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`, excluding keywords.
-- Keywords: `fn let var if else while for in break continue return true false struct enum match`. `Option` and `Result` are predeclared type names, not keywords.
+- Keywords: `fn let var if else while for in break continue return true false struct enum match import`. `Option` and `Result` are predeclared type names, not keywords.
 - Type names `int bool string void` are ordinary identifiers resolved as types in type position. They are not keywords.
 - Integer literals: decimal digits only. A literal that does not fit in a signed 64-bit integer is a compile error. A negative number is unary minus applied to a literal. As a special case, `-9223372036854775808` is accepted.
 - String literals: `"..."` with escapes `\n \t \r \\ \" \' \0`. Any other escape is a compile error. Raw newlines inside a string literal are a compile error.
@@ -94,7 +118,8 @@ An **enum** declares variants, each with zero or more positional payload values:
 
 ```
 program     = { item } EOF ;
-item        = function | structDecl | enumDecl ;
+item        = function | structDecl | enumDecl | importDecl ;
+importDecl  = "import" STRING ";" ;
 function    = "fn" IDENT "(" [ param { "," param } ] ")" [ ":" type ] block ;
 param       = IDENT ":" type ;
 structDecl  = "struct" IDENT "{" [ fieldDecl { "," fieldDecl } [ "," ] ] "}" ;
@@ -179,6 +204,18 @@ Notes:
 - A non-`void` function in which any control path can reach the end of the body without `return` is a compile error. A `while true` loop with no `break` counts as non-terminating, and the code after it is unreachable. Every other `while` condition is treated as possibly false, and every `for` loop as possibly running zero times. An expression statement that calls `panic` or `exit` ends its path, and a `match` statement ends a path when all of its arms do.
 - `return e;` in a `void` function and `return;` in a non-`void` function are errors. `return e;` requires `e` to match the declared return type.
 - Calls are checked for argument count and argument types.
+
+**Imports and multi-file programs**
+- `import "path";` is a top-level item and may appear anywhere among the items of a file. `import` is a keyword. The grammar is `importDecl = "import" STRING ";"`. A missing string or `;` is an ordinary syntax error, and an item that starts with any other token is `expected 'fn', 'struct', 'enum' or 'import', found <token>`.
+- **Loading.** The *root file* is the file given to the compiler, and loading starts there. A relative path resolves against the directory of the file that contains the import, and an absolute path is used as is. Any file name is allowed, since `.aster` is a convention and not a rule. Files are identified by their real path, with symlinks resolved, and each is loaded once. A file that imports itself, two files that import each other and two imports of a shared file are all fine.
+- **Load order** is the root first, then each import depth first, in the order the imports appear: a pre-order walk that skips files already loaded.
+- **One flat namespace.** The items of every loaded file form one program, in load order, and the checker sees them as if they had been written in one file in that order. There are no qualified names and no visibility: every function, struct and enum is visible everywhere, whatever the import structure, and an import may follow the code that uses it. Name rules apply across files with their existing messages (`duplicate function 'f'`, `duplicate struct 'S'`, `'X' is already declared as a struct`, and so on). A collision is reported at the declaration that comes later in load order, except that a function colliding with a struct or enum name is always reported at the function, as it is in a single file.
+- **`main`** belongs to the root file. A function named `main` in any other file is the error `'main' must be declared in the root file`, at its name, and that declaration is otherwise ignored. A missing `main` in the root is reported as for a single file, even when another file declared one.
+- A file that can't be read is the error `cannot import '<path>': <reason>`, at the import's string literal. `<path>` is the literal's value as written. `<reason>` is `No such file or directory`, `Is a directory`, `Permission denied`, `Not a directory`, `Too many levels of symbolic links`, `File name too long`, or `invalid path` for a path containing `\0`, and otherwise the OS's message.
+- Every loaded file is lexed and parsed. If any file has lexical or syntax errors, compilation stops after loading, with every file's syntax errors (and `cannot import` errors) reported, and nothing is checked.
+- An import has no other meaning, and an unused import is not an error.
+- **Diagnostics** belong to the file that contains them. The CLI prints the path of that file as the compiler reached it: the root path as given on the command line, and an imported path appended to its importer's directory as written, with `.` and `..` kept so they resolve physically through symlinks (`programs/lexer.aster:12:5: error: …`). Diagnostics are sorted by load order, then by position within a file.
+- **CLI.** `check`, `build` and `run` load the whole program. `--emit=tokens` and `--emit=ast` show the root file only and don't follow imports (the root's imports appear in the AST as items). `--emit=ir` and `--emit=c` show the whole program.
 
 **Generic enum declarations**
 - Type parameter names must be distinct (`duplicate type parameter 'T'`). A parameter must not be named `int`, `bool`, `string` or `void`, or share a name with a struct, an enum (including `Option` and `Result`) or a builtin function: `type parameter 'T' conflicts with a type of the same name`, reported once per offending parameter.
@@ -309,6 +346,6 @@ A runtime panic writes `panic: <message>` plus a newline to stderr and exits wit
 - A read error on stdin (`cannot read stdin: <reason>`).
 - `panic(msg)`.
 
-## Not in v0.5
+## Not in v0.6
 
-Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, modules, freeing memory, and C-style `for` loops.
+Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, qualified names (`lexer::Token`), visibility (`pub`), selective imports, search paths or packages, separate compilation, `defer`, freeing memory, and C-style `for` loops.

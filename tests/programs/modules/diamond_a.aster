@@ -1,0 +1,7 @@
+// expect-library
+import "diamond_shared.aster";
+
+fn a() {
+    print("a");
+    shared();
+}

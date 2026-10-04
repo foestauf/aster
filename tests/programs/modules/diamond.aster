@@ -1,0 +1,15 @@
+// A file reached through two imports loads once: the shared function is declared a single time.
+// expect-stdout:
+// root
+// a
+// shared
+// b
+import "diamond_a.aster";
+import "diamond_b.aster";
+
+fn main(): int {
+    print("root");
+    a();
+    b();
+    return 0;
+}

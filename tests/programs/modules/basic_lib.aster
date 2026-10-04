@@ -1,0 +1,15 @@
+// expect-library
+struct Pair { a: int, b: int }
+
+enum Color { Red, Green }
+
+fn double(n: int): int { return n * 2; }
+
+fn make_pair(a: int, b: int): Pair { return Pair { a: a, b: b }; }
+
+fn name(c: Color): string {
+    return match c {
+        Color::Red => "red",
+        Color::Green => "green",
+    };
+}

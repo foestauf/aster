@@ -1,0 +1,5 @@
+// A type error in an imported file is reported with that file's path.
+// expect-error: import_type_lib.aster:2:24 type mismatch: expected int, found string
+import "import_type_lib.aster";
+
+fn main(): int { return bad(); }
