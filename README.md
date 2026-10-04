@@ -93,6 +93,10 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 - A panic inside the compiler is `panic: <message>` with exit 101, not an internal-compiler-error exit 3.
 - Imports are identified by their normalised path, not their real path, so two symlinks to one file load twice.
 
+## Self-hosting
+
+`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster. `pnpm selfhost` proves it compiles itself: stage 0 (TypeScript) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
+
 ## How it works
 
 ```

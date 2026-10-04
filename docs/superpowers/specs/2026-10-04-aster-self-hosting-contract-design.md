@@ -224,9 +224,9 @@ check, lower or emit Aster itself.
   a documented limit, not a bug. On the corpus, which contains no symlinks, it agrees with stage 0. Emitted C contains
   no source paths, so path spelling affects only diagnostics and load order.
 - **#12** (TS root identity through symlinks) stays a stage-0 correctness investigation. #20 must resolve it or record
-  evidence that narrows it before the proof is declared.
+  evidence that narrows it before the proof is declared. Resolved in #20: fixed in stage 0. The self-hosted loader keeps lexical identity, so symlink aliases stay unsupported there.
 - **#13** (astral invalid-escape diagnostic parity) is a lexer parity gate. #20 must resolve it or record evidence
-  that refutes it. §4.2's UTF-16 column rule is relevant: the fix must not quote half a surrogate pair.
+  that refutes it. §4.2's UTF-16 column rule is relevant: the fix must not quote half a surrogate pair. Resolved in #20: fixed in stage 0.
 
 ## 8. Decided vs proposed
 
@@ -248,7 +248,7 @@ check, lower or emit Aster itself.
 - module names inside `packages/asterc-self/` (#16–#19)
 - the typed-program representation (#16)
 - internal debug dumps, which must not be exposed as CLI emit stages (#16–#18)
-- the name and output format of the proof command (#20)
+- the name and output format of the proof command: decided in #20 as `pnpm selfhost` (see `2026-10-04-aster-selfhost-proof-design.md`)
 - how to handle memory: the runtime never frees, and compiling a compiler of roughly 6k lines may need a lot of memory.
   #18 or #20 measures it first and treats a fix as a separately accepted runtime change if one is needed.
 
