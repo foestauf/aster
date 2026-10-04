@@ -32,9 +32,6 @@ const accepted = candidates.flatMap((file) => {
 });
 const corpus = accepted.map((c) => c.file);
 
-// Files whose typed bodies checker.aster does not build yet: they run as skipped until a later task removes them.
-const PENDING = new Set<string>([]);
-
 const workDir = mkdtempSync(join(tmpdir(), 'aster-typed-'));
 const exe = join(workDir, 'typed');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
@@ -56,12 +53,7 @@ describe('typed.aster matches the TypeScript typed program', () => {
     }
   });
 
-  it('has no stale PENDING entries', () => {
-    for (const file of PENDING) expect(corpus).toContain(file);
-  });
-
-  it.for(accepted)('$file', ({ file, typed }, { skip }) => {
-    if (PENDING.has(file)) skip();
+  it.for(accepted)('$file', ({ file, typed }) => {
     const run = spawnSync(exe, [join(PROGRAMS_DIR, file)], { encoding: 'utf8', timeout: 20_000, maxBuffer: 256 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual({ stdout: dumpTyped(typed), stderr: '', status: 0 });
   });

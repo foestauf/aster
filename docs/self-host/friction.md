@@ -136,6 +136,43 @@ type count and adds a `.node` to every match.
 - Exhaustive `match` guarantees the printer handles every node kind; a new variant without a printer arm won't compile.
 - Performance doesn't matter yet: each conformance run takes about 10 ms.
 
+## Found while building the typed program
+
+`checker.aster` now builds the whole typed program, mirroring `check/types.ts` (127 lines of TypeScript), and
+`typed_dump.aster` (299 lines, 11 `dump_` functions) prints it. `checker.aster` grew from 2,492 lines to 2,713 (+221), and
+`typed.aster` matches `tests/typed_dump.ts`'s dump on every program the TypeScript front end accepts, including the
+compiler's own closure. No compiler bug turned up and no file needed a rename.
+
+- **No closures, again: `checkMatch`'s callback.** TS's `checkArm` callback became an `Option[Else]` parameter of
+  `check_arms` (its `refutable` argument), which `let ... else` and `if let` use to check their desugared wildcard arm.
+  `check_arms` returns parallel `patterns` and `bodies` arrays in `MatchArms`, and the 4 call sites (match statement, match
+  expression, `let ... else`, `if let`) index them by position (`m.patterns[1]`, `m.bodies[1]`)
+  where TS closes over the arms. Entry 12 already counted the `as_expr` flag.
+- **No hex literals, no `for _`.** `dump_escape` spells the bytes it escapes as char literals (`'"'`, `'\\'`, `'\n'`,
+  `'\t'`) and the decimals `32` and `127`, because `0x22` doesn't lex. `dump_put`'s indent loop needs a named, unused
+  variable (`for i in 0..depth`), which `-Werror` accepts.
+- **No `chr`: one-byte strings come from a literal table.** A string literal's decoded value needs a string made from an
+  escape's byte. `string_literal_value` has 7 one-byte literals in a `match` (`\n`, `\t`, `\r`, `\0`, `\\`, `\"`, `\'`) and
+  copies every other byte with `substring(text, i, i + 1)`. It works because only those 7 escapes exist. A `chr` builtin
+  would make it a one-liner, and the dump's `\xHH` output also builds its digits with `substring` on a 16-character
+  string.
+- **No tag on a variant.** `TVariant` has no tag field, so `check_try` writes the `Option` and `Result` tags as the
+  literals 0 and 1 (4 sites, `ok_tag` and `fail_tag` in two places) and `TVariantRef.tag` is the variant's index. It
+  relies on index == tag, which `missing_values` already assumed.
+- **A `match` arm can't be a block with a trailing value.** A first draft of `typed_pattern` used one and failed with
+  `expected ';'`. It became early returns.
+- **`?` doesn't work in a function that returns `TExpr`.** `check_generic_variant_expr` needed two `let ... else`
+  lookups with `panic` instead.
+- **The flat namespace held.** New names: `CheckedStmt`, `CheckedBlock`, `ForBody`, `check_else`, `error_expr`,
+  `has_field_init`, `string_literal_value`, `typed_pattern`, `refutable_arms`, plus `dump_`-prefixed dumper functions
+  (11). The prefix is what keeps the dumper's names clear of the other 227+ in the closure. Nothing collided.
+- **No runner for one TypeScript dump.** Diffing a failing file against TS meant a throwaway vitest file that printed
+  `dumpTyped`, because the repo has no `tsx` script. A `pnpm dump-typed <file>` would have saved that on every
+  mismatch.
+- **Timing.** `typed.aster` on `tests/programs/programs/typed.aster` (the compiler's own front end, 17,287 lines of
+  dump) takes 0.03 s and about 28 MB, against 0.03 s and about 16 MB for `check.aster`'s summary. Building the typed
+  tree costs memory, not time.
+
 ## Found while building check.aster
 
 `checker.aster` ports `check/checker.ts`, `check/generics.ts`, `check/builtins.ts` and `types/type.ts` (1,493 lines of
