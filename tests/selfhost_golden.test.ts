@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { parseExpectations } from './harness.js';
 import { stage } from './stage.js';
@@ -10,7 +11,7 @@ import { stage } from './stage.js';
 // expect-stdin, must meet its expect-stdout, expect-stderr and expect-exit unchanged. Runs from the program's own
 // directory, as tests/golden.test.ts does, under a private TMPDIR that must be empty after every program.
 
-const PROGRAMS_DIR = new URL('./programs/', import.meta.url).pathname;
+const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
 const runnable = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') && !f.split(/[\\/]/).includes('fixtures'))
   .toSorted()

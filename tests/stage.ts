@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inject } from 'vitest';
 import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
@@ -33,6 +34,7 @@ export function resolveStage(
     return { name: 'S1', bin: s1 };
   }
   if (name !== 'S1' && name !== 'S2' && name !== 'S3') throw new Error(`ASTER_STAGE must be S1, S2 or S3, not '${name}'`);
+  if (!isAbsolute(bin)) throw new Error(`ASTER_STAGE_BIN '${bin}' must be an absolute path`);
   if (!exists(bin)) throw new Error(`ASTER_STAGE_BIN '${bin}' does not exist`);
   return { name, bin };
 }

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { firstDifference, recordAllowed, REPO_ROOT, STAGE_SUITES } from '../scripts/selfhost.js';
@@ -29,6 +29,8 @@ describe('recordAllowed', () => {
   });
 });
 
+const importsStage = (f: string): boolean => /from\s+'\.\/stage\.js'/.test(readFileSync(join(REPO_ROOT, f), 'utf8'));
+
 describe('the script', () => {
   const text = readFileSync(join(REPO_ROOT, 'scripts', 'selfhost.ts'), 'utf8');
   it('imports nothing from packages/', () => {
@@ -38,6 +40,14 @@ describe('the script', () => {
   it('derives the repo root from its own location, not the cwd', () => {
     expect(REPO_ROOT.endsWith('/')).toBe(true);
     expect(text).not.toMatch(/process\.cwd\(\)/);
+  });
+  it('lists exactly the suites that run through the stage under test', () => {
+    const staged = readdirSync(join(REPO_ROOT, 'tests'))
+      .filter((f) => f.endsWith('.test.ts') && f !== 'stage.test.ts')
+      .map((f) => `tests/${f}`)
+      .filter(importsStage)
+      .toSorted();
+    expect(staged).toEqual([...STAGE_SUITES].toSorted());
   });
   it('runs only suites that exist', () => {
     for (const s of STAGE_SUITES) expect(() => readFileSync(join(REPO_ROOT, s))).not.toThrow();

@@ -70,6 +70,7 @@ interface Report {
   uname: string;
   cc: string;
   node: string;
+  locale: string;
   stages: StageReport[];
   fullSuite: Counts | null;
   ok: boolean;
@@ -100,8 +101,10 @@ function sha256(text: string): string {
 
 function readCounts(path: string): Counts {
   const json = JSON.parse(readFileSync(path, 'utf8')) as Record<string, number>;
+  const total = json.numTotalTests;
+  if (typeof total !== 'number') throw new Error(`${path}: no numTotalTests (did the vitest json schema change?)`);
   return {
-    total: json.numTotalTests ?? 0,
+    total,
     passed: json.numPassedTests ?? 0,
     failed: json.numFailedTests ?? 0,
     skipped: (json.numPendingTests ?? 0) + (json.numTodoTests ?? 0),
@@ -119,6 +122,7 @@ function renderReport(r: Report): string {
     `cc      ${r.cc}`,
     `uname   ${r.uname}`,
     `node    ${r.node}`,
+    `locale  ${r.locale}`,
     '',
     'stage  C sha256          = C(S0)  tests',
   ];
@@ -146,6 +150,7 @@ export function main(argv: string[]): number {
     uname: '',
     cc: '',
     node: process.version,
+    locale: 'LC_ALL=C',
     stages: [],
     fullSuite: null,
     ok: false,
@@ -194,9 +199,9 @@ export function main(argv: string[]): number {
 
     const cs: string[] = [];
     step('stage C', () => {
-      const s1 = run('node', [S0, 'build', COMPILER, '-o', bin(1)]);
+      const s1 = run(process.execPath, [S0, 'build', COMPILER, '-o', bin(1)]);
       if (s1.status !== 0 || s1.stderr !== '') fail(`S0 failed to build S1 (status ${s1.status}):\n${s1.stderr}`);
-      const c0 = run('node', [S0, 'build', COMPILER, '--emit=c']);
+      const c0 = run(process.execPath, [S0, 'build', COMPILER, '--emit=c']);
       if (c0.status !== 0 || c0.stderr !== '') fail(`S0 --emit=c failed (status ${c0.status}):\n${c0.stderr}`);
       cs.push(c0.stdout);
       for (let n = 1; n <= 4; n++) {
@@ -248,6 +253,10 @@ export function main(argv: string[]): number {
         });
       });
     }
+    step('suite totals', () => {
+      const [t1, t2, t3] = [1, 2, 3].map((n) => report.stages[n]!.suite!.total);
+      if (t1 !== t2 || t2 !== t3) fail(`S1, S2 and S3 ran different numbers of tests: ${t1}, ${t2}, ${t3}`);
+    });
     report.ok = true;
   } catch (e) {
     console.error(`\nselfhost: ${e instanceof Error ? e.message : String(e)}`);

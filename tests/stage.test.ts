@@ -17,6 +17,7 @@ describe('resolveStage', () => {
     [{ ASTER_STAGE_BIN: '/bin/s2' }, /set together/],
     [{ ASTER_STAGE: 'S2' }, /set together/],
     [{ ASTER_STAGE_BIN: '/bin/s2', ASTER_STAGE: 'S9' }, /S1, S2 or S3/],
+    [{ ASTER_STAGE_BIN: 'rel/s2', ASTER_STAGE: 'S2' }, /absolute/],
     [{ ASTER_STAGE_BIN: '/bin/missing', ASTER_STAGE: 'S3' }, /does not exist/],
   ] as const)('rejects %j', ([env, message]) => {
     expect(() => resolveStage(env, '/tmp/s1', exists)).toThrow(message);

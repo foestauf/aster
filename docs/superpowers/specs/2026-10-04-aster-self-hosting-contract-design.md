@@ -224,9 +224,10 @@ check, lower or emit Aster itself.
   a documented limit, not a bug. On the corpus, which contains no symlinks, it agrees with stage 0. Emitted C contains
   no source paths, so path spelling affects only diagnostics and load order.
 - **#12** (TS root identity through symlinks) stays a stage-0 correctness investigation. #20 must resolve it or record
-  evidence that narrows it before the proof is declared. Resolved in #20: fixed in stage 0. The self-hosted loader keeps lexical identity, so symlink aliases stay unsupported there.
-- **#13** (astral invalid-escape diagnostic parity) is a lexer parity gate. #20 must resolve it or record evidence
-  that refutes it. §4.2's UTF-16 column rule is relevant: the fix must not quote half a surrogate pair. Resolved in #20: fixed in stage 0.
+  evidence that narrows it before the proof is declared. Resolved in #20: fixed in stage 0.
+- **#13** (astral invalid-escape diagnostic parity) is a lexer parity gate. #20 must resolve it or record evidence that
+  refutes it. §4.2's UTF-16 column rule is relevant: the fix must not quote half a surrogate pair. Resolved in #20:
+  fixed in stage 0.
 
 ## 8. Decided vs proposed
 
