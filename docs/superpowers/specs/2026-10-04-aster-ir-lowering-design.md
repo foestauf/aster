@@ -59,7 +59,7 @@ strings in the same order, because that order *is* the output. Aster has no clos
 | `values` (a `Map`) in `structLit` | an array of `(field, operand)` pairs in written order, searched linearly per declared field. |
 
 The other `Map`s become linear scans: the string table (`intern_ir_string`), the struct lookup, and label-to-block
-lookup in `prune_unreachable`. Each scan is bounded by one function's blocks or the program's distinct strings. The
+lookup in `ir_prune_unreachable`. Each scan is bounded by one function's blocks or the program's distinct strings. The
 friction log records the cost, and maps stay an open shortlist item.
 
 `lower.ts` throws `internal:` errors on impossible input, such as an `error` type or a `break` outside a loop. Aster
@@ -134,7 +134,7 @@ this rule is exact.
   problems, empty for a valid program. It checks:
   - each function's labels are unique, the first block is `entry`, and every target resolves;
   - local ids in operands and destinations are in `[0, locals.length)`, and no local has type `void`;
-  - `br` conditions are `bool`, `switch` values are `int`, and `ret`'s value type equals the return type (with no
+  - `br` conditions are `bool`, `switch` values are `int` or `bool`, and `ret`'s value type equals the return type (with no
     value for `void`);
   - `copy`'s destination and source types match, and `binop`/`unop` operand types match the operator (int ops on
     `int`, `str_*`/`concat` on `string`, `not` on `bool`);
