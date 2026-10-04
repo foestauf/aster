@@ -1,0 +1,148 @@
+// The Aster compiler, written in Aster: `check`, `build` and `run`, as packages/asterc/src/cli/cli.ts provides them,
+// minus the debug emit stages (self-hosting contract §4.1). Its stdout, stderr and exit status match the TypeScript
+// CLI's byte for byte, apart from the documented divergences (contract §4.5). tests/asterc_self.test.ts checks it.
+
+import "loader.aster";
+import "checker.aster";
+import "report.aster";
+import "diag.aster";
+
+// Parsed command-line arguments. `program_args` are the arguments after `--`, for `run`.
+struct CliArgs {
+    command: string,
+    file: string,
+    out: Option[string],
+    emit_c: bool,
+    program_args: [string],
+}
+
+// cli.ts's USAGE with the emit stages narrowed to c, without its final newline (eprint adds it).
+fn usage_text(): string {
+    return "usage:\n  aster check <file.aster>\n  aster build <file.aster> [-o <out>] [--emit=c]\n  aster run <file.aster> [-- <args>...]";
+}
+
+// Whether `s` begins with `prefix`.
+fn cli_starts_with(s: string, prefix: string): bool {
+    return len(s) >= len(prefix) && substring(s, 0, len(prefix)) == prefix;
+}
+
+// The parsed arguments, or a usage-error reason: a port of cli.ts's parseArgs, with its reasons in the same order of
+// precedence.
+fn parse_cli(args: [string]): Result[CliArgs, string] {
+    if len(args) == 0 {
+        return Result::Err("missing command");
+    }
+    let command: string = args[0];
+    if command != "check" && command != "build" && command != "run" {
+        return Result::Err("unknown command '" + command + "'");
+    }
+    var file: Option[string] = Option::None;
+    var out: Option[string] = Option::None;
+    var emit_c: bool = false;
+    let program_args: [string] = [];
+    var i: int = 1;
+    while i < len(args) {
+        let arg: string = args[i];
+        if arg == "--" {
+            if command != "run" {
+                return Result::Err("'--' is only valid with 'run'");
+            }
+            let first: int = i + 1;
+            for k in first..len(args) {
+                push(program_args, args[k]);
+            }
+            break;
+        } else if arg == "-o" || cli_starts_with(arg, "--emit=") {
+            if command != "build" {
+                if arg == "-o" {
+                    return Result::Err("'-o' is only valid with 'build'");
+                }
+                return Result::Err("'--emit' is only valid with 'build'");
+            }
+            if arg == "-o" {
+                i += 1;
+                if i >= len(args) {
+                    return Result::Err("'-o' requires a path");
+                }
+                out = Option::Some(args[i]);
+            } else {
+                let stage: string = substring(arg, len("--emit="), len(arg));
+                if stage != "c" {
+                    return Result::Err("unknown emit stage '" + stage + "'");
+                }
+                emit_c = true;
+            }
+        } else if cli_starts_with(arg, "-") {
+            return Result::Err("unknown option '" + arg + "'");
+        } else if let Option::None = file {
+            file = Option::Some(arg);
+        } else {
+            return Result::Err("unexpected argument '" + arg + "'");
+        }
+        i += 1;
+    }
+    let Option::Some(path) = file else {
+        return Result::Err("missing input file");
+    };
+    return Result::Ok(CliArgs { command: command, file: path, out: out, emit_c: emit_c, program_args: program_args });
+}
+
+// The output path for `build` without `-o`, as cli.ts's defaultOutput gives it: the input's basename without a
+// trailing `.aster`, or `<base>.out` when there is nothing to strip (never the input itself).
+fn default_output(file: string): string {
+    // Node's posix basename: trailing slashes are ignored, then the text after the last slash.
+    var end: int = len(file);
+    while end > 0 && byte_at(file, end - 1) == '/' {
+        end -= 1;
+    }
+    var slash: int = -1;
+    for i in 0..end {
+        if byte_at(file, i) == '/' {
+            slash = i;
+        }
+    }
+    let base: string = substring(file, slash + 1, end);
+    let ext: string = ".aster";
+    if len(base) >= len(ext) && substring(base, len(base) - len(ext), len(base)) == ext {
+        return substring(base, 0, len(base) - len(ext));
+    }
+    return base + ".out";
+}
+
+// Prints each diagnostic, sorted and deduplicated, in the human format.
+fn cli_report(files: [SourceFile], diags: [Diag]) {
+    for d in sort_diags(diags) {
+        eprint(format_diag(files, d));
+    }
+}
+
+fn main(args: [string]): int {
+    let parsed: CliArgs = match parse_cli(args) {
+        Result::Ok(a) => a,
+        Result::Err(reason) => {
+            eprint("error: " + reason + "\n" + usage_text());
+            return 2;
+        }
+    };
+    let Result::Ok(src) = read_file(parsed.file) else {
+        eprint("error: cannot read '" + parsed.file + "'");
+        return 2;
+    };
+    // As runFrontend does: syntax and import errors stop the program before checking.
+    let loaded: Loaded = load_program(parsed.file, src);
+    if len(loaded.diags) > 0 {
+        cli_report(loaded.files, loaded.diags);
+        return 1;
+    }
+    let checked: Checked = check_program(loaded.items, loaded.root_end);
+    if len(checked.diags) > 0 {
+        cli_report(loaded.files, checked.diags);
+        return 1;
+    }
+    if parsed.command == "check" {
+        return 0;
+    }
+    // `build` and `run` come with the C back end and driver.
+    eprint("internal compiler error: not implemented");
+    return 3;
+}
