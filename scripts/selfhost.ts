@@ -186,8 +186,8 @@ export function main(argv: string[]): number {
       if (!recordAllowed(report.dirty, record)) fail('--record needs a clean tree');
     });
 
-    step('stage 0 (pnpm build)', () => {
-      if (run('pnpm', ['build'], { stdio: 'inherit' }).status !== 0) fail('pnpm build failed');
+    step('stage 0 (pnpm build:seed)', () => {
+      if (run('pnpm', ['build:seed'], { stdio: 'inherit' }).status !== 0) fail('pnpm build:seed failed');
     });
 
     mkdirSync(outDir, { recursive: true });
