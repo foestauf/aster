@@ -108,7 +108,7 @@ fn print_expr(src: string, d: int, e: Expr) {
     match e.node {
         ExprNode::Int(value) => line(d, "int " + head + " " + value),
         ExprNode::Char(raw) => line(d, "char " + head + " " + raw),
-        ExprNode::Str => line(d, "string " + head + " " + substring(src, e.start, e.end)),
+        ExprNode::Str(_) => line(d, "string " + head + " " + substring(src, e.start, e.end)),
         ExprNode::Bool(value) => {
             if value {
                 line(d, "bool " + head + " true");
