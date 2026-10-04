@@ -67,8 +67,8 @@ stage 1/2/3 parity of the full compiler (#20), LLVM, and runtime changes.
 
 **Driver output.** `emitC` returns `out.join('\n')`, and `out` always ends with `''` (after the `main` shim). So the C
 text is every element of `out` followed by `\n`, except the last. The driver prints `out[0 .. len-1)`, each followed by
-a newline, which reproduces the join exactly. The bytes of a string literal can't contain a newline after escaping, so
-lines never contain `\n`.
+a newline, which reproduces the join exactly. A multi-statement instruction is one element that contains `"\n    "`, as in TS, so printing it
+with a newline reproduces the join as well.
 
 ## 3. Tests (`tests/emit_aster.test.ts`)
 
@@ -110,15 +110,12 @@ Each fixture is a small `main` program that the TS front end accepts.
 
 ## 5. Order of work
 
-1. **Harness and declarations.** `emit.aster` with `emit_c`'s header, typedefs, struct and enum bodies, string table,
-   prototypes, functions with locals and the `main` shim. Every instruction and terminator panics
-   (`internal: not emitted yet`). Add the driver, `emit_aster.test.ts` with a `PENDING` set, `emit_types.txt`, and
-   the `corpus.ts` pattern.
-2. **Instructions and terminators.** All 18 instructions and 5 terminators. Add `emit_values.txt`, `emit_arrays.txt`
-   and `emit_main_args.txt`. `PENDING` empties.
-3. **Self-compile.** Add the E1 build and E1 parity, then the measurements. If E1 fails because of a runtime limit,
-   stop and report (criterion 6).
-4. **Docs.** Friction log and README.
+1. **The port.** All of `emit.aster`, the driver, `emit_aster.test.ts` (E0 parity), the four fixtures and the
+   `corpus.ts` pattern. `emit.ts` is small (297 lines), and every program has instructions, so a declarations-only
+   step would pass no test. The port is therefore one task, test first.
+2. **Self-compile.** The E1 build, E1 parity and the measurements. If E1 fails because of a runtime limit, stop and
+   report (criterion 6).
+3. **Docs.** The friction log and the README.
 
 ## 6. Risks
 
