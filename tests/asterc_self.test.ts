@@ -130,6 +130,16 @@ describe('check, programs with errors', () => {
     expect(s0.status).toBe(1);
     expect(runS1(['check', file])).toEqual(s0);
   });
+
+  // Diagnostics exit 1 before any cc call, so `build` is cheap. -o goes into the work dir: a wrongly successful build
+  // cannot litter the repo.
+  it.for(errorGoldens)('build %s', (file) => {
+    const out = join(workDir, 'error-golden-out');
+    const s0 = runS0(['build', file, '-o', out]);
+    expect(s0.status).toBe(1);
+    expect(runS1(['build', file, '-o', out])).toEqual(s0);
+    expect(existsSync(out)).toBe(false);
+  });
 });
 
 /** A root file spelled relative, absolute, with `./` and with `..`, from the repo root, and bare from its directory. */
@@ -175,6 +185,11 @@ describe('diagnostic layout edge cases', () => {
     { name: 'crlf.aster', bytes: Buffer.from('fn main(): int {\r\n    let x: int = "a";\r\n    return x\r\n}\r\n') },
     { name: 'crlf_eof.aster', bytes: Buffer.from('fn main(): int {\r\n    return 0\r\n') },
     { name: 'bom.aster', bytes: Buffer.from('\uFEFFfn main(): int {\n    let x: int = "\u00e9";\n    return 0;\n}\n') },
+    {
+      name: 'bom_tab_lib.aster',
+      bytes: Buffer.from('\uFEFFfn f(): int {\n\tlet s: string = "\u00e9"; let x: int = "a";\n    return 0;\n}\n'),
+    },
+    { name: 'imports_bom_tab.aster', bytes: Buffer.from('import "bom_tab_lib.aster";\nfn main(): int { return 0; }\n') },
     { name: 'eof.aster', bytes: Buffer.from('fn main(): int {\n    return 0;\n') },
     { name: 'multi_line.aster', bytes: Buffer.from('fn main(): int {\n    let x: int = "a\n b";\n    return 0;\n}\n') },
     { name: 'astral_span.aster', bytes: Buffer.from('fn f(): int { return "\u{1F600}\u{1F600}"; }\nfn main(): int { return 0; }\n') },
@@ -330,6 +345,8 @@ describe('divergences from stage 0', () => {
     });
   });
 
+  // Untested: the driver's cleanup when write_file fails (driver.aster pushes the path before writing, so the partial
+  // file is removed). A write failure cannot be triggered reliably here: `ulimit -f` raises SIGXFSZ instead of failing.
   it('a real cc failure (an unwritable -o) also cleans up', () => {
     const r = runS1(['build', 'hello.aster', '-o', join(dir, 'missing', 'z')], { cwd: dir });
     expect(r.status).toBe(3);
@@ -338,7 +355,8 @@ describe('divergences from stage 0', () => {
   });
 
   it('an unusable TMPDIR is an internal error', () => {
-    // Not compared with S0: stage 0 fails differently (an uncaught exception, not exit 3). The test's own TMPDIR keeps
+    // Not compared with S0: both exit 3, but after `internal compiler error:` the text differs (stage 0 prints Node's
+    // ENOENT message and a stack). The test's own TMPDIR keeps
     // the harness's empty-TMPDIR check on the shared one meaningful.
     const missing = join(dir, 'no-such-tmp');
     expect(runS1(['build', 'hello.aster', '-o', join(dir, 'w')], { cwd: dir, env: { TMPDIR: missing } })).toEqual({

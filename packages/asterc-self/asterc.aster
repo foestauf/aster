@@ -132,7 +132,7 @@ fn join_lines(lines: [string], from: int, to: int): string {
 }
 
 // The C for a checked program, without its final newline (print adds it): emit_c's lines end in "", so the last is dropped.
-fn compile_c(loaded: Loaded, checked: Checked): string {
+fn compile_c(checked: Checked): string {
     let lines: [string] = emit_c(lower_program(checked));
     return join_lines(lines, 0, len(lines) - 1);
 }
@@ -163,7 +163,7 @@ fn main(args: [string]): int {
     if parsed.command == "check" {
         return 0;
     }
-    let c: string = compile_c(loaded, checked);
+    let c: string = compile_c(checked);
     if parsed.command == "build" && parsed.emit_c {
         print(c);
         return 0;

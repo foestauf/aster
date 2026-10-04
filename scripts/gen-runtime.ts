@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Embeds the C runtime (packages/asterc/runtime/) in packages/asterc-self/runtime.aster as two string constants, so the
@@ -39,6 +39,6 @@ export function renderRuntimeAster(h: string, c: string): string {
 
 const read = (name: string) => readFileSync(new URL(`../packages/asterc/runtime/${name}`, import.meta.url), 'utf8');
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   writeFileSync(new URL('../packages/asterc-self/runtime.aster', import.meta.url), renderRuntimeAster(read('aster_rt.h'), read('aster_rt.c')));
 }

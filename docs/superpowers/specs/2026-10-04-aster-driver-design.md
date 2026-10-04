@@ -181,7 +181,8 @@ match. The emit stages are only `c`. `main`:
    element (`""`), so the `c` it returns has no final newline.
 6. `--emit=c` prints `c` (`print` adds the newline, so the output equals stage 0's exactly) and returns 0.
 7. `build` calls `build_c(c + "\n", out ?? default_output(file))`. `run` calls `run_c(c + "\n", program_args)` and
-   returns its status. `cc` gets the exact text stage 0 writes. An `Err(msg)` from either becomes `internal compiler error: <msg>`, return 3.
+   returns its status. `cc` gets the exact text stage 0 writes. An `Err(msg)` from either becomes
+   `internal compiler error: <msg>`, return 3.
 
 `default_output` mirrors `defaultOutput`: the basename (after the last `/`) without a trailing `.aster`, or
 `<base>.out` if there is nothing to strip.
@@ -201,8 +202,9 @@ Large output goes through one `print`. Building `c` by repeated `+` is quadratic
    already being reported. Otherwise the first one is the result.
 
 `run_c(c, args)` calls `build_c` with `out = tmp/program` inside its own `make_temp_dir("aster-run-")`. It runs
-`[tmp/program] + args` with inherited stdio, then removes `program` and `tmp`, and returns `Ok(status)`. If the program ran but cleanup then fails, the result is the cleanup error (an internal compiler
-error, exit 3), as `driver_remove_then` returns it.
+`[tmp/program] + args` with inherited stdio, then removes `program` and `tmp`, and returns `Ok(status)`. If the program
+ran but cleanup then fails, the result is the cleanup error (an internal compiler error, exit 3), as
+`driver_remove_then` returns it.
 
 ### 5.3 Tests (`tests/asterc_self.test.ts`)
 
@@ -238,6 +240,9 @@ Contract §4.5 gains two rows, in PR B:
 |---|---|---|---|
 | A panic inside the compiler | Caught: `internal compiler error: <stack>`, exit 3 | `panic: <message>`, exit 101 | Aster cannot catch a panic. Failures the driver detects itself still exit 3. |
 | `cc` warnings on success | Stage 0 discards cc's stderr when cc succeeds | Self-hosted streams cc's stderr (inherited stdio), so warnings appear on stderr even when the build succeeds | Emitted C is meant to be warning-free (tests build with -Werror); only reachable for unusual programs. |
+
+After `internal compiler error:` the message text is not compared between stages: stage 0 carries Node error and stack
+text, the self-hosted compiler the runtime's `<subject>: <strerror>`. Exit code 3 matches.
 
 Tests:
 
