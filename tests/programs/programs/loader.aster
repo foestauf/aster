@@ -161,9 +161,8 @@ fn visit(ld: Loaded, seen: [string], path: string, raw: string) {
         push(ld.items, item);
     }
     for item in items {
-        match item {
-            Item::Import(imp) => load_import(ld, seen, path, src, base, imp),
-            _ => {}
+        if let Item::Import(imp) = item {
+            load_import(ld, seen, path, src, base, imp);
         }
     }
 }
@@ -173,40 +172,37 @@ fn visit(ld: Loaded, seen: [string], path: string, raw: string) {
 fn load_import(ld: Loaded, seen: [string], from: string, src: string, base: int, imp: ImportDecl) {
     // The literal as written, escapes intact, for the message.
     let literal: string = substring(src, imp.path_start - base + 1, imp.path_end - base - 1);
-    var target: string = "";
-    var reason: string = "";
-    match decode_literal(literal) {
-        Option::Some(decoded) => {
-            target = decoded;
-            if len(decoded) == 0 || byte_at(decoded, 0) != '/' {
-                target = dirname(from) + "/" + decoded;
-            }
+    let Option::Some(decoded) = decode_literal(literal) else {
+        import_error(ld, imp, literal, "invalid path");
+        return;
+    };
+    var target: string = decoded;
+    if len(decoded) == 0 || byte_at(decoded, 0) != '/' {
+        target = dirname(from) + "/" + decoded;
+    }
+    let id: string = normalise(target);
+    if contains(seen, id) {
+        return;
+    }
+    match read_file(target) {
+        Result::Ok(text) => {
+            push(seen, id);
+            visit(ld, seen, target, text);
         }
-        Option::None => {
-            reason = "invalid path";
+        Result::Err(msg) => {
+            // read_file's error is `<path>: <reason>`; the compiler quotes only the reason.
+            let prefix: string = target + ": ";
+            var reason: string = msg;
+            if len(msg) >= len(prefix) && substring(msg, 0, len(prefix)) == prefix {
+                reason = substring(msg, len(prefix), len(msg));
+            }
+            import_error(ld, imp, literal, reason);
         }
     }
-    if reason == "" {
-        let id: string = normalise(target);
-        if contains(seen, id) {
-            return;
-        }
-        match read_file(target) {
-            Result::Ok(text) => {
-                push(seen, id);
-                visit(ld, seen, target, text);
-                return;
-            }
-            Result::Err(msg) => {
-                // read_file's error is `<path>: <reason>`; the compiler quotes only the reason.
-                let prefix: string = target + ": ";
-                reason = msg;
-                if len(msg) >= len(prefix) && substring(msg, 0, len(prefix)) == prefix {
-                    reason = substring(msg, len(prefix), len(msg));
-                }
-            }
-        }
-    }
+}
+
+// Reports an import that can't be loaded, at its path literal (`literal` as written).
+fn import_error(ld: Loaded, imp: ImportDecl, literal: string, reason: string) {
     push(ld.diags, Diag { start: imp.path_start, end: imp.path_end, message: "cannot import '" + literal + "': " + reason });
 }
 

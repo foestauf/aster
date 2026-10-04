@@ -590,42 +590,43 @@ fn parse_for(p: Parser): Option[Stmt] {
 
 fn parse_if_stmt(p: Parser): Option[Stmt] {
     let kw: Token = expect(p, "if")?;
-    var is_let: bool = false;
-    var pattern: Pattern = Pattern { start: 0, end: 0, node: PatternNode::Wildcard };
-    var cond: Expr = Expr { start: 0, end: 0, node: ExprNode::Bool(false) };
     if eat(p, "let") {
-        is_let = true;
-        pattern = parse_pattern(p)?;
+        let pattern: Pattern = parse_pattern(p)?;
         expect(p, "=")?;
-        cond = parse_header_expr(p)?;
-    } else {
-        cond = parse_header_expr(p)?;
+        let scrutinee: Expr = parse_header_expr(p)?;
+        let then: Block = parse_block(p)?;
+        let els: Else = parse_else(p)?;
+        return Option::Some(Stmt { start: kw.start, end: if_end(then, els), node: StmtNode::IfLet(pattern, scrutinee, then, els) });
     }
+    let cond: Expr = parse_header_expr(p)?;
     let then: Block = parse_block(p)?;
-    var els: Else = Else::None;
-    var end: int = then.end;
-    if eat(p, "else") {
-        if at(p, "if") {
-            let s: Stmt = parse_if_stmt(p)?;
-            match s.node {
-                StmtNode::IfLet(_, _, _, _) => {
-                    els = Else::IfLet(s);
-                }
-                _ => {
-                    els = Else::If(s);
-                }
-            }
-            end = s.end;
-        } else {
-            let b: Block = parse_block(p)?;
-            els = Else::Block(b);
-            end = b.end;
-        }
+    let els: Else = parse_else(p)?;
+    return Option::Some(Stmt { start: kw.start, end: if_end(then, els), node: StmtNode::If(cond, then, els) });
+}
+
+// An if statement's optional `else` branch: a block, or a chained `if` or `if let`.
+fn parse_else(p: Parser): Option[Else] {
+    if !eat(p, "else") {
+        return Option::Some(Else::None);
     }
-    if is_let {
-        return Option::Some(Stmt { start: kw.start, end: end, node: StmtNode::IfLet(pattern, cond, then, els) });
+    if !at(p, "if") {
+        return Option::Some(Else::Block(parse_block(p)?));
     }
-    return Option::Some(Stmt { start: kw.start, end: end, node: StmtNode::If(cond, then, els) });
+    let s: Stmt = parse_if_stmt(p)?;
+    if let StmtNode::IfLet(_, _, _, _) = s.node {
+        return Option::Some(Else::IfLet(s));
+    }
+    return Option::Some(Else::If(s));
+}
+
+// Where an if statement with the block `then` and the else branch `els` ends.
+fn if_end(then: Block, els: Else): int {
+    return match els {
+        Else::None => then.end,
+        Else::Block(b) => b.end,
+        Else::If(s) => s.end,
+        Else::IfLet(s) => s.end,
+    };
 }
 
 // Arms are `pattern => block [,]` or `pattern => expr ,`; the comma after the last expression arm is optional.

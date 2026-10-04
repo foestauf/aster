@@ -314,10 +314,15 @@ fn print_errors(errors: [LexError]) {
 
 // ---- driver
 
+// Prints `msg` to stderr and exits with status 2, for a usage or read error.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(2);
+}
+
 fn main(args: [string]): int {
     if len(args) != 1 {
-        eprint("usage: parse <file>");
-        exit(2);
+        die("usage: parse <file>");
     }
     match read_file(args[0]) {
         Result::Ok(src) => {
@@ -333,9 +338,6 @@ fn main(args: [string]): int {
             }
             return 0;
         }
-        Result::Err(msg) => {
-            eprint(msg);
-            exit(2);
-        }
+        Result::Err(msg) => die(msg),
     }
 }
