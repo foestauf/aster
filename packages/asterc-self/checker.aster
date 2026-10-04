@@ -1498,7 +1498,7 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             return check_struct_lit(ctx, name, fields);
         }
         ExprNode::Try(operand) => {
-            return TExpr { ty: check_try(ctx, e, operand), node: TExprNode::Error };
+            return check_try(ctx, e, operand);
         }
         ExprNode::Index(array_expr, index_expr) => {
             let array: TExpr = check_expr(ctx, array_expr, Option::None);
@@ -1542,41 +1542,57 @@ fn tryable(env: Env, t: Type): Option[int] {
 }
 
 // `e?` (§3.7): unwraps `Some`/`Ok`, or returns `None`/`Err(e)` from the enclosing function.
-fn check_try(ctx: Ctx, e: Expr, operand: Expr): Type {
-    let t: Type = check_expr(ctx, operand, Option::None).ty;
+fn check_try(ctx: Ctx, e: Expr, operand_expr: Expr): TExpr {
+    let operand: TExpr = check_expr(ctx, operand_expr, Option::None);
+    let t: Type = operand.ty;
     if is_error(t) {
-        return Type::Error;
+        return error_expr();
     }
     let Option::Some(oi) = tryable(ctx.env, t) else {
         report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     };
     let op: TEnum = ctx.env.enums[oi];
     let is_result: bool = op.base == "Result";
     let ty: Type = op.variants[0].payload[0];
-    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`).
+    let fail_payload_type: Option[Type] = if is_result { Option::Some(op.variants[1].payload[0]) } else { Option::None };
+    let return_enum: string = match ctx.ret {
+        Type::Enum(name) => name,
+        _ => "",
+    };
+    // Reachable when the return type failed to resolve (`fn f(): Option[Nope]`); only lowering is unreachable then.
     if is_error(ctx.ret) {
-        return ty;
+        let unresolved: TTry = TTry {
+            operand: operand, ok_variant: op.variants[0].name, ok_tag: 0, fail_variant: op.variants[1].name, fail_tag: 1,
+            return_type: ctx.ret, return_enum: return_enum, return_fail_variant: op.variants[1].name, return_fail_tag: 1,
+            fail_payload_type: fail_payload_type,
+        };
+        return TExpr { ty: ty, node: TExprNode::Try(unresolved) };
     }
     // A return type that isn't tryable at all and one of the other kind get the same message.
     let kind: string = if is_result { "a Result" } else { "an Option" };
     let wrong_return: string = "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'";
     let Option::Some(ri) = tryable(ctx.env, ctx.ret) else {
         report(ctx.env, wrong_return, e.start, e.end);
-        return Type::Error;
+        return error_expr();
     };
     let ret: TEnum = ctx.env.enums[ri];
     if ret.base != op.base {
         report(ctx.env, wrong_return, e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
     if is_result && !type_equals(op.args[1], ret.args[1]) {
         let mine: string = type_to_string(op.args[1]);
         let theirs: string = type_to_string(ret.args[1]);
         report(ctx.env, "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
-        return Type::Error;
+        return error_expr();
     }
-    return ty;
+    let node: TTry = TTry {
+        operand: operand, ok_variant: op.variants[0].name, ok_tag: 0, fail_variant: op.variants[1].name, fail_tag: 1,
+        return_type: ctx.ret, return_enum: return_enum, return_fail_variant: ret.variants[1].name, return_fail_tag: 1,
+        fail_payload_type: fail_payload_type,
+    };
+    return TExpr { ty: ty, node: TExprNode::Try(node) };
 }
 
 fn variant_arity_message(enum_name: string, variant: string, expected: int, found: int): string {

@@ -34,17 +34,9 @@ const corpus = accepted.map((c) => c.file);
 
 // Files whose typed bodies checker.aster does not build yet: they run as skipped until a later task removes them.
 const PENDING = new Set<string>([
-  'modules/generic.aster',
   'programs/check.aster',
   'programs/parse.aster',
   'programs/typed.aster',
-  'try/chain.aster',
-  'try/loops.aster',
-  'try/option.aster',
-  'try/order.aster',
-  'try/positions.aster',
-  'try/read_file.aster',
-  'try/result.aster',
   'unwrap/example.aster',
   'unwrap/if_let.aster',
   'unwrap/let_else.aster',
