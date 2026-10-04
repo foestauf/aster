@@ -1,0 +1,476 @@
+// expect-library
+// C emission, written in Aster: a port of packages/asterc/src/codegen/c/emit.ts, function by function. `emit_c`
+// returns emitC's `out` array, so the C text is those elements joined by newlines. A multi-statement instruction is one
+// element containing "\n    ", as in TS. tests/emit_aster.test.ts compares the C, through emit.aster, with emitC byte
+// for byte, and also with the C that the emitter compiled from its own output (E1) produces.
+//
+// Aster has no maps: emit.ts's enum table is a linear scan, `c_find_enum`.
+
+import "lower.aster";
+
+fn c_join(items: [string], sep: string): string {
+    var out: string = "";
+    for i in 0..len(items) {
+        if i > 0 {
+            out += sep;
+        }
+        out += items[i];
+    }
+    return out;
+}
+
+// ---- types and names
+
+fn c_type(t: Type): string {
+    return match t {
+        Type::Int => "int64_t",
+        Type::Bool => "bool",
+        Type::Str => "aster_string",
+        Type::Struct(name) => c_mangle_struct(name),
+        Type::Enum(name) => c_mangle_enum(name),
+        Type::Array(_) => "aster_array",
+        Type::Void => "void",
+        Type::Error => panic("internal: error type reached codegen"),
+        Type::Never => panic("internal: never type reached codegen"),
+    };
+}
+
+fn c_zero(t: Type): string {
+    return match t {
+        Type::Int => "0",
+        Type::Bool => "false",
+        Type::Str => "{0}",
+        // A null pointer constant for heap enums and tag 0 for payload-free ones.
+        Type::Enum(_) => "0",
+        Type::Struct(_) => "NULL",
+        Type::Array(_) => "NULL",
+        Type::Void => "",
+        _ => panic("internal: no zero value"),
+    };
+}
+
+// Every IR binary operator is a runtime call named after it, except str_ne, which negates str_eq. bool operands of eq
+// and ne widen losslessly to int64_t.
+fn c_binop(op: string, a: string, b: string): string {
+    if op == "str_ne" {
+        return "!aster_rt_str_eq(" + a + ", " + b + ")";
+    }
+    return "aster_rt_" + op + "(" + a + ", " + b + ")";
+}
+
+fn c_mangle_fn(name: string): string {
+    return "aster_fn_" + name;
+}
+
+fn c_mangle_struct(name: string): string {
+    return "aster_S_" + name;
+}
+
+// Non-generic enums are `aster_E_<name>`. An instantiation (its name contains `[`) is `aster_G_` followed by its type
+// string with `_` written as `__`, `[` as `_L`, `]` as `_R` and `, ` as `_C`, so no two names collide.
+fn c_mangle_enum(name: string): string {
+    var generic: bool = false;
+    for i in 0..len(name) {
+        if byte_at(name, i) == '[' {
+            generic = true;
+        }
+    }
+    if !generic {
+        return "aster_E_" + name;
+    }
+    var out: string = "aster_G_";
+    var i: int = 0;
+    while i < len(name) {
+        let c: int = byte_at(name, i);
+        if c == '_' {
+            out += "__";
+        } else if c == '[' {
+            out += "_L";
+        } else if c == ']' {
+            out += "_R";
+        } else if c == ',' {
+            out += "_C";
+            i += 1; // always followed by one space
+        } else {
+            out += substring(name, i, i + 1);
+        }
+        i += 1;
+    }
+    return out;
+}
+
+fn c_mangle_variant(name: string): string {
+    return "v_" + name;
+}
+
+fn c_mangle_field(name: string): string {
+    return "f_" + name;
+}
+
+fn c_mangle_local(l: IrLocal): string {
+    return match l.name {
+        Option::Some(n) => "l" + int_to_string(l.id) + "_" + n,
+        Option::None => "l" + int_to_string(l.id),
+    };
+}
+
+// ---- the program
+
+fn emit_c(p: IrProgram): [string] {
+    let out: [string] = ["#include \"aster_rt.h\"", ""];
+    if len(p.structs) > 0 || len(p.enums) > 0 {
+        // Every typedef comes first, so struct and enum bodies can refer to any type, including themselves.
+        for s in p.structs {
+            push(out, "typedef struct " + c_mangle_struct(s.name) + " *" + c_mangle_struct(s.name) + ";");
+        }
+        for e in p.enums {
+            push(out, emit_enum_typedef(e));
+        }
+        push(out, "");
+        for s in p.structs {
+            push(out, "struct " + c_mangle_struct(s.name) + " {");
+            if len(s.fields) == 0 {
+                push(out, "    char aster_empty;"); // C11 has no empty structs
+            }
+            for f in s.fields {
+                push(out, "    " + c_type(f.ty) + " " + c_mangle_field(f.name) + ";");
+            }
+            push(out, "};");
+            push(out, "");
+        }
+        for e in p.enums {
+            if !e.payload_free {
+                emit_enum_definition(out, e);
+                push(out, "");
+            }
+        }
+    }
+    if len(p.strings) > 0 {
+        // Not static: an unused static const would trip -Wunused-const-variable.
+        for i in 0..len(p.strings) {
+            push(out, "const aster_string aster_str_" + int_to_string(i) + " = " + c_string_literal(p.strings[i]) + ";");
+        }
+        push(out, "");
+    }
+    for f in p.functions {
+        push(out, emit_signature(f) + ";");
+    }
+    push(out, "");
+    for f in p.functions {
+        emit_function(out, f, p.enums);
+        push(out, "");
+    }
+    var main_takes_args: bool = false;
+    for f in p.functions {
+        if f.name == "main" && f.param_count == 1 {
+            main_takes_args = true;
+        }
+    }
+    if main_takes_args {
+        push(out, "int main(int argc, char **argv) {");
+        push(out, "    return (int)aster_fn_main(aster_rt_args(argc, argv));");
+    } else {
+        push(out, "int main(void) {");
+        push(out, "    return (int)aster_fn_main();");
+    }
+    push(out, "}");
+    push(out, "");
+    return out;
+}
+
+// Payload-free enums are plain int64 tags; every other enum is a pointer to a tagged union.
+fn emit_enum_typedef(e: IrEnum): string {
+    let m: string = c_mangle_enum(e.name);
+    if e.payload_free {
+        return "typedef int64_t " + m + ";";
+    }
+    return "typedef struct " + m + " *" + m + ";";
+}
+
+// The tagged union behind a heap enum. Only payload variants get a union member, and a heap enum has at least one
+// payload variant, so the union is never empty.
+fn emit_enum_definition(out: [string], e: IrEnum) {
+    push(out, "struct " + c_mangle_enum(e.name) + " {");
+    push(out, "    int64_t tag;");
+    push(out, "    union {");
+    for v in e.variants {
+        if len(v.payload) > 0 {
+            let slots: [string] = [];
+            for i in 0..len(v.payload) {
+                push(slots, c_type(v.payload[i]) + " p" + int_to_string(i) + ";");
+            }
+            push(out, "        struct { " + c_join(slots, " ") + " } " + c_mangle_variant(v.name) + ";");
+        }
+    }
+    push(out, "    } u;");
+    push(out, "};");
+}
+
+fn c_digit(digits: string, d: int): string {
+    return substring(digits, d, d + 1);
+}
+
+// A C initializer for an aster_string holding `s`'s bytes: `"`, `\` and `?` (against trigraphs) escaped, printable ASCII
+// copied, every other byte a 3-digit octal escape (so a following digit can't extend it), then the byte length.
+fn c_string_literal(s: string): string {
+    let oct: string = "01234567";
+    var body: string = "";
+    for i in 0..len(s) {
+        let b: int = byte_at(s, i);
+        if b == '"' {
+            body += "\\\"";
+        } else if b == '\\' {
+            body += "\\\\";
+        } else if b == '?' {
+            body += "\\?";
+        } else if b >= 32 && b < 127 {
+            body += substring(s, i, i + 1);
+        } else {
+            body += "\\" + c_digit(oct, b / 64) + c_digit(oct, b / 8 % 8) + c_digit(oct, b % 8);
+        }
+    }
+    return "{ \"" + body + "\", " + int_to_string(len(s)) + " }";
+}
+
+// ---- functions
+
+fn emit_signature(f: IrFunction): string {
+    let params: [string] = [];
+    for i in 0..f.param_count {
+        push(params, c_type(f.locals[i].ty) + " " + c_mangle_local(f.locals[i]));
+    }
+    var list: string = "void";
+    if len(params) > 0 {
+        list = c_join(params, ", ");
+    }
+    return c_type(f.ret) + " " + c_mangle_fn(f.name) + "(" + list + ")";
+}
+
+fn emit_function(out: [string], f: IrFunction, enums: [IrEnum]) {
+    push(out, emit_signature(f) + " {");
+    for i in f.param_count..len(f.locals) {
+        let l: IrLocal = f.locals[i];
+        push(out, "    " + c_type(l.ty) + " " + c_mangle_local(l) + " = " + c_zero(l.ty) + ";");
+    }
+    for i in f.param_count..len(f.locals) {
+        push(out, "    (void)" + c_mangle_local(f.locals[i]) + ";");
+    }
+    for bi in 0..len(f.blocks) {
+        let b: IrBlock = f.blocks[bi];
+        // The entry block is never a jump target, so it gets no label (avoids -Wunused-label).
+        if bi > 0 {
+            push(out, b.label + ":;");
+        }
+        for ins in b.instrs {
+            push(out, "    " + emit_instr(f, enums, ins));
+        }
+        push(out, "    " + emit_term(f, b.term));
+    }
+    push(out, "}");
+}
+
+// INT64_MIN has no single-literal spelling in C.
+fn c_int_literal(v: string): string {
+    if v == "-9223372036854775808" {
+        return "INT64_MIN";
+    }
+    return "INT64_C(" + v + ")";
+}
+
+fn c_operand(f: IrFunction, o: IrOperand): string {
+    return match o {
+        IrOperand::Local(id) => c_mangle_local(f.locals[id]),
+        IrOperand::Int(v) => c_int_literal(v),
+        IrOperand::Bool(b) => c_bool(b),
+        IrOperand::Str(index) => "aster_str_" + int_to_string(index),
+    };
+}
+
+fn c_bool(b: bool): string {
+    if b {
+        return "true";
+    }
+    return "false";
+}
+
+fn c_args(f: IrFunction, args: [IrOperand]): string {
+    let parts: [string] = [];
+    for a in args {
+        push(parts, c_operand(f, a));
+    }
+    return c_join(parts, ", ");
+}
+
+// An lvalue of C type `t` at the address a runtime array call returns.
+fn c_slot(t: string, call: string): string {
+    return "*(" + t + " *)" + call;
+}
+
+// The type of a local operand; array and enum values are never constants, so their operands are locals.
+fn c_local_type(f: IrFunction, o: IrOperand): Type {
+    return match o {
+        IrOperand::Local(id) => f.locals[id].ty,
+        _ => Type::Void,
+    };
+}
+
+fn c_elem_type(f: IrFunction, array: IrOperand): string {
+    return match c_local_type(f, array) {
+        Type::Array(elem) => c_type(elem),
+        _ => panic("internal: array operand is not an array local"),
+    };
+}
+
+fn c_find_enum(enums: [IrEnum], name: string): Option[IrEnum] {
+    for e in enums {
+        if e.name == name {
+            return Option::Some(e);
+        }
+    }
+    return Option::None;
+}
+
+fn c_enum_of(f: IrFunction, enums: [IrEnum], o: IrOperand): IrEnum {
+    let found: Option[IrEnum] = match c_local_type(f, o) {
+        Type::Enum(name) => c_find_enum(enums, name),
+        _ => Option::None,
+    };
+    return match found {
+        Option::Some(e) => e,
+        Option::None => panic("internal: enum operand is not an enum local"),
+    };
+}
+
+// ---- instructions
+
+fn c_assign(f: IrFunction, dst: Option[int], value: string): string {
+    return match dst {
+        Option::Some(d) => c_mangle_local(f.locals[d]) + " = " + value + ";",
+        Option::None => value + ";",
+    };
+}
+
+fn c_set(f: IrFunction, dst: int, value: string): string {
+    return c_assign(f, Option::Some(dst), value);
+}
+
+fn c_unop(op: string, a: string): string {
+    if op == "neg" {
+        return "aster_rt_neg(" + a + ")";
+    }
+    return "!" + a;
+}
+
+fn c_array_at(f: IrFunction, array: IrOperand, index: IrOperand): string {
+    return "aster_rt_array_at(" + c_operand(f, array) + ", " + c_operand(f, index) + ")";
+}
+
+fn emit_instr(f: IrFunction, enums: [IrEnum], i: IrInstr): string {
+    return match i {
+        IrInstr::Copy(dst, src) => c_set(f, dst, c_operand(f, src)),
+        IrInstr::Unop(dst, op, operand) => c_set(f, dst, c_unop(op, c_operand(f, operand))),
+        IrInstr::Binop(dst, op, left, right) => c_set(f, dst, c_binop(op, c_operand(f, left), c_operand(f, right))),
+        IrInstr::Call(dst, name, args) => c_assign(f, dst, c_mangle_fn(name) + "(" + c_args(f, args) + ")"),
+        IrInstr::CallBuiltin(dst, name, args) => c_assign(f, dst, "aster_rt_" + name + "(" + c_args(f, args) + ")"),
+        IrInstr::StructNew(dst, name, fields) => emit_struct_new(f, dst, name, fields),
+        IrInstr::FieldGet(dst, object, field) => c_set(f, dst, c_operand(f, object) + "->" + c_mangle_field(field)),
+        IrInstr::FieldSet(object, field, value) => c_operand(f, object) + "->" + c_mangle_field(field) + " = " + c_operand(f, value) + ";",
+        IrInstr::ArrayNew(dst, elem, elements) => emit_array_new(f, dst, elem, elements),
+        IrInstr::IndexGet(dst, array, index) => c_set(f, dst, c_slot(c_elem_type(f, array), c_array_at(f, array, index))),
+        IrInstr::IndexSet(array, index, value) => c_slot(c_elem_type(f, array), c_array_at(f, array, index)) + " = " + c_operand(f, value) + ";",
+        IrInstr::ArrayLen(dst, array) => c_set(f, dst, c_operand(f, array) + "->len"),
+        IrInstr::ArrayPush(array, value) => c_slot(c_elem_type(f, array), "aster_rt_array_push_slot(" + c_operand(f, array) + ")") + " = " + c_operand(f, value) + ";",
+        IrInstr::ArrayPop(dst, array) => c_set(f, dst, c_slot(c_elem_type(f, array), "aster_rt_array_pop_slot(" + c_operand(f, array) + ")")),
+        IrInstr::EnumNew(dst, name, variant, tag, args) => emit_enum_new(f, enums, dst, name, variant, tag, args),
+        IrInstr::EnumTag(dst, value) => c_set(f, dst, c_enum_tag(f, enums, value)),
+        IrInstr::EnumField(dst, value, _, variant, _, index) => c_set(f, dst, c_operand(f, value) + "->u." + c_mangle_variant(variant) + ".p" + int_to_string(index)),
+        IrInstr::ReadFile(ok, text, path) => c_mangle_local(f.locals[text]) + " = aster_rt_read_file(" + c_operand(f, path) + ", &" + c_mangle_local(f.locals[ok]) + ");",
+    };
+}
+
+fn emit_struct_new(f: IrFunction, dst: int, name: string, fields: [IrFieldValue]): string {
+    let target: string = c_mangle_local(f.locals[dst]);
+    let parts: [string] = [target + " = aster_rt_alloc(sizeof(struct " + c_mangle_struct(name) + "));"];
+    for fv in fields {
+        push(parts, target + "->" + c_mangle_field(fv.name) + " = " + c_operand(f, fv.value) + ";");
+    }
+    return c_join(parts, "\n    ");
+}
+
+fn emit_array_new(f: IrFunction, dst: int, elem: Type, elements: [IrOperand]): string {
+    let target: string = c_mangle_local(f.locals[dst]);
+    let t: string = c_type(elem);
+    let parts: [string] = [target + " = aster_rt_array_new(sizeof(" + t + "), " + int_to_string(len(elements)) + ");"];
+    for i in 0..len(elements) {
+        push(parts, c_slot(t, "aster_rt_array_at(" + target + ", " + int_to_string(i) + ")") + " = " + c_operand(f, elements[i]) + ";");
+    }
+    return c_join(parts, "\n    ");
+}
+
+fn emit_enum_new(f: IrFunction, enums: [IrEnum], dst: int, name: string, variant: string, tag: int, args: [IrOperand]): string {
+    let decl: IrEnum = match c_find_enum(enums, name) {
+        Option::Some(e) => e,
+        Option::None => panic("internal: unknown enum " + name),
+    };
+    let target: string = c_mangle_local(f.locals[dst]);
+    if decl.payload_free {
+        return target + " = INT64_C(" + int_to_string(tag) + ");";
+    }
+    let member: string = target + "->u." + c_mangle_variant(variant);
+    let parts: [string] = [
+        target + " = aster_rt_alloc(sizeof(struct " + c_mangle_enum(name) + "));",
+        target + "->tag = INT64_C(" + int_to_string(tag) + ");",
+    ];
+    for i in 0..len(args) {
+        push(parts, member + ".p" + int_to_string(i) + " = " + c_operand(f, args[i]) + ";");
+    }
+    return c_join(parts, "\n    ");
+}
+
+fn c_enum_tag(f: IrFunction, enums: [IrEnum], value: IrOperand): string {
+    if c_enum_of(f, enums, value).payload_free {
+        return c_operand(f, value);
+    }
+    return c_operand(f, value) + "->tag";
+}
+
+// ---- terminators
+
+fn emit_term(f: IrFunction, t: IrTerm): string {
+    return match t {
+        IrTerm::Jmp(target) => "goto " + target + ";",
+        IrTerm::Br(cond, then, otherwise) => "if (" + c_operand(f, cond) + ") goto " + then + "; else goto " + otherwise + ";",
+        IrTerm::Switch(value, cases, fallback) => emit_switch(f, value, cases, fallback),
+        IrTerm::Ret(value) => c_ret(f, value),
+        IrTerm::Unreachable => "aster_rt_unreachable();",
+    };
+}
+
+fn emit_switch(f: IrFunction, value: IrOperand, cases: [IrCase], fallback: Option[string]): string {
+    let parts: [string] = [];
+    for c in cases {
+        push(parts, "case " + c_int_literal(c.value) + ": goto " + c.target + ";");
+    }
+    match fallback {
+        Option::Some(d) => push(parts, "default: goto " + d + ";"),
+        Option::None => push(parts, "default: aster_rt_unreachable();"),
+    }
+    // gcc rejects a bool switch condition under -Wswitch-bool.
+    let is_bool: bool = match value {
+        IrOperand::Bool(_) => true,
+        IrOperand::Local(id) => kind_of_type(f.locals[id].ty) == "bool",
+        _ => false,
+    };
+    var on: string = c_operand(f, value);
+    if is_bool {
+        on = "(int64_t)" + on;
+    }
+    return "switch (" + on + ") { " + c_join(parts, " ") + " }";
+}
+
+fn c_ret(f: IrFunction, value: Option[IrOperand]): string {
+    return match value {
+        Option::Some(v) => "return " + c_operand(f, v) + ";",
+        Option::None => "return;",
+    };
+}

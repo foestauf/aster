@@ -1,0 +1,60 @@
+// Prints the C that the compiler emits for a program, in packages/asterc/src/codegen/c/emit.ts's exact text. It loads,
+// checks and lowers the program rooted at its only argument, then emits C (emit_c in packages/asterc-self/emit.aster).
+// Diagnostics go to stderr as check.aster prints them, exiting with status 1. tests/emit_aster.test.ts checks it against
+// emitC(lower(typed)), and builds it from its own output.
+// expect-args: fixtures/emit_main_args.txt
+// expect-stdout:
+// #include "aster_rt.h"
+//
+// int64_t aster_fn_main(aster_array l0_args);
+//
+// int64_t aster_fn_main(aster_array l0_args) {
+//     int64_t l1 = 0;
+//     (void)l1;
+//     l1 = l0_args->len;
+//     aster_rt_print_int(l1);
+//     return INT64_C(0);
+// }
+//
+// int main(int argc, char **argv) {
+//     return (int)aster_fn_main(aster_rt_args(argc, argv));
+// }
+
+import "../../../packages/asterc-self/loader.aster";
+import "../../../packages/asterc-self/checker.aster";
+import "../../../packages/asterc-self/report.aster";
+import "../../../packages/asterc-self/lower.aster";
+import "../../../packages/asterc-self/emit.aster";
+
+// Prints `msg` to stderr and exits with status 2, for a usage or read error.
+fn die(msg: string): never {
+    eprint(msg);
+    exit(2);
+}
+
+fn main(args: [string]): int {
+    if len(args) != 1 {
+        die("usage: emit <file>");
+    }
+    match read_file(args[0]) {
+        Result::Ok(src) => {
+            let loaded: Loaded = load_program(args[0], src);
+            if len(loaded.diags) > 0 {
+                print_diags(loaded.files, sort_diags(loaded.diags));
+                exit(1);
+            }
+            let checked: Checked = check_program(loaded.items, loaded.root_end);
+            if len(checked.diags) > 0 {
+                print_diags(loaded.files, sort_diags(checked.diags));
+                exit(1);
+            }
+            let lines: [string] = emit_c(lower_program(checked));
+            // emitC joins `lines` with newlines, and the last element is always "".
+            for i in 0..len(lines) - 1 {
+                print(lines[i]);
+            }
+            return 0;
+        }
+        Result::Err(msg) => die(msg),
+    }
+}

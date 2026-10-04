@@ -14,12 +14,12 @@ function typedOf(path: string): TypedProgram | null {
 
 /**
  * Every program the TypeScript front end accepts, with its typed program: each `.aster` under tests/programs/, each
- * `fixtures/{check,typed,ir}_*.txt`, and the libraries in packages/asterc-self/ (which have no main, so none is
+ * `fixtures/{check,typed,ir,emit}_*.txt`, and the libraries in packages/asterc-self/ (which have no main, so none is
  * accepted: the drivers cover them through their closures). Paths are relative to PROGRAMS_DIR, sorted.
  */
 export function acceptedCorpus(): { file: string; typed: TypedProgram }[] {
   return readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
-    .filter((f) => f.endsWith('.aster') || /fixtures[\\/](check|typed|ir)_\w+\.txt$/.test(f))
+    .filter((f) => f.endsWith('.aster') || /fixtures[\\/](check|typed|ir|emit)_\w+\.txt$/.test(f))
     .concat(readdirSync(SELF_DIR).filter((f) => f.endsWith('.aster')).map((f) => join('..', '..', 'packages', 'asterc-self', f)))
     .toSorted()
     .flatMap((file) => {

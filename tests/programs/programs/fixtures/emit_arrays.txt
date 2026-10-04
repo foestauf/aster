@@ -1,0 +1,31 @@
+// Emit fixture: arrays of ints, strings, structs, enums and arrays: literals, push, pop, len, indexing, index
+// assignment and for-each.
+struct P { x: int }
+enum E { A, B(int) }
+
+fn main(): int {
+    let ints: [int] = [1, 2, 3];
+    let strs: [string] = ["a", "b"];
+    let ps: [P] = [P { x: 1 }];
+    let es: [E] = [E::A, E::B(2)];
+    let grid: [[int]] = [[1], [2, 3]];
+    push(ints, 4);
+    push(strs, "c");
+    push(ps, P { x: 2 });
+    push(es, E::A);
+    push(grid, [5]);
+    let last: int = pop(ints);
+    ints[0] = last + len(ints);
+    grid[1] = ints;
+    var total: int = 0;
+    for row in grid {
+        for v in row {
+            total += v;
+        }
+    }
+    for p in ps {
+        total += p.x;
+    }
+    print(total + len(strs) + len(es) + byte_at(strs[0], 0));
+    return 0;
+}

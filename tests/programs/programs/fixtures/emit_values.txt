@@ -1,0 +1,33 @@
+// Emit fixture: int limits as operands and switch cases, bool switches on a local and on a literal, and string bytes:
+// quote, backslash, ? beside trigraph characters, control bytes, a digit right after an escaped byte, UTF-8 and the
+// empty string (lengths are byte counts).
+fn sign(b: bool): int {
+    return match b {
+        true => 1,
+        false => 0,
+    };
+}
+
+fn limit(n: int): string {
+    return match n {
+        9223372036854775807 => "max",
+        -9223372036854775808 => "min",
+        _ => "other",
+    };
+}
+
+fn main(): int {
+    let max: int = 9223372036854775807;
+    let min: int = -9223372036854775808;
+    print(limit(max));
+    print(limit(min));
+    print(sign(max > 0));
+    let lit: string = match true {
+        true => "t",
+        false => "f",
+    };
+    print(lit);
+    print("q\"b\\s ??= ??( ??/ ?? a\01 \n\t\r é 😀");
+    print("");
+    return 0;
+}
