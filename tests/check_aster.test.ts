@@ -37,7 +37,7 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //    235  field cannot have type void                                      errors/struct_decls.aster
 //    244  duplicate variant '<V>' in '<E>' (non-generic enum)              errors/enum_decls.aster
 //    250  payload cannot have type void (non-generic enum)                 errors/enum_decls.aster
-//    263  duplicate variant '<V>' in '<E>' (generic enum)                  NONE -> fixtures/check_generics.txt [Task 5]
+//    263  duplicate variant '<V>' in '<E>' (generic enum)                  fixtures/check_generics.txt
 //    269  payload cannot have type void (generic enum)                     errors/generic_decls.aster
 //    313  'main' must be declared in the root file                         errors/import_main.aster
 //    317  '<name>' is a builtin type and cannot be redefined (functions)   errors/option_redefined.aster
@@ -68,11 +68,11 @@ import { buildExecutable, compileToC, formatDiagnostic, makeSource, runFrontend,
 //    656  '?' applies to Option or Result, not '<T>'                       errors/try_errors.aster
 //    684  '?' needs the function to return <kind>, but it returns '<T>'    errors/try_errors.aster
 //    689  '?' error type '<E>' does not match the function's error type    errors/try_errors.aster
-//    710  unknown variant '<V>' on '<E>' (generic enum)                    NONE -> fixtures/check_generics.txt [Task 5]
+//    710  unknown variant '<V>' on '<E>' (generic enum)                    fixtures/check_generics.txt
 //    718  '<name>' is not an enum / unknown enum '<name>'                  errors/variant_exprs.aster
 //    723  unknown variant '<V>' on '<E>' (non-generic enum)                errors/variant_exprs.aster
 //    740  variant '<E>::<V>' expects <n> value(s), got <m> (non-generic)   errors/variant_exprs.aster
-//    773  variant '<E>::<V>' expects <n> value(s), got <m> (generic)       NONE -> fixtures/check_generics.txt [Task 5]
+//    773  variant '<E>::<V>' expects <n> value(s), got <m> (generic)       fixtures/check_generics.txt
 //    780  cannot infer type arguments for '<E>'                            errors/generic_inference.aster
 //    846  cannot match on '<T>' values                                     errors/match_literals.aster
 //    862  unreachable match arm (variant arms)                             errors/match_coverage.aster
@@ -119,16 +119,16 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
 
 /**
  * Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes. Until
- * Task 6 ports `match`, a match statement never diverges, so a function that ends in one (programs/checker.aster,
- * io/exit_nested_arms.aster) is wrongly missing a return.
+ * Task 6 ports `match`, a match statement never diverges, so a function that ends in one is wrongly missing a return
+ * (programs/checker.aster, io/exit_nested_arms.aster, and, since Task 5 resolves their `Option` return types,
+ * programs/parser.aster and programs/loader.aster), and match binders are missing from the locals.
  */
 const PENDING = new Set<string>([
   'enums/aliasing.aster', 'enums/linked_list.aster',
-  'errors/eprint_exit_calls.aster', 'errors/generic_decls.aster', 'errors/generic_expansion.aster',
-  'errors/generic_inference.aster', 'errors/generic_ops.aster', 'errors/generic_types.aster',
+  'errors/generic_inference.aster', 'errors/generic_ops.aster',
   'errors/match_coverage.aster', 'errors/match_literals.aster', 'errors/match_or_patterns.aster',
   'errors/match_patterns.aster', 'errors/read_file_match.aster', 'errors/read_result_ops.aster',
-  'errors/try_errors.aster', 'errors/variant_exprs.aster',
+  'errors/try_errors.aster',
   'generics/basic.aster', 'generics/c_names.aster', 'generics/inference.aster', 'generics/list.aster',
   'generics/match.aster', 'generics/nested.aster', 'generics/shared_instance.aster', 'generics/struct_field.aster',
   'generics/tree.aster', 'generics/two_params.aster',
@@ -137,7 +137,7 @@ const PENDING = new Set<string>([
   'match/scrutinee_once.aster', 'match/statements.aster',
   'modules/generic.aster',
   'programs/bst.aster', 'programs/calc.aster', 'programs/check.aster', 'programs/checker.aster',
-  'programs/fixtures/check_small.txt', 'programs/lex.aster', 'programs/parse.aster',
+  'programs/lex.aster', 'programs/loader.aster', 'programs/parse.aster', 'programs/parser.aster',
   'try/chain.aster', 'try/loops.aster', 'try/option.aster', 'try/order.aster', 'try/positions.aster',
   'try/read_file.aster', 'try/result.aster',
 ]);
@@ -212,7 +212,7 @@ describe('check.aster matches the TypeScript front end', () => {
     for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
       expect(corpus).toContain(join('programs', f));
     }
-    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts']) {
+    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts', 'check_generics']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
     for (const f of PENDING) expect(corpus).toContain(f);
