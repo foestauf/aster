@@ -214,6 +214,75 @@ fn ir_placeholder(): IrOperand {
     return IrOperand::Int("0");
 }
 
+// ---- operators and places
+
+// The IR operator for source operator `op` (never `&&` or `||`) on operands of type `t`.
+fn ir_bin_op(op: string, t: Type): string {
+    if kind_of_type(t) == "string" {
+        if op == "+" {
+            return "concat";
+        }
+        if op == "==" {
+            return "str_eq";
+        }
+        if op == "!=" {
+            return "str_ne";
+        }
+    }
+    return match op {
+        "+" => "add",
+        "-" => "sub",
+        "*" => "mul",
+        "/" => "div",
+        "%" => "mod",
+        "<" => "lt",
+        "<=" => "le",
+        ">" => "gt",
+        ">=" => "ge",
+        "==" => "eq",
+        "!=" => "ne",
+        _ => panic("internal: short-circuit operator in binOp"),
+    };
+}
+
+// `+=` to `+` (ast.ts's binaryOpOf).
+fn ir_compound_base(op: string): string {
+    return substring(op, 0, len(op) - 1);
+}
+
+// Reads the tag of an enum value into a new int temporary.
+fn ir_enum_tag(st: IrState, value: IrOperand): IrOperand {
+    let dst: int = ir_new_temp(st, Type::Int);
+    ir_emit(st, IrInstr::EnumTag(dst, value));
+    return ir_ref(dst);
+}
+
+fn ir_find_struct(structs: [TStruct], name: string): TStruct {
+    for s in structs {
+        if s.name == name {
+            return s;
+        }
+    }
+    panic("internal: unknown struct " + name);
+}
+
+// An assignment target whose sub-expressions are already lowered (so they run exactly once).
+enum IrPlaceRef { Field(IrOperand, string), Index(IrOperand, IrOperand) }
+
+fn ir_place_read(r: IrPlaceRef, dst: int): IrInstr {
+    return match r {
+        IrPlaceRef::Field(object, field) => IrInstr::FieldGet(dst, object, field),
+        IrPlaceRef::Index(array, index) => IrInstr::IndexGet(dst, array, index),
+    };
+}
+
+fn ir_place_write(r: IrPlaceRef, value: IrOperand): IrInstr {
+    return match r {
+        IrPlaceRef::Field(object, field) => IrInstr::FieldSet(object, field, value),
+        IrPlaceRef::Index(array, index) => IrInstr::IndexSet(array, index, value),
+    };
+}
+
 // ---- statements
 
 fn lower_block(st: IrState, b: TBlock) {
@@ -243,8 +312,55 @@ fn lower_stmt(st: IrState, s: TStmt) {
                 ir_terminate(st, IrTerm::Ret(Option::None));
             }
         }
+        TStmt::Assign(place, op, value) => lower_assign(st, place, op, value),
         _ => panic("internal: statement not lowered yet"),
     }
+}
+
+
+fn lower_assign(st: IrState, place: TPlace, op: string, value: TExpr) {
+    match place.node {
+        TPlaceNode::Local(l) => {
+            // A local can't change while the right-hand side runs, so it can be read after it.
+            let v: IrOperand = lower_value(st, value);
+            if op == "=" {
+                ir_emit(st, IrInstr::Copy(l.id, v));
+            } else {
+                ir_emit(st, IrInstr::Binop(l.id, ir_bin_op(ir_compound_base(op), place.ty), ir_ref(l.id), v));
+            }
+        }
+        TPlaceNode::Field(object, field) => {
+            let o: IrOperand = lower_value(st, object);
+            ir_store_through_place(st, IrPlaceRef::Field(o, field), place.ty, op, value);
+        }
+        TPlaceNode::Index(array, index) => {
+            let a: IrOperand = lower_value(st, array);
+            let i: IrOperand = lower_value(st, index);
+            ir_store_through_place(st, IrPlaceRef::Index(a, i), place.ty, op, value);
+        }
+    }
+}
+
+// Finishes an assignment to a place whose sub-expressions are lowered: computes the new value (reading the place first
+// for a compound operator) and writes it.
+fn ir_store_through_place(st: IrState, r: IrPlaceRef, ty: Type, op: string, rhs: TExpr) {
+    var value: IrOperand = ir_placeholder();
+    if op == "=" {
+        value = lower_value(st, rhs);
+    } else {
+        value = ir_combine(st, op, ty, r, rhs);
+    }
+    ir_emit(st, ir_place_write(r, value));
+}
+
+// For `place op= rhs`: loads the place's current value, evaluates `rhs`, applies `op` and returns the result.
+fn ir_combine(st: IrState, op: string, ty: Type, r: IrPlaceRef, rhs: TExpr): IrOperand {
+    let old: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, ir_place_read(r, old));
+    let value: IrOperand = lower_value(st, rhs);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Binop(dst, ir_bin_op(ir_compound_base(op), ty), ir_ref(old), value));
+    return ir_ref(dst);
 }
 
 // ---- expressions
@@ -275,6 +391,173 @@ fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
         TExprNode::Bool(value) => Option::Some(IrOperand::Bool(value)),
         TExprNode::Str(value) => Option::Some(IrOperand::Str(intern_ir_string(st.strings, value))),
         TExprNode::Local(l) => Option::Some(ir_ref(l.id)),
+        TExprNode::Unary(op, operand) => Option::Some(lower_unary(st, e.ty, op, operand)),
+        TExprNode::Binary(op, left, right) => Option::Some(lower_binary(st, e.ty, op, left, right)),
+        TExprNode::Call(name, args) => lower_call(st, e.ty, name, args),
+        TExprNode::Builtin(name, args) => lower_builtin(st, e.ty, name, args),
+        TExprNode::Field(object, field) => Option::Some(lower_field(st, e.ty, object, field)),
+        TExprNode::Index(array, index) => Option::Some(lower_index(st, e.ty, array, index)),
+        TExprNode::ArrayLit(elements) => Option::Some(lower_array_lit(st, e.ty, elements)),
+        TExprNode::StructLit(name, fields) => Option::Some(lower_struct_lit(st, e.ty, name, fields)),
+        TExprNode::Variant(enum_name, variant, tag, args) => Option::Some(lower_variant(st, e.ty, enum_name, variant, tag, args)),
+        TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
+        TExprNode::Error => panic("internal: error expression reached lowering"),
         _ => panic("internal: expression not lowered yet"),
     };
+}
+
+fn lower_unary(st: IrState, ty: Type, op: string, operand: TExpr): IrOperand {
+    let v: IrOperand = lower_value(st, operand);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    if op == "-" {
+        ir_emit(st, IrInstr::Unop(dst, "neg", v));
+    } else {
+        ir_emit(st, IrInstr::Unop(dst, "not", v));
+    }
+    return ir_ref(dst);
+}
+
+fn lower_binary(st: IrState, ty: Type, op: string, left: TExpr, right: TExpr): IrOperand {
+    let l: IrOperand = lower_value(st, left);
+    let r: IrOperand = lower_value(st, right);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Binop(dst, ir_bin_op(op, left.ty), l, r));
+    return ir_ref(dst);
+}
+
+fn lower_call(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
+    let a: [IrOperand] = lower_args(st, args);
+    let k: string = kind_of_type(ty);
+    if k == "void" || k == "never" {
+        ir_emit(st, IrInstr::Call(Option::None, name, a));
+        if k == "never" {
+            ir_terminate(st, IrTerm::Unreachable);
+            return Option::Some(ir_placeholder());
+        }
+        return Option::None;
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::Call(Option::Some(dst), name, a));
+    return Option::Some(ir_ref(dst));
+}
+
+// The IR builtin for a call of `name`: print and eprint split by argument type.
+fn ir_builtin_name(name: string, args: [TExpr]): string {
+    if name == "print" || name == "eprint" {
+        let k: string = kind_of_type(args[0].ty);
+        if k == "int" {
+            return name + "_int";
+        }
+        if k == "bool" {
+            return name + "_bool";
+        }
+        return name + "_string";
+    }
+    return name;
+}
+
+fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
+    let a: [IrOperand] = lower_args(st, args);
+    if name == "read_file" {
+        panic("internal: read_file is lowered in Task 4");
+    }
+    if name == "push" {
+        ir_emit(st, IrInstr::ArrayPush(a[0], a[1]));
+        return Option::None;
+    }
+    if name == "pop" {
+        let dst: int = ir_new_temp(st, ir_type(ty));
+        ir_emit(st, IrInstr::ArrayPop(dst, a[0]));
+        return Option::Some(ir_ref(dst));
+    }
+    if name == "len" && kind_of_type(args[0].ty) == "array" {
+        let dst: int = ir_new_temp(st, ir_type(ty));
+        ir_emit(st, IrInstr::ArrayLen(dst, a[0]));
+        return Option::Some(ir_ref(dst));
+    }
+    let k: string = kind_of_type(ty);
+    if k == "void" || k == "never" {
+        ir_emit(st, IrInstr::CallBuiltin(Option::None, ir_builtin_name(name, args), a));
+        if k == "never" {
+            ir_terminate(st, IrTerm::Unreachable);
+            return Option::Some(ir_placeholder());
+        }
+        return Option::None;
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::CallBuiltin(Option::Some(dst), ir_builtin_name(name, args), a));
+    return Option::Some(ir_ref(dst));
+}
+
+fn lower_field(st: IrState, ty: Type, object: TExpr, field: string): IrOperand {
+    let o: IrOperand = lower_value(st, object);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::FieldGet(dst, o, field));
+    return ir_ref(dst);
+}
+
+fn lower_index(st: IrState, ty: Type, array: TExpr, index: TExpr): IrOperand {
+    let a: IrOperand = lower_value(st, array);
+    let i: IrOperand = lower_value(st, index);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::IndexGet(dst, a, i));
+    return ir_ref(dst);
+}
+
+fn lower_array_lit(st: IrState, ty: Type, elements: [TExpr]): IrOperand {
+    let els: [IrOperand] = lower_args(st, elements);
+    let t: Type = ir_type(ty);
+    let elem: Type = match t {
+        Type::Array(e) => e,
+        _ => panic("internal: array literal without an array type"),
+    };
+    let dst: int = ir_new_temp(st, t);
+    ir_emit(st, IrInstr::ArrayNew(dst, ir_type(elem), els));
+    return ir_ref(dst);
+}
+
+fn lower_variant(st: IrState, ty: Type, enum_name: string, variant: string, tag: int, args: [TExpr]): IrOperand {
+    let a: [IrOperand] = lower_args(st, args);
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::EnumNew(dst, enum_name, variant, tag, a));
+    return ir_ref(dst);
+}
+
+fn lower_enum_compare(st: IrState, op: string, left: TExpr, right: TExpr): IrOperand {
+    let l: IrOperand = ir_enum_tag(st, lower_value(st, left));
+    let r: IrOperand = ir_enum_tag(st, lower_value(st, right));
+    let dst: int = ir_new_temp(st, Type::Bool);
+    if op == "==" {
+        ir_emit(st, IrInstr::Binop(dst, "eq", l, r));
+    } else {
+        ir_emit(st, IrInstr::Binop(dst, "ne", l, r));
+    }
+    return ir_ref(dst);
+}
+
+// The value of field `name` among the written-order `values`.
+fn ir_field_value(values: [IrFieldValue], name: string): IrOperand {
+    for v in values {
+        if v.name == name {
+            return v.value;
+        }
+    }
+    panic("internal: missing field " + name);
+}
+
+// Evaluates the fields in written order, then hands the values over in declaration order. Reordering operands is safe
+// because no Aster expression can assign to a local.
+fn lower_struct_lit(st: IrState, ty: Type, name: string, fields: [TFieldInit]): IrOperand {
+    let values: [IrFieldValue] = [];
+    for f in fields {
+        push(values, IrFieldValue { name: f.field, value: lower_value(st, f.value) });
+    }
+    let decl: TStruct = ir_find_struct(st.structs, name);
+    let ordered: [IrFieldValue] = [];
+    for d in decl.fields {
+        push(ordered, IrFieldValue { name: d.name, value: ir_field_value(values, d.name) });
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::StructNew(dst, name, ordered));
+    return ir_ref(dst);
 }

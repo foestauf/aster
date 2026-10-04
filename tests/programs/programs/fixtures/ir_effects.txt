@@ -1,0 +1,50 @@
+// IR fixture: operators, calls, builtins, field and index places, compound assignment and evaluation order.
+struct Pair { a: int, b: string }
+struct Box { items: [int], pair: Pair }
+enum Op { Add, Sub }
+enum Val { Num(int), Text(string) }
+
+fn tick(log: [string], s: string): int {
+    push(log, s);
+    return len(log);
+}
+
+fn say(s: string) {
+    print(s);
+}
+
+fn main(): int {
+    let log: [string] = [];
+    let x: int = -tick(log, "a") + 2 * 3 - 4 / 2 % 3;
+    let flag: bool = !(x < 1) == (x >= 2);
+    let s: string = "x" + int_to_string(x);
+    let same: bool = (s == "x1") != (s != "y");
+    // Written out of declaration order: b's call runs first.
+    let p: Pair = Pair { b: substring("hello", tick(log, "b"), 3), a: tick(log, "c") };
+    let box: Box = Box { pair: p, items: [1, 2, tick(log, "d")] };
+    box.items[tick(log, "e") - 5] += tick(log, "f");
+    box.pair.a -= 1;
+    box.pair.b = "z";
+    box.items[0] = box.pair.a;
+    var n: int = 10;
+    n *= x;
+    n = n + byte_at(s, 0);
+    push(box.items, n);
+    let last: int = pop(box.items);
+    let count: int = len(box.items) + len(s);
+    let op: Op = Op::Sub;
+    let same_op: bool = op == Op::Add;
+    let other_op: bool = op != Op::Sub;
+    let v: Val = Val::Text("t");
+    let w: Val = Val::Num(last + count);
+    print(flag);
+    print(same);
+    print(same_op);
+    print(other_op);
+    eprint(count);
+    eprint(true);
+    eprint("e");
+    say(s);
+    print(len(read_stdin()));
+    return 0;
+}
