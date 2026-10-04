@@ -1,0 +1,50 @@
+name: Release
+
+# Release pipeline R1: every push to main that passes CI publishes build-YYYYMMDD-<sha7> with a static compiler, its C
+# seed and SHA256SUMS. See docs/self-host/building.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Skip if already released
+        id: tag
+        run: |
+          tag=$(node scripts/release.ts tag)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" = false ]; then
+            echo "$tag is already published"
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.tag.outputs.done != 'true'
+        run: sh scripts/ci-bootstrap.sh
+      - if: steps.tag.outputs.done != 'true'
+        run: node scripts/release.ts --out dist-release
+      - if: steps.tag.outputs.done != 'true'
+        run: sh scripts/publish-release.sh "${{ steps.tag.outputs.tag }}" "$SHA" dist-release
