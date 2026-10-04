@@ -348,10 +348,11 @@ and each driver +2.
     different payload types (`StructDecl` and `EnumDecl`), so one `let … else` can't express it.
 - **What the new forms couldn't express well.**
   - A `let … else` with a guard, or `if let` chains (`if let A = x && let B = f(a)`). `check_try` fails two ways with
-    one message and has to hoist the message. Six pyramids (`ExprNode::Field`, `check_arms`, `enum_base_name`,
-    `check_binary`, `resolve_alternative`, `check_generic_variant_expr`, which is three deep) are variant test then
-    lookup.
-  - A `let … else` whose `else` block can see the `Err` payload. `read_file` in each driver's `main` and in
+    one message and has to hoist the message. Several two-level pyramids, a variant test that feeds a lookup, would flatten: `ExprNode::Field`
+    (`Type::Struct`, then `find_field`), `check_arms` and `check_binary` (`Type::Enum`, then `find_enum`),
+    `enum_base_name`, and `resolve_alternative`/`check_arms` (`PatternNode::Variant`, then `resolved[0]`).
+    `check_generic_variant_expr` is three levels deep (`Some(t)`, then `Type::Enum`, then `find_enum`).
+  - A `let … else` whose `else` block can see the `Err` payload. `read_file` in the three drivers' `main`s and in
     `load_import` (four sites) stays a `match`, because the failure arm needs `msg`.
   - `if let` as an expression, or as a boolean test (`is_some`). `check_call`'s builtin-versus-user signature table is
     a `var` plus an `if let`, and `is_primitive` is the same shape.

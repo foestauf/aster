@@ -342,7 +342,7 @@ if let Option::Some(local) = find_local(ctx, name.name) {
 <a id="the-never-type"></a>
 **The `never` type**
 
-- `never` is a built-in type name, as `void` is: declaring a struct, enum or type parameter with that name is `'never' is a built-in type and cannot be redefined`.
+- `never` is a built-in type name, as `void` is: declaring a struct or enum with that name is `'never' is a built-in type and cannot be redefined`. A type parameter named `never` is `type parameter 'never' conflicts with a type of the same name`.
 - It is valid only as a function's declared return type. In any other position (a variable, parameter, field, payload, array element or type argument) the error is `'never' is only allowed as a return type`, at the type's span.
 - `panic(msg)` and `exit(code)` return `never`.
 - **Compatibility.** An expression of type `never` fits any expected type: a `let` initialiser, an assignment, an argument, a `return` value, a struct field, a payload, an array element, `push`'s value. `let x: int = panic("unreachable");` type-checks. Where the rules ask for a specific type without an expected type, `never` is rejected like any other wrong type: an operator operand (`==` and `!=` included, with the usual `operator '<op>' cannot be applied to …` message), a condition, `print`'s argument, `len`'s argument, a `match` scrutinee. `never` is equal only to `never`.
