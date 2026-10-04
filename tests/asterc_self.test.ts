@@ -337,6 +337,17 @@ describe('divergences from stage 0', () => {
     expect(r.stderr).toMatch(/\ninternal compiler error: C compiler 'cc' failed\n$/);
   });
 
+  it('an unusable TMPDIR is an internal error', () => {
+    // Not compared with S0: stage 0 fails differently (an uncaught exception, not exit 3). The test's own TMPDIR keeps
+    // the harness's empty-TMPDIR check on the shared one meaningful.
+    const missing = join(dir, 'no-such-tmp');
+    expect(runS1(['build', 'hello.aster', '-o', join(dir, 'w')], { cwd: dir, env: { TMPDIR: missing } })).toEqual({
+      stdout: '',
+      stderr: `internal compiler error: ${missing}/aster-cc-XXXXXX: No such file or directory\n`,
+      status: 3,
+    });
+  });
+
   it('a compiler panic is panic: …, exit 101', () => {
     // 64 MiB of address space must stay below the compiler's peak for its own source, so an allocation fails.
     for (let i = 0; i < 3; i++) {
@@ -351,5 +362,30 @@ describe('divergences from stage 0', () => {
       expect(r.status).toBe(101);
       expect(r.stderr).toMatch(/^panic: out of memory/);
     }
+  });
+});
+
+describe('S2: the compiler built by itself', () => {
+  const s2 = join(workDir, 's2');
+  const runS2 = (argv: readonly string[]): Outcome => spawn(s2, argv);
+  const corpus = acceptedCorpus();
+  const emitOf = (file: string): string => {
+    const entry = corpus.find((e) => e.file === file);
+    if (!entry) throw new Error(`${file} is not in the corpus`);
+    return emitC(lower(entry.typed));
+  };
+
+  beforeAll(() => {
+    const r = runS1(['build', join('packages', 'asterc-self', 'asterc.aster'), '-o', s2]);
+    if (r.status !== 0 || r.stderr !== '') throw new Error(`S1 failed to build S2 (status ${r.status}): ${r.stderr}`);
+  }, 120_000);
+
+  it.for([
+    join('..', '..', 'packages', 'asterc-self', 'asterc.aster'),
+    join('programs', 'fib.aster'),
+    join('io', 'files.aster'),
+    join('programs', 'emit.aster'),
+  ])('--emit=c of %s', (file) => {
+    expect(runS2(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: emitOf(file), stderr: '', status: 0 });
   });
 });
