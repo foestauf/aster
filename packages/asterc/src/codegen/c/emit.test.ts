@@ -52,6 +52,11 @@ describe('emitC', () => {
     expect(c).toContain('typedef struct aster_G_Result_Lstring_Cstring_R *aster_G_Result_Lstring_Cstring_R;');
   });
 
+  it('emits the POSIX builtins as runtime calls with out-parameters', () => {
+    const c = cOf('fn main(): int { let r: Result[int, string] = write_file("p", "x"); return 0; }');
+    expect(c).toMatch(/l\d+ = aster_rt_write_file\(aster_str_0, aster_str_1, &l\d+, &l\d+\);/);
+  });
+
   it('passes the arguments to a main that takes them', () => {
     const c = cOf('fn main(args: [string]): int { return len(args); }');
     expect(c).toContain('int main(int argc, char **argv) {\n    return (int)aster_fn_main(aster_rt_args(argc, argv));\n}\n');

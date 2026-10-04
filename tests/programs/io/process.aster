@@ -1,0 +1,28 @@
+// expect-stdout:
+// a
+// b
+// c
+// status 0
+// status 3
+// status 137
+// no-such-command-aster: No such file or directory
+// empty argv
+fn show(r: Result[int, string]) {
+    match r {
+        Result::Ok(n) => print("status " + int_to_string(n)),
+        Result::Err(e) => print(e),
+    }
+}
+
+fn main(): int {
+    print("a");
+    let _r: Result[int, string] = run_process(["echo", "b"]);
+    print("c");
+    show(run_process(["true"]));
+    show(run_process(["sh", "-c", "exit 3"]));
+    show(run_process(["sh", "-c", "kill -9 $$"]));
+    show(run_process(["no-such-command-aster"]));
+    let none: [string] = [];
+    show(run_process(none));
+    return 0;
+}

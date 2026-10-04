@@ -271,7 +271,7 @@ function emitInstr(fn: IrFunction, enums: EnumTable, instr: Instr): string {
     case 'array_pop':
       return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_pop_slot(${op(instr.array)})`));
     case 'sys':
-      throw new Error(`internal: ${instr.builtin} is not emitted yet`);
+      return `${mangleLocal(fn.locals[instr.ok])} = aster_rt_${instr.builtin}(${[...instr.args.map(op), `&${mangleLocal(fn.locals[instr.value])}`, `&${mangleLocal(fn.locals[instr.err])}`].join(', ')});`;
     case 'read_file':
       return `${mangleLocal(fn.locals[instr.text])} = aster_rt_read_file(${op(instr.path)}, &${mangleLocal(fn.locals[instr.ok])});`;
   }
