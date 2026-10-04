@@ -150,6 +150,11 @@ line `#include "aster_rt.h"`, so `--emit=c` stays comparable to stage 0.
 | `ASTER_CC` | Overrides `cc` | Ignored, always `cc` | Would need an `env` builtin, and nothing in self-hosting uses it. |
 | `cc` failure text | `cc`'s stderr inside the internal-error message | `cc`'s stderr streams first, then `internal compiler error: C compiler 'cc' failed` | Exit code 3 matches. Only reachable if emitted C is broken, which §6 catches. |
 | Import identity | `realPath` of each import | Lexically normalised path (the `loader.aster` rule) | No `realpath` builtin. See §7. |
+| A panic inside the compiler | Caught: `internal compiler error: <stack>`, exit 3 | `panic: <message>`, exit 101 | Aster cannot catch a panic. Failures the driver detects itself still exit 3. Added in #19. |
+| `cc` warnings on success | Stage 0 discards cc's stderr when cc succeeds | Self-hosted streams cc's stderr (inherited stdio), so warnings appear on stderr even when the build succeeds | Emitted C is meant to be warning-free (tests build with -Werror); only reachable for unusual programs. Added in #19. |
+
+After `internal compiler error:` the message text is not compared between stages: stage 0 carries Node error and stack
+text, the self-hosted compiler the runtime's `<subject>: <strerror>`. Exit code 3 matches.
 
 ## 5. Stages
 
