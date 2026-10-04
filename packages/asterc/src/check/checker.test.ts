@@ -739,4 +739,24 @@ describe('generic enums', () => {
       expect(msgs(`${MAIN}fn f(c: bool): never { let x: int = if c { panic("a") } else { panic("b") }; }`)).toEqual([]);
     });
   });
+
+  describe('inferred never', () => {
+    it('does not infer never as a type argument or an element type', () => {
+      expect(msgs(`${MAIN}fn f() { Option::Some(panic("x")); }`)).toEqual(["cannot infer type arguments for 'Option'"]);
+      expect(msgs(`${MAIN}fn f() { for x in [panic("a")] { } }`)).toEqual(['cannot infer type of empty array']);
+      expect(msgs(`${MAIN}fn f() { print(len([exit(1)])); }`)).toEqual(['cannot infer type of empty array']);
+    });
+
+    it('lets a later element fix the type after a never element', () => {
+      expect(msgs(`${MAIN}fn f() { let xs: [int] = [1, panic("x")]; let ys: [int] = [panic("a"), 2]; }`)).toEqual([]);
+    });
+
+    it('rejects never operands of == and !=', () => {
+      const m = msgs(`${MAIN}fn f() { let b: bool = panic("a") == panic("b"); let c: bool = exit(1) != exit(2); }`);
+      expect(m).toEqual([
+        "operator '==' cannot be applied to never and never",
+        "operator '!=' cannot be applied to never and never",
+      ]);
+    });
+  });
 });

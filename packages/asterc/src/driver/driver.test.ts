@@ -176,4 +176,9 @@ fn main(): int {
       'fn f(a: int, b: int): int { return a; }\nfn g(c: bool): bool { return c && (if c { panic("x") } else { true }); }\nfn main(): int { if false { print(f(1, panic("y"))); print(g(true)); } return 0; }';
     expect(buildAndRun(text).status).toBe(0);
   });
+
+  it('compiles an array literal with a never element on an untaken path', () => {
+    const text = 'fn main(): int { if false { let xs: [int] = [1, panic("x")]; print(len(xs)); } print(5); return 0; }';
+    expect(buildAndRun(text)).toEqual({ stdout: '5\n', stderr: '', status: 0 });
+  });
 });

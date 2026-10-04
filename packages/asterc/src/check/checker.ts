@@ -824,7 +824,7 @@ function checkGenericVariantExpr(ctx: Ctx, expr: VariantExpr, template: Template
  * Error and void types bind nothing.
  */
 function unify(params: readonly string[], slot: TypeExpr, actual: Type, bindings: Map<string, Type>): void {
-  if (isError(actual) || actual.kind === 'void') return;
+  if (isError(actual) || actual.kind === 'void' || actual.kind === 'never') return;
   if (slot.kind === 'array') {
     if (actual.kind === 'array') unify(params, slot.elem, actual.elem, bindings);
     return;
@@ -1144,7 +1144,11 @@ function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined)
   for (const el of expr.elements) {
     const value = checkExpr(ctx, el, elem);
     if (elem === undefined) {
-      // Without an expected type, the first element decides.
+      // Without an expected type, the first element that isn't never decides.
+      if (value.type.kind === 'never') {
+        elements.push(value);
+        continue;
+      }
       if (value.type.kind === 'void') {
         report(ctx, 'array element cannot have type void', el.span);
         return errorExpr();
@@ -1155,7 +1159,11 @@ function checkArrayLit(ctx: Ctx, expr: ArrayLitExpr, expected: Type | undefined)
     }
     elements.push(value);
   }
-  if (elem === undefined || isError(elem)) return errorExpr();
+  if (elem === undefined) {
+    report(ctx, 'cannot infer type of empty array', expr.span);
+    return errorExpr();
+  }
+  if (isError(elem)) return errorExpr();
   return { kind: 'arrayLit', type: { kind: 'array', elem }, elements };
 }
 
@@ -1226,6 +1234,14 @@ function checkBinary(ctx: Ctx, expr: BinaryExpr): TExpr {
   const left = checkExpr(ctx, expr.left);
   const right = checkExpr(ctx, expr.right);
   if (isError(left.type) || isError(right.type)) return errorExpr();
+  if (left.type.kind === 'never' || right.type.kind === 'never') {
+    report(
+      ctx,
+      `operator '${expr.op}' cannot be applied to ${typeToString(left.type)} and ${typeToString(right.type)}`,
+      expr.span,
+    );
+    return errorExpr();
+  }
   if ((expr.op === '==' || expr.op === '!=') && typeEquals(left.type, right.type)) {
     const t = left.type;
     const payloadFreeEnum = t.kind === 'enum' && ctx.enums.get(t.name)?.payloadFree === true;

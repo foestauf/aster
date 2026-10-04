@@ -580,4 +580,24 @@ describe('lower', () => {
       expect(ir.match(/^\S+:/gm)?.length ?? 0).toBeLessThanOrEqual(1);
     });
   });
+
+  describe('never in the middle of an expression', () => {
+    it('leaves no block unreachable from the entry', () => {
+      const fn = lowerText(`${MAIN}fn f(c: bool): bool { return c && (if c { panic("x") } else { true }); }`).functions.find(
+        (f) => f.name === 'f',
+      )!;
+      const byLabel = new Map(fn.blocks.map((b) => [b.label, b]));
+      const seen = new Set<string>();
+      const walk = (label: string): void => {
+        if (seen.has(label)) return;
+        seen.add(label);
+        const t = byLabel.get(label)!.term;
+        if (t.kind === 'jmp') walk(t.target);
+        else if (t.kind === 'br') [t.then, t.else].forEach(walk);
+        else if (t.kind === 'switch') [...t.cases.map((c) => c.target), ...(t.default === null ? [] : [t.default])].forEach(walk);
+      };
+      walk(fn.blocks[0].label);
+      expect(seen.size).toBe(fn.blocks.length);
+    });
+  });
 });
