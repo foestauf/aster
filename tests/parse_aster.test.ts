@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  buildExecutable, compileToC, formatDiagnostic, lex, makeSource, parse,
+  lex, makeSource, parse,
   type Alternative, type Block, type EnumDecl, type Expr, type FnDecl, type IfLetStmt, type IfStmt, type Pattern, type Span, type Stmt, type StructDecl, type TypeExpr,
 } from '../packages/asterc/src/index.js';
+import { buildDriver } from './stage.js';
 
 // Checks tests/programs/programs/parse.aster, the Aster parser written in Aster, against the compiler's own lexer and
 // parser. Both sides render the AST in the indented-tree format of docs/superpowers/specs/2026-10-03-aster-parse-aster-design.md §3.
@@ -280,13 +281,12 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-parse-'));
 const exe = join(workDir, 'parse');
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
+// A driver build is cc -O2 on the compiler's C, or a stage build of the driver: both can outlast vitest's 10 s default.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
-  const source = makeSource(join(PROGRAMS_DIR, 'programs', 'parse.aster'), readFileSync(join(PROGRAMS_DIR, 'programs', 'parse.aster'), 'utf8'));
-  const compiled = compileToC(source);
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, exe, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-});
+  buildDriver(join(PROGRAMS_DIR, 'programs', 'parse.aster'), exe);
+}, CC_HOOK_TIMEOUT);
 
 describe('parse.aster matches the TypeScript parser', () => {
   it('has a corpus that includes itself and the parser fixtures', () => {

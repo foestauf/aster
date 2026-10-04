@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildExecutable, compileToC, emitC, formatDiagnostic, lower, makeSource } from '../packages/asterc/src/index.js';
+import { buildExecutable, emitC, lower } from '../packages/asterc/src/index.js';
 import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { buildDriver } from './stage.js';
 
 // Checks tests/programs/programs/emit.aster, which lowers a program with packages/asterc-self/lower.aster and emits C
 // with packages/asterc-self/emit.aster, against the compiler's own emitC(lower(typed)), byte for byte, on the accepted
@@ -30,13 +31,10 @@ const CC_HOOK_TIMEOUT = 60_000;
 
 beforeAll(() => {
   const path = join(PROGRAMS_DIR, DRIVER);
-  const compiled = compileToC(makeSource(path, readFileSync(path, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, e0, ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
+  buildDriver(path, e0);
 }, CC_HOOK_TIMEOUT);
 
-describe('emit.aster (built by stage 0) matches the TypeScript C emitter', () => {
+describe('emit.aster (built by the stage under test) matches the TypeScript C emitter', () => {
   it('has a corpus that includes the driver and the emit fixtures', () => {
     expect(corpus).toContain(DRIVER);
     for (const name of readdirSync(join(PROGRAMS_DIR, 'programs', 'fixtures')).filter((n) => /^emit_\w+\.txt$/.test(n))) {

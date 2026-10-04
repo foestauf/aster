@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { inject } from 'vitest';
+import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
 
 // The self-hosted compiler under test. `pnpm test` uses S1, which tests/global-setup.ts builds once from stage 0.
 // `pnpm selfhost` runs the stage-aware suites once per stage with ASTER_STAGE_BIN and ASTER_STAGE set.
@@ -54,4 +55,13 @@ export function buildWithStage(src: string, out: string): void {
   });
   if (r.error) throw r.error;
   if (r.status !== 0 || r.stderr !== '') throw new Error(`${name} failed to build ${src} (status ${r.status}):\n${r.stderr}`);
+}
+
+/** Builds the driver at `src` into `out`: with stage 0 in process under `pnpm test`, with the stage under `pnpm selfhost`. */
+export function buildDriver(src: string, out: string): void {
+  if (process.env.ASTER_STAGE_BIN !== undefined) return buildWithStage(src, out);
+  const compiled = compileToC(makeSource(src, readFileSync(src, 'utf8')));
+  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
+  const built = buildExecutable(compiled.c, out, ['-Werror']);
+  if (!built.ok) throw new Error(built.message);
 }
