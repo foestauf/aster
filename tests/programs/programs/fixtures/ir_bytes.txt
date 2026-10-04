@@ -1,0 +1,8 @@
+// IR fixture: raw control bytes (0x01 0x08 0x0c 0x1f 0x7f) and a multibyte char inside string literals reach the string table.
+fn main(): int {
+    print("ab");
+    print("cde");
+    print("fgh");
+    print("café €");
+    return 0;
+}

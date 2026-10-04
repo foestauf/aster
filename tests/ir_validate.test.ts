@@ -38,6 +38,31 @@ describe('validateIr', () => {
     ]);
   });
 
+  it('reports a void local, a bad switch value and a value returned from a void function', () => {
+    const broken: IrProgram = {
+      structs: [],
+      enums: [],
+      strings: ['s'],
+      functions: [
+        {
+          name: 'g',
+          paramCount: 0,
+          locals: [{ id: 0, name: null, type: { kind: 'void' } }],
+          returnType: { kind: 'void' },
+          blocks: [
+            { label: 'entry', instrs: [], term: { kind: 'switch', value: { kind: 'string', index: 0 }, cases: [], default: 'done' } },
+            { label: 'done', instrs: [], term: { kind: 'ret', value: { kind: 'int', value: 1n } } },
+          ],
+        },
+      ],
+    };
+    expect(validateIr(broken)).toEqual([
+      'g: local %0 is void',
+      'g: switch value is string, expected int or bool',
+      'g: ret with a value in a void function',
+    ]);
+  });
+
   it.for(accepted)('$file lowers to valid IR', ({ typed }) => {
     expect(validateIr(lower(typed))).toEqual([]);
   });
