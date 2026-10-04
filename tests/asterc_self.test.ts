@@ -27,7 +27,8 @@ afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 const CC_HOOK_TIMEOUT = 60_000;
 
 beforeAll(() => {
-  if (!existsSync(S0_BIN)) throw new Error(`${S0_BIN} is missing: run 'pnpm build' first`);
+  // tests/global-setup.ts builds dist before any test runs.
+  if (!existsSync(S0_BIN)) throw new Error(`${S0_BIN} is missing: tests/global-setup.ts should have built it`);
   const compiled = compileToC(makeSource(S1_SOURCE, readFileSync(S1_SOURCE, 'utf8')));
   if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
   const built = buildExecutable(compiled.c, s1, ['-Werror']);
