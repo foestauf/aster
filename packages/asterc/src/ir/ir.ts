@@ -46,6 +46,12 @@ export type IrBuiltin =
   | 'print_int' | 'print_bool' | 'print_string' | 'eprint_int' | 'eprint_bool' | 'eprint_string' | 'exit'
   | 'len' | 'byte_at' | 'substring' | 'int_to_string' | 'panic' | 'read_stdin';
 
+export type SysBuiltin = 'write_file' | 'make_temp_dir' | 'remove_path' | 'run_process';
+
+export function isSysBuiltin(name: string): name is SysBuiltin {
+  return name === 'write_file' || name === 'make_temp_dir' || name === 'remove_path' || name === 'run_process';
+}
+
 export type Instr =
   | { kind: 'copy'; dst: number; src: Operand }
   | { kind: 'unop'; dst: number; op: IrUnOp; operand: Operand }
@@ -71,7 +77,9 @@ export type Instr =
   /** Reads payload slot `index` of a value whose tag is known to be `tag`. */
   | { kind: 'enum_field'; dst: number; value: Operand; enum: string; variant: string; tag: number; index: number }
   /** Reads the file at `path`. Sets `ok`, and sets `text` to the contents when `ok` is true, else to the error message. */
-  | { kind: 'read_file'; ok: number; text: number; path: Operand };
+  | { kind: 'read_file'; ok: number; text: number; path: Operand }
+  /** Calls a fallible runtime builtin. Sets `ok`; sets `value` when ok, else `err` to the error message. */
+  | { kind: 'sys'; builtin: SysBuiltin; ok: number; value: number; err: number; args: Operand[] };
 
 export type Terminator =
   | { kind: 'jmp'; target: string }

@@ -144,6 +144,15 @@ function checkFunction(program: IrProgram, fn: IrFunction, report: (msg: string)
         want('read_file text', localType(i.text), 'string');
         want('read_file path', typeOf(i.path), 'string');
         return;
+      case 'sys': {
+        want(`${i.builtin} ok`, localType(i.ok), 'bool');
+        want(`${i.builtin} value`, localType(i.value), i.builtin === 'make_temp_dir' ? 'string' : 'int');
+        want(`${i.builtin} err`, localType(i.err), 'string');
+        const params = i.builtin === 'write_file' ? ['string', 'string'] : i.builtin === 'run_process' ? ['[string]'] : ['string'];
+        if (i.args.length !== params.length) report(`${i.builtin} takes ${params.length} arguments, got ${i.args.length}`);
+        i.args.forEach((a, n) => want(`${i.builtin} argument ${n + 1}`, typeOf(a), params[n] ?? 'string'));
+        return;
+      }
     }
   };
 

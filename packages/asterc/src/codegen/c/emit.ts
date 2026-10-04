@@ -270,6 +270,8 @@ function emitInstr(fn: IrFunction, enums: EnumTable, instr: Instr): string {
       return assign(instr.dst, enumOf(fn, enums, instr.value).payloadFree ? op(instr.value) : `${op(instr.value)}->tag`);
     case 'array_pop':
       return assign(instr.dst, slot(elemCType(fn, instr.array), `aster_rt_array_pop_slot(${op(instr.array)})`));
+    case 'sys':
+      throw new Error(`internal: ${instr.builtin} is not emitted yet`);
     case 'read_file':
       return `${mangleLocal(fn.locals[instr.text])} = aster_rt_read_file(${op(instr.path)}, &${mangleLocal(fn.locals[instr.ok])});`;
   }

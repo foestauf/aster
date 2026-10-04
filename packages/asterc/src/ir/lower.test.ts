@@ -47,6 +47,60 @@ describe('lower', () => {
     );
   });
 
+  it('lowers write_file to a sys instruction and a branch that builds Result', () => {
+    expect(
+      irOf('fn main(): int { let r: Result[int, string] = write_file("p", "x"); return 0; }', 'main'),
+    ).toBe(
+      lines(
+        'fn main(): int',
+        '  local %0 r: Result[int, string]',
+        '  local %1: bool',
+        '  local %2: int',
+        '  local %3: string',
+        '  local %4: Result[int, string]',
+        'entry:',
+        '  %1, %2, %3 = write_file str#0, str#1',
+        '  br %1, sys_ok1, sys_err2',
+        'sys_ok1:',
+        '  %4 = enum_new Result[int, string]::Ok(%2)',
+        '  jmp sys_end3',
+        'sys_err2:',
+        '  %4 = enum_new Result[int, string]::Err(%3)',
+        '  jmp sys_end3',
+        'sys_end3:',
+        '  %0 = copy %4',
+        '  ret 0',
+      ),
+    );
+  });
+
+  it('lowers make_temp_dir with a string value', () => {
+    expect(
+      irOf('fn main(): int { let r: Result[string, string] = make_temp_dir("p"); return 0; }', 'main'),
+    ).toBe(
+      lines(
+        'fn main(): int',
+        '  local %0 r: Result[string, string]',
+        '  local %1: bool',
+        '  local %2: string',
+        '  local %3: string',
+        '  local %4: Result[string, string]',
+        'entry:',
+        '  %1, %2, %3 = make_temp_dir str#0',
+        '  br %1, sys_ok1, sys_err2',
+        'sys_ok1:',
+        '  %4 = enum_new Result[string, string]::Ok(%2)',
+        '  jmp sys_end3',
+        'sys_err2:',
+        '  %4 = enum_new Result[string, string]::Err(%3)',
+        '  jmp sys_end3',
+        'sys_end3:',
+        '  %0 = copy %4',
+        '  ret 0',
+      ),
+    );
+  });
+
   it('lowers straight-line code', () => {
     expect(irOf('fn main(): int { let x: int = 10; let y: int = 20; print(x + y); return 0; }', 'main')).toBe(
       lines(

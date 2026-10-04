@@ -1,8 +1,9 @@
 import { binaryOpOf, type BinaryOp, type CompoundOp } from '../ast/ast.js';
 import type { TBlock, TEnum, TExpr, TFunction, TPattern, TStmt, TStruct, TypedProgram } from '../check/types.js';
 import { BOOL, INT, STRING, type Type } from '../types/type.js';
+import { isSysBuiltin } from './ir.js';
 import type {
-  BasicBlock, Instr, IrBinOp, IrBuiltin, IrEnum, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, Terminator,
+  BasicBlock, Instr, IrBinOp, IrBuiltin, IrEnum, IrFunction, IrLocal, IrProgram, IrStruct, IrType, Operand, SysBuiltin, Terminator,
 } from './ir.js';
 
 interface StringTable {
@@ -482,6 +483,7 @@ function lowerExpr(st: FnState, e: TExpr): Operand | null {
     case 'builtin': {
       const args = e.args.map((a) => lowerValue(st, a));
       if (e.builtin === 'read_file') return lowerReadFile(st, args[0], e.type as Extract<Type, { kind: 'enum' }>);
+      if (isSysBuiltin(e.builtin)) return lowerSys(st, e.builtin, args, e.type as Extract<Type, { kind: 'enum' }>);
       if (e.builtin === 'push') {
         emit(st, { kind: 'array_push', array: args[0], value: args[1] });
         return null;
@@ -671,7 +673,7 @@ function irBuiltin(e: Extract<TExpr, { kind: 'builtin' }>): IrBuiltin {
     case 'make_temp_dir':
     case 'remove_path':
     case 'run_process':
-      throw new Error(`internal: ${e.builtin} is not lowered yet`);
+      throw new Error(`internal: ${e.builtin} is lowered to a sys instruction`);
     default:
       return e.builtin;
   }
@@ -690,6 +692,26 @@ function lowerReadFile(st: FnState, path: Operand, resultType: Extract<Type, { k
   for (const [label, variant, tag] of [[okLabel, 'Ok', 0], [errLabel, 'Err', 1]] as const) {
     startBlock(st, label);
     emit(st, { kind: 'enum_new', dst, enum: resultType.name, variant, tag, args: [{ kind: 'local', id: text }] });
+    terminate(st, { kind: 'jmp', target: endLabel });
+  }
+  startBlock(st, endLabel);
+  return { kind: 'local', id: dst };
+}
+
+/** A POSIX builtin: the runtime fills an ok flag, a value and an error, then each outcome builds its Result variant. */
+function lowerSys(st: FnState, builtin: SysBuiltin, args: Operand[], resultType: Extract<Type, { kind: 'enum' }>): Operand {
+  const ok = newTemp(st, irType(BOOL));
+  const value = newTemp(st, irType(builtin === 'make_temp_dir' ? STRING : INT));
+  const err = newTemp(st, irType(STRING));
+  const dst = newTemp(st, irType(resultType));
+  emit(st, { kind: 'sys', builtin, ok, value, err, args });
+  const okLabel = newLabel(st, 'sys_ok');
+  const errLabel = newLabel(st, 'sys_err');
+  const endLabel = newLabel(st, 'sys_end');
+  terminate(st, { kind: 'br', cond: { kind: 'local', id: ok }, then: okLabel, else: errLabel });
+  for (const [label, variant, tag, payload] of [[okLabel, 'Ok', 0, value], [errLabel, 'Err', 1, err]] as const) {
+    startBlock(st, label);
+    emit(st, { kind: 'enum_new', dst, enum: resultType.name, variant, tag, args: [{ kind: 'local', id: payload }] });
     terminate(st, { kind: 'jmp', target: endLabel });
   }
   startBlock(st, endLabel);

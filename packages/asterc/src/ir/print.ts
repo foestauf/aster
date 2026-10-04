@@ -89,6 +89,8 @@ function printInstr(i: Instr): string {
       return `%${i.dst} = enum_tag ${operand(i.value)}`;
     case 'array_pop':
       return `%${i.dst} = array_pop ${operand(i.array)}`;
+    case 'sys':
+      return `%${i.ok}, %${i.value}, %${i.err} = ${i.builtin} ${i.args.map(operand).join(', ')}`;
     case 'read_file':
       return `%${i.ok}, %${i.text} = read_file ${operand(i.path)}`;
   }
