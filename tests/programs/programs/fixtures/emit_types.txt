@@ -1,9 +1,9 @@
-// Emit fixture: struct and enum declarations, self and mutual references, generic-instantiation mangling, and C
-// keywords used as Aster names.
+// Emit fixture: struct and enum declarations, self and mutual references (Node -> Shape -> Node),
+// generic-instantiation mangling, and C keywords used as Aster names.
 struct Empty {}
 struct my_pair { char: int, long: string }
 struct Node { value: int, children: [Node], shape: Shape }
-enum Shape { Dot, Line(int, int), Group([Shape]) }
+enum Shape { Dot, Line(int, int), Group([Shape]), Tree(Node) }
 enum Color { Red, Green, FILE }
 
 fn wrap(p: my_pair): Option[Result[my_pair, int]] {
@@ -32,6 +32,11 @@ fn main(): int {
     let g: Shape = Shape::Group([Shape::Dot]);
     match g {
         Shape::Group(items) => print(len(items)),
+        _ => print(0),
+    }
+    let t: Shape = Shape::Tree(n);
+    match t {
+        Shape::Tree(inner) => print(inner.value),
         _ => print(0),
     }
     return 0;

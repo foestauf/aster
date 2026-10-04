@@ -25,13 +25,16 @@ function emitWith(exe: string, file: string) {
   return { stdout: run.stdout, stderr: run.stderr, status: run.status };
 }
 
+// cc -O2 on the compiler's ~960 KB of C can exceed vitest's default 10 s hook timeout on a slow machine.
+const CC_HOOK_TIMEOUT = 60_000;
+
 beforeAll(() => {
   const path = join(PROGRAMS_DIR, DRIVER);
   const compiled = compileToC(makeSource(path, readFileSync(path, 'utf8')));
   if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
   const built = buildExecutable(compiled.c, e0, ['-Werror']);
   if (!built.ok) throw new Error(built.message);
-});
+}, CC_HOOK_TIMEOUT);
 
 describe('emit.aster (built by stage 0) matches the TypeScript C emitter', () => {
   it('has a corpus that includes the driver and the emit fixtures', () => {
@@ -58,8 +61,7 @@ describe('emit.aster built from its own C (E1) matches the TypeScript C emitter'
     if (expected === undefined || own.stdout !== expected.c) throw new Error('E0 C for its own closure differs from stage 0');
     const built = buildExecutable(own.stdout, e1, ['-Werror']);
     if (!built.ok) throw new Error(built.message);
-    // cc -O2 on the compiler's ~960 KB of C can exceed vitest's default 10 s hook timeout on a slow machine.
-  }, 60_000);
+  }, CC_HOOK_TIMEOUT);
 
   it.for(accepted)('$file', ({ file, c }) => {
     expect(emitWith(e1, file)).toEqual({ stdout: c, stderr: '', status: 0 });
