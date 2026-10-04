@@ -1774,6 +1774,7 @@ fn check_match(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm]): bool {
 // and checks each arm's body with that arm's binders in scope. Patterns are not checked at all against an error-typed or
 // unmatchable scrutinee, and an alternative that fails to resolve switches off the exhaustiveness check.
 fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: bool, expected: Option[Type]): MatchArms {
+    // Invariant: a match expression only ever has ArmBody::Expr arms (parser.aster builds only those), so m.types stays in step with the arms.
     let st: Type = check_expr(ctx, scrutinee, Option::None);
     var has_decl: bool = false;
     var variants: [TVariant] = [];

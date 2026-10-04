@@ -117,12 +117,6 @@ const corpus = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
   .filter((f) => f.endsWith('.aster') || /fixtures[\\/]check_\w+\.txt$/.test(f))
   .toSorted();
 
-/**
- * Corpus files check.aster is not expected to pass yet. Each task that ports a feature removes what now passes; since
- * Task 6 ported `match` and `?`, every file passes.
- */
-const PENDING = new Set<string>([]);
-
 const toOutput = (lines: string[]): string => lines.map((l) => `${l}\n`).join('');
 
 /** 3 if the file at `path` starts with a UTF-8 byte order mark (which `makeSource` strips), else 0. */
@@ -193,14 +187,12 @@ describe('check.aster matches the TypeScript front end', () => {
     for (const f of ['check.aster', 'checker.aster', 'loader.aster', 'parser.aster', 'lexer.aster']) {
       expect(corpus).toContain(join('programs', f));
     }
-    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_decls', 'check_stmts', 'check_generics', 'check_match']) {
+    for (const f of ['check_small', 'check_bom', 'check_bom_lib', 'check_bom2', 'check_paths', 'check_paths_lib', 'check_decls', 'check_stmts', 'check_generics', 'check_match']) {
       expect(corpus).toContain(join('programs', 'fixtures', `${f}.txt`));
     }
-    for (const f of PENDING) expect(corpus).toContain(f);
   });
 
-  it.for(corpus)('%s', (file, { skip }) => {
-    skip(PENDING.has(file), 'not ported to check.aster yet');
+  it.for(corpus)('%s', (file) => {
     const path = join(PROGRAMS_DIR, file);
     const run = spawnSync(exe, [path], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 * 1024 });
     expect({ stdout: run.stdout, stderr: run.stderr, status: run.status }).toEqual(expected(path));
