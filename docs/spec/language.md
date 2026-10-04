@@ -70,7 +70,8 @@ fn main(): int {
     } else {
         die("no digit");
     }
-    return first_digit("x");
+    print(first_digit("x"));   // -1
+    return 0;
 }
 ```
 

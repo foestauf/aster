@@ -1,0 +1,25 @@
+// expect-error: 10:5 cannot assign to immutable variable 'n'
+// expect-error: 13:9 cannot assign to immutable variable 'm'
+// expect-error: 19:17 duplicate binding 'x'
+enum P { T(int, int) }
+
+fn assign(o: Option[int]): int {
+    let Option::Some(n) = o else {
+        return 0;
+    };
+    n = 2;
+    if let Option::Some(m) = o {
+        print(m);
+        m = 3;
+    }
+    return n;
+}
+
+fn dup(p: P): int {
+    let P::T(x, x) = p else { return 0; };
+    return x;
+}
+
+fn main(): int {
+    return 0;
+}
