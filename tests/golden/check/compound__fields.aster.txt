@@ -1,0 +1,10 @@
+== exit 0
+== stdout
+struct Box
+  field n int
+  field s string
+fn get(Box): Box
+  param 0 b Box
+fn main(): int
+  let 0 b Box
+== stderr

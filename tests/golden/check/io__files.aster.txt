@@ -1,0 +1,28 @@
+== exit 0
+== stdout
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+fn main(): int
+  let 0 d string
+  let 1 e string
+  let 2 dir string
+  let 3 path string
+  let 4 n int
+  let 5 e string
+  let 6 text string
+  let 7 e string
+  let 8 n int
+  let 9 e string
+  let 10 text string
+  let 11 e string
+  let 12 e string
+  let 13 e string
+  let 14 e string
+fn ends_with(string, string): bool
+  param 0 s string
+  param 1 suffix string
+== stderr

@@ -1,0 +1,21 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/never_positions.aster:8:8: error: 'never' is only allowed as a return type
+      f: never,
+         ^^^^^
+tests/programs/errors/never_positions.aster:12:7: error: 'never' is only allowed as a return type
+      W(never),
+        ^^^^^
+tests/programs/errors/never_positions.aster:15:13: error: 'never' is only allowed as a return type
+  fn param(p: never) {
+              ^^^^^
+tests/programs/errors/never_positions.aster:19:12: error: 'never' is only allowed as a return type
+      let v: never = 1;
+             ^^^^^
+tests/programs/errors/never_positions.aster:20:13: error: 'never' is only allowed as a return type
+      let a: [never] = [];
+              ^^^^^
+tests/programs/errors/never_positions.aster:21:19: error: 'never' is only allowed as a return type
+      let o: Option[never] = Option::None;
+                    ^^^^^

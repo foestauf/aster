@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/import_syntax_lib.aster:2:29: error: expected expression, found '+'
+  fn broken(): int { return ; + }
+                              ^

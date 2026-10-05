@@ -1,0 +1,14 @@
+== exit 0
+== stdout
+enum Shape
+  variant Num(int)
+  variant Add(int, int)
+  variant Neg(int)
+  variant Pair(int, int)
+fn describe(Shape): void
+  param 0 s Shape
+  let 1 n int
+fn main(): int
+  let 0 p Shape
+  let 1 first int
+== stderr

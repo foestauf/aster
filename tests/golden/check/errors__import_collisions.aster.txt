@@ -1,0 +1,8 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_collisions_lib.aster 21 22 duplicate function 'f'
+error tests/programs/errors/import_collisions_lib.aster 35 36 duplicate struct 'S'
+error tests/programs/errors/import_collisions_lib.aster 53 54 duplicate enum 'E'
+error tests/programs/errors/import_collisions_lib.aster 68 72 duplicate struct 'Both'
+error tests/programs/errors/import_collisions_lib.aster 89 93 'Both' is already declared as a struct

@@ -1,0 +1,39 @@
+== exit 0
+== stdout
+enum Pair
+  variant Both(int, int)
+  variant Neither
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+enum Option[string]
+  variant Some(string)
+  variant None
+fn die(string): never
+  param 0 msg string
+fn unwrap_or_none(Option[int]): string
+  param 0 o Option[int]
+  let 1 v int
+fn parse(string): Result[int, string]
+  param 0 s string
+fn show(string): string
+  param 0 s string
+  let 1 n int
+fn second(Pair): int
+  param 0 p Pair
+  let 1 b int
+fn exact(int): int
+  param 0 n int
+fn small(int): int
+  param 0 n int
+fn letter(int): string
+  param 0 c int
+fn greet(string): string
+  param 0 s string
+fn main(): int
+  let 0 word string
+  let 1 a int
+== stderr

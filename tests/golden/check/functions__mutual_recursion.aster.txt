@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn main(): int
+fn is_even(int): bool
+  param 0 n int
+fn is_odd(int): bool
+  param 0 n int
+== stderr

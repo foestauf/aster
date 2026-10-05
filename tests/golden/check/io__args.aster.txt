@@ -1,0 +1,6 @@
+== exit 0
+== stdout
+fn main([string]): int
+  param 0 args [string]
+  let 1 a string
+== stderr

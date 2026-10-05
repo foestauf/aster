@@ -1,0 +1,20 @@
+== exit 0
+== stdout
+enum A_L
+  variant X(int)
+enum My_E
+  variant Z(int)
+enum A[int]
+  variant Y(int)
+enum Option[My_E]
+  variant Some(My_E)
+  variant None
+fn main(): int
+  let 0 a A_L
+  let 1 b A[int]
+  let 2 c Option[My_E]
+  let 3 n int
+  let 4 n int
+  let 5 e My_E
+  let 6 n int
+== stderr

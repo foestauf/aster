@@ -1,0 +1,42 @@
+== exit 0
+== stdout
+enum Shape
+  variant Circle(int)
+  variant Square(int)
+  variant Dot
+enum Option[int]
+  variant Some(int)
+  variant None
+fn die(string): never
+  param 0 msg string
+fn show(Option[int]): void
+  param 0 o Option[int]
+  let 1 v int
+  let 2 text string
+  let 3 v int
+  let 4 unused int
+  let 5 text string
+fn describe(Shape): void
+  param 0 s Shape
+  let 1 r int
+  let 2 w int
+fn size(Option[int]): void
+  param 0 o Option[int]
+  let 1 n int
+fn sign(int, Option[int]): void
+  param 0 n int
+  param 1 o Option[int]
+  let 2 m int
+fn value_or(Option[int], int): int
+  param 0 o Option[int]
+  param 1 fallback int
+  let 2 v int
+  let 3 got int
+  let 4 other int
+fn main(): int
+  let 0 x int
+  let 1 x int
+  let 2 o Option[int]
+  let 3 v int
+  let 4 final int
+== stderr

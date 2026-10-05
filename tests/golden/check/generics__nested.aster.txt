@@ -1,0 +1,25 @@
+== exit 0
+== stdout
+struct Point
+  field x int
+  field y int
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Option[Option[int]]
+  variant Some(Option[int])
+  variant None
+enum Result[[string], Point]
+  variant Ok([string])
+  variant Err(Point)
+fn show(Option[Option[int]]): void
+  param 0 o Option[Option[int]]
+  let 1 inner Option[int]
+  let 2 n int
+fn show_result(Result[[string], Point]): void
+  param 0 r Result[[string], Point]
+  let 1 words [string]
+  let 2 w string
+  let 3 p Point
+fn main(): int
+== stderr

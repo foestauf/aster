@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_bom_lib.txt 3 3 missing 'fn main(): int'
+error tests/programs/programs/fixtures/check_bom_lib.txt 43 46 type mismatch: expected int, found string

@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/never_errors.aster 433 444 function 'reaches_end' returns 'never' but can reach its end
+error tests/programs/errors/never_errors.aster 507 514 cannot return from a function that returns 'never'
+error tests/programs/errors/never_errors.aster 550 559 cannot return from a function that returns 'never'
+error tests/programs/errors/never_errors.aster 570 575 'never' is a built-in type and cannot be redefined
+error tests/programs/errors/never_errors.aster 627 641 operator '+' cannot be applied to never and int
+error tests/programs/errors/never_errors.aster 653 663 cannot print a value of type never

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_eof_lib.aster 50 50 expected '}', found end of file

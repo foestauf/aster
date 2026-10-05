@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { accessSync, constants, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,18 +7,27 @@ import type { TestProject } from 'vitest/node';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-// Builds stage 0's dist (`pnpm build:seed`; the self-host suites compare against its CLI) and, unless ASTER_STAGE_BIN names a stage,
-// S1 from packages/asterc-self/asterc.aster, once for every test file.
-export default async function setup(project: TestProject): Promise<() => void> {
-  execFileSync('pnpm', ['build:seed'], { cwd: REPO_ROOT, stdio: 'inherit' });
+// Unless ASTER_STAGE_BIN names a stage, builds S1 from packages/asterc-self/asterc.aster with the installed compiler,
+// build/asterc, once for every test file.
+export default function setup(project: TestProject): () => void {
   if (process.env.ASTER_STAGE_BIN !== undefined) return () => {};
-  const { buildExecutable, compileToC, formatDiagnostic, makeSource } = await import('../packages/asterc/src/index.js');
+  const installed = join(REPO_ROOT, 'build', 'asterc');
+  try {
+    accessSync(installed, constants.X_OK);
+  } catch {
+    throw new Error('aster: no compiler at build/asterc; run `pnpm bootstrap` first');
+  }
   const dir = mkdtempSync(join(tmpdir(), 'aster-s1-'));
-  const src = join(REPO_ROOT, 'packages', 'asterc-self', 'asterc.aster');
-  const compiled = compileToC(makeSource(src, readFileSync(src, 'utf8')));
-  if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
-  const built = buildExecutable(compiled.c, join(dir, 's1'), ['-Werror']);
-  if (!built.ok) throw new Error(built.message);
-  project.provide('s1Bin', join(dir, 's1'));
+  const out = join(dir, 's1');
+  const r = spawnSync(installed, ['build', 'packages/asterc-self/asterc.aster', '-o', out], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 300_000,
+  });
+  if (r.error) throw r.error;
+  if (r.status !== 0 || r.stderr !== '') throw new Error(`build/asterc failed to build S1 (status ${r.status}):\n${r.stderr}`);
+  project.provide('s1Bin', out);
   return () => rmSync(dir, { recursive: true, force: true });
 }

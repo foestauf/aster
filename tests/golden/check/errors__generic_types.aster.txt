@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_types.aster 409 415 'T' is not generic
+error tests/programs/errors/generic_types.aster 427 444 'Option' expects 1 type argument, got 2
+error tests/programs/errors/generic_types.aster 457 468 'Result' expects 2 type arguments, got 1
+error tests/programs/errors/generic_types.aster 481 487 'Option' expects 1 type argument, got 0
+error tests/programs/errors/generic_types.aster 500 510 'Point' is not generic
+error tests/programs/errors/generic_types.aster 523 532 'int' is not generic
+error tests/programs/errors/generic_types.aster 552 556 type argument cannot be void

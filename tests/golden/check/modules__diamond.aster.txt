@@ -1,0 +1,7 @@
+== exit 0
+== stdout
+fn main(): int
+fn a(): void
+fn shared(): void
+fn b(): void
+== stderr

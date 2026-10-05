@@ -1,0 +1,30 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/enum_decls.aster:10:6: error: 'int' is a built-in type and cannot be redefined
+  enum int { A }
+       ^^^
+tests/programs/errors/enum_decls.aster:11:6: error: 'print' is a builtin function and cannot be redefined
+  enum print { A }
+       ^^^^^
+tests/programs/errors/enum_decls.aster:13:6: error: 'P' is already declared as a struct
+  enum P { A }
+       ^
+tests/programs/errors/enum_decls.aster:14:16: error: duplicate variant 'A' in 'E'
+  enum E { A, B, A }
+                 ^
+tests/programs/errors/enum_decls.aster:15:6: error: duplicate enum 'E'
+  enum E { C }
+       ^
+tests/programs/errors/enum_decls.aster:16:4: error: 'E' is already declared as an enum
+  fn E() { }
+     ^
+tests/programs/errors/enum_decls.aster:17:12: error: unknown type 'Nope'
+  enum F { A(Nope), B(void) }
+             ^^^^
+tests/programs/errors/enum_decls.aster:17:21: error: payload cannot have type void
+  enum F { A(Nope), B(void) }
+                      ^^^^
+tests/programs/errors/enum_decls.aster:19:8: error: 'G' is already declared as an enum
+  struct G { x: int }
+         ^

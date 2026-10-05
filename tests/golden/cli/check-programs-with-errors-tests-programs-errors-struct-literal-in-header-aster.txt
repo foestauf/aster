@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/struct_literal_in_header.aster:5:18: error: expected ';', found ':'
+      if p == P { x: 1 } {
+                   ^

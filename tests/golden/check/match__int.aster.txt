@@ -1,0 +1,10 @@
+== exit 0
+== stdout
+fn name(int): string
+  param 0 n int
+fn vowel(string, int): int
+  param 0 s string
+  param 1 i int
+fn main(): int
+  let 0 x int
+== stderr

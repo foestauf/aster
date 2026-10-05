@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_paths_lib.txt 0 0 missing 'fn main(): int'

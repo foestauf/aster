@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/lex_errors.aster:5:24: error: unexpected character '&'
+      let b: bool = true & false;
+                         ^
+tests/programs/errors/lex_errors.aster:5:26: error: expected ';', found 'false'
+      let b: bool = true & false;
+                           ^^^^^
+tests/programs/errors/lex_errors.aster:6:16: error: invalid escape sequence '\q'
+      print("bad \q escape");
+                 ^^

@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+bom_tab_lib.aster:1:1: error: missing 'fn main(): int'
+  fn f(): int {
+  ^
+bom_tab_lib.aster:2:36: error: type mismatch: expected int, found string
+  	let s: string = "é"; let x: int = "a";
+  	                                  ^^^

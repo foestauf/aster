@@ -1,0 +1,48 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/array_errors.aster:19:13: error: array element type cannot be void
+      let x: [void] = [];
+              ^^^^
+tests/programs/errors/array_errors.aster:20:15: error: cannot infer type of empty array
+      print(len([]));
+                ^^
+tests/programs/errors/array_errors.aster:21:24: error: type mismatch: expected int, found string
+      let b: [int] = [1, "two"];
+                         ^^^^^
+tests/programs/errors/array_errors.aster:22:9: error: type mismatch: expected int, found bool
+      [1, true];
+          ^^^^
+tests/programs/errors/array_errors.aster:23:11: error: cannot compare '[int]' values
+      print(a == a);
+            ^^^^^^
+tests/programs/errors/array_errors.aster:24:5: error: cannot index a value of type string
+      "abc"[0];
+      ^^^^^
+tests/programs/errors/array_errors.aster:25:7: error: array index must be int, found bool
+      a[true];
+        ^^^^
+tests/programs/errors/array_errors.aster:26:10: error: function 'push' expects an array, found int
+      push(1, 2);
+           ^
+tests/programs/errors/array_errors.aster:27:13: error: type mismatch: expected int, found string
+      push(a, "s");
+              ^^^
+tests/programs/errors/array_errors.aster:28:5: error: function 'pop' expects 1 argument, found 0
+      pop();
+      ^^^^^
+tests/programs/errors/array_errors.aster:29:9: error: function 'len' expects a string or array, found bool
+      len(true);
+          ^^^^
+tests/programs/errors/array_errors.aster:30:6: error: array element cannot have type void
+      [v()];
+       ^^^
+tests/programs/errors/array_errors.aster:31:11: error: cannot print a value of type [int]
+      print(a);
+            ^
+tests/programs/errors/array_errors.aster:32:18: error: type mismatch: expected int, found [int]
+      let n: int = [1];
+                   ^^^
+tests/programs/errors/array_errors.aster:33:9: error: function 'pop' expects an array, found int
+      pop(5);
+          ^

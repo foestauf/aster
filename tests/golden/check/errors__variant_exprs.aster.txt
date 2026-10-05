@@ -1,0 +1,14 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/variant_exprs.aster 684 688 unknown enum 'Nope'
+error tests/programs/errors/variant_exprs.aster 708 709 'S' is not an enum
+error tests/programs/errors/variant_exprs.aster 729 732 'int' is not an enum
+error tests/programs/errors/variant_exprs.aster 755 756 unknown variant 'Z' on 'E'
+error tests/programs/errors/variant_exprs.aster 773 777 variant 'E::B' expects 1 value, got 0
+error tests/programs/errors/variant_exprs.aster 794 801 variant 'E::A' expects 0 values, got 1
+error tests/programs/errors/variant_exprs.aster 826 827 type mismatch: expected string, found int
+error tests/programs/errors/variant_exprs.aster 847 851 type mismatch: expected int, found E
+error tests/programs/errors/variant_exprs.aster 863 867 cannot print a value of type E
+error tests/programs/errors/variant_exprs.aster 888 906 cannot compare 'E' values
+error tests/programs/errors/variant_exprs.aster 926 937 operator '<' cannot be applied to E and E

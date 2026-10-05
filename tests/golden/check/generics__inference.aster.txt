@@ -1,0 +1,31 @@
+== exit 0
+== stdout
+struct Wrap
+  field o Option[int]
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Option[Option[int]]
+  variant Some(Option[int])
+  variant None
+enum Option[[int]]
+  variant Some([int])
+  variant None
+fn get(Option[int]): int
+  param 0 o Option[int]
+  let 1 n int
+fn none(): Option[int]
+fn main(): int
+  let 0 a Option[int]
+  var 1 b Option[int]
+  let 2 w Wrap
+  let 3 x Option[Option[int]]
+  let 4 inner Option[int]
+  var 5 xs [Option[int]]
+  let 6 ys [Option[int]]
+  let 7 c bool
+  let 8 z Option[int]
+  let 9 m Option[int]
+  let 10 e Option[[int]]
+  let 11 items [int]
+== stderr

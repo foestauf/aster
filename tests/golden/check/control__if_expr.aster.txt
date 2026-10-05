@@ -1,0 +1,9 @@
+== exit 0
+== stdout
+fn abs(int): int
+  param 0 n int
+  let 1 r int
+fn sign(int): string
+  param 0 n int
+fn main(): int
+== stderr

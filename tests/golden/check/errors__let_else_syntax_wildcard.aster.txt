@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/let_else_syntax_wildcard.aster 80 81 expected identifier, found '_'

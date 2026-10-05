@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/eprint_exit_redefined.aster 153 159 'eprint' is a builtin function and cannot be redefined
+error tests/programs/errors/eprint_exit_redefined.aster 169 173 'exit' is a builtin function and cannot be redefined

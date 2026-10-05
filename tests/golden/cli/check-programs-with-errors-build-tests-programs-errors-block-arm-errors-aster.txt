@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/block_arm_errors.aster:6:9: error: match arm block must diverge
+          Option::None => {
+          ^^^^^^^^^^^^
+tests/programs/errors/block_arm_errors.aster:18:9: error: match arm block must diverge
+          false => {
+          ^^^^^

@@ -1,0 +1,27 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/struct_exprs.aster:11:5: error: unknown struct 'Nope'
+      Nope { x: 1 };
+      ^^^^
+tests/programs/errors/struct_exprs.aster:12:16: error: missing field 'y' in 'P'
+      let p: P = P { x: 1 };
+                 ^
+tests/programs/errors/struct_exprs.aster:13:21: error: unknown field 'z' on 'P'
+      P { x: 1, y: 2, z: 3 };
+                      ^
+tests/programs/errors/struct_exprs.aster:14:21: error: duplicate field 'x'
+      P { x: 1, y: 2, x: 3 };
+                      ^
+tests/programs/errors/struct_exprs.aster:15:13: error: unknown field 'w' on 'P'
+      print(p.w);
+              ^
+tests/programs/errors/struct_exprs.aster:17:13: error: unknown field 'x' on 'int'
+      print(n.x);
+              ^
+tests/programs/errors/struct_exprs.aster:18:11: error: cannot compare 'P' values
+      print(p == p);
+            ^^^^^^
+tests/programs/errors/struct_exprs.aster:19:11: error: cannot print a value of type P
+      print(p);
+            ^

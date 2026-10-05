@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+bom.aster:2:18: error: type mismatch: expected int, found string
+      let x: int = "é";
+                   ^^^

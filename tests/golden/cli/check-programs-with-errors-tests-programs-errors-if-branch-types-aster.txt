@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/if_branch_types.aster:3:18: error: if branches have different types: int and string
+      let x: int = if true { 1 } else { "one" };
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/let_else_scope.aster 187 188 undefined name 'v'
+error tests/programs/errors/let_else_scope.aster 290 291 'v' is already declared in this scope

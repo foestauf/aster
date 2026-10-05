@@ -1,0 +1,19 @@
+== exit 0
+== stdout
+struct Node
+  field value int
+  field next NodeOpt
+enum NodeOpt
+  variant None
+  variant Some(Node)
+fn prepend(NodeOpt, int): NodeOpt
+  param 0 list NodeOpt
+  param 1 value int
+fn main(): int
+  var 0 list NodeOpt
+  let 1 i int
+  var 2 cur NodeOpt
+  var 3 sum int
+  var 4 done bool
+  let 5 node Node
+== stderr

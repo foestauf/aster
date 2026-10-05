@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/try_errors.aster 586 588 '?' applies to Option or Result, not 'int'
+error tests/programs/errors/try_errors.aster 622 624 '?' needs the function to return an Option, but it returns 'void'
+error tests/programs/errors/try_errors.aster 697 699 '?' needs the function to return a Result, but it returns 'Option[int]'
+error tests/programs/errors/try_errors.aster 771 773 '?' needs the function to return an Option, but it returns 'Result[int, string]'
+error tests/programs/errors/try_errors.aster 852 854 '?' error type 'int' does not match the function's error type 'string'
+error tests/programs/errors/try_errors.aster 924 926 '?' needs the function to return an Option, but it returns 'int'

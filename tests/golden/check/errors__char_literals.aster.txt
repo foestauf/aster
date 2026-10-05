@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/char_literals.aster 384 386 empty character literal
+error tests/programs/errors/char_literals.aster 405 409 character literal must be a single ASCII character
+error tests/programs/errors/char_literals.aster 428 432 character literal must be a single ASCII character
+error tests/programs/errors/char_literals.aster 452 454 invalid escape sequence '\q'
+error tests/programs/errors/char_literals.aster 474 477 unterminated character literal
+error tests/programs/errors/char_literals.aster 482 488 expected ';', found 'return'

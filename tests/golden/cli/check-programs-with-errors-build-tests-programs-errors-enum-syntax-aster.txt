@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/enum_syntax.aster:3:13: error: expected identifier, found '}'
+  enum Empty {}
+              ^
+tests/programs/errors/enum_syntax.aster:4:12: error: expected identifier, found ')'
+  enum V { A() }
+             ^

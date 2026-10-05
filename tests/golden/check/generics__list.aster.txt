@@ -1,0 +1,22 @@
+== exit 0
+== stdout
+enum List[int]
+  variant Cons(int, List[int])
+  variant Nil
+enum List[string]
+  variant Cons(string, List[string])
+  variant Nil
+fn sum(List[int]): int
+  param 0 l List[int]
+  let 1 head int
+  let 2 tail List[int]
+fn show(List[int]): void
+  param 0 l List[int]
+  let 1 head int
+  let 2 tail List[int]
+fn count(List[string]): int
+  param 0 l List[string]
+  let 1 tail List[string]
+fn main(): int
+  let 0 l List[int]
+== stderr

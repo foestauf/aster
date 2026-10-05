@@ -1,0 +1,25 @@
+== exit 0
+== stdout
+enum Either[int, string]
+  variant Left(int)
+  variant Right(string)
+enum Option[bool]
+  variant Some(bool)
+  variant None
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+fn show(Either[int, string]): void
+  param 0 e Either[int, string]
+  let 1 n int
+  let 2 s string
+fn show_option(Option[bool]): void
+  param 0 o Option[bool]
+  let 1 b bool
+fn show_result(Result[int, string]): void
+  param 0 r Result[int, string]
+  let 1 n int
+  let 2 e string
+fn main(): int
+  let 0 l Either[int, string]
+== stderr

@@ -1,0 +1,28 @@
+== exit 0
+== stdout
+enum Box[int]
+  variant Full(int)
+  variant Empty
+enum Option[int]
+  variant Some(int)
+  variant None
+fn show(Box[int]): void
+  param 0 b Box[int]
+  let 1 n int
+fn main(): int
+  let 0 n int
+fn first_plus(Option[int], int): int
+  param 0 o Option[int]
+  param 1 k int
+fn add_opt(Option[int], int): Option[int]
+  param 0 o Option[int]
+  param 1 k int
+  let 2 n int
+fn unwrap_or(Option[int], int): int
+  param 0 o Option[int]
+  param 1 d int
+  let 2 n int
+fn half_checked(Option[int]): Option[int]
+  param 0 o Option[int]
+  let 1 n int
+== stderr

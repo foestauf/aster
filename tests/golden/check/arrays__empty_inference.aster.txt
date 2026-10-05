@@ -1,0 +1,14 @@
+== exit 0
+== stdout
+struct Bag
+  field items [string]
+fn count([int]): int
+  param 0 xs [int]
+fn fresh(): [bool]
+fn main(): int
+  var 0 a [int]
+  let 1 grid [[int]]
+  let 2 b Bag
+  let 3 pick [int]
+  let 4 paren [int]
+== stderr

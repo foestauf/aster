@@ -1,0 +1,93 @@
+== exit 0
+== stdout
+struct Token
+  field kind string
+  field start int
+  field end int
+struct LexError
+  field start int
+  field end int
+  field message string
+struct Lexer
+  field src string
+  field pos int
+  field tokens [Token]
+  field errors [LexError]
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+fn report(Lexer): void
+  param 0 lx Lexer
+  let 1 t Token
+  let 2 span string
+  let 3 e LexError
+fn die(string): never
+  param 0 msg string
+fn main([string]): int
+  param 0 args [string]
+  let 1 src string
+  let 2 msg string
+fn min(int, int): int
+  param 0 a int
+  param 1 b int
+fn is_digit(int): bool
+  param 0 c int
+fn is_ident_start(int): bool
+  param 0 c int
+fn is_ident_part(int): bool
+  param 0 c int
+fn is_escape(int): bool
+  param 0 c int
+fn is_space(int): bool
+  param 0 c int
+fn utf8_len(int): int
+  param 0 c int
+fn is_keyword(string): bool
+  param 0 w string
+fn is_punct(string): bool
+  param 0 p string
+fn peek_byte(Lexer, int): int
+  param 0 lx Lexer
+  param 1 offset int
+  let 2 i int
+fn push_token(Lexer, string, int): void
+  param 0 lx Lexer
+  param 1 kind string
+  param 2 start int
+fn add_error(Lexer, int, int, string): void
+  param 0 lx Lexer
+  param 1 start int
+  param 2 end int
+  param 3 message string
+fn lex_string(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  let 5 next int
+  var 6 width int
+  let 7 end int
+fn lex_char(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  var 5 body_len int
+  let 6 single string
+  let 7 next int
+  let 8 width int
+  let 9 valid bool
+fn bom_len(string): int
+  param 0 src string
+fn lex(string): Lexer
+  param 0 src string
+fn lex_from(string, int): Lexer
+  param 0 src string
+  param 1 pos int
+  let 2 lx Lexer
+  let 3 start int
+  let 4 c int
+  let 5 word string
+== stderr

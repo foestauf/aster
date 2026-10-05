@@ -1,0 +1,11 @@
+== exit 0
+== stdout
+struct Pair
+  field a int
+  field b int
+fn t(string, int): int
+  param 0 label string
+  param 1 v int
+fn main(): int
+  let 0 p Pair
+== stderr

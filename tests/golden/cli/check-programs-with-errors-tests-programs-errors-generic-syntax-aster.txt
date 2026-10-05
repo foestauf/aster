@@ -1,0 +1,18 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_syntax.aster:6:8: error: expected identifier, found ']'
+  enum E[] { A }
+         ^
+tests/programs/errors/generic_syntax.aster:7:16: error: expected identifier, found ']'
+  fn f(x: Option[]) {}
+                 ^
+tests/programs/errors/generic_syntax.aster:8:10: error: expected identifier, found ']'
+  enum F[T,] { A(T) }
+           ^
+tests/programs/errors/generic_syntax.aster:9:20: error: expected identifier, found ']'
+  fn g(x: Option[int,]) {}
+                     ^
+tests/programs/errors/generic_syntax.aster:10:22: error: expected expression, found '?'
+  fn h(): int { return ?x; }
+                       ^

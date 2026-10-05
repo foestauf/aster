@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/chained_comparison.aster:3:25: error: comparison operators cannot be chained
+      let b: bool = 1 < 2 < 3;
+                          ^

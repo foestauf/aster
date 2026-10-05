@@ -1,0 +1,22 @@
+== exit 0
+== stdout
+struct Node
+  field value int
+  field kids [Node]
+struct Team
+  field name string
+  field members [Person]
+struct Person
+  field name string
+  field teams [Team]
+fn leaf(int): Node
+  param 0 v int
+fn sum(Node): int
+  param 0 n Node
+  var 1 total int
+  var 2 i int
+fn main(): int
+  let 0 root Node
+  let 1 t Team
+  let 2 p Person
+== stderr

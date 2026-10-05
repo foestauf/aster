@@ -1,0 +1,5 @@
+== exit 0
+== stdout
+fn main(): int
+  let 0 z int
+== stderr

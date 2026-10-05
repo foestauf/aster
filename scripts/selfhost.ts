@@ -1,6 +1,6 @@
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,23 +9,21 @@ import { fileURLToPath } from 'node:url';
 // and S4 with S3, requires the compiler's C to be byte-identical at every hop, runs the full test suite and then the
 // stage-aware suites once per stage, and writes a report to .selfhost/. Orchestration only: it spawns compilers, cc,
 // git and vitest, and never lexes, parses, checks, lowers or emits Aster itself.
-// `--record` also writes docs/self-host/proof.md and requires a clean tree.
+// Stage names: S0 is the installed compiler (build/asterc; in CI, bootstrapped from the base's release and rebuilt from this tree), whose C is the reference; S1 to S4 are built
+// from the source in this tree. `--record` also writes docs/self-host/proof.md and requires a clean tree.
 
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const COMPILER = 'packages/asterc-self/asterc.aster';
-const S0 = 'packages/asterc/dist/cli/bin.js';
+const INSTALLED = 'build/asterc';
+const INSTALLED_ABS = join(REPO_ROOT, INSTALLED);
 export const STAGE_SUITES = [
   'tests/asterc_self.test.ts',
   'tests/llvm_backend.test.ts',
   'tests/selfhost_golden.test.ts',
   'tests/load_symlink.test.ts',
   'tests/source_encoding.test.ts',
-  'tests/lex_aster.test.ts',
-  'tests/parse_aster.test.ts',
   'tests/check_aster.test.ts',
-  'tests/typed_aster.test.ts',
-  'tests/ir_aster.test.ts',
-  'tests/emit_aster.test.ts',
+  'tests/runtime_aster.test.ts',
 ] as const;
 
 const END = '<end of file>';
@@ -198,8 +196,12 @@ export function main(argv: string[]): number {
       if (!recordAllowed(report.dirty, record)) fail('--record needs a clean tree');
     });
 
-    step('stage 0 (pnpm build:seed)', () => {
-      if (run('pnpm', ['build:seed'], { stdio: 'inherit' }).status !== 0) fail('pnpm build:seed failed');
+    step('stage 0 (build/asterc)', () => {
+      try {
+        accessSync(INSTALLED_ABS, constants.X_OK);
+      } catch {
+        fail('aster: no compiler at build/asterc; run `pnpm bootstrap` first');
+      }
     });
 
     mkdirSync(outDir, { recursive: true });
@@ -212,9 +214,9 @@ export function main(argv: string[]): number {
 
     const cs: string[] = [];
     step('stage C', () => {
-      const s1 = run(process.execPath, [S0, 'build', COMPILER, '-o', bin(1)]);
+      const s1 = run(INSTALLED_ABS, ['build', COMPILER, '-o', bin(1)]);
       if (s1.status !== 0 || s1.stderr !== '') fail(`S0 failed to build S1 (status ${s1.status}):\n${s1.stderr}`);
-      const c0 = run(process.execPath, [S0, 'build', COMPILER, '--emit=c']);
+      const c0 = run(INSTALLED_ABS, ['build', COMPILER, '--emit=c']);
       if (c0.status !== 0 || c0.stderr !== '') fail(`S0 --emit=c failed (status ${c0.status}):\n${c0.stderr}`);
       cs.push(c0.stdout);
       for (let n = 1; n <= 4; n++) {
@@ -235,7 +237,7 @@ export function main(argv: string[]): number {
       cs.forEach((c, n) => {
         const d = firstDifference(c0, c);
         report.stages.push({ name: `S${n}`, cSha256: sha256(c), matchesS0: d === null, suite: null });
-        if (d !== null && drift === '') drift = `C(S${n}) differs from C(S0) at line ${d.line}:\n  S0: ${d.a}\n  S${n}: ${d.b}`;
+        if (d !== null && drift === '') drift = `C(S${n}) differs from C(S0) at line ${d.line}:\n  S0: ${d.a}\n  S${n}: ${d.b}\n(is build/asterc current with this tree? run \`pnpm build\`)`;
       });
       if (drift !== '') fail(drift);
     });
@@ -276,7 +278,7 @@ export function main(argv: string[]): number {
     };
 
     step('full suite (pnpm test)', () => {
-      report.fullSuite = vitest('full suite', [], 'S0+S1.json', { ASTER_STAGE_BIN: undefined, ASTER_STAGE: undefined });
+      report.fullSuite = vitest('full suite', [], 'full.json', { ASTER_STAGE_BIN: undefined, ASTER_STAGE: undefined });
     });
     for (const n of [1, 2, 3]) {
       step(`suites against S${n}`, () => {

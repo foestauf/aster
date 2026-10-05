@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/lex_errors.aster 188 189 unexpected character '&'
+error tests/programs/errors/lex_errors.aster 190 195 expected ';', found 'false'
+error tests/programs/errors/lex_errors.aster 212 214 invalid escape sequence '\q'

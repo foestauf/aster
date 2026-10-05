@@ -1,0 +1,7 @@
+== exit 0
+== stdout
+fn main(): int
+  var 0 i int
+  var 1 sum int
+  var 2 n int
+== stderr

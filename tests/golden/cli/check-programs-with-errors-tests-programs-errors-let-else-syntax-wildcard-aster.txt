@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/let_else_syntax_wildcard.aster:3:9: error: expected identifier, found '_'
+      let _ = x;
+          ^

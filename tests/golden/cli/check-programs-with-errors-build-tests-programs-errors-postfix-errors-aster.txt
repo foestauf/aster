@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/postfix_errors.aster:5:5: error: only named functions can be called
+      P { x: 1 }.x();
+      ^^^^^^^^^^^^
+tests/programs/errors/postfix_errors.aster:7:5: error: cannot index a value of type int
+      n[0];
+      ^

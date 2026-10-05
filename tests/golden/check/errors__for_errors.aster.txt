@@ -1,0 +1,7 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/for_errors.aster 281 282 cannot iterate over a value of type int
+error tests/programs/errors/for_errors.aster 303 307 range bound must be int, found bool
+error tests/programs/errors/for_errors.aster 332 333 cannot assign to immutable variable 'i'
+error tests/programs/errors/for_errors.aster 360 361 function 'f' is missing a return on some paths

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/let_else_syntax_semicolon.aster 107 113 expected ';', found 'return'

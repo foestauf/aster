@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_patterns.aster 475 478 cannot match on '[int]' values
+error tests/programs/errors/match_patterns.aster 505 506 pattern type 'F' does not match 'E'
+error tests/programs/errors/match_patterns.aster 540 550 variant 'E::B' expects 1 value, got 2
+error tests/programs/errors/match_patterns.aster 589 590 duplicate binding 'x'
+error tests/programs/errors/match_patterns.aster 625 626 unknown variant 'Q' on 'E'
+error tests/programs/errors/match_patterns.aster 645 649 undefined name 'nope'
+error tests/programs/errors/match_patterns.aster 692 693 cannot assign to immutable variable 'n'

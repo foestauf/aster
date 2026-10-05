@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/unwrap_binder_immutable.aster 290 291 cannot assign to immutable variable 'n'
+error tests/programs/errors/unwrap_binder_immutable.aster 356 357 cannot assign to immutable variable 'm'
+error tests/programs/errors/unwrap_binder_immutable.aster 422 423 duplicate binding 'x'

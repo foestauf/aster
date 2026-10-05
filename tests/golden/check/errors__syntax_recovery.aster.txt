@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/syntax_recovery.aster 133 134 expected expression, found ';'
+error tests/programs/errors/syntax_recovery.aster 145 146 expected ':', found '='

@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/struct_decls.aster 390 393 'int' is a built-in type and cannot be redefined
+error tests/programs/errors/struct_decls.aster 412 417 'print' is a builtin function and cannot be redefined
+error tests/programs/errors/struct_decls.aster 456 457 duplicate struct 'P'
+error tests/programs/errors/struct_decls.aster 472 473 'P' is already declared as a struct
+error tests/programs/errors/struct_decls.aster 499 500 duplicate field 'x'
+error tests/programs/errors/struct_decls.aster 523 527 unknown type 'Nope'
+error tests/programs/errors/struct_decls.aster 532 536 field cannot have type void

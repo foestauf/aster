@@ -1,0 +1,12 @@
+== exit 0
+== stdout
+enum Op
+  variant Plus
+  variant Minus
+  variant Times
+enum Wrap
+  variant W(int)
+fn symbol(Op): string
+  param 0 o Op
+fn main(): int
+== stderr

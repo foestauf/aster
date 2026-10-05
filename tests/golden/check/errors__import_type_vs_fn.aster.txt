@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_type_vs_fn.aster 280 281 'S' is already declared as a struct

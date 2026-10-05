@@ -1,0 +1,36 @@
+== exit 0
+== stdout
+enum Option[bool]
+  variant Some(bool)
+  variant None
+enum Option[int]
+  variant Some(int)
+  variant None
+fn f(Option[bool]): Option[bool]
+  param 0 o Option[bool]
+fn g(Option[int]): Option[int]
+  param 0 o Option[int]
+fn and_op(bool, Option[bool]): Option[bool]
+  param 0 c bool
+  param 1 o Option[bool]
+fn or_op(bool, Option[bool]): Option[bool]
+  param 0 c bool
+  param 1 o Option[bool]
+fn in_if(bool, Option[int]): Option[int]
+  param 0 c bool
+  param 1 o Option[int]
+  let 2 v int
+fn in_match(int, Option[int]): Option[int]
+  param 0 k int
+  param 1 o Option[int]
+  let 2 v int
+fn show_b(string, Option[bool]): void
+  param 0 label string
+  param 1 o Option[bool]
+  let 2 b bool
+fn show_i(string, Option[int]): void
+  param 0 label string
+  param 1 o Option[int]
+  let 2 n int
+fn main(): int
+== stderr

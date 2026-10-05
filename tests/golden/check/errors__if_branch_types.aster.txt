@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/if_branch_types.aster 105 133 if branches have different types: int and string

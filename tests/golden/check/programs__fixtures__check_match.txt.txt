@@ -1,0 +1,39 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_match.txt 278 280 '?' needs the function to return a Result, but it returns 'Option[int]'
+error tests/programs/programs/fixtures/check_match.txt 411 413 '?' error type 'string' does not match the function's error type 'bool'
+error tests/programs/programs/fixtures/check_match.txt 471 473 '?' needs the function to return an Option, but it returns 'Result[int, bool]'
+error tests/programs/programs/fixtures/check_match.txt 588 590 '?' needs the function to return an Option, but it returns 'int'
+error tests/programs/programs/fixtures/check_match.txt 629 631 '?' applies to Option or Result, not 'int'
+error tests/programs/programs/fixtures/check_match.txt 670 674 unknown type 'Nope'
+error tests/programs/programs/fixtures/check_match.txt 880 885 non-exhaustive match: missing 'Option::None'
+error tests/programs/programs/fixtures/check_match.txt 918 923 non-exhaustive match: missing 'W::Two', 'W::Zero'
+error tests/programs/programs/fixtures/check_match.txt 960 969 variant 'W::Two' expects 2 values, got 1
+error tests/programs/programs/fixtures/check_match.txt 976 988 variant 'W::One' expects 1 value, got 2
+error tests/programs/programs/fixtures/check_match.txt 1026 1027 or-pattern alternatives cannot bind names
+error tests/programs/programs/fixtures/check_match.txt 1055 1056 duplicate binding 'p'
+error tests/programs/programs/fixtures/check_match.txt 1064 1065 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1088 1094 pattern type 'Result' does not match 'Option[int]'
+error tests/programs/programs/fixtures/check_match.txt 1132 1136 unknown enum 'Nope'
+error tests/programs/programs/fixtures/check_match.txt 1178 1182 unknown variant 'Nope' on 'Option'
+error tests/programs/programs/fixtures/check_match.txt 1224 1225 pattern type 'E' does not match 'int'
+error tests/programs/programs/fixtures/check_match.txt 1235 1239 unknown enum 'Nope'
+error tests/programs/programs/fixtures/check_match.txt 1283 1284 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1324 1325 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1367 1369 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1411 1413 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1457 1460 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1504 1507 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1577 1582 non-exhaustive match: add a '_' arm
+error tests/programs/programs/fixtures/check_match.txt 1782 1783 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1814 1815 unreachable match arm
+error tests/programs/programs/fixtures/check_match.txt 1828 1833 non-exhaustive match: missing 'E::B', 'E::C'
+error tests/programs/programs/fixtures/check_match.txt 1879 1883 unknown variant 'Nope' on 'E'
+error tests/programs/programs/fixtures/check_match.txt 1902 1906 undefined name 'nope'
+error tests/programs/programs/fixtures/check_match.txt 1940 1944 undefined name 'nope'
+error tests/programs/programs/fixtures/check_match.txt 1952 1953 or-pattern alternatives cannot bind names
+error tests/programs/programs/fixtures/check_match.txt 1976 1977 duplicate binding 'y'
+error tests/programs/programs/fixtures/check_match.txt 2080 2084 undefined name 'nope'
+error tests/programs/programs/fixtures/check_match.txt 2162 2166 undefined name 'nope'
+error tests/programs/programs/fixtures/check_match.txt 2273 2321 match arms have different types: int and string

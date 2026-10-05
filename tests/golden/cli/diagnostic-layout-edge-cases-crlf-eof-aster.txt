@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+crlf_eof.aster:3:1: error: expected ';', found end of file
+  
+  ^
+crlf_eof.aster:3:1: error: expected '}', found end of file
+  
+  ^

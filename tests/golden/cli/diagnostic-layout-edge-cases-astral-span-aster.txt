@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+astral_span.aster:1:22: error: type mismatch: expected int, found string
+  fn f(): int { return "😀😀"; }
+                       ^^^^^^

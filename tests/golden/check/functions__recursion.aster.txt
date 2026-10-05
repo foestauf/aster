@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn fact(int): int
+  param 0 n int
+fn fib(int): int
+  param 0 n int
+fn main(): int
+== stderr

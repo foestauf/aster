@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_ops.aster:6:11: error: cannot print a value of type Option[int]
+      print(o);
+            ^
+tests/programs/errors/generic_ops.aster:7:19: error: cannot compare 'Option[int]' values
+      let b: bool = o == o;
+                    ^^^^^^
+tests/programs/errors/generic_ops.aster:8:5: error: non-exhaustive match: missing 'Option::None'
+      match o {
+      ^^^^^

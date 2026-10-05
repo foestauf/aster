@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/main_two_params.aster:2:4: error: 'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'
+  fn main(a: [string], b: int): int {
+     ^^^^

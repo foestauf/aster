@@ -1,16 +1,15 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { stage } from './stage.js';
 import { spawnStrict } from './spawn.js';
 
-// #12: a root spelled through a symlinked directory and `..` must get the same identity as the physical file that an
-// import cycle reaches, so it loads once. Stage 0 resolves physically. The self-hosted loader uses lexical identity,
-// so it loads the file twice (contract §4.5, §7); that limit is asserted here, not hidden.
+// #12: the loader uses lexical identity (contract §4.5, §7), not the physical path. Only the canonical spelling loads
+// the root once. A root reached through a symlinked directory and `..`, or through a symlink to the file, has a lexical
+// identity that differs from the physical path its helper's import cycle reaches, so it loads twice. That limit is
+// asserted here, not hidden.
 
-const S0_BIN = fileURLToPath(new URL('../packages/asterc/dist/cli/bin.js', import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), 'aster-symlink-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -31,22 +30,19 @@ const spellings = {
   'file symlink': join(dir, 'entry', 'root_link.aster'),
 };
 
-const s0 = (argv: string[]) => spawnStrict(process.execPath, [S0_BIN, ...argv], { env: { ...process.env, LC_ALL: 'C' } });
+const run = (argv: string[]) => spawnStrict(stage().bin, argv, { env: { ...process.env, LC_ALL: 'C' } });
 
-describe('stage 0 loads a root reached through a symlink once', () => {
-  it.for(Object.entries(spellings))('%s', ([, path]) => {
-    expect(s0(['check', path])).toMatchObject({ stdout: '', stderr: '', status: 0 });
-    const c = s0(['build', path, '--emit=c']);
-    expect(c.status).toBe(0);
-    expect(c.stdout).toBe(s0(['build', spellings.canonical, '--emit=c']).stdout);
+describe('the canonical spelling loads the root once', () => {
+  it(`${stage().name} checks it cleanly`, () => {
+    expect(run(['check', spellings.canonical])).toMatchObject({ stdout: '', stderr: '', status: 0 });
   });
 });
 
-describe('the self-hosted loader keeps lexical identity (documented limit)', () => {
-  it(`${stage().name} loads the aliased root twice`, () => {
-    const r = spawnStrict(stage().bin, ['check', spellings.aliased], { env: { ...process.env, LC_ALL: 'C' } });
-    // Observed: the root's lexical identity (`entry/link/../root.aster`) differs from the physical path the helper's
-    // import reaches, so the file loads a second time: `main` is then outside the root, and `helper` is declared twice.
+describe('the loader keeps lexical identity (documented limit)', () => {
+  it.for(['aliased', 'file symlink'] as const)(`${stage().name} loads the %s root twice`, (name) => {
+    const r = run(['check', spellings[name]]);
+    // Observed: the root's lexical identity differs from the physical path the helper's import reaches, so the file
+    // loads a second time: `main` is then outside the root, and `helper` is declared twice.
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("other/root.aster:2:4: error: 'main' must be declared in the root file");
     expect(r.stderr).toContain("other/helper.aster:2:4: error: duplicate function 'helper'");

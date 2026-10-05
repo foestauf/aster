@@ -1,0 +1,6 @@
+== exit 0
+== stdout
+fn n(): int
+fn s(): string
+fn main(): int
+== stderr

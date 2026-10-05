@@ -1,0 +1,20 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_literals.aster 1073 1076 pattern type 'string' does not match 'int'
+error tests/programs/errors/match_literals.aster 1122 1123 pattern type 'int' does not match 'string'
+error tests/programs/errors/match_literals.aster 1169 1172 pattern type 'int' does not match 'string'
+error tests/programs/errors/match_literals.aster 1219 1220 pattern type 'int' does not match 'bool'
+error tests/programs/errors/match_literals.aster 1264 1268 pattern type 'bool' does not match 'int'
+error tests/programs/errors/match_literals.aster 1299 1300 pattern type 'int' does not match 'E'
+error tests/programs/errors/match_literals.aster 1331 1332 pattern type 'E' does not match 'int'
+error tests/programs/errors/match_literals.aster 1356 1361 non-exhaustive match: add a '_' arm
+error tests/programs/errors/match_literals.aster 1380 1385 non-exhaustive match: add a '_' arm
+error tests/programs/errors/match_literals.aster 1408 1413 non-exhaustive match: missing 'false'
+error tests/programs/errors/match_literals.aster 1438 1443 non-exhaustive match: missing 'true'
+error tests/programs/errors/match_literals.aster 1501 1502 unreachable match arm
+error tests/programs/errors/match_literals.aster 1533 1534 unreachable match arm
+error tests/programs/errors/match_literals.aster 1575 1577 unreachable match arm
+error tests/programs/errors/match_literals.aster 1619 1621 unreachable match arm
+error tests/programs/errors/match_literals.aster 1648 1651 cannot match on '[int]' values
+error tests/programs/errors/match_literals.aster 1701 1702 cannot match on 'S' values

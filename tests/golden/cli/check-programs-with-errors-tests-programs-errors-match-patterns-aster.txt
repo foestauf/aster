@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/match_patterns.aster:12:11: error: cannot match on '[int]' values
+      match [1] { _ => {} }
+            ^^^
+tests/programs/errors/match_patterns.aster:13:15: error: pattern type 'F' does not match 'E'
+      match e { F::X => {} _ => {} }
+                ^
+tests/programs/errors/match_patterns.aster:14:15: error: variant 'E::B' expects 1 value, got 2
+      match e { E::B(x, y) => {} _ => {} }
+                ^^^^^^^^^^
+tests/programs/errors/match_patterns.aster:15:23: error: duplicate binding 'x'
+      match e { E::C(x, x) => {} _ => {} }
+                        ^
+tests/programs/errors/match_patterns.aster:16:18: error: unknown variant 'Q' on 'E'
+      match e { E::Q => {} }
+                   ^
+tests/programs/errors/match_patterns.aster:17:11: error: undefined name 'nope'
+      match nope { E::A => {} }
+            ^^^^
+tests/programs/errors/match_patterns.aster:18:28: error: cannot assign to immutable variable 'n'
+      match e { E::B(n) => { n = 3; } _ => {} }
+                             ^

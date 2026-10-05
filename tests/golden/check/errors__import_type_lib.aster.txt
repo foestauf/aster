@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_type_lib.aster 0 0 missing 'fn main(): int'
+error tests/programs/errors/import_type_lib.aster 41 44 type mismatch: expected int, found string

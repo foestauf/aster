@@ -1,0 +1,7 @@
+== exit 0
+== stdout
+fn bail(int): int
+  param 0 code int
+fn middle(): int
+fn main(): int
+== stderr

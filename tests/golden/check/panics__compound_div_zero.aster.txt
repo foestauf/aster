@@ -1,0 +1,6 @@
+== exit 0
+== stdout
+fn main(): int
+  var 0 n int
+  let 1 zero int
+== stderr

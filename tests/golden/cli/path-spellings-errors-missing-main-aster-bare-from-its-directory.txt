@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+missing_main.aster:1:1: error: missing 'fn main(): int'
+  // expect-error: 1:1 missing 'fn main(): int'
+  ^

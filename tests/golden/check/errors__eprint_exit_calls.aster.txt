@@ -1,0 +1,8 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/eprint_exit_calls.aster 350 353 cannot print a value of type [int]
+error tests/programs/errors/eprint_exit_calls.aster 360 368 function 'eprint' expects 1 argument, found 0
+error tests/programs/errors/eprint_exit_calls.aster 379 382 type mismatch: expected int, found string
+error tests/programs/errors/eprint_exit_calls.aster 389 395 function 'exit' expects 1 argument, found 0
+error tests/programs/errors/eprint_exit_calls.aster 408 412 cannot print a value of type E

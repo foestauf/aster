@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn fill([int]): void
+  param 0 xs [int]
+fn main(): int
+  let 0 a [int]
+  let 1 b [int]
+== stderr

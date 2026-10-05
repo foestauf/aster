@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/never_positions.aster 404 409 'never' is only allowed as a return type
+error tests/programs/errors/never_positions.aster 435 440 'never' is only allowed as a return type
+error tests/programs/errors/never_positions.aster 458 463 'never' is only allowed as a return type
+error tests/programs/errors/never_positions.aster 498 503 'never' is only allowed as a return type
+error tests/programs/errors/never_positions.aster 521 526 'never' is only allowed as a return type
+error tests/programs/errors/never_positions.aster 552 557 'never' is only allowed as a return type

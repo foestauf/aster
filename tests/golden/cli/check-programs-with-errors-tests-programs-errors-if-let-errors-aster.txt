@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/if_let_errors.aster:8:12: error: undefined name 'v'
+      return v;
+             ^
+tests/programs/errors/if_let_errors.aster:12:12: error: pattern type 'string' does not match 'Option[int]'
+      if let "x" = o {
+             ^^^
+tests/programs/errors/if_let_errors.aster:14:19: error: pattern type 'Result' does not match 'Option[int]'
+      } else if let Result::Err(e) = o {
+                    ^^^^^^

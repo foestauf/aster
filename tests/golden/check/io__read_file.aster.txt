@@ -1,0 +1,14 @@
+== exit 0
+== stdout
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+fn read(string): string
+  param 0 path string
+  let 1 s string
+  let 2 e string
+fn main(): int
+  let 0 text string
+  let 1 bin string
+  let 2 big string
+== stderr

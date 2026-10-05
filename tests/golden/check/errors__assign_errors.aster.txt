@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/assign_errors.aster 528 529 invalid assignment target
+error tests/programs/errors/assign_errors.aster 539 545 invalid assignment target
+error tests/programs/errors/assign_errors.aster 556 557 cannot assign to immutable variable 'n'
+error tests/programs/errors/assign_errors.aster 568 577 operator '-=' cannot be applied to string and string
+error tests/programs/errors/assign_errors.aster 582 594 operator '+=' cannot be applied to int and bool
+error tests/programs/errors/assign_errors.aster 605 609 type mismatch: expected int, found string
+error tests/programs/errors/assign_errors.aster 617 618 unknown field 'z' on 'P'

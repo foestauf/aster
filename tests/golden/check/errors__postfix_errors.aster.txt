@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/postfix_errors.aster 151 163 only named functions can be called
+error tests/programs/errors/postfix_errors.aster 191 192 cannot index a value of type int

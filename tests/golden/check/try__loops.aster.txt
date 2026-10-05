@@ -1,0 +1,24 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+fn half(int): Option[int]
+  param 0 n int
+fn count_while([int]): Option[int]
+  param 0 xs [int]
+  var 1 i int
+  let 2 h int
+fn sum_for([Option[int]]): Option[int]
+  param 0 xs [Option[int]]
+  var 1 total int
+  let 2 x Option[int]
+  let 3 v int
+fn arm([int]): Option[int]
+  param 0 xs [int]
+  let 1 x int
+fn show(Option[int]): void
+  param 0 o Option[int]
+  let 1 n int
+fn main(): int
+== stderr

@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/read_result_ops.aster 288 289 cannot print a value of type Result[string, string]
+error tests/programs/errors/read_result_ops.aster 310 316 cannot compare 'Result[string, string]' values
+error tests/programs/errors/read_result_ops.aster 322 327 non-exhaustive match: missing 'Result::Err'

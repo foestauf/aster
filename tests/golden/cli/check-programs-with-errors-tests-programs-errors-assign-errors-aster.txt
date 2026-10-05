@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/assign_errors.aster:13:5: error: invalid assignment target
+      1 = 2;
+      ^
+tests/programs/errors/assign_errors.aster:14:5: error: invalid assignment target
+      main() += 1;
+      ^^^^^^
+tests/programs/errors/assign_errors.aster:15:5: error: cannot assign to immutable variable 'n'
+      n += 1;
+      ^
+tests/programs/errors/assign_errors.aster:16:5: error: operator '-=' cannot be applied to string and string
+      s -= "b";
+      ^^^^^^^^^
+tests/programs/errors/assign_errors.aster:17:5: error: operator '+=' cannot be applied to int and bool
+      p.x += true;
+      ^^^^^^^^^^^^
+tests/programs/errors/assign_errors.aster:18:11: error: type mismatch: expected int, found string
+      p.x = "no";
+            ^^^^
+tests/programs/errors/assign_errors.aster:19:7: error: unknown field 'z' on 'P'
+      p.z = 1;
+        ^

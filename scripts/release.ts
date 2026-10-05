@@ -19,7 +19,7 @@ export const SEED = 'asterc-c-seed.tar.gz';
 export const SUMS = 'SHA256SUMS';
 export const SEED_DIR = 'asterc-c-seed';
 export const BUILD_TXT = 'cc -std=c11 -O2 -I. asterc.c aster_rt.c -o asterc\n';
-export const RUNTIME_DIR = join(REPO_ROOT, 'packages', 'asterc', 'runtime');
+export const RUNTIME_DIR = join(REPO_ROOT, 'runtime');
 export const COMPILER_SOURCE = 'packages/asterc-self/asterc.aster';
 
 export type StepResult = { ok: true } | { ok: false; step: string; message: string };

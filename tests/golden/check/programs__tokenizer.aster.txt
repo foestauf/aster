@@ -1,0 +1,19 @@
+== exit 0
+== stdout
+fn is_digit(int): bool
+  param 0 c int
+fn is_alpha(int): bool
+  param 0 c int
+fn is_space(int): bool
+  param 0 c int
+fn tokenize(string): int
+  param 0 src string
+  var 1 i int
+  var 2 count int
+  let 3 n int
+  let 4 c int
+  let 5 start int
+  var 6 kind string
+fn main(): int
+  let 0 total int
+== stderr

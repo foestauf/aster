@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/match_coverage.aster:11:5: error: non-exhaustive match: missing 'E::C'
+      match e { E::A => {} E::B(_) => {} }
+      ^^^^^
+tests/programs/errors/match_coverage.aster:12:5: error: non-exhaustive match: missing 'E::A', 'E::C'
+      match e { E::B(_) => {} }
+      ^^^^^
+tests/programs/errors/match_coverage.aster:13:23: error: unreachable match arm
+      match e { _ => {} E::A => {} }
+                        ^^^^
+tests/programs/errors/match_coverage.aster:14:26: error: unreachable match arm
+      match e { E::A => {} E::A => {} _ => {} }
+                           ^^^^
+tests/programs/errors/match_coverage.aster:15:57: error: unreachable match arm
+      match e { E::A => {} E::B(_) => {} E::C(_, _) => {} _ => {} }
+                                                          ^
+tests/programs/errors/match_coverage.aster:16:21: error: match arms have different types: int and string
+      let s: string = match e { E::A => 1, _ => "x" };
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/programs/errors/match_coverage.aster:17:18: error: match expression cannot have type void
+      let v: int = match e { _ => print(1) };
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^

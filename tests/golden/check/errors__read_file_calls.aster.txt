@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/read_file_calls.aster 216 225 'read_file' is a builtin function and cannot be redefined
+error tests/programs/errors/read_file_calls.aster 253 264 function 'read_file' expects 1 argument, found 0
+error tests/programs/errors/read_file_calls.aster 280 281 type mismatch: expected string, found int

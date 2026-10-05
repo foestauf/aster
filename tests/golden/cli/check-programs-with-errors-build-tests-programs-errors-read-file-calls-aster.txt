@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/read_file_calls.aster:4:4: error: 'read_file' is a builtin function and cannot be redefined
+  fn read_file() { }
+     ^^^^^^^^^
+tests/programs/errors/read_file_calls.aster:6:5: error: function 'read_file' expects 1 argument, found 0
+      read_file();
+      ^^^^^^^^^^^
+tests/programs/errors/read_file_calls.aster:7:15: error: type mismatch: expected string, found int
+      read_file(1);
+                ^

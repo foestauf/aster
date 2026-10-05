@@ -1,0 +1,7 @@
+== exit 0
+== stdout
+fn fib(int): int
+  param 0 n int
+fn main(): int
+  var 0 i int
+== stderr

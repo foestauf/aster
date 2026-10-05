@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn ping(int): void
+  param 0 n int
+fn main(): int
+fn pong(int): void
+  param 0 n int
+== stderr

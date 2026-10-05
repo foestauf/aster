@@ -1,0 +1,21 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/try_errors.aster:7:54: error: '?' applies to Option or Result, not 'int'
+  fn on_int(x: int): Option[int] { return Option::Some(x?); }
+                                                       ^^
+tests/programs/errors/try_errors.aster:8:30: error: '?' needs the function to return an Option, but it returns 'void'
+  fn in_void(o: Option[int]) { o?; }
+                               ^^
+tests/programs/errors/try_errors.aster:9:70: error: '?' needs the function to return a Result, but it returns 'Option[int]'
+  fn r_in_o(r: Result[int, string]): Option[int] { return Option::Some(r?); }
+                                                                       ^^
+tests/programs/errors/try_errors.aster:10:68: error: '?' needs the function to return an Option, but it returns 'Result[int, string]'
+  fn o_in_r(o: Option[int]): Result[int, string] { return Result::Ok(o?); }
+                                                                     ^^
+tests/programs/errors/try_errors.aster:11:75: error: '?' error type 'int' does not match the function's error type 'string'
+  fn mismatch(r: Result[int, int]): Result[int, string] { return Result::Ok(r?); }
+                                                                            ^^
+tests/programs/errors/try_errors.aster:12:66: error: '?' needs the function to return an Option, but it returns 'int'
+  fn main(): int { let o: Option[int] = Option::None; let x: int = o?; return x; }
+                                                                   ^^

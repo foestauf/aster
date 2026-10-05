@@ -1,0 +1,9 @@
+== exit 0
+== stdout
+struct FILE
+  field int int
+  field double bool
+  field len string
+fn main(): int
+  let 0 FILE FILE
+== stderr

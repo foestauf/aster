@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/missing_return.aster:2:4: error: function 'pick' is missing a return on some paths
+  fn pick(b: bool): int {
+     ^^^^

@@ -1,0 +1,7 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/irrefutable.aster 253 266 pattern always matches
+error tests/programs/errors/irrefutable.aster 363 376 pattern always matches
+error tests/programs/errors/irrefutable.aster 460 472 pattern always matches
+error tests/programs/errors/irrefutable.aster 559 571 pattern always matches

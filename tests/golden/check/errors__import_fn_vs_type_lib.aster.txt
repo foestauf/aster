@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_fn_vs_type_lib.aster 0 0 missing 'fn main(): int'

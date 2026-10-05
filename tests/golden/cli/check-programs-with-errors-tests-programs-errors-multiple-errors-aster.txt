@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/multiple_errors.aster:4:19: error: type mismatch: expected bool, found int
+      let b: bool = 1 + 2;
+                    ^^^^^
+tests/programs/errors/multiple_errors.aster:5:5: error: 'break' outside of loop
+      break;
+      ^^^^^^

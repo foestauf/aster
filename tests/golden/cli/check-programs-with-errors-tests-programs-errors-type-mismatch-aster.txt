@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/type_mismatch.aster:3:18: error: type mismatch: expected int, found string
+      let x: int = "hello";
+                   ^^^^^^^

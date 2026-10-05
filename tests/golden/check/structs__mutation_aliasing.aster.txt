@@ -1,0 +1,11 @@
+== exit 0
+== stdout
+struct Counter
+  field n int
+  field label string
+fn bump(Counter): void
+  param 0 c Counter
+fn main(): int
+  let 0 a Counter
+  let 1 b Counter
+== stderr

@@ -1,0 +1,20 @@
+== exit 0
+== stdout
+struct Slot
+  field v Option[int]
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Option[string]
+  variant Some(string)
+  variant None
+fn get(Slot): int
+  param 0 s Slot
+  let 1 n int
+fn main(): int
+  let 0 a Slot
+  let 1 b Slot
+  var 2 names [Option[string]]
+  let 3 n Option[string]
+  let 4 s string
+== stderr

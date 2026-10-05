@@ -1,0 +1,16 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+fn next(string, int): Option[int]
+  param 0 tag string
+  param 1 v int
+fn hit(): int
+  let 0 n int
+fn miss(): int
+  let 0 n int
+fn main(): int
+  let 0 n int
+  let 1 n int
+== stderr

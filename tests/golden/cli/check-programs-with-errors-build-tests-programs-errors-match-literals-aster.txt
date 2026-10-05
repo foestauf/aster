@@ -1,0 +1,54 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/match_literals.aster:22:28: error: pattern type 'string' does not match 'int'
+      let a: int = match 1 { "a" => 0, _ => 1 };
+                             ^^^
+tests/programs/errors/match_literals.aster:23:30: error: pattern type 'int' does not match 'string'
+      let b: int = match "s" { 1 => 0, _ => 1 };
+                               ^
+tests/programs/errors/match_literals.aster:24:30: error: pattern type 'int' does not match 'string'
+      let c: int = match "s" { 'a' => 0, _ => 1 };
+                               ^^^
+tests/programs/errors/match_literals.aster:25:31: error: pattern type 'int' does not match 'bool'
+      let d: int = match true { 1 => 0, _ => 1 };
+                                ^
+tests/programs/errors/match_literals.aster:26:28: error: pattern type 'bool' does not match 'int'
+      let f: int = match 1 { true => 0, _ => 1 };
+                             ^^^^
+tests/programs/errors/match_literals.aster:27:15: error: pattern type 'int' does not match 'E'
+      match e { 1 => {} _ => {} }
+                ^
+tests/programs/errors/match_literals.aster:28:15: error: pattern type 'E' does not match 'int'
+      match 1 { E::A => {} _ => {} }
+                ^
+tests/programs/errors/match_literals.aster:29:5: error: non-exhaustive match: add a '_' arm
+      match 1 { 1 => {} }
+      ^^^^^
+tests/programs/errors/match_literals.aster:30:5: error: non-exhaustive match: add a '_' arm
+      match "s" { "a" => {} }
+      ^^^^^
+tests/programs/errors/match_literals.aster:31:5: error: non-exhaustive match: missing 'false'
+      match true { true => {} }
+      ^^^^^
+tests/programs/errors/match_literals.aster:32:5: error: non-exhaustive match: missing 'true'
+      match true { false => {} }
+      ^^^^^
+tests/programs/errors/match_literals.aster:33:37: error: unreachable match arm
+      match true { true | false => {} _ => {} }
+                                      ^
+tests/programs/errors/match_literals.aster:34:23: error: unreachable match arm
+      match 1 { 1 => {} 1 => {} _ => {} }
+                        ^
+tests/programs/errors/match_literals.aster:35:25: error: unreachable match arm
+      match 1 { 'a' => {} 97 => {} _ => {} }
+                          ^^
+tests/programs/errors/match_literals.aster:36:26: error: unreachable match arm
+      match "s" { "" => {} "" => {} _ => {} }
+                           ^^
+tests/programs/errors/match_literals.aster:37:11: error: cannot match on '[int]' values
+      match [1] { _ => {} }
+            ^^^
+tests/programs/errors/match_literals.aster:39:11: error: cannot match on 'S' values
+      match s { _ => {} }
+            ^

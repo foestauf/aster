@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_decls.txt 77 81 parameter cannot have type void
+error tests/programs/programs/fixtures/check_decls.txt 119 120 'a' is already declared in this scope

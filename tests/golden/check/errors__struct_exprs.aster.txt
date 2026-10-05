@@ -1,0 +1,11 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/struct_exprs.aster 433 437 unknown struct 'Nope'
+error tests/programs/errors/struct_exprs.aster 463 464 missing field 'y' in 'P'
+error tests/programs/errors/struct_exprs.aster 495 496 unknown field 'z' on 'P'
+error tests/programs/errors/struct_exprs.aster 523 524 duplicate field 'x'
+error tests/programs/errors/struct_exprs.aster 543 544 unknown field 'w' on 'P'
+error tests/programs/errors/struct_exprs.aster 579 580 unknown field 'x' on 'int'
+error tests/programs/errors/struct_exprs.aster 593 599 cannot compare 'P' values
+error tests/programs/errors/struct_exprs.aster 612 613 cannot print a value of type P

@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+import_missing.aster:2:8: error: cannot import 'nope.aster': No such file or directory
+  import "nope.aster";
+         ^^^^^^^^^^^^

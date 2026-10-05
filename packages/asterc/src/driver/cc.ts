@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** packages/asterc/runtime/, resolved from both src/driver/ and dist/driver/. */
-export const RUNTIME_DIR = fileURLToPath(new URL('../../runtime/', import.meta.url));
+/** runtime/ at the repo root, resolved from both src/driver/ and dist/driver/. */
+export const RUNTIME_DIR = fileURLToPath(new URL('../../../../runtime/', import.meta.url));
 
 export const cCompiler = (): string => process.env.ASTER_CC || 'cc';
 

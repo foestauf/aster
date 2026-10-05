@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+crlf.aster:4:1: error: expected ';', found '}'
+  }
+  ^

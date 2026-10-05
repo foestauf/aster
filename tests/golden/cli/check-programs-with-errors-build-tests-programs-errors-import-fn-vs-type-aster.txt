@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/import_fn_vs_type_lib.aster:2:4: error: 'S' is already declared as a struct
+  fn S() {}
+     ^

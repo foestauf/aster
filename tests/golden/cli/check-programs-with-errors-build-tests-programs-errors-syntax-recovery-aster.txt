@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/syntax_recovery.aster:4:18: error: expected expression, found ';'
+      let x: int = ;
+                   ^
+tests/programs/errors/syntax_recovery.aster:5:11: error: expected ':', found '='
+      let y = 2;
+            ^

@@ -1,0 +1,17 @@
+== exit 0
+== stdout
+fn first([int]): int
+  param 0 xs [int]
+  let 1 x int
+fn first_plus_seven(int): int
+  param 0 n int
+  let 1 i int
+fn first_not_three(int, int): int
+  param 0 start int
+  param 1 n int
+  let 2 i int
+fn main(): int
+  let 0 i string
+  let 1 i int
+  let 2 x int
+== stderr

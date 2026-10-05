@@ -1,0 +1,21 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/char_literals.aster:8:18: error: empty character literal
+      let a: int = '';
+                   ^^
+tests/programs/errors/char_literals.aster:9:18: error: character literal must be a single ASCII character
+      let b: int = 'ab';
+                   ^^^^
+tests/programs/errors/char_literals.aster:10:18: error: character literal must be a single ASCII character
+      let c: int = 'é';
+                   ^^^
+tests/programs/errors/char_literals.aster:11:19: error: invalid escape sequence '\q'
+      let d: int = '\q';
+                    ^^
+tests/programs/errors/char_literals.aster:12:18: error: unterminated character literal
+      let e: int = 'x;
+                   ^^^
+tests/programs/errors/char_literals.aster:13:5: error: expected ';', found 'return'
+      return 0;
+      ^^^^^^

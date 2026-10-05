@@ -1,0 +1,43 @@
+== exit 0
+== stdout
+struct Mixed
+  field a bool
+  field x int
+  field b bool
+  field text string
+  field c bool
+struct Empty
+enum Padded
+  variant Flags(bool, bool, bool, bool, bool, bool, bool, bool, bool)
+  variant Number(int)
+enum Payload
+  variant Flag(bool)
+  variant Mixed(bool, int, bool, string)
+  variant Empty
+  variant Word(string)
+fn identity(string, bool): string
+  param 0 s string
+  param 1 b bool
+fn main(): int
+  let 0 flags [bool]
+  let 1 record Mixed
+  let 2 values [Payload]
+  let 3 a bool
+  let 4 n int
+  let 5 b bool
+  let 6 s string
+  let 7 items [Mixed]
+  let 8 empty Empty
+  let 9 empties [Empty]
+  let 10 padded [Padded]
+  let 11 a bool
+  let 12 b bool
+  let 13 c bool
+  let 14 d bool
+  let 15 e bool
+  let 16 f bool
+  let 17 g bool
+  let 18 h bool
+  let 19 i bool
+  let 20 n int
+== stderr

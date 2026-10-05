@@ -1,0 +1,10 @@
+== exit 0
+== stdout
+fn kind(string): string
+  param 0 s string
+fn prec(string): int
+  param 0 op string
+fn word(string): void
+  param 0 s string
+fn main(): int
+== stderr

@@ -1,0 +1,23 @@
+== exit 0
+== stdout
+enum ParseError
+  variant Empty
+  variant NotDigit(int)
+enum Result[int, ParseError]
+  variant Ok(int)
+  variant Err(ParseError)
+fn digit(string): Result[int, ParseError]
+  param 0 s string
+  let 1 b int
+fn plus_one(string): Result[int, ParseError]
+  param 0 s string
+  let 1 d int
+fn twice(string): Result[int, ParseError]
+  param 0 s string
+fn report(Result[int, ParseError]): void
+  param 0 r Result[int, ParseError]
+  let 1 n int
+  let 2 e ParseError
+  let 3 b int
+fn main(): int
+== stderr

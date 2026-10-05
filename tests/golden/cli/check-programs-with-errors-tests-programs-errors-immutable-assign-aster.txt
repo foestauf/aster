@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/immutable_assign.aster:4:5: error: cannot assign to immutable variable 'x'
+      x = 2;
+      ^

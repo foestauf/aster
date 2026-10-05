@@ -1,8 +1,8 @@
-// Prints the lowered program in packages/asterc/src/ir/print.ts's format. It loads the program rooted at the file named
+// Prints the lowered program in the compiler's IR text format. It loads the program rooted at the file named
 // by its only argument, with every file it imports, type-checks it and lowers it (lower_program in
 // packages/asterc-self/lower.aster). Diagnostics go to stderr exactly as check.aster prints them, exiting with status 1
 // if there are any; with none it prints the IR (print_ir in packages/asterc-self/ir_print.aster) to stdout.
-// tests/ir_aster.test.ts checks it against the compiler's own printIr(lower(typed)).
+// tests/selfhost_golden.test.ts builds it and checks its stdout against the expect-stdout below.
 // expect-args: fixtures/ir_basics.txt
 // expect-stdout:
 // struct Point { x: int, y: int }

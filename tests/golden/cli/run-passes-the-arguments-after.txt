@@ -1,0 +1,10 @@
+== exit 0
+== stdout
+4
+one
+two
+-3
+é
+5
+extra
+== stderr

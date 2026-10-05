@@ -1,0 +1,30 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_decls.aster:11:13: error: duplicate type parameter 'T'
+  enum Dup[T, T] { A(T) }
+              ^
+tests/programs/errors/generic_decls.aster:12:11: error: type parameter 'int' conflicts with a type of the same name
+  enum Prim[int] { A(int) }
+            ^^^
+tests/programs/errors/generic_decls.aster:13:13: error: type parameter 'Point' conflicts with a type of the same name
+  enum Shadow[Point] { A(Point) }
+              ^^^^^
+tests/programs/errors/generic_decls.aster:14:10: error: type parameter 'Option' conflicts with a type of the same name
+  enum Opt[Option] { A(Option) }
+           ^^^^^^
+tests/programs/errors/generic_decls.aster:15:16: error: type parameter 'U' is never used
+  enum Unused[T, U] { A(T) }
+                 ^
+tests/programs/errors/generic_decls.aster:16:23: error: unknown type 'Nope'
+  enum Broken[T] { A(T, Nope), B(void) }
+                        ^^^^
+tests/programs/errors/generic_decls.aster:16:32: error: payload cannot have type void
+  enum Broken[T] { A(T, Nope), B(void) }
+                                 ^^^^
+tests/programs/errors/generic_decls.aster:18:15: error: unknown type 'T'
+  fn outside(x: T) {}
+                ^
+tests/programs/errors/generic_decls.aster:20:15: error: unknown type 'Nope'
+  enum W[T] { X(Nope[T]) }
+                ^^^^^^^
