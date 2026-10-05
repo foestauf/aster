@@ -8,8 +8,12 @@ on:
 jobs:
   proof:
     runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -28,6 +32,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: sh scripts/ci-bootstrap.sh
       - run: pnpm selfhost
       - if: always()
         uses: actions/upload-artifact@v4

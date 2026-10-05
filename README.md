@@ -1,6 +1,6 @@
 # Aster
 
-A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the TypeScript `asterc` is the archived fallback seed (archived). An LLVM backend is the next goal.
+A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the TypeScript `asterc` is the archived fallback seed. An LLVM backend is the next goal.
 
 ## Quick start
 

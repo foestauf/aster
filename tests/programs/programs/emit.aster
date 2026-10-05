@@ -1,4 +1,4 @@
-// Prints the C that the compiler emits for a program, in packages/asterc/src/codegen/c/emit.ts's exact text. It loads,
+// Prints the C that the compiler emits for a program, as the compiler's C backend writes it. It loads,
 // checks and lowers the program rooted at its only argument, then emits C (emit_c in packages/asterc-self/emit.aster).
 // Diagnostics go to stderr as check.aster prints them, exiting with status 1. tests/emit_aster.test.ts checks it against
 // emitC(lower(typed)), and builds it from its own output.

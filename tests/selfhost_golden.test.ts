@@ -9,7 +9,7 @@ import { spawnStrict } from './spawn.js';
 
 // Contract §6.3: every runnable golden program, run through the stage under test with `run <file> -- <args>` and its
 // expect-stdin, must meet its expect-stdout, expect-stderr and expect-exit unchanged. Runs from the program's own
-// directory, as the old TS golden suite did, under a private TMPDIR that must be empty after every program.
+// directory, so relative paths resolve as a user would see them, under a private TMPDIR that must be empty after every program.
 
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));
 const runnable = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf8' })
