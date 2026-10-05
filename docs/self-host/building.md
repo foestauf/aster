@@ -2,7 +2,7 @@
 
 ## What you get
 
-`build/asterc` is the Aster compiler. It is written in Aster and built by itself. The TypeScript compiler in `packages/asterc` is only the seed of last resort, the recovery path and the test oracle. Day to day, the compiler is bootstrapped from a published release.
+`build/asterc` is the Aster compiler. It is written in Aster and built by itself. The TypeScript compiler in `packages/asterc` is only the seed of last resort and the recovery path. It is no longer a test oracle. Day to day, the compiler is bootstrapped from a published release.
 
 ## Requirements
 
@@ -49,8 +49,20 @@ If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` pr
 
 1. Edit the files in `packages/asterc-self/*.aster`.
 2. Run `pnpm build`. It rebuilds the compiler with the installed one, checks the fixed point and installs the result. If anything fails, the old `build/asterc` stays in place and the command exits 1.
-3. Run `pnpm test`.
+3. Run `pnpm test`. It needs `build/asterc`, so run `pnpm bootstrap` first on a fresh checkout.
 4. Run `pnpm selfhost` before a pull request.
+
+## Goldens
+
+`pnpm test` needs `build/asterc` (run `pnpm bootstrap` first). The TypeScript compiler is not involved. These suites pin behaviour:
+
+- `tests/check_aster.test.ts`: `check.aster`'s output on the whole corpus, against `tests/golden/check/` and `tests/golden/accepted.txt`.
+- `tests/asterc_self.test.ts`: the CLI's output, against `tests/golden/cli/`.
+- `tests/selfhost_golden.test.ts`: every runnable program in `tests/programs/` meets its `// expect-…` header.
+- `tests/source_encoding.test.ts` and `tests/load_symlink.test.ts`: fixed expectations.
+- `tests/llvm_backend.test.ts`: the LLVM backend (needs clang 18).
+
+The snapshots live in `tests/golden/`. After a deliberate output change, run `pnpm golden` and review the diff before committing. CI never writes snapshots: a mismatch fails the run.
 
 ## Artifacts
 

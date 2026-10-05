@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { renderRuntimeAster } from '../scripts/gen-runtime.js';
-import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
 import { spawnStrict } from './spawn.js';
+import { buildWithStage } from './stage.js';
 
 const RUNTIME_DIR = resolve('runtime');
 const RUNTIME_AST = resolve('packages/asterc-self/runtime.aster');
@@ -23,15 +23,12 @@ describe('runtime.aster', () => {
     expect(() => renderRuntimeAster('café', '')).toThrow('ASCII');
   });
 
-  it('round-trips both files byte for byte when built by stage 0', () => {
+  it('round-trips both files byte for byte when built by the self-hosted compiler', () => {
     const path = join(workDir, 'main.aster');
     const src = `import ${JSON.stringify(RUNTIME_AST)};\nfn main(): int {\n    print(runtime_h());\n    print(runtime_c());\n    return 0;\n}\n`;
     writeFileSync(path, src);
-    const compiled = compileToC(makeSource(path, src));
-    if (!compiled.ok) throw new Error(compiled.diagnostics.map((d) => formatDiagnostic(compiled.map, d)).join('\n'));
     const exe = join(workDir, 'main');
-    const built = buildExecutable(compiled.c, exe, ['-Werror']);
-    if (!built.ok) throw new Error(built.message);
+    buildWithStage(path, exe);
     const run = spawnStrict(exe, [], { maxBuffer: 16 * 1024 * 1024 });
     expect(run.status).toBe(0);
     // print appends a newline after each string.

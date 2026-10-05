@@ -20,12 +20,8 @@ export const STAGE_SUITES = [
   'tests/selfhost_golden.test.ts',
   'tests/load_symlink.test.ts',
   'tests/source_encoding.test.ts',
-  'tests/lex_aster.test.ts',
-  'tests/parse_aster.test.ts',
   'tests/check_aster.test.ts',
-  'tests/typed_aster.test.ts',
-  'tests/ir_aster.test.ts',
-  'tests/emit_aster.test.ts',
+  'tests/runtime_aster.test.ts',
 ] as const;
 
 const END = '<end of file>';
