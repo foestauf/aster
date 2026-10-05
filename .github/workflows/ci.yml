@@ -6,8 +6,15 @@ on:
   pull_request:
 
 jobs:
-  proof:
+  proof-suite:
+    # `pnpm selfhost`, split by test run so the five runs (about 2.5 minutes each) don't run one after another. Every leg
+    # builds and compares all the stages; `proof` below checks the legs agree.
+    name: proof (${{ matrix.suite }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [full, S1, S2, S3, SL1]
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -30,16 +37,46 @@ jobs:
           ln -s /usr/bin/ld.lld-18 "$RUNNER_TEMP/aster-llvm-bin/ld.lld"
           echo "$RUNNER_TEMP/aster-llvm-bin" >> "$GITHUB_PATH"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
+      - if: matrix.suite == 'full'
+        run: pnpm typecheck
+      - if: matrix.suite == 'full'
+        run: pnpm lint
       - run: sh scripts/ci-bootstrap.sh
-      - run: pnpm selfhost
+      - run: pnpm selfhost --suite=${{ matrix.suite }}
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: selfhost-report
+          name: selfhost-report-${{ matrix.suite }}
           path: .selfhost/
+          include-hidden-files: true
           if-no-files-found: ignore
+
+  proof:
+    # The cross-leg half of `pnpm selfhost`'s suite totals: every stage ran the same number of stage-aware tests.
+    # It always runs, so a failed leg fails it rather than skipping it (a skipped job would pass a required check).
+    if: always()
+    needs: proof-suite
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every leg passed
+        run: test '${{ needs.proof-suite.result }}' = success
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: selfhost-report-*
+      - name: Suite totals
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const totals = ["S1", "S2", "S3", "SL1"].map((s) => {
+              const json = JSON.parse(fs.readFileSync(`selfhost-report-${s}/${s}.json`, "utf8"));
+              return [s, json.numTotalTests];
+            });
+            console.log(totals.map(([s, t]) => `${s} ${t}`).join(", "));
+            if (new Set(totals.map(([, t]) => t)).size !== 1) {
+              console.error("the stages ran different numbers of stage-aware tests");
+              process.exit(1);
+            }
+          '
 
   normal-path:
     runs-on: ubuntu-24.04

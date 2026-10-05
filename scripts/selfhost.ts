@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 // git and vitest, and never lexes, parses, checks, lowers or emits Aster itself.
 // Stage names: S0 is the installed compiler (build/asterc; in CI, bootstrapped from the base's release and rebuilt from this tree), whose C is the reference; S1 to S4 are built
 // from the source in this tree. `--record` also writes docs/self-host/proof.md and requires a clean tree.
+// `--suite=<name>` (repeatable; one of SUITES) builds and compares every stage as usual but runs only the named test
+// runs, so CI can spread them over parallel jobs. It can't be combined with `--record`.
 
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const COMPILER = 'packages/asterc-self/asterc.aster';
@@ -25,6 +27,31 @@ export const STAGE_SUITES = [
   'tests/check_aster.test.ts',
   'tests/runtime_aster.test.ts',
 ] as const;
+
+/** The test runs, in the order a full proof runs them: the full suite, then the stage-aware suites once per stage. */
+export const SUITES = ['full', 'S1', 'S2', 'S3', 'SL1'] as const;
+export type Suite = (typeof SUITES)[number];
+
+const USAGE = `usage: pnpm selfhost [--record | --suite=<${SUITES.join('|')}> ...]`;
+
+/** Parses the arguments, or returns the error to print. `suites` is every suite unless `--suite` narrows it. */
+export function parseArgs(argv: string[]): { record: boolean; suites: Suite[] } | { error: string } {
+  let record = false;
+  const picked = new Set<Suite>();
+  for (const a of argv) {
+    if (a === '--record') {
+      record = true;
+      continue;
+    }
+    const m = /^--suite=(.*)$/.exec(a);
+    if (m === null) return { error: `selfhost: unknown argument '${a}'\n${USAGE}` };
+    const name = SUITES.find((s) => s === m[1]);
+    if (name === undefined) return { error: `selfhost: unknown suite '${m[1]}'\n${USAGE}` };
+    picked.add(name);
+  }
+  if (record && picked.size > 0) return { error: `selfhost: --record runs every suite, so it can't take --suite\n${USAGE}` };
+  return { record, suites: picked.size === 0 ? [...SUITES] : SUITES.filter((s) => picked.has(s)) };
+}
 
 const END = '<end of file>';
 
@@ -76,6 +103,7 @@ interface Report {
   locale: string;
   stages: StageReport[];
   fullSuite: Counts | null;
+  suites: Suite[];
   ok: boolean;
   failedStep: string | null;
 }
@@ -137,17 +165,18 @@ function renderReport(r: Report): string {
     const matches = s.name === 'S0' ? '—' : s.matchesS0 ? 'yes' : 'NO';
     lines.push(`${s.name.padEnd(7)}${s.cSha256.slice(0, 16).padEnd(18)}${matches.padEnd(9)}${tests}${s.llvmSha256 ? `; LLVM ${s.llvmSha256.slice(0, 16)}` : ''}`);
   }
-  lines.push('', r.ok ? 'PASS' : `FAIL (${r.failedStep ?? 'unknown step'})`);
+  const partial = r.suites.length < SUITES.length ? ` (suites: ${r.suites.join(', ')})` : '';
+  lines.push('', r.ok ? `PASS${partial}` : `FAIL (${r.failedStep ?? 'unknown step'})${partial}`);
   return lines.join('\n') + '\n';
 }
 
 export function main(argv: string[]): number {
-  const bad = argv.filter((a) => a !== '--record');
-  if (bad.length > 0) {
-    console.error(`selfhost: unknown argument '${bad[0]}'\nusage: pnpm selfhost [--record]`);
+  const parsed = parseArgs(argv);
+  if ('error' in parsed) {
+    console.error(parsed.error);
     return 2;
   }
-  const record = argv.includes('--record');
+  const { record, suites } = parsed;
 
   const report: Report = {
     commit: '',
@@ -160,6 +189,7 @@ export function main(argv: string[]): number {
     locale: 'LC_ALL=C',
     stages: [],
     fullSuite: null,
+    suites,
     ok: false,
     failedStep: null,
   };
@@ -277,10 +307,13 @@ export function main(argv: string[]): number {
       return counts;
     };
 
-    step('full suite (pnpm test)', () => {
-      report.fullSuite = vitest('full suite', [], 'full.json', { ASTER_STAGE_BIN: undefined, ASTER_STAGE: undefined });
-    });
-    for (const n of [1, 2, 3]) {
+    if (suites.includes('full')) {
+      step('full suite (pnpm test)', () => {
+        report.fullSuite = vitest('full suite', [], 'full.json', { ASTER_STAGE_BIN: undefined, ASTER_STAGE: undefined });
+      });
+    }
+    for (const n of [1, 2, 3] as const) {
+      if (!suites.includes(`S${n}`)) continue;
       step(`suites against S${n}`, () => {
         report.stages[n]!.suite = vitest(`S${n} suites`, STAGE_SUITES, `S${n}.json`, {
           ASTER_STAGE_BIN: bin(n),
@@ -288,15 +321,17 @@ export function main(argv: string[]): number {
         });
       });
     }
-    step('suites against SL1', () => {
-      report.stages.find((s) => s.name === 'SL1')!.suite = vitest('SL1 suites', STAGE_SUITES, 'SL1.json', {
-        ASTER_STAGE_BIN: llvmBin(1), ASTER_STAGE: 'SL1',
+    if (suites.includes('SL1')) {
+      step('suites against SL1', () => {
+        report.stages.find((s) => s.name === 'SL1')!.suite = vitest('SL1 suites', STAGE_SUITES, 'SL1.json', {
+          ASTER_STAGE_BIN: llvmBin(1), ASTER_STAGE: 'SL1',
+        });
       });
-    });
+    }
     step('suite totals', () => {
-      const [t1, t2, t3] = [1, 2, 3].map((n) => report.stages[n]!.suite!.total);
-      if (t1 !== report.stages.find((s) => s.name === 'SL1')!.suite!.total) fail('SL1 ran a different number of stage-aware tests');
-      if (t1 !== t2 || t2 !== t3) fail(`S1, S2 and S3 ran different numbers of tests: ${t1}, ${t2}, ${t3}`);
+      const ran = report.stages.filter((s) => s.suite !== null);
+      const totals = ran.map((s) => `${s.name} ${s.suite!.total}`).join(', ');
+      if (new Set(ran.map((s) => s.suite!.total)).size > 1) fail(`the stages ran different numbers of stage-aware tests: ${totals}`);
     });
     report.ok = true;
   } catch (e) {
