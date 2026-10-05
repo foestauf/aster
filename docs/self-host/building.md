@@ -34,7 +34,7 @@ See [Releases](#releases) for the assets and the cache.
 |---|---|---|
 | `pnpm bootstrap` | No; downloads a release | Downloads the nearest ancestor release, which builds S1; S1 builds S2; checks the fixed point; installs S2 as `build/asterc`. |
 | `pnpm bootstrap --release <tag>` | No; downloads a release | The same, from the named release instead of the nearest ancestor. |
-| `pnpm bootstrap:seed` | Yes, explicitly | `build:seed`, then S0 builds S1 and S1 builds S2; checks the fixed point; installs S2. Needs no network. |
+| `pnpm bootstrap:seed` | Yes, explicitly | `build:seed`, then S0 (the seed) builds S1 and S1 builds S2; checks the fixed point; installs S2. Needs no network. |
 | `pnpm release` | No | `node scripts/release.ts tag` prints the release tag of `HEAD`. `node scripts/release.ts --out <dir>` writes the three release assets from the installed compiler. |
 | `pnpm build` | No | Rebuilds the compiler with the installed `build/asterc` and installs the result. |
 | `pnpm aster <args>` | No | `scripts/aster`, a POSIX `sh` wrapper, `exec`s `build/asterc <args>`. |

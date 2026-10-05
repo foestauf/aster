@@ -83,7 +83,7 @@ build/asterc run     <file.aster> [-- <args>...]
 build/asterc build packages/asterc-self/asterc.aster -o asterc2   # rebuilds itself
 ```
 
-The commands, output, diagnostics and exit codes match the stage-0 CLI byte for byte (`tests/asterc_self.test.ts` pins them as goldens), and `--emit=c` prints the same C. S2's `--emit=c` of its own source equals stage 0's. It was tested on Linux x86_64 (WSL2, kernel 6.6) with gcc 13.3 as `cc`. It uses `-std=c11 -O2 -Wall`, with a private directory under `$TMPDIR` for the intermediate files.
+The commands, output, diagnostics and exit codes are pinned byte for byte as goldens (`tests/asterc_self.test.ts`), and `--emit=c` prints the same C. S2's `--emit=c` of its own source equals stage 0's (the installed compiler's). It was tested on Linux x86_64 (WSL2, kernel 6.6) with gcc 13.3 as `cc`. It uses `-std=c11 -O2 -Wall`, with a private directory under `$TMPDIR` for the intermediate files.
 
 On that machine S1 builds itself (`asterc build packages/asterc-self/asterc.aster -o s2`) in 2.98 s wall clock with 239,360 kB peak RSS, which includes `cc` on about 1 MB of C. S1's `--emit=c` of the same file takes 0.16 s and 238,208 kB. The runtime never frees memory, and that is fine at this size.
 
@@ -96,7 +96,7 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 
 ## Self-hosting
 
-`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (TypeScript) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
+`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (the installed compiler, `build/asterc`, from a release) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
 
 The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The TypeScript compiler stays as the fallback seed (`pnpm bootstrap:seed`), and the recovery path.
 

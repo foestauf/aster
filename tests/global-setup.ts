@@ -22,7 +22,9 @@ export default function setup(project: TestProject): () => void {
   const r = spawnSync(installed, ['build', 'packages/asterc-self/asterc.aster', '-o', out], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
     maxBuffer: 64 * 1024 * 1024,
+    timeout: 300_000,
   });
   if (r.error) throw r.error;
   if (r.status !== 0 || r.stderr !== '') throw new Error(`build/asterc failed to build S1 (status ${r.status}):\n${r.stderr}`);
