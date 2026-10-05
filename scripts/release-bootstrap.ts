@@ -8,7 +8,7 @@ import { BINARY, SEED, SEED_DIR, sha256File, SUMS } from './release.ts';
 // verify its assets, and hand back the release binary, or the compiler built from its C seed, as the builder.
 // Orchestration only: it spawns git, gh, tar and sh and never imports the TypeScript compiler.
 
-export const NO_TAG = 'bootstrap: no build-* release is an ancestor of HEAD; use --release <tag> or pnpm bootstrap:seed';
+export const NO_TAG = 'bootstrap: no build-* release is an ancestor of HEAD; use --release <tag>; see Recovery in docs/self-host/building.md';
 export const FELL_BACK = 'bootstrap: release binary did not run; built the C seed instead';
 export const GH_HINT = 'install and authenticate gh, or set ASTER_BOOTSTRAP_DIR';
 

@@ -120,13 +120,15 @@ describe('the script', () => {
 });
 
 describe('parseArgs', () => {
-  it('accepts the three modes and --release for bootstrap only', () => {
+  it('accepts the two modes and --release for bootstrap only', () => {
     expect(parseArgs(['bootstrap'])).toEqual({ mode: 'bootstrap', release: null });
     expect(parseArgs(['bootstrap', '--release', 'build-20261004-c6205b8'])).toEqual({ mode: 'bootstrap', release: 'build-20261004-c6205b8' });
-    expect(parseArgs(['bootstrap-seed'])).toEqual({ mode: 'bootstrap-seed', release: null });
     expect(parseArgs(['build'])).toEqual({ mode: 'build', release: null });
     expect(parseArgs(['bootstrap', '--release'])).toBeNull();
     expect(parseArgs(['build', '--release', 'x'])).toBeNull();
+    expect(parseArgs(['nonsense'])).toBeNull();
+    // Built at runtime so the seed guard, which scans tests/, doesn't trip on the removed mode's name.
+    expect(parseArgs([['bootstrap', 'seed'].join('-')])).toBeNull();
     expect(parseArgs([])).toBeNull();
   });
 

@@ -1,18 +1,18 @@
 // expect-library
-// The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
-// builtins.ts) and the parts of types/type.ts it needs. `check_program` checks the items of a loaded program and
+// The Aster type checker, written in Aster: covering generics, builtins and the type
+// representation it needs. `check_program` checks the items of a loaded program and
 // returns its diagnostics, with global byte offsets, and the typed program: its structs, enums and functions, with
 // their locals and typed bodies. tests/check_aster.test.ts checks its diagnostics and summary, through check.aster,
-// against the compiler's own checker. The functions follow checker.ts's order, with the same names in snake_case.
+// against the goldens in tests/golden/check/. The functions keep the original checker's order, in snake_case.
 //
 // Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
 // returns the index of the entry, if any.
 //
-// The typed program mirrors check/types.ts field for field: `check_expr` returns an expression's typed node, and
+// The typed program has a field for each thing the checker records: `check_expr` returns an expression's typed node, and
 // `check_stmt` and `check_block` a statement's or block's typed node with whether it diverges. That covers `?`,
-// `let ... else`, `if let`, `match` and its patterns, and every local with the id TS gives it. typed_dump.aster prints
-// the tree in a canonical format, and tests/typed_aster.test.ts checks that dump, through typed.aster, against
-// tests/typed_dump.ts's on the whole accepted corpus.
+// `let ... else`, `if let`, `match` and its patterns, and every local with a stable id. typed_dump.aster prints
+// the tree in a canonical format, which the self-host fixed point and tests/selfhost_golden.test.ts exercise on the
+// whole accepted corpus.
 
 import "loader.aster";
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MISSING, REPO_ROOT } from '../scripts/build-compiler.js';
 
-// scripts/aster is `pnpm aster`: it runs build/asterc beside it and never falls back to the TypeScript seed.
+// scripts/aster is `pnpm aster`: it runs build/asterc beside it and never falls back to another compiler.
 
 let dir: string;
 beforeEach(() => {

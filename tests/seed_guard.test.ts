@@ -4,17 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // The TypeScript seed is archived (R2). Nothing in CI, scripts or tests may depend on it, apart from the allowlist below.
-// R2b empties the allowlist.
+// The allowlist is empty: the seed was removed in R2b.
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SELF = 'tests/seed_guard.test.ts';
 const SEED_ALLOWLIST: string[] = [
-  'scripts/build-compiler.ts', // its bootstrap-seed mode builds the seed on purpose
-  'scripts/ci-bootstrap.sh', // falls back to bootstrap:seed before the first release exists
-  'scripts/release-bootstrap.ts', // its NO_TAG hint points at pnpm bootstrap:seed
-  'scripts/normal-path.sh', // hides packages/asterc/dist on purpose, to prove the normal path never needs it
 ];
-const FORBIDDEN = ['packages/asterc/src', 'packages/asterc/dist', 'build:seed', 'aster:seed', 'bootstrap:seed'];
+const FORBIDDEN = ['packages/asterc/src', 'packages/asterc/dist', 'build:seed', 'aster:seed', 'bootstrap:seed', 'bootstrap-seed'];
 
 /** A line that would refresh goldens: the `golden` script, or `-u`/`--update` on a vitest or `pnpm test` invocation. */
 export function updatesGoldens(line: string): boolean {

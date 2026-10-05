@@ -2,7 +2,7 @@
   "name": "aster",
   "version": "0.0.0",
   "private": true,
-  "description": "Aster: a small statically typed, compiled language, bootstrapped in TypeScript",
+  "description": "Aster: a small statically typed, compiled language, self-hosted",
   "type": "module",
   "packageManager": "pnpm@10.29.1",
   "engines": {
@@ -10,9 +10,7 @@
   },
   "scripts": {
     "build": "node scripts/build-compiler.ts build",
-    "build:seed": "pnpm --filter asterc build",
     "bootstrap": "node scripts/build-compiler.ts bootstrap",
-    "bootstrap:seed": "node scripts/build-compiler.ts bootstrap-seed",
     "release": "node scripts/release.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,7 +18,6 @@
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --fix",
     "aster": "sh scripts/aster",
-    "aster:seed": "node packages/asterc/dist/cli/bin.js",
     "gen:runtime": "node scripts/gen-runtime.ts",
     "selfhost": "node scripts/selfhost.ts",
     "prepare": "husky",

@@ -1,6 +1,6 @@
 // expect-library
-// Human diagnostics, as packages/asterc/src/diagnostics/diagnostic.ts's formatDiagnostic prints them. Spans are byte
-// offsets into the BOM-stripped source; lines and columns count UTF-16 code units, as the TypeScript compiler's strings
+// Human diagnostics: `file:line:col: error: message`, the source line and a caret. Spans are byte
+// offsets into the BOM-stripped source; lines and columns count UTF-16 code units, as the original TypeScript compiler's strings
 // do.
 
 import "loader.aster";

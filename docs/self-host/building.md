@@ -2,7 +2,7 @@
 
 ## What you get
 
-`build/asterc` is the Aster compiler. It is written in Aster and built by itself. The TypeScript compiler in `packages/asterc` is only the seed of last resort and the recovery path. It is no longer a test oracle. Day to day, the compiler is bootstrapped from a published release.
+`build/asterc` is the Aster compiler. It is written in Aster and built by itself. The original TypeScript compiler has been removed from the tree. It is archived at the `seed-final` git tag and is used only in the last-resort recovery described below. Day to day, the compiler is bootstrapped from a published release.
 
 ## Requirements
 
@@ -11,7 +11,7 @@
 - For the LLVM backend only: clang 18 as `clang` and lld 18 as `ld.lld` (Ubuntu 24.04 packages `clang-18`, `lld-18`). Textual `--emit=llvm` does not need clang.
 - Node 24 or later and pnpm. They are needed for the bootstrap, the orchestration scripts and the tests only.
 - `origin` must be a GitHub remote: `pnpm bootstrap` derives the repository from it to download releases.
-- An authenticated `gh` for `pnpm bootstrap`, because the repository is private. Not needed with `ASTER_BOOTSTRAP_DIR` or `pnpm bootstrap:seed`.
+- An authenticated `gh` for `pnpm bootstrap`, which downloads releases with `gh release download`. Not needed with `ASTER_BOOTSTRAP_DIR`.
 
 `build/asterc` itself needs only `cc` and libc at run time. The C runtime is embedded in the binary (contract section 4.4).
 
@@ -30,20 +30,17 @@ See [Releases](#releases) for the assets and the cache.
 
 ## Everyday commands
 
-| Command | Runs the TS compiler? | What it does |
-|---|---|---|
-| `pnpm bootstrap` | No; downloads a release | Downloads the nearest ancestor release, which builds S1; S1 builds S2; checks the fixed point; installs S2 as `build/asterc`. |
-| `pnpm bootstrap --release <tag>` | No; downloads a release | The same, from the named release instead of the nearest ancestor. |
-| `pnpm bootstrap:seed` | Yes, explicitly | `build:seed`, then S0 (the seed) builds S1 and S1 builds S2; checks the fixed point; installs S2. Needs no network. |
-| `pnpm release` | No | `node scripts/release.ts tag` prints the release tag of `HEAD`. `node scripts/release.ts --out <dir>` writes the three release assets from the installed compiler. |
-| `pnpm build` | No | Rebuilds the compiler with the installed `build/asterc` and installs the result. |
-| `pnpm aster <args>` | No | `scripts/aster`, a POSIX `sh` wrapper, `exec`s `build/asterc <args>`. |
-| `pnpm aster:seed <args>` | Yes | `node packages/asterc/dist/cli/bin.js <args>`: the TypeScript compiler. |
-| `pnpm build:seed` | Builds it | `pnpm --filter asterc build`: compiles the TypeScript compiler. |
+| Command | What it does |
+|---|---|
+| `pnpm bootstrap` | Downloads the nearest ancestor release, which builds S1; S1 builds S2; checks the fixed point; installs S2 as `build/asterc`. |
+| `pnpm bootstrap --release <tag>` | The same, from the named release instead of the nearest ancestor. |
+| `pnpm release` | `node scripts/release.ts tag` prints the release tag of `HEAD`. `node scripts/release.ts --out <dir>` writes the three release assets from the installed compiler. |
+| `pnpm build` | Rebuilds the compiler with the installed `build/asterc` and installs the result. |
+| `pnpm aster <args>` | `scripts/aster`, a POSIX `sh` wrapper, `exec`s `build/asterc <args>`. |
 
 You can call `build/asterc` directly. The wrapper exists so that `pnpm aster` works.
 
-If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` print `aster: no compiler at build/asterc; run \`pnpm bootstrap\` first` to stderr and exit 2. Neither falls back to TypeScript.
+If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` print `aster: no compiler at build/asterc; run \`pnpm bootstrap\` first` to stderr and exit 2. Neither falls back to anything else.
 
 ## Changing the compiler
 
@@ -54,7 +51,7 @@ If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` pr
 
 ## Goldens
 
-`pnpm test` needs `build/asterc` (run `pnpm bootstrap` first). The TypeScript compiler is not involved. These suites pin behaviour:
+`pnpm test` needs `build/asterc` (run `pnpm bootstrap` first). These suites pin behaviour:
 
 - `tests/check_aster.test.ts`: `check.aster`'s output on the whole corpus, against `tests/golden/check/`.
 - `tests/asterc_self.test.ts`: the CLI's output, against `tests/golden/cli/`. It also reads `tests/golden/accepted.txt` (through `tests/corpus.ts`), the list of programs the compiler must accept, and checks each error program's diagnostics against its `// expect-error:` headers. `accepted.txt` is edited by hand: `pnpm golden` doesn't touch it.
@@ -69,12 +66,11 @@ The snapshots live in `tests/golden/`. After a deliberate output change, run `pn
 - `build/asterc`: the installed compiler. `build/` is gitignored.
 - `.selfhost/`: the proof's report directory, with `report.txt`, `report.json`, `c0.c` to `c4.c` and the vitest JSON.
 - `build/bootstrap/<tag>/`: the cache of a downloaded release (see [Releases](#releases)).
-- Temporary directories named `aster-build-compiler-*`, `aster-bootstrap-*`, `aster-release-*`, `aster-selfhost-*` and `aster-normal-path-*` under `$TMPDIR`. The scripts remove them on exit.
+- Temporary directories named `aster-build-compiler-*`, `aster-bootstrap-*`, `aster-release-*`, and `aster-selfhost-*` under `$TMPDIR`. The scripts remove them on exit.
 
 ## Verifying
 
 - `pnpm selfhost` builds S1 to S4, compares the C at every hop and runs the conformance suites against S1, S2 and S3 (S4 is built only for the C comparison). It also builds LLVM stages SL1 and SL2, checks their LLVM fixed point and C oracle, and runs the stage-aware suites against SL1. This proof requires clang 18 and lld 18. `pnpm selfhost --record` also re-records [proof.md](proof.md). `pnpm selfhost --suite=<full|S1|S2|S3|SL1>` (repeatable) still builds and compares every stage but runs only the named test runs. It can't be combined with `--record`.
-- `scripts/normal-path.sh` hides `packages/asterc/dist`, runs `pnpm build`, builds the compiler through `pnpm aster`, and builds and runs representative programs with `pnpm aster run`. It prints `normal path: PASS` on success. Run `pnpm bootstrap` first. While it runs it hides `packages/asterc/dist`, so don't run `pnpm test`, `pnpm selfhost`, `pnpm bootstrap` or `pnpm aster:seed` in the same checkout at the same time.
 
 CI runs on every push to `main` and every pull request:
 
@@ -82,12 +78,11 @@ CI runs on every push to `main` and every pull request:
 |---|---|
 | `proof (<suite>)` | One job per test run of `pnpm selfhost` (`full`, `S1`, `S2`, `S3`, `SL1`), in parallel: `scripts/ci-bootstrap.sh`, then `pnpm selfhost --suite=<suite>`. The `full` job also runs typecheck and lint. |
 | `proof` | After the `proof (<suite>)` jobs. Fails unless they all passed and S1, S2, S3 and SL1 ran the same number of tests. |
-| `normal-path` | `scripts/ci-bootstrap.sh`, then `scripts/normal-path.sh`. |
 | `release-bootstrap` | Pull requests only. `scripts/ci-bootstrap.sh`, then `pnpm test`. Enforces the two-step rule. |
 
-`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. If no `build-*` release exists at all, it bootstraps from the seed with `pnpm bootstrap:seed`. This only happens before the first release.
+`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. If no `build-*` release exists at all, it fails and points at Recovery below.
 
-Both `normal-path` and `release-bootstrap` bootstrap from the release of `HEAD^1`. `release-bootstrap` runs only on pull requests and is the job meant to be the required check.
+`release-bootstrap` runs only on pull requests and is the job meant to be the required check.
 
 A push of several commits to `main` publishes a release for the tip only. The intermediate commits get none, so the next CI run waits about 15 minutes for the release of its `HEAD^1`, then falls back to the nearest earlier release.
 
@@ -96,10 +91,11 @@ A push of several commits to `main` publishes a release for the tip only. The in
 ## Recovery
 
 - If an edit breaks the compiler, `pnpm build` fails and the old binary stays installed. Fix the source and run `pnpm build` again.
-- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor can whenever the two-step rule was enforced for the changes since it, but the fallback may pick an older release than you expect, so it may lack newer features.
+- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor can build this commit whenever the two-step rule was enforced for the changes since it; after a fallback, an older release than you expect may be picked, and it may lack newer features.
 - If `build/` is lost or damaged, run `pnpm bootstrap`.
 - If the release binary won't run, `pnpm bootstrap` builds the C seed automatically and prints a note. You can also build it by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
-- If you have no GitHub access, set `ASTER_BOOTSTRAP_DIR=<dir with the three assets>`, or run `pnpm bootstrap:seed`.
+- If you have no GitHub access, set `ASTER_BOOTSTRAP_DIR=<dir with the three assets>`.
+- Last resort, when no release can be downloaded or run: the original TypeScript compiler is archived at the `seed-final` git tag. Run `git checkout seed-final && pnpm install && pnpm bootstrap:seed`. That builds the self-hosted compiler at that commit, with no network. (`pnpm bootstrap:seed` exists only at `seed-final`.) Then walk forward along `main`'s first-parent history, running `pnpm install && pnpm build` at each commit so each compiler builds the next, until you reach the commit you want. Alternatively, build a surviving C seed by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
 
 ## Releases
 
@@ -141,8 +137,8 @@ The `release-bootstrap` job enforces this. It bootstraps from the release of the
 
 ## Differences from the seed CLI
 
-The self-hosted CLI diverges from the TypeScript one in a few places, listed in [the contract's section 4.5](../superpowers/specs/2026-10-04-aster-self-hosting-contract-design.md). Use `pnpm aster:seed` for `--emit=tokens|ast|ir` and for `ASTER_CC`.
+The self-hosted CLI diverged from the original TypeScript one in a few places, listed in [the contract's section 4.5](../superpowers/specs/2026-10-04-aster-self-hosting-contract-design.md). `--emit=tokens|ast|ir` and `ASTER_CC` exist only in the compiler archived at `seed-final`.
 
 ## Experimental LLVM surface
 
-The self-hosted CLI recognizes `--backend=c|llvm` for `build` and `run`, and `--emit=llvm` for `build`. The TypeScript seed rejects the new options (exit 2). LLVM emission is implemented in `packages/asterc-self/emit_llvm.aster`. Executable production uses `clang -O2 -flto -fuse-ld=lld` and the unchanged C runtime. C builds require neither clang nor lld.
+The self-hosted CLI recognizes `--backend=c|llvm` for `build` and `run`, and `--emit=llvm` for `build`. LLVM emission is implemented in `packages/asterc-self/emit_llvm.aster`. Executable production uses `clang -O2 -flto -fuse-ld=lld` and the unchanged C runtime. C builds require neither clang nor lld.

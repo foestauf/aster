@@ -1,9 +1,9 @@
 // expect-library
-// Lowering, written in Aster: a port of packages/asterc/src/ir/lower.ts, function by function. `lower_program` turns
-// the checked program into the IR. It allocates temps, labels and interned strings in exactly the order lower.ts does,
-// because tests/ir_aster.test.ts compares the printed IR byte for byte.
+// Lowering, written in Aster: function by function. `lower_program` turns
+// the checked program into the IR. It allocates temps, labels and interned strings in a fixed order,
+// because the self-host fixed point compares the emitted C byte for byte.
 //
-// Aster has no closures or maps. lower.ts's callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`
+// Aster has no closures or maps. The original callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`
 // and `IrPlaceRef`. Its maps become linear scans: `intern_ir_string`, `ir_find_struct` and `ir_block_index`.
 
 import "ir.aster";
@@ -825,7 +825,7 @@ fn ir_lower_switch(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
 }
 
 // A string match is a chain of equality tests, in arm order; a `_` arm ends it. Each literal is interned before the
-// test is emitted, even at an unreachable position, as lower.ts builds the instruction before `emit` drops it.
+// test is emitted, even at an unreachable position, as lowering builds the instruction before `emit` drops it.
 fn ir_lower_string_tests(st: IrState, on: IrOperand, arms: [TArm], labels: [string]) {
     for i in 0..len(arms) {
         match arms[i].pattern {
