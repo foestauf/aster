@@ -64,8 +64,16 @@ function cliGolden(group: string, label: string): string {
   return goldenPath('cli', slug);
 }
 
-/** `o` in the golden format, with the repo root and this suite's private directories made machine-independent. */
-const golden = (o: Outcome): string => normalise(renderOutcome(o), { tmp: [tmpDir, workDir] });
+/**
+ * `o` in the golden format, with the repo root and this suite's private directories made machine-independent. Since
+ * that hides whether a path was printed relative or absolute, the raw output must not mention the repo root at all,
+ * unless the case passes `raw: 'absolute-ok'` because its input is deliberately absolute.
+ */
+function golden(o: Outcome, opts: { raw?: 'absolute-ok' } = {}): string {
+  const raw = opts.raw === 'absolute-ok' ? '' : o.stdout + o.stderr;
+  expect(raw, 'raw output names the repo root').not.toContain(REPO_ROOT.replace(/\/$/, ''));
+  return normalise(renderOutcome(o), { tmp: [tmpDir, workDir] });
+}
 
 describe('usage errors', () => {
   // The stage-0 CLI's usage-error list, plus `--emit` with run and `--` with build.
@@ -169,9 +177,11 @@ describe('path spellings', () => {
     ),
   )('$label', async ({ name, path, cwd, golden: g }) => {
     const sn = runSn(['check', path], { cwd });
-    // The goldens strip the repo root, so check here that an absolute root gives absolute diagnostic paths.
-    expect(name !== 'absolute' || sn.stderr === '' || sn.stderr.startsWith(join(REPO_ROOT, 'tests', 'programs'))).toBe(true);
-    await expect(golden(sn)).toMatchFileSnapshot(g);
+    // The goldens strip the repo root, so check here that an absolute root gives absolute paths in every diagnostic.
+    const headers = name === 'absolute' ? sn.stderr.split('\n').filter((line) => /^[^\s:][^:]*:\d+:\d+: /.test(line)) : [];
+    expect(name !== 'absolute' || sn.stderr === '' || headers.length > 0, 'absolute spelling: no diagnostic headers found').toBe(true);
+    for (const line of headers) expect(line.startsWith(join(REPO_ROOT, 'tests', 'programs')), `not absolute: ${line}`).toBe(true);
+    await expect(golden(sn, name === 'absolute' ? { raw: 'absolute-ok' } : {})).toMatchFileSnapshot(g);
   });
 });
 
@@ -204,6 +214,13 @@ describe('diagnostic layout edge cases', () => {
 });
 
 describe('build --emit=c', () => {
+  const fibGolden = cliGolden('emit c', 'fib');
+  it('prints the C for a small program', async () => {
+    const sn = runSn(['build', join('tests', 'programs', 'programs', 'fib.aster'), '--emit=c']);
+    expect(sn.status).toBe(0);
+    await expect(golden(sn)).toMatchFileSnapshot(fibGolden);
+  });
+
   it('prints about a megabyte for the compiler itself', () => {
     const r = runSn(['build', SELF_SOURCE, '--emit=c']);
     expect(r.status).toBe(0);
@@ -211,7 +228,7 @@ describe('build --emit=c', () => {
   });
 });
 
-// cli.test.ts's HELLO: prints 30.
+// A minimal program that prints 30 and exits 0.
 const HELLO = 'fn main(): int {\n    let x: int = 10;\n    let y: int = 20;\n    print(x + y);\n    return 0;\n}\n';
 
 /** A fresh directory under the work dir holding `files`, for a test that builds or runs from there. */
@@ -436,6 +453,7 @@ describe('LLVM driver failure and emission isolation', () => {
 });
 
 describe('the CLI goldens', () => {
+  // This fails on a first `-u` into an empty tests/golden/cli/: vitest writes file snapshots only after the run.
   it('carry no machine-specific paths or stage names, and none is stale', () => {
     const dir = dirname(goldenPath('cli', 'x'));
     const files = readdirSync(dir);

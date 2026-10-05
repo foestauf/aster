@@ -1,0 +1,65 @@
+== exit 0
+== stdout
+#include "aster_rt.h"
+
+int64_t aster_fn_fib(int64_t l0_n);
+int64_t aster_fn_main(void);
+
+int64_t aster_fn_fib(int64_t l0_n) {
+    bool l1 = false;
+    int64_t l2 = 0;
+    int64_t l3 = 0;
+    int64_t l4 = 0;
+    int64_t l5 = 0;
+    int64_t l6 = 0;
+    (void)l1;
+    (void)l2;
+    (void)l3;
+    (void)l4;
+    (void)l5;
+    (void)l6;
+    l1 = aster_rt_lt(l0_n, INT64_C(2));
+    if (l1) goto then1; else goto endif2;
+then1:;
+    return l0_n;
+endif2:;
+    l2 = aster_rt_sub(l0_n, INT64_C(1));
+    l3 = aster_fn_fib(l2);
+    l4 = aster_rt_sub(l0_n, INT64_C(2));
+    l5 = aster_fn_fib(l4);
+    l6 = aster_rt_add(l3, l5);
+    return l6;
+}
+
+int64_t aster_fn_main(void) {
+    int64_t l0_i = 0;
+    bool l1 = false;
+    int64_t l2 = 0;
+    int64_t l3 = 0;
+    int64_t l4 = 0;
+    (void)l0_i;
+    (void)l1;
+    (void)l2;
+    (void)l3;
+    (void)l4;
+    l0_i = INT64_C(0);
+    goto while_head1;
+while_head1:;
+    l1 = aster_rt_le(l0_i, INT64_C(10));
+    if (l1) goto while_body2; else goto while_end3;
+while_body2:;
+    l2 = aster_fn_fib(l0_i);
+    aster_rt_print_int(l2);
+    l3 = aster_rt_add(l0_i, INT64_C(1));
+    l0_i = l3;
+    goto while_head1;
+while_end3:;
+    l4 = aster_fn_fib(INT64_C(25));
+    aster_rt_print_int(l4);
+    return INT64_C(0);
+}
+
+int main(void) {
+    return (int)aster_fn_main();
+}
+== stderr
