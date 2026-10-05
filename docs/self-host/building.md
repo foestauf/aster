@@ -73,14 +73,15 @@ The snapshots live in `tests/golden/`. After a deliberate output change, run `pn
 
 ## Verifying
 
-- `pnpm selfhost` builds S1 to S4, compares the C at every hop and runs the conformance suites against S1, S2 and S3 (S4 is built only for the C comparison). It also builds LLVM stages SL1 and SL2, checks their LLVM fixed point and C oracle, and runs the stage-aware suites against SL1. This proof requires clang 18 and lld 18. `pnpm selfhost --record` also re-records [proof.md](proof.md).
+- `pnpm selfhost` builds S1 to S4, compares the C at every hop and runs the conformance suites against S1, S2 and S3 (S4 is built only for the C comparison). It also builds LLVM stages SL1 and SL2, checks their LLVM fixed point and C oracle, and runs the stage-aware suites against SL1. This proof requires clang 18 and lld 18. `pnpm selfhost --record` also re-records [proof.md](proof.md). `pnpm selfhost --suite=<full|S1|S2|S3|SL1>` (repeatable) still builds and compares every stage but runs only the named test runs. It can't be combined with `--record`.
 - `scripts/normal-path.sh` hides `packages/asterc/dist`, runs `pnpm build`, builds the compiler through `pnpm aster`, and builds and runs representative programs with `pnpm aster run`. It prints `normal path: PASS` on success. Run `pnpm bootstrap` first. While it runs it hides `packages/asterc/dist`, so don't run `pnpm test`, `pnpm selfhost`, `pnpm bootstrap` or `pnpm aster:seed` in the same checkout at the same time.
 
 CI runs on every push to `main` and every pull request:
 
 | Job | Runs |
 |---|---|
-| `proof` | typecheck, lint, `scripts/ci-bootstrap.sh`, then `pnpm selfhost`. |
+| `proof (<suite>)` | One job per test run of `pnpm selfhost` (`full`, `S1`, `S2`, `S3`, `SL1`), in parallel: `scripts/ci-bootstrap.sh`, then `pnpm selfhost --suite=<suite>`. The `full` job also runs typecheck and lint. |
+| `proof` | After the `proof (<suite>)` jobs. Fails unless they all passed and S1, S2, S3 and SL1 ran the same number of tests. |
 | `normal-path` | `scripts/ci-bootstrap.sh`, then `scripts/normal-path.sh`. |
 | `release-bootstrap` | Pull requests only. `scripts/ci-bootstrap.sh`, then `pnpm test`. Enforces the two-step rule. |
 

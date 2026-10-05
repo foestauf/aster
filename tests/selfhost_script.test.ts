@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { firstDifference, recordAllowed, REPO_ROOT, STAGE_SUITES } from '../scripts/selfhost.js';
+import { firstDifference, parseArgs, recordAllowed, REPO_ROOT, STAGE_SUITES, SUITES } from '../scripts/selfhost.js';
 
 // scripts/selfhost.ts (pnpm selfhost) is orchestration only (contract §6.4). These cover its pure parts and the rule
 // that it never imports the TypeScript compiler.
@@ -26,6 +26,24 @@ describe('recordAllowed', () => {
     expect(recordAllowed(true, true)).toBe(false);
     expect(recordAllowed(false, true)).toBe(true);
     expect(recordAllowed(true, false)).toBe(true);
+  });
+});
+
+describe('parseArgs', () => {
+  it('runs every suite by default', () => {
+    expect(parseArgs([])).toEqual({ record: false, suites: [...SUITES] });
+    expect(parseArgs(['--record'])).toEqual({ record: true, suites: [...SUITES] });
+  });
+  it('narrows to the named suites, in proof order', () => {
+    expect(parseArgs(['--suite=SL1', '--suite=S1', '--suite=S1'])).toEqual({ record: false, suites: ['S1', 'SL1'] });
+  });
+  it('refuses unknown arguments and suites', () => {
+    expect(parseArgs(['--fast'])).toHaveProperty('error');
+    expect(parseArgs(['--suite=S4'])).toHaveProperty('error');
+    expect(parseArgs(['--suite='])).toHaveProperty('error');
+  });
+  it('refuses to record a partial proof', () => {
+    expect(parseArgs(['--record', '--suite=S1'])).toHaveProperty('error');
   });
 });
 
