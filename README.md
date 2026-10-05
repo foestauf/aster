@@ -1,6 +1,6 @@
 # Aster
 
-A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. The TypeScript `asterc` is the bootstrap seed and the test oracle. An LLVM backend is the next goal.
+A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the TypeScript `asterc` is the fallback seed and the test oracle. An LLVM backend is the next goal.
 
 ## Quick start
 
@@ -73,7 +73,7 @@ Failures are `Err("<subject>: <reason>")`. The subject is the path; for `make_te
 
 ## Self-hosted compiler
 
-`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the TypeScript compiler, and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
+`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the nearest published release (`pnpm bootstrap:seed` uses the TypeScript compiler instead), and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
 
 ```
 pnpm bootstrap
@@ -98,7 +98,7 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 
 `packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (TypeScript) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
 
-The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. The TypeScript compiler stays as the bootstrap seed, the recovery path and the test oracle.
+The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The TypeScript compiler stays as the fallback seed (`pnpm bootstrap:seed`), the recovery path and the test oracle.
 
 ## Remaining work
 

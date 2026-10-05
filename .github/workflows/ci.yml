@@ -38,13 +38,46 @@ jobs:
 
   normal-path:
     runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm bootstrap
+      - run: sh scripts/ci-bootstrap.sh
       - run: scripts/normal-path.sh
+
+  release-bootstrap:
+    # The two-step rule: the base's release must build this change's compiler source (docs/self-host/building.md).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: LLVM-only toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18
+          clang-18 --version
+          ld.lld-18 --version
+          mkdir -p "$RUNNER_TEMP/aster-llvm-bin"
+          ln -s /usr/bin/clang-18 "$RUNNER_TEMP/aster-llvm-bin/clang"
+          ln -s /usr/bin/ld.lld-18 "$RUNNER_TEMP/aster-llvm-bin/ld.lld"
+          echo "$RUNNER_TEMP/aster-llvm-bin" >> "$GITHUB_PATH"
+      - run: pnpm install --frozen-lockfile
+      - run: sh scripts/ci-bootstrap.sh
+      - run: pnpm test

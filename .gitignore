@@ -5,3 +5,4 @@ coverage/
 .selfhost/
 build/
 .bench/
+dist-release/

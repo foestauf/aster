@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildCompiler, MISSING, parseMode, REPO_ROOT } from '../scripts/build-compiler.js';
+import { buildCompiler, MISSING, parseArgs, parseMode, REPO_ROOT, TWO_STEP } from '../scripts/build-compiler.js';
 
 // scripts/build-compiler.ts (pnpm bootstrap, pnpm build) is orchestration only. Stub compilers written as sh scripts
 // stand in for asterc so the install rules are tested without cc.
@@ -116,5 +116,28 @@ describe('the script', () => {
   it('derives the repo root from its own location, not the cwd', () => {
     expect(REPO_ROOT.endsWith('/')).toBe(true);
     expect(text).not.toMatch(/process\.cwd\(\)/);
+  });
+});
+
+describe('parseArgs', () => {
+  it('accepts the three modes and --release for bootstrap only', () => {
+    expect(parseArgs(['bootstrap'])).toEqual({ mode: 'bootstrap', release: null });
+    expect(parseArgs(['bootstrap', '--release', 'build-20261004-c6205b8'])).toEqual({ mode: 'bootstrap', release: 'build-20261004-c6205b8' });
+    expect(parseArgs(['bootstrap-seed'])).toEqual({ mode: 'bootstrap-seed', release: null });
+    expect(parseArgs(['build'])).toEqual({ mode: 'build', release: null });
+    expect(parseArgs(['bootstrap', '--release'])).toBeNull();
+    expect(parseArgs(['build', '--release', 'x'])).toBeNull();
+    expect(parseArgs([])).toBeNull();
+  });
+
+  it('accepts --release only for a well-formed build tag', () => {
+    for (const bad of ['..', '../..', 'build-1-a', 'v1', '', 'build-20261004-c6205b8/..', 'build-20261004-C6205B8']) {
+      expect(parseArgs(['bootstrap', '--release', bad])).toBeNull();
+    }
+    expect(parseArgs(['bootstrap', '--release', 'build-20261004-c6205b8'])).toEqual({ mode: 'bootstrap', release: 'build-20261004-c6205b8' });
+  });
+
+  it('names the two-step rule', () => {
+    expect(TWO_STEP).toBe('the release cannot build this compiler source; land the feature first, then use it (two-step rule, docs/self-host/building.md)');
   });
 });
