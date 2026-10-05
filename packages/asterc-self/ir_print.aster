@@ -1,7 +1,7 @@
 // expect-library
 // The IR's text format, character for character. `print_ir` returns the output's lines
 // without their newlines. Sections (structs, enums, strings, then each function) are separated by one blank line, as
-// the reference printer's join did. tests/ir_aster.test.ts checks it, through ir.aster, against recorded output.
+// the original printer's join did. The self-host fixed point and the goldens in tests/golden/ check it.
 
 import "ir.aster";
 

@@ -3,8 +3,8 @@
 // `TypeExpr`, `Pattern`, `Block`, `Ident` and the structs around them, each spanned with byte offsets) and a recursive
 // descent parser over the lexer's tokens. `new_parser` builds a Parser from a Lexer (`new_parser_at` also offsets every
 // span by a file's global base) and `parse_program` turns it into the items of a file, recording syntax errors in
-// `Parser.errors`. It is a recursive-descent parser; tests/parse_aster.test.ts checks it against recorded
-// output.
+// `Parser.errors`. It is a recursive-descent parser; the goldens in tests/golden/
+// and the self-host fixed point check it.
 
 import "lexer.aster";
 

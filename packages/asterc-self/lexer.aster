@@ -2,8 +2,8 @@
 // The Aster lexer, imported by lex.aster and parser.aster, and through parser.aster by loader.aster, checker.aster and
 // check.aster. `lex` turns source text into a Lexer holding every token and lexical error, with byte offsets;
 // `lex_from` does the same from a given offset (the loader strips the BOM itself). It is
-// hand-written; tests/lex_aster.test.ts and tests/parse_aster.test.ts check it against recorded
-// output.
+// hand-written; the goldens in tests/golden/ (check_aster.test.ts, asterc_self.test.ts) and the self-host fixed point
+// check it.
 
 struct Token {
     kind: string,

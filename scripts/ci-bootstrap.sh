@@ -1,6 +1,6 @@
 #!/bin/sh
 # CI's bootstrap (release pipeline R1): from the release of HEAD^1, the base of the change, so a change that uses a
-# feature its base's release lacks fails here (the two-step rule). 
+# feature its base's release lacks fails here (the two-step rule).
 set -u
 cd "$(dirname "$0")/.."
 tag=$(sh scripts/release-base.sh HEAD^1)

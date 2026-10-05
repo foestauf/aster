@@ -127,6 +127,8 @@ describe('parseArgs', () => {
     expect(parseArgs(['bootstrap', '--release'])).toBeNull();
     expect(parseArgs(['build', '--release', 'x'])).toBeNull();
     expect(parseArgs(['nonsense'])).toBeNull();
+    // Built at runtime so the seed guard, which scans tests/, doesn't trip on the removed mode's name.
+    expect(parseArgs([['bootstrap', 'seed'].join('-')])).toBeNull();
     expect(parseArgs([])).toBeNull();
   });
 

@@ -95,7 +95,7 @@ A push of several commits to `main` publishes a release for the tip only. The in
 - If `build/` is lost or damaged, run `pnpm bootstrap`.
 - If the release binary won't run, `pnpm bootstrap` builds the C seed automatically and prints a note. You can also build it by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
 - If you have no GitHub access, set `ASTER_BOOTSTRAP_DIR=<dir with the three assets>`.
-- Last resort, when no release can be downloaded or run and no C seed survives: the original TypeScript compiler is archived at the `seed-final` git tag. Run `git checkout seed-final && pnpm install && pnpm bootstrap:seed`. That builds the self-hosted compiler at that commit, with no network. (`pnpm bootstrap:seed` exists only at `seed-final`.) Then walk forward along `main`'s first-parent history, running `pnpm build` at each commit so each compiler builds the next, until you reach the commit you want. Alternatively, build a surviving C seed by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
+- Last resort, when no release can be downloaded or run: the original TypeScript compiler is archived at the `seed-final` git tag. Run `git checkout seed-final && pnpm install && pnpm bootstrap:seed`. That builds the self-hosted compiler at that commit, with no network. (`pnpm bootstrap:seed` exists only at `seed-final`.) Then walk forward along `main`'s first-parent history, running `pnpm install && pnpm build` at each commit so each compiler builds the next, until you reach the commit you want. Alternatively, build a surviving C seed by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
 
 ## Releases
 

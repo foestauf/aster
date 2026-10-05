@@ -1,8 +1,8 @@
 // expect-library
-// The typed program in the canonical dump format, a line-for-line port of tests/typed_dump.ts (`dumpTyped` and
-// `escapeDump`). `dump_typed` returns the dump's lines, without their newlines: one node per line, indented by two
-// spaces per depth, every expression line ending in ` : <type>`. tests/typed_aster.test.ts checks it, through
-// typed.aster, against the TypeScript printer on the compiler's own typed program.
+// The typed program in the canonical dump format, as the original test helper printed it. `dump_typed` returns
+// the dump's lines, without their newlines: one node per line, indented by two spaces per depth, every expression
+// line ending in ` : <type>`. The self-host fixed point and goldens exercise it through
+// typed.aster.
 //
 // Each `dump_*` printer takes the lines so far, the depth and a node, and appends to the lines.
 

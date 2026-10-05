@@ -4,7 +4,7 @@
 // gets a global base (the root's is 0, each later file's is one past the end of the previous one), and every span the
 // lexer and parser produce is offset by it, so spans are global and sort by load order, then position. Offsets are in
 // bytes of the BOM-stripped text. tests/check_aster.test.ts checks the result, through check.aster, against the
-// compiler's own loader.
+// goldens in tests/golden/check/.
 
 import "parser.aster";
 

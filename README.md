@@ -89,7 +89,7 @@ On that machine S1 builds itself (`asterc build packages/asterc-self/asterc.aste
 
 Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-10-04-aster-self-hosting-contract-design.md):
 
-- `--emit=tokens|ast|ir` are not supported (exit 2), and `ASTER_CC` is ignored: it always runs `cc`.
+- `ASTER_CC` is ignored: it always runs `cc`.
 - `cc`'s stderr streams to yours, so its warnings show even on success, and a failing `cc` prints its output and then `internal compiler error: C compiler 'cc' failed` (exit 3).
 - A panic inside the compiler is `panic: <message>` with exit 101, not an internal-compiler-error exit 3.
 - Imports are identified by their normalised path, not their real path, so two symlinks to one file load twice.

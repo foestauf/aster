@@ -2,7 +2,7 @@
   "name": "aster",
   "version": "0.0.0",
   "private": true,
-  "description": "Aster: a small statically typed, compiled language, bootstrapped in TypeScript",
+  "description": "Aster: a small statically typed, compiled language, self-hosted",
   "type": "module",
   "packageManager": "pnpm@10.29.1",
   "engines": {
