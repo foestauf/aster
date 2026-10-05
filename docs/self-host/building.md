@@ -102,7 +102,15 @@ The tag is `build-YYYYMMDD-<sha7>`: the UTC committer date and the first seven h
 
 `BUILD.txt` holds the one command that builds the seed: `cc -std=c11 -O2 -I. asterc.c aster_rt.c -o asterc`.
 
-The release is created as a draft with all three assets, then published. If anything fails, the draft and its tag are deleted. A published release therefore always has every asset.
+The publisher creates a draft, uploads all three assets, then publishes and marks it latest. Uploads and publication
+use the numeric release ID returned by the successful create request. A published tag is a successful no-op on rerun;
+a release lookup failure stops publication without changing anything.
+
+Failed or uncertain requests never trigger automatic release or tag deletion. A request can succeed even when its
+response is lost, and another actor can publish a draft between a state check and deletion. An existing draft is
+therefore left untouched and blocks a rerun. Inspect the tag and release ID reported in the error: if already published,
+rerun safely; otherwise review the retained draft and its assets before manually recovering it. Do not delete a
+published release or its tag to retry publication.
 
 `pnpm bootstrap` caches a download in `build/bootstrap/<tag>/` and reuses it. A directory that fails verification is deleted. `ASTER_BOOTSTRAP_DIR=<dir>` skips the download and uses the three assets in that directory. It is never modified.
 

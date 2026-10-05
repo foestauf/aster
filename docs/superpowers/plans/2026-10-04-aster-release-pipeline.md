@@ -884,6 +884,10 @@ esac
 
 `scripts/publish-release.sh`:
 
+Historical implementation below, superseded by `scripts/publish-release.ts`. Do not restore this cleanup logic:
+automatic deletion by tag can delete a published release. The current publisher retains uncertain or failed drafts
+for manual inspection and never deletes releases or tags; see `docs/self-host/building.md`.
+
 ```sh
 #!/bin/sh
 # Publishes a release (release pipeline R1): a draft with all three assets first, then published and marked latest. On

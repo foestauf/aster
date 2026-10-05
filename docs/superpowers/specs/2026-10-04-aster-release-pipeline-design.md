@@ -94,8 +94,10 @@ ubuntu-24.04 and records why. The C seed covers machines where that binary won't
   bootstrap step runs `pnpm bootstrap` (§4) if any `build-*` tag exists, and `pnpm bootstrap:seed` otherwise. Only the
   very first release takes the seed path. The choice is made in the workflow; `pnpm bootstrap` itself never falls back
   to the seed.
-- Publishing: create the release as a **draft** with all three assets, then mark it published and latest. If any step
-  after creating the draft fails, delete the draft and the tag. A published release always has all three assets.
+- Publishing: create the release as a **draft**, upload all three assets, then mark it published and latest, using the
+  release ID returned by creation. Fail closed on lookup errors. Failed or uncertain requests never delete releases or
+  tags: a lost response or concurrent publication makes automatic cleanup unsafe. Existing drafts are left untouched
+  and require manual inspection before retrying. See the recovery guidance in `docs/self-host/building.md`.
 - Idempotence: if the tag for `head_sha` already exists as a published release, the workflow exits 0 without changes,
   so re-running is safe.
 
