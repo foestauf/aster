@@ -56,8 +56,8 @@ If `build/asterc` is missing or not executable, `pnpm aster` and `pnpm build` pr
 
 `pnpm test` needs `build/asterc` (run `pnpm bootstrap` first). The TypeScript compiler is not involved. These suites pin behaviour:
 
-- `tests/check_aster.test.ts`: `check.aster`'s output on the whole corpus, against `tests/golden/check/` and `tests/golden/accepted.txt`.
-- `tests/asterc_self.test.ts`: the CLI's output, against `tests/golden/cli/`.
+- `tests/check_aster.test.ts`: `check.aster`'s output on the whole corpus, against `tests/golden/check/`.
+- `tests/asterc_self.test.ts`: the CLI's output, against `tests/golden/cli/`. It also reads `tests/golden/accepted.txt` (through `tests/corpus.ts`), the list of programs the compiler must accept, and checks each error program's diagnostics against its `// expect-error:` headers. `accepted.txt` is edited by hand: `pnpm golden` doesn't touch it.
 - `tests/selfhost_golden.test.ts`: every runnable program in `tests/programs/` meets its `// expect-…` header.
 - `tests/source_encoding.test.ts` and `tests/load_symlink.test.ts`: fixed expectations.
 - `tests/llvm_backend.test.ts`: the LLVM backend (needs clang 18).
@@ -80,7 +80,7 @@ CI runs on every push to `main` and every pull request:
 
 | Job | Runs |
 |---|---|
-| `proof` | typecheck, lint and `pnpm selfhost`. |
+| `proof` | typecheck, lint, `scripts/ci-bootstrap.sh`, then `pnpm selfhost`. |
 | `normal-path` | `scripts/ci-bootstrap.sh`, then `scripts/normal-path.sh`. |
 | `release-bootstrap` | Pull requests only. `scripts/ci-bootstrap.sh`, then `pnpm test`. Enforces the two-step rule. |
 

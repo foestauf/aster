@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 // and S4 with S3, requires the compiler's C to be byte-identical at every hop, runs the full test suite and then the
 // stage-aware suites once per stage, and writes a report to .selfhost/. Orchestration only: it spawns compilers, cc,
 // git and vitest, and never lexes, parses, checks, lowers or emits Aster itself.
-// Stage names: S0 is the installed compiler (build/asterc, a released build), whose C is the reference; S1 to S4 are built
+// Stage names: S0 is the installed compiler (build/asterc; in CI, bootstrapped from the base's release and rebuilt from this tree), whose C is the reference; S1 to S4 are built
 // from the source in this tree. `--record` also writes docs/self-host/proof.md and requires a clean tree.
 
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -237,7 +237,7 @@ export function main(argv: string[]): number {
       cs.forEach((c, n) => {
         const d = firstDifference(c0, c);
         report.stages.push({ name: `S${n}`, cSha256: sha256(c), matchesS0: d === null, suite: null });
-        if (d !== null && drift === '') drift = `C(S${n}) differs from C(S0) at line ${d.line}:\n  S0: ${d.a}\n  S${n}: ${d.b}`;
+        if (d !== null && drift === '') drift = `C(S${n}) differs from C(S0) at line ${d.line}:\n  S0: ${d.a}\n  S${n}: ${d.b}\n(is build/asterc current with this tree? run \`pnpm build\`)`;
       });
       if (drift !== '') fail(drift);
     });

@@ -1,6 +1,6 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { goldenPath, normalise, renderOutcome } from './golden.js';
@@ -162,10 +162,12 @@ describe('check.aster', () => {
   it('has goldens that carry no machine-specific paths or stage names', () => {
     const dir = dirname(goldenPath('check', 'x'));
     const files = readdirSync(dir);
-    expect(files.length).toBe(corpus.length);
+    const expected = corpus.map((f) => basename(goldenPath('check', f))).toSorted();
+    expect(files.toSorted(), 'a golden is missing or stale: run pnpm golden and review the diff').toEqual(expected);
     for (const f of files) {
       const text = readFileSync(join(dir, f), 'utf8');
-      for (const bad of ['/home/', '/tmp/', 'S1']) expect(text, `${f} contains ${bad}`).not.toContain(bad);
+      for (const bad of ['/home/', '/tmp/']) expect(text, `${f} contains ${bad}`).not.toContain(bad);
+      expect(text, `${f} names a stage`).not.toMatch(/\bS[1-4]\b|\bSL[12]\b/);
     }
   });
 });

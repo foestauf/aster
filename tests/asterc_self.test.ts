@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { acceptedFiles, PROGRAMS_DIR } from './corpus.js';
@@ -122,6 +122,22 @@ const errorGoldens = readdirSync(PROGRAMS_DIR, { recursive: true, encoding: 'utf
   .toSorted()
   .map((f) => join('tests', 'programs', f));
 
+/**
+ * The compact `L:C msg` form of each diagnostic header in `stderr` (`path:L:C: error: msg`): bare for the root file,
+ * `relpath:L:C msg` for others, relative to the root's directory. This is what the `// expect-error:` headers declare.
+ */
+function shortDiagnostics(root: string, stderr: string): string[] {
+  const rootAbs = join(REPO_ROOT, root);
+  return stderr.split('\n').flatMap((line) => {
+    const m = /^(\S[^:]*):(\d+):(\d+): error: (.*)$/.exec(line);
+    if (!m) return [];
+    const [, path, l, c, msg] = m;
+    const abs = join(REPO_ROOT, path);
+    if (abs === rootAbs) return [`${l}:${c} ${msg}`];
+    return [`${relative(dirname(rootAbs), abs).split(sep).join('/')}:${l}:${c} ${msg}`];
+  });
+}
+
 describe('check, programs with errors', () => {
   it('includes the non-ASCII column golden', () => {
     expect(errorGoldens).toContain(join('tests', 'programs', 'errors', 'non_ascii_column.aster'));
@@ -130,6 +146,7 @@ describe('check, programs with errors', () => {
   it.for(errorGoldens.map((file) => ({ file, golden: cliGolden('check, programs with errors', file) })))('$file', async ({ file, golden: g }) => {
     const sn = runSn(['check', file]);
     expect(sn.status).toBe(1);
+    expect(shortDiagnostics(file, sn.stderr)).toEqual(parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).errors);
     await expect(golden(sn)).toMatchFileSnapshot(g);
   });
 
@@ -305,11 +322,11 @@ describe('run', () => {
   });
 });
 
-describe('self-hosted CLI behaviour (formerly divergences from stage 0)', () => {
+describe('self-hosted CLI behaviour', () => {
   const dir = freshDir('divergences', { 'hello.aster': HELLO, 'fakecc/cc': "#!/bin/sh\necho 'cc: boom' >&2\nexit 1\n" });
   chmodSync(join(dir, 'fakecc', 'cc'), 0o755);
 
-  const emitIrGolden = cliGolden('self-hosted CLI behaviour (formerly divergences from stage 0)', '--emit=ir is an unknown emit stage');
+  const emitIrGolden = cliGolden('self-hosted CLI behaviour', '--emit=ir is an unknown emit stage');
   it('--emit=ir is an unknown emit stage', async () => {
     const sn = runSn(['build', 'hello.aster', '--emit=ir'], { cwd: dir });
     expect(sn.status).toBe(2);
@@ -460,7 +477,8 @@ describe('the CLI goldens', () => {
     expect(files.toSorted()).toEqual([...slugs].map((slug) => `${slug}.txt`).toSorted());
     for (const f of files) {
       const text = readFileSync(join(dir, f), 'utf8');
-      for (const bad of ['/home/', '/tmp/', 'S1']) expect(text, `${f} contains ${bad}`).not.toContain(bad);
+      for (const bad of ['/home/', '/tmp/']) expect(text, `${f} contains ${bad}`).not.toContain(bad);
+      expect(text, `${f} names a stage`).not.toMatch(/\bS[1-4]\b|\bSL[12]\b/);
     }
   });
 });

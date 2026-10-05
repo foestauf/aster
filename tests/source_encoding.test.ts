@@ -97,7 +97,8 @@ describe('well-formed UTF-8 controls', () => {
     const checked = run(['check', file]);
     expect(latin1(checked), `${stage().name} check ${file}`).toEqual({ stdout: '', stderr: '', status: 0 });
     const ran = run(['run', file]);
-    expect(ran.status, `${`${stage().name} run ${file}`}: ${ran.stderr.toString('latin1')}`).toBe(0);
+    expect(ran.status, `${stage().name} run ${file}: ${ran.stderr.toString('latin1')}`).toBe(0);
+    expect(ran.stderr.length, `${stage().name} run ${file} wrote to stderr`).toBe(0);
     expect([...ran.stdout], `${stage().name} run ${file}`).toEqual(stdout);
     for (const target of [file, root]) {
       const argv = ['build', target, '--emit=c'];

@@ -2,7 +2,7 @@
 // by its only argument, with every file it imports, type-checks it and lowers it (lower_program in
 // packages/asterc-self/lower.aster). Diagnostics go to stderr exactly as check.aster prints them, exiting with status 1
 // if there are any; with none it prints the IR (print_ir in packages/asterc-self/ir_print.aster) to stdout.
-// The golden tests compare its output with the compiler's own IR printer.
+// tests/selfhost_golden.test.ts builds it and checks its stdout against the expect-stdout below.
 // expect-args: fixtures/ir_basics.txt
 // expect-stdout:
 // struct Point { x: int, y: int }
