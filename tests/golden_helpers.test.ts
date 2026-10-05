@@ -38,7 +38,7 @@ describe('goldenPath', () => {
     expect(goldenPath('check', 'errors/a.aster')).toBe(`${REPO_ROOT}/tests/golden/check/errors__a.aster.txt`);
     expect(goldenPath('cli', 'x\\y')).toBe(`${REPO_ROOT}/tests/golden/cli/x__y.txt`);
     expect(goldenPath('check', '../../packages/asterc-self/l.aster')).toBe(
-      `${REPO_ROOT}/tests/golden/check/..__..__packages__asterc-self__l.aster.txt`,
+      `${REPO_ROOT}/tests/golden/check/packages__asterc-self__l.aster.txt`,
     );
   });
 });

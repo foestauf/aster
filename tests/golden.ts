@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 /** The repository root, without a trailing slash. */
 export const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
-/** Absolute path of the golden file for case `name` of `kind`: path separators in `name` become '__'. */
+/** Absolute path of the golden file for case `name` of `kind`: leading `../` segments are dropped and other path separators in `name` become '__'. */
 export function goldenPath(kind: 'check' | 'cli', name: string): string {
-  return join(REPO_ROOT, 'tests', 'golden', kind, `${name.replace(/[\\/]/g, '__')}.txt`);
+  return join(REPO_ROOT, 'tests', 'golden', kind, `${name.replace(/^(\.\.[\\/])+/, '').replace(/[\\/]/g, '__')}.txt`);
 }
 
 /** A process outcome in the golden file format: exit status, then stdout and stderr, each as is. */
