@@ -116,7 +116,7 @@ These are not part of self-hosting:
 source → lexer → parser → checker → IR (basic blocks) → C → cc → executable
 ```
 
-`--emit=<stage>` prints any intermediate stage. The code lives in `packages/asterc/src/`, one folder per stage, and the C runtime is in `packages/asterc/runtime/`.
+`--emit=<stage>` prints any intermediate stage. The code lives in `packages/asterc/src/`, one folder per stage, and the C runtime is in `runtime/`.
 
 ## Docs
 

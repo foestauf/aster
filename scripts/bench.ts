@@ -10,7 +10,7 @@ export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const C_CONFIGS = ['c-O2', 'c-O3', 'c-lto'] as const;
 export type Configuration = (typeof C_CONFIGS)[number] | 'llvm';
 const COMPILER_SOURCE = 'packages/asterc-self/asterc.aster';
-const RUNTIME = 'packages/asterc/runtime';
+const RUNTIME = 'runtime';
 const ALL_CONFIGS: readonly Configuration[] = [...C_CONFIGS, 'llvm'];
 const USAGE = 'usage: pnpm bench [--runs=N] [--configs=c-O2,c-O3,c-lto[,llvm]] [--compiler=PATH] [--record[=NAME]] [--source-revision=SHA] [--environment-note=TEXT]';
 

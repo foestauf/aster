@@ -6,7 +6,7 @@ import { renderRuntimeAster } from '../scripts/gen-runtime.js';
 import { buildExecutable, compileToC, formatDiagnostic, makeSource } from '../packages/asterc/src/index.js';
 import { spawnStrict } from './spawn.js';
 
-const RUNTIME_DIR = resolve('packages/asterc/runtime');
+const RUNTIME_DIR = resolve('runtime');
 const RUNTIME_AST = resolve('packages/asterc-self/runtime.aster');
 const h = readFileSync(join(RUNTIME_DIR, 'aster_rt.h'), 'utf8');
 const c = readFileSync(join(RUNTIME_DIR, 'aster_rt.c'), 'utf8');
@@ -15,7 +15,7 @@ const workDir = mkdtempSync(join(tmpdir(), 'aster-runtime-'));
 afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
 describe('runtime.aster', () => {
-  it('is up to date with packages/asterc/runtime/ (run `pnpm gen:runtime`)', () => {
+  it('is up to date with runtime/ (run `pnpm gen:runtime`)', () => {
     expect(readFileSync(RUNTIME_AST, 'utf8'), 'runtime.aster is stale: run `pnpm gen:runtime`').toBe(renderRuntimeAster(h, c));
   });
 
