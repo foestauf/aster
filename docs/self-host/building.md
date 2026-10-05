@@ -91,7 +91,7 @@ A push of several commits to `main` publishes a release for the tip only. The in
 ## Recovery
 
 - If an edit breaks the compiler, `pnpm build` fails and the old binary stays installed. Fix the source and run `pnpm build` again.
-- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor can whenever the two-step rule was enforced for the changes since it, but the fallback may pick an older release than you expect, so it may lack newer features.
+- If the installed binary can no longer compile the source, run `pnpm bootstrap`. The release of the nearest ancestor can build this commit whenever the two-step rule was enforced for the changes since it; after a fallback, an older release than you expect may be picked, and it may lack newer features.
 - If `build/` is lost or damaged, run `pnpm bootstrap`.
 - If the release binary won't run, `pnpm bootstrap` builds the C seed automatically and prints a note. You can also build it by hand: unpack `asterc-c-seed.tar.gz` and run `BUILD.txt` with `sh`.
 - If you have no GitHub access, set `ASTER_BOOTSTRAP_DIR=<dir with the three assets>`.

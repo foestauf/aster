@@ -53,7 +53,7 @@ aster build <file.aster> [-o <out>] [--emit=c|llvm]
 aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
 ```
 
-A program can span several files: `import "other.aster";` is a top-level item, and every loaded file joins one flat namespace (no qualified names yet). Paths resolve against the importing file's directory, each file loads once (cycles are fine), and `main` must live in the file you pass to the compiler. `--emit=tokens` and `--emit=ast` show that root file only, and `--emit=ir` and `--emit=c` show the whole program.
+A program can span several files: `import "other.aster";` is a top-level item, and every loaded file joins one flat namespace (no qualified names yet). Paths resolve against the importing file's directory, each file loads once (cycles are fine), and `main` must live in the file you pass to the compiler. `--emit=c` and `--emit=llvm` show the whole program.
 
 Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through.
 
