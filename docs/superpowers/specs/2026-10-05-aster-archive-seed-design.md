@@ -61,8 +61,7 @@ ordinary corpus programs run by `selfhost_golden`, so the self-hosted libraries 
 - `tests/golden/cli/<case>.txt`: one file per `asterc_self` case.
 - `tests/golden/accepted.txt`: the sorted corpus paths that TS accepts today, one per line. It is the same file set and
   the same path spelling as `acceptedCorpus()` returns now. `asterc_self`'s "accepted programs" cases iterate over it,
-  so the set is pinned rather than recomputed by the compiler under test. `--update` regenerates it from the stage's
-  `check` exit status.
+  so the set is pinned rather than recomputed by the compiler under test. After R2a it is edited by hand.
 
 Each file records three parts, in this fixed format:
 
@@ -77,17 +76,17 @@ Each file records three parts, in this fixed format:
 Absolute paths are written as repo-relative paths. Temporary directories are written as `<tmp>`. The test applies the
 same normalisation before comparing.
 
-### `scripts/golden.ts`
+### Updating goldens
 
-- `node scripts/golden.ts --update` regenerates every golden from the stage under test (S1 from the global setup, or
-  `ASTER_STAGE_BIN`).
-- `node scripts/golden.ts` (no flag) compares, prints the first difference per file, and exits 1 on any difference.
+Goldens are vitest file snapshots (`expect(text).toMatchFileSnapshot(path)`). Vitest stores them as committed files and
+compares on every run. `pnpm golden` (= `vitest run -u tests/check_aster.test.ts tests/asterc_self.test.ts`) rewrites
+them from the stage under test after a deliberate change, and the diff is reviewed like code. In CI (`CI=true`) vitest
+never writes snapshots, so a missing or changed golden fails. No custom generator script is needed. The normalisation
+lives in one helper, `tests/golden.ts`, shared by both suites.
 
-It is orchestration only and imports nothing from `packages/asterc`. `pnpm golden` runs it.
-
-The golden tests (`check_aster.test.ts` and `asterc_self.test.ts`, rewritten) share the case lists and the
-normalisation with `scripts/golden.ts` through one module, `tests/golden.ts`. A test and the generator can't disagree
-about what a case is.
+`tests/golden/accepted.txt` is the one golden that isn't a snapshot. R2a writes it once from the TypeScript front end's
+`acceptedCorpus()`, while the seed still exists, with a one-off command recorded in the plan. After that it changes
+only by hand, when a program is added to the corpus.
 
 ### Proof that the goldens equal the TypeScript output
 
@@ -159,7 +158,7 @@ Historical specs, plans and `proof.md` records are left as they are.
 
 ## 7. Work breakdown
 
-- **R2a:** runtime move; `tests/golden.ts` and `scripts/golden.ts`; goldens generated and the old suites run green;
+- **R2a:** runtime move; `tests/golden.ts` and `pnpm golden`; goldens generated and the old suites run green;
   rewritten `check_aster` and `asterc_self` tests; fixed expectations in `source_encoding` and `load_symlink`; build-path
   switch (global setup, stage, selfhost, CI `proof`); deletion of the dropped suites and `corpus.ts` reading `accepted.txt`; the
   guard test; `building.md` notes on goldens.
