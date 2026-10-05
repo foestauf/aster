@@ -1,0 +1,18 @@
+== exit 0
+== stdout
+enum Box[int]
+  variant Full(int)
+  variant Empty
+enum Box[string]
+  variant Full(string)
+  variant Empty
+fn show_int(Box[int]): void
+  param 0 b Box[int]
+  let 1 n int
+fn show_string(Box[string]): void
+  param 0 b Box[string]
+  let 1 s string
+fn main(): int
+  let 0 a Box[int]
+  let 1 b Box[int]
+== stderr

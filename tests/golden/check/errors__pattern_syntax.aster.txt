@@ -1,0 +1,11 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/pattern_syntax.aster 773 774 expected '=>', found '|'
+error tests/programs/errors/pattern_syntax.aster 783 784 expected 'fn', 'struct', 'enum' or 'import', found '}'
+error tests/programs/errors/pattern_syntax.aster 816 817 expected pattern, found '_'
+error tests/programs/errors/pattern_syntax.aster 824 825 expected 'fn', 'struct', 'enum' or 'import', found '}'
+error tests/programs/errors/pattern_syntax.aster 853 854 expected pattern, found '('
+error tests/programs/errors/pattern_syntax.aster 861 862 expected 'fn', 'struct', 'enum' or 'import', found '}'
+error tests/programs/errors/pattern_syntax.aster 891 894 expected 'int', found character literal
+error tests/programs/errors/pattern_syntax.aster 901 902 expected 'fn', 'struct', 'enum' or 'import', found '}'

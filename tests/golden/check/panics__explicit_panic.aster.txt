@@ -1,0 +1,6 @@
+== exit 0
+== stdout
+fn fail(): int
+fn main(): int
+  let 0 x int
+== stderr

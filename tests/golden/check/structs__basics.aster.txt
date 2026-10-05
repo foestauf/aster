@@ -1,0 +1,17 @@
+== exit 0
+== stdout
+struct Point
+  field x int
+  field y int
+struct Segment
+  field from Point
+  field to Point
+  field label string
+fn add(Point, Point): Point
+  param 0 a Point
+  param 1 b Point
+fn main(): int
+  let 0 p Point
+  let 1 s Segment
+  let 2 q Point
+== stderr

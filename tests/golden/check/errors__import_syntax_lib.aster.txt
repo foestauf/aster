@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_syntax_lib.aster 46 47 expected expression, found '+'

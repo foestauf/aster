@@ -1,0 +1,13 @@
+== exit 0
+== stdout
+enum Tree[int]
+  variant Node(Tree[int], int, Tree[int])
+  variant Leaf
+fn total(Tree[int]): int
+  param 0 t Tree[int]
+  let 1 l Tree[int]
+  let 2 v int
+  let 3 r Tree[int]
+fn main(): int
+  let 0 leaf Tree[int]
+== stderr

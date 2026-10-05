@@ -1,0 +1,8 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/let_else_errors.aster 416 420 'else' block of 'let' must diverge
+error tests/programs/errors/let_else_errors.aster 510 516 pattern type 'Result' does not match 'Option[int]'
+error tests/programs/errors/let_else_errors.aster 568 569 pattern type 'int' does not match 'string'
+error tests/programs/errors/let_else_errors.aster 673 691 variant 'Option::Some' expects 1 value, got 2
+error tests/programs/errors/let_else_errors.aster 812 813 cannot match on 'Point' values

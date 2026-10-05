@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/undefined_name.aster 68 69 undefined name 'y'

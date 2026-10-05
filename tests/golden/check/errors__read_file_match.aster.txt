@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/read_file_match.aster 151 156 non-exhaustive match: missing 'Result::Err'
+error tests/programs/errors/read_file_match.aster 228 233 non-exhaustive match: missing 'Result::Ok'

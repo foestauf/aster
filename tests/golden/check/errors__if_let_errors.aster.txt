@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/if_let_errors.aster 288 289 undefined name 'v'
+error tests/programs/errors/if_let_errors.aster 335 338 pattern type 'string' does not match 'Option[int]'
+error tests/programs/errors/if_let_errors.aster 381 387 pattern type 'Result' does not match 'Option[int]'

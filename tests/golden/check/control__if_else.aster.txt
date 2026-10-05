@@ -1,0 +1,6 @@
+== exit 0
+== stdout
+fn classify(int): string
+  param 0 n int
+fn main(): int
+== stderr

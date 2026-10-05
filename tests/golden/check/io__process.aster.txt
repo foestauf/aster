@@ -1,0 +1,13 @@
+== exit 0
+== stdout
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+fn show(Result[int, string]): void
+  param 0 r Result[int, string]
+  let 1 n int
+  let 2 e string
+fn main(): int
+  let 0 _r Result[int, string]
+  let 1 none [string]
+== stderr

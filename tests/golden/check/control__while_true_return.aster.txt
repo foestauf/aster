@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn first_multiple(int, int): int
+  param 0 n int
+  param 1 of int
+  var 2 i int
+fn main(): int
+== stderr

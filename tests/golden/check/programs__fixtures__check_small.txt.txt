@@ -1,0 +1,17 @@
+== exit 0
+== stdout
+struct Point
+  field x int
+  field y int
+enum Color
+  variant Red
+  variant Green
+enum Option[int]
+  variant Some(int)
+  variant None
+fn main(): int
+  let 0 p Point
+  let 1 c Color
+  let 2 o Option[int]
+  var 3 n int
+== stderr

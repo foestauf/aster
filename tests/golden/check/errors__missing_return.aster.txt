@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/missing_return.aster 74 78 function 'pick' is missing a return on some paths

@@ -1,0 +1,10 @@
+== exit 0
+== stdout
+fn noisy(string, bool): bool
+  param 0 label string
+  param 1 value bool
+fn main(): int
+  let 0 a bool
+  let 1 c bool
+  let 2 e bool
+== stderr

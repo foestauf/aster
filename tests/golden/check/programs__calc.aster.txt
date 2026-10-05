@@ -1,0 +1,78 @@
+== exit 0
+== stdout
+struct Token
+  field kind Kind
+  field value int
+struct Parser
+  field tokens [Token]
+  field pos int
+enum Kind
+  variant Num
+  variant Plus
+  variant Minus
+  variant Star
+  variant Slash
+  variant Percent
+  variant LParen
+  variant RParen
+  variant End
+enum Expr
+  variant Num(int)
+  variant Neg(Expr)
+  variant Binary(Kind, Expr, Expr)
+fn symbol(int): Kind
+  param 0 c int
+fn tokenize(string): [Token]
+  param 0 src string
+  let 1 tokens [Token]
+  var 2 i int
+  let 3 c int
+  var 4 n int
+fn peek(Parser): Kind
+  param 0 p Parser
+fn advance(Parser): Token
+  param 0 p Parser
+  let 1 t Token
+fn expect(Parser, Kind): void
+  param 0 p Parser
+  param 1 k Kind
+fn parse_expr(Parser): Expr
+  param 0 p Parser
+  var 1 left Expr
+  let 2 op Kind
+fn parse_term(Parser): Expr
+  param 0 p Parser
+  var 1 left Expr
+  let 2 op Kind
+fn parse_unary(Parser): Expr
+  param 0 p Parser
+fn parse_primary(Parser): Expr
+  param 0 p Parser
+  let 1 t Token
+  let 2 inner Expr
+fn apply(Kind, int, int): int
+  param 0 op Kind
+  param 1 a int
+  param 2 b int
+fn eval(Expr): int
+  param 0 e Expr
+  let 1 n int
+  let 2 x Expr
+  let 3 op Kind
+  let 4 l Expr
+  let 5 r Expr
+fn op_text(Kind): string
+  param 0 op Kind
+fn render(Expr): string
+  param 0 e Expr
+  let 1 n int
+  let 2 x Expr
+  let 3 op Kind
+  let 4 l Expr
+  let 5 r Expr
+fn calc(string): void
+  param 0 src string
+  let 1 p Parser
+  let 2 e Expr
+fn main(): int
+== stderr

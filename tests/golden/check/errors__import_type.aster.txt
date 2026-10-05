@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_type_lib.aster 41 44 type mismatch: expected int, found string

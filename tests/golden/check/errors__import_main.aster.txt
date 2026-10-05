@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_main_lib.aster 21 25 'main' must be declared in the root file

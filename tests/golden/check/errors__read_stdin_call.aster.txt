@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/read_stdin_call.aster 157 170 function 'read_stdin' expects 0 arguments, found 1
+error tests/programs/errors/read_stdin_call.aster 189 201 type mismatch: expected int, found string

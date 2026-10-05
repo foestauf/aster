@@ -1,0 +1,25 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Option[bool]
+  variant Some(bool)
+  variant None
+fn parse_digit(string, int): Option[int]
+  param 0 s string
+  param 1 i int
+  let 2 b int
+fn sum2(string): Option[int]
+  param 0 s string
+fn show(Option[int]): void
+  param 0 o Option[int]
+  let 1 n int
+fn check_first(string): Option[bool]
+  param 0 s string
+fn first(string): Option[int]
+  param 0 s string
+fn main(): int
+  let 0 n int
+  let 1 n int
+== stderr

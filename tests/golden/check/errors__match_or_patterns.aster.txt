@@ -1,0 +1,11 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_or_patterns.aster 539 540 or-pattern alternatives cannot bind names
+error tests/programs/errors/match_or_patterns.aster 597 598 or-pattern alternatives cannot bind names
+error tests/programs/errors/match_or_patterns.aster 638 639 duplicate pattern alternative
+error tests/programs/errors/match_or_patterns.aster 678 679 duplicate pattern alternative
+error tests/programs/errors/match_or_patterns.aster 721 725 duplicate pattern alternative
+error tests/programs/errors/match_or_patterns.aster 804 805 unreachable match arm
+error tests/programs/errors/match_or_patterns.aster 847 857 unreachable match arm
+error tests/programs/errors/match_or_patterns.aster 892 895 pattern type 'string' does not match 'int'

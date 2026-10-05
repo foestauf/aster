@@ -1,0 +1,20 @@
+== exit 0
+== stdout
+enum Step
+  variant Skip
+  variant Show(int)
+  variant Stop
+fn code(Step): int
+  param 0 s Step
+  let 1 n int
+fn first_show([Step]): int
+  param 0 steps [Step]
+  var 1 i int
+  let 2 n int
+fn main(): int
+  let 0 steps [Step]
+  let 1 s Step
+  let 2 n int
+  let 3 n int
+  let 4 n int
+== stderr

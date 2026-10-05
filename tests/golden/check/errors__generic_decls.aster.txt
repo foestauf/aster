@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_decls.aster 577 578 duplicate type parameter 'T'
+error tests/programs/errors/generic_decls.aster 599 602 type parameter 'int' conflicts with a type of the same name
+error tests/programs/errors/generic_decls.aster 627 632 type parameter 'Point' conflicts with a type of the same name
+error tests/programs/errors/generic_decls.aster 656 662 type parameter 'Option' conflicts with a type of the same name
+error tests/programs/errors/generic_decls.aster 693 694 type parameter 'U' is never used
+error tests/programs/errors/generic_decls.aster 727 731 unknown type 'Nope'
+error tests/programs/errors/generic_decls.aster 736 740 payload cannot have type void
+error tests/programs/errors/generic_decls.aster 809 810 unknown type 'T'
+error tests/programs/errors/generic_decls.aster 858 865 unknown type 'Nope'

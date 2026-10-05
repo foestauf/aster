@@ -1,0 +1,14 @@
+== exit 0
+== stdout
+enum FILE
+  variant int
+  variant double
+  variant NULL
+enum size_t
+  variant char(int)
+  variant long(FILE)
+fn main(): int
+  let 0 f FILE
+  let 1 s size_t
+  let 2 t size_t
+== stderr

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/main_void.aster 102 106 'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'

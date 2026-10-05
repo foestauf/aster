@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/sys_builtin_errors.aster 583 584 type mismatch: expected string, found int
+error tests/programs/errors/sys_builtin_errors.aster 640 659 type mismatch: expected int, found Result[string, string]
+error tests/programs/errors/sys_builtin_errors.aster 737 750 function 'remove_path' expects 1 argument, found 0
+error tests/programs/errors/sys_builtin_errors.aster 817 823 type mismatch: expected [string], found string
+error tests/programs/errors/sys_builtin_errors.aster 890 910 type mismatch: expected Result[string, string], found Result[int, string]
+error tests/programs/errors/sys_builtin_errors.aster 988 989 type mismatch: expected string, found int
+error tests/programs/errors/sys_builtin_errors.aster 1061 1065 type mismatch: expected string, found bool

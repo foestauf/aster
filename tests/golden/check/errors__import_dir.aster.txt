@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/import_dir.aster 62 65 cannot import '.': Is a directory

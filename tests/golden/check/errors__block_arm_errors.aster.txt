@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/block_arm_errors.aster 206 218 match arm block must diverge
+error tests/programs/errors/block_arm_errors.aster 397 402 match arm block must diverge

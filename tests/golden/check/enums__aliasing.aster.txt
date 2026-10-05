@@ -1,0 +1,21 @@
+== exit 0
+== stdout
+struct Counter
+  field n int
+struct Shelf
+  field slots [Slot]
+  field label Slot
+enum Slot
+  variant Empty
+  variant Holds(Counter)
+fn bump(Slot): void
+  param 0 s Slot
+  let 1 c Counter
+fn count(Slot): int
+  param 0 s Slot
+  let 1 c Counter
+fn main(): int
+  let 0 c Counter
+  let 1 s Slot
+  let 2 shelf Shelf
+== stderr

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/modules/diamond_b.aster 0 0 missing 'fn main(): int'

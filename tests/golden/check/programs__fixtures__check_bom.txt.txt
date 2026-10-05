@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_bom_lib.txt 43 46 type mismatch: expected int, found string

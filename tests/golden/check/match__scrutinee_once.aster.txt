@@ -1,0 +1,12 @@
+== exit 0
+== stdout
+enum Box
+  variant Full(int)
+  variant Empty
+fn make(int): Box
+  param 0 n int
+fn main(): int
+  let 0 n int
+  var 1 b Box
+  let 2 x int
+== stderr

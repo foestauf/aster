@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_coverage.aster 473 478 non-exhaustive match: missing 'E::C'
+error tests/programs/errors/match_coverage.aster 514 519 non-exhaustive match: missing 'E::A', 'E::C'
+error tests/programs/errors/match_coverage.aster 562 566 unreachable match arm
+error tests/programs/errors/match_coverage.aster 600 604 unreachable match arm
+error tests/programs/errors/match_coverage.aster 677 678 unreachable match arm
+error tests/programs/errors/match_coverage.aster 707 738 match arms have different types: int and string
+error tests/programs/errors/match_coverage.aster 757 782 match expression cannot have type void

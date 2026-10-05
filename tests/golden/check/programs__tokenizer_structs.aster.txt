@@ -1,0 +1,29 @@
+== exit 0
+== stdout
+struct Token
+  field kind string
+  field text string
+fn is_digit(int): bool
+  param 0 c int
+fn is_alpha(int): bool
+  param 0 c int
+fn is_space(int): bool
+  param 0 c int
+fn tokenize(string): [Token]
+  param 0 src string
+  let 1 tokens [Token]
+  var 2 i int
+  let 3 n int
+  let 4 c int
+  let 5 start int
+  var 6 kind string
+fn count([Token], string): int
+  param 0 tokens [Token]
+  param 1 kind string
+  var 2 n int
+  let 3 t Token
+fn main(): int
+  let 0 tokens [Token]
+  let 1 t Token
+  var 2 summary string
+== stderr

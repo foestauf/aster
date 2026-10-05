@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_scrutinee_struct_literal.aster 176 177 expected '::', found ':'
+error tests/programs/errors/match_scrutinee_struct_literal.aster 182 183 expected 'fn', 'struct', 'enum' or 'import', found '{'

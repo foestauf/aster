@@ -1,0 +1,8 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_syntax.aster 272 273 expected identifier, found ']'
+error tests/programs/errors/generic_syntax.aster 295 296 expected identifier, found ']'
+error tests/programs/errors/generic_syntax.aster 310 311 expected identifier, found ']'
+error tests/programs/errors/generic_syntax.aster 340 341 expected identifier, found ']'
+error tests/programs/errors/generic_syntax.aster 367 368 expected expression, found '?'

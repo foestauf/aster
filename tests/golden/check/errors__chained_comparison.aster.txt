@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/chained_comparison.aster 102 103 comparison operators cannot be chained

@@ -1,0 +1,13 @@
+== exit 0
+== stdout
+struct Box
+  field inner Inner
+  field unit Unit
+struct Inner
+  field value int
+struct Unit
+fn make(): Box
+fn main(): int
+  let 0 b Box
+  let 1 u Unit
+== stderr

@@ -1,0 +1,12 @@
+== exit 0
+== stdout
+enum Pair
+  variant Two(int, [int])
+  variant Three(int, int, int)
+fn say(string, int): int
+  param 0 s string
+  param 1 n int
+fn main(): int
+  let 0 p Pair
+  let 1 q Pair
+== stderr

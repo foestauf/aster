@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/option_redefined.aster 221 227 'Option' is a builtin type and cannot be redefined
+error tests/programs/errors/option_redefined.aster 241 247 'Result' is a builtin type and cannot be redefined
+error tests/programs/errors/option_redefined.aster 262 268 'Option' is a builtin type and cannot be redefined

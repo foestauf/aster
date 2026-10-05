@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_expansion.aster 217 220 generic enum 'Bad' expands infinitely
+error tests/programs/errors/generic_expansion.aster 251 252 generic enum 'A' expands infinitely
+error tests/programs/errors/generic_expansion.aster 279 280 generic enum 'B' expands infinitely

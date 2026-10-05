@@ -1,0 +1,22 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+fn half(int): Option[int]
+  param 0 n int
+fn lookup(int): Option[int]
+  param 0 n int
+fn main(): int
+  let 0 i int
+  let 1 v int
+  let 2 note string
+  let 3 shown int
+  var 4 n int
+  var 5 sum int
+  let 6 k int
+  let 7 at int
+  let 8 doubled int
+  let 9 x int
+  let 10 seen int
+== stderr

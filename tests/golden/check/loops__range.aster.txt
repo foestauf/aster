@@ -1,0 +1,12 @@
+== exit 0
+== stdout
+fn t(string, int): int
+  param 0 label string
+  param 1 v int
+fn main(): int
+  let 0 i int
+  let 1 i int
+  let 2 i int
+  var 3 total int
+  let 4 i int
+== stderr

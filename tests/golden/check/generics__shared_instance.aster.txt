@@ -1,0 +1,17 @@
+== exit 0
+== stdout
+struct Holder
+  field o Option[int]
+enum Option[int]
+  variant Some(int)
+  variant None
+fn same(Option[int]): Option[int]
+  param 0 o Option[int]
+fn make(int): Holder
+  param 0 n int
+  let 1 h Holder
+fn main(): int
+  let 0 h Holder
+  let 1 back Option[int]
+  let 2 v int
+== stderr

@@ -1,0 +1,16 @@
+== exit 0
+== stdout
+struct Holder
+  field result Result[string, string]
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+fn describe(Result[string, string]): string
+  param 0 r Result[string, string]
+  let 1 s string
+  let 2 e string
+fn fail(string): Result[string, string]
+  param 0 msg string
+fn main(): int
+  let 0 h Holder
+== stderr

@@ -1,0 +1,20 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+fn a(bool): Option[int]
+  param 0 ok bool
+fn b(): int
+fn add(int, int): int
+  param 0 x int
+  param 1 y int
+fn call(bool): Option[int]
+  param 0 ok bool
+fn plus(bool): Option[int]
+  param 0 ok bool
+fn show(Option[int]): void
+  param 0 o Option[int]
+  let 1 n int
+fn main(): int
+== stderr

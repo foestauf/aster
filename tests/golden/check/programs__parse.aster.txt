@@ -1,0 +1,713 @@
+== exit 0
+== stdout
+struct Ident
+  field name string
+  field start int
+  field end int
+struct TypeExpr
+  field start int
+  field end int
+  field node TypeNode
+struct Typed
+  field name Ident
+  field ty TypeExpr
+struct VariantDecl
+  field name Ident
+  field payload [TypeExpr]
+struct FnDecl
+  field start int
+  field end int
+  field name Ident
+  field params [Typed]
+  field ret Option[TypeExpr]
+  field body Block
+struct StructDecl
+  field start int
+  field end int
+  field name Ident
+  field fields [Typed]
+struct EnumDecl
+  field start int
+  field end int
+  field name Ident
+  field params [Ident]
+  field variants [VariantDecl]
+struct ImportDecl
+  field start int
+  field end int
+  field path_start int
+  field path_end int
+struct Block
+  field start int
+  field end int
+  field stmts [Stmt]
+struct Stmt
+  field start int
+  field end int
+  field node StmtNode
+struct Expr
+  field start int
+  field end int
+  field node ExprNode
+struct FieldInit
+  field name Ident
+  field value Expr
+struct Pattern
+  field start int
+  field end int
+  field node PatternNode
+struct Arm
+  field pattern Pattern
+  field body ArmBody
+struct Parser
+  field src string
+  field tokens [Token]
+  field pos int
+  field errors [LexError]
+  field no_struct_lit bool
+  field base int
+struct Token
+  field kind string
+  field start int
+  field end int
+struct LexError
+  field start int
+  field end int
+  field message string
+struct Lexer
+  field src string
+  field pos int
+  field tokens [Token]
+  field errors [LexError]
+enum TypeNode
+  variant Named(string, [TypeExpr])
+  variant Array(TypeExpr)
+enum Item
+  variant Fn(FnDecl)
+  variant Struct(StructDecl)
+  variant Enum(EnumDecl)
+  variant Import(ImportDecl)
+enum StmtNode
+  variant Let(bool, Ident, TypeExpr, Expr)
+  variant LetElse(Pattern, Expr, Ident, Block)
+  variant Assign(string, Expr, Expr)
+  variant If(Expr, Block, Else)
+  variant IfLet(Pattern, Expr, Block, Else)
+  variant While(Expr, Block)
+  variant ForRange(Ident, Expr, Expr, Block)
+  variant ForEach(Ident, Expr, Block)
+  variant Match(Ident, Expr, [Arm])
+  variant Break
+  variant Continue
+  variant Return(Option[Expr])
+  variant Block(Block)
+  variant Expr(Expr)
+enum Else
+  variant None
+  variant Block(Block)
+  variant If(Stmt)
+  variant IfLet(Stmt)
+enum ExprNode
+  variant Int(string)
+  variant Char(string)
+  variant Str(string)
+  variant Bool(bool)
+  variant Name(string)
+  variant Unary(string, Expr)
+  variant Binary(string, Expr, Expr)
+  variant Call(Expr, [Expr])
+  variant If(Expr, Expr, Expr)
+  variant Field(Expr, Ident)
+  variant StructLit(Ident, [FieldInit])
+  variant Index(Expr, Expr)
+  variant Try(Expr)
+  variant ArrayLit([Expr])
+  variant Variant(Ident, Ident, [Expr])
+  variant Match(Ident, Expr, [Arm])
+enum PatternNode
+  variant Wildcard
+  variant Variant(Ident, Ident, [Binder])
+  variant Or([Pattern])
+  variant IntPat(string)
+  variant CharPat(string)
+  variant StringPat(string)
+  variant BoolPat(bool)
+enum Binder
+  variant Wild
+  variant Named(Ident)
+enum ArmBody
+  variant Block(Block)
+  variant Expr(Expr)
+enum Option[TypeExpr]
+  variant Some(TypeExpr)
+  variant None
+enum Option[Expr]
+  variant Some(Expr)
+  variant None
+enum Option[Token]
+  variant Some(Token)
+  variant None
+enum Option[Item]
+  variant Some(Item)
+  variant None
+enum Option[Block]
+  variant Some(Block)
+  variant None
+enum Option[Stmt]
+  variant Some(Stmt)
+  variant None
+enum Option[Else]
+  variant Some(Else)
+  variant None
+enum Option[Pattern]
+  variant Some(Pattern)
+  variant None
+enum Option[[Expr]]
+  variant Some([Expr])
+  variant None
+enum Option[[FieldInit]]
+  variant Some([FieldInit])
+  variant None
+enum Option[[Arm]]
+  variant Some([Arm])
+  variant None
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+fn line(int, string): void
+  param 0 depth int
+  param 1 s string
+  var 2 pad string
+  let 3 _i int
+fn span(int, int): string
+  param 0 start int
+  param 1 end int
+fn named(Ident): string
+  param 0 i Ident
+fn ident_node(string, Ident): string
+  param 0 tag string
+  param 1 i Ident
+fn print_type(int, TypeExpr): void
+  param 0 d int
+  param 1 t TypeExpr
+  let 2 name string
+  let 3 args [TypeExpr]
+  let 4 a TypeExpr
+  let 5 elem TypeExpr
+fn print_pattern(int, Pattern): void
+  param 0 d int
+  param 1 pat Pattern
+  let 2 enum_name Ident
+  let 3 variant Ident
+  let 4 binders [Binder]
+  let 5 b Binder
+  let 6 name Ident
+  let 7 alternatives [Pattern]
+  let 8 alt Pattern
+  let 9 raw string
+  let 10 raw string
+  let 11 raw string
+  let 12 value bool
+fn print_arms(string, int, [Arm]): void
+  param 0 src string
+  param 1 d int
+  param 2 arms [Arm]
+  let 3 arm Arm
+  let 4 b Block
+  let 5 e Expr
+fn print_exprs(string, int, [Expr]): void
+  param 0 src string
+  param 1 d int
+  param 2 exprs [Expr]
+  let 3 e Expr
+fn print_expr(string, int, Expr): void
+  param 0 src string
+  param 1 d int
+  param 2 e Expr
+  let 3 head string
+  let 4 value string
+  let 5 raw string
+  let 6 value bool
+  let 7 name string
+  let 8 op string
+  let 9 operand Expr
+  let 10 op string
+  let 11 left Expr
+  let 12 right Expr
+  let 13 callee Expr
+  let 14 args [Expr]
+  let 15 cond Expr
+  let 16 then Expr
+  let 17 els Expr
+  let 18 object Expr
+  let 19 field Ident
+  let 20 name Ident
+  let 21 fields [FieldInit]
+  let 22 f FieldInit
+  let 23 array Expr
+  let 24 index Expr
+  let 25 operand Expr
+  let 26 elements [Expr]
+  let 27 enum_name Ident
+  let 28 variant Ident
+  let 29 args [Expr]
+  let 30 kw Ident
+  let 31 scrutinee Expr
+  let 32 arms [Arm]
+fn print_block(string, int, Block): void
+  param 0 src string
+  param 1 d int
+  param 2 b Block
+  let 3 s Stmt
+fn print_stmt(string, int, Stmt): void
+  param 0 src string
+  param 1 d int
+  param 2 s Stmt
+  let 3 head string
+  let 4 mutable bool
+  let 5 name Ident
+  let 6 ty TypeExpr
+  let 7 init Expr
+  var 8 tag string
+  let 9 pattern Pattern
+  let 10 init Expr
+  let 11 else_block Block
+  let 12 pattern Pattern
+  let 13 scrutinee Expr
+  let 14 then Block
+  let 15 els Else
+  let 16 b Block
+  let 17 next Stmt
+  let 18 next Stmt
+  let 19 op string
+  let 20 target Expr
+  let 21 value Expr
+  let 22 cond Expr
+  let 23 then Block
+  let 24 els Else
+  let 25 b Block
+  let 26 next Stmt
+  let 27 next Stmt
+  let 28 cond Expr
+  let 29 body Block
+  let 30 name Ident
+  let 31 start Expr
+  let 32 end Expr
+  let 33 body Block
+  let 34 name Ident
+  let 35 iterable Expr
+  let 36 body Block
+  let 37 kw Ident
+  let 38 scrutinee Expr
+  let 39 arms [Arm]
+  let 40 value Option[Expr]
+  let 41 e Expr
+  let 42 b Block
+  let 43 e Expr
+fn print_typed(string, int, Typed): void
+  param 0 tag string
+  param 1 d int
+  param 2 t Typed
+fn print_item(string, Item): void
+  param 0 src string
+  param 1 item Item
+  let 2 f FnDecl
+  let 3 param Typed
+  let 4 ty TypeExpr
+  let 5 s StructDecl
+  let 6 field Typed
+  let 7 i ImportDecl
+  let 8 e EnumDecl
+  let 9 param Ident
+  let 10 v VariantDecl
+  let 11 ty TypeExpr
+fn print_errors([LexError]): void
+  param 0 errors [LexError]
+  let 1 e LexError
+fn die(string): never
+  param 0 msg string
+fn main([string]): int
+  param 0 args [string]
+  let 1 src string
+  let 2 lx Lexer
+  let 3 p Parser
+  let 4 item Item
+  let 5 msg string
+fn peek_at(Parser, int): Token
+  param 0 p Parser
+  param 1 offset int
+fn peek(Parser): Token
+  param 0 p Parser
+fn previous(Parser): Token
+  param 0 p Parser
+fn at(Parser, string): bool
+  param 0 p Parser
+  param 1 kind string
+fn advance(Parser): Token
+  param 0 p Parser
+  let 1 t Token
+fn eat(Parser, string): bool
+  param 0 p Parser
+  param 1 kind string
+fn at_item(Parser): bool
+  param 0 p Parser
+fn text(Parser, Token): string
+  param 0 p Parser
+  param 1 t Token
+fn ident_of(Parser, Token): Ident
+  param 0 p Parser
+  param 1 t Token
+fn describe(Parser, Token): string
+  param 0 p Parser
+  param 1 t Token
+fn error_at(Parser, string, int, int): void
+  param 0 p Parser
+  param 1 message string
+  param 2 start int
+  param 3 end int
+fn fail(Parser, string, Token): void
+  param 0 p Parser
+  param 1 message string
+  param 2 t Token
+fn expect(Parser, string): Option[Token]
+  param 0 p Parser
+  param 1 kind string
+  var 2 what string
+  let 3 t Token
+fn canonical_digits(string): string
+  param 0 s string
+  var 1 i int
+fn fits(string, bool): bool
+  param 0 digits string
+  param 1 negative bool
+  var 2 limit string
+  let 3 i int
+  let 4 a int
+  let 5 b int
+fn parse_program(Parser): [Item]
+  param 0 p Parser
+  let 1 items [Item]
+  let 2 t Token
+  let 3 item Option[Item]
+  let 4 i Item
+fn sync_to_item(Parser): void
+  param 0 p Parser
+fn parse_function(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 params [Typed]
+  var 4 more bool
+  let 5 param Token
+  let 6 ty TypeExpr
+  var 7 ret Option[TypeExpr]
+  let 8 body Block
+fn parse_struct(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 fields [Typed]
+  let 4 field Token
+  let 5 ty TypeExpr
+  let 6 close Token
+fn parse_enum(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 params [Ident]
+  var 4 more_params bool
+  let 5 param Token
+  let 6 variants [VariantDecl]
+  let 7 variant Token
+  let 8 payload [TypeExpr]
+  var 9 more bool
+  let 10 ty TypeExpr
+  let 11 close Token
+fn parse_import(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 path Token
+  let 3 semi Token
+fn parse_type(Parser): Option[TypeExpr]
+  param 0 p Parser
+  let 1 open Token
+  let 2 elem TypeExpr
+  let 3 close Token
+  let 4 t Token
+  let 5 args [TypeExpr]
+  var 6 more bool
+  let 7 arg TypeExpr
+  let 8 close Token
+fn parse_block(Parser): Option[Block]
+  param 0 p Parser
+  let 1 open Token
+  let 2 stmts [Stmt]
+  let 3 s Stmt
+  let 4 close Token
+fn sync_statement(Parser): void
+  param 0 p Parser
+fn at_pattern_let(Parser): bool
+  param 0 p Parser
+  let 1 k string
+fn parse_statement(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 pattern Pattern
+  let 4 init Expr
+  let 5 kw Token
+  let 6 else_block Block
+  let 7 semi Token
+  let 8 name Token
+  let 9 ty TypeExpr
+  let 10 init Expr
+  let 11 semi Token
+  let 12 cond Expr
+  let 13 body Block
+  let 14 semi Token
+  let 15 node StmtNode
+  var 16 value Option[Expr]
+  let 17 semi Token
+  let 18 b Block
+fn is_assign_op(string): bool
+  param 0 k string
+fn parse_simple_statement(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 e Expr
+  let 2 op string
+  let 3 value Expr
+  let 4 semi Token
+  let 5 semi Token
+fn parse_for(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 first Expr
+  let 4 end Expr
+  let 5 body Block
+  let 6 body Block
+fn parse_if_stmt(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 pattern Pattern
+  let 3 scrutinee Expr
+  let 4 then Block
+  let 5 els Else
+  let 6 cond Expr
+  let 7 then Block
+  let 8 els Else
+fn parse_else(Parser): Option[Else]
+  param 0 p Parser
+  let 1 s Stmt
+fn if_end(Block, Else): int
+  param 0 then Block
+  param 1 els Else
+  let 2 b Block
+  let 3 s Stmt
+  let 4 s Stmt
+fn parse_match_stmt(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 scrutinee Expr
+  let 3 arms [Arm]
+  let 4 pattern Pattern
+  let 5 b Block
+  let 6 e Expr
+  let 7 close Token
+fn parse_pattern(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 w Token
+  let 2 first Pattern
+  let 3 alternatives [Pattern]
+  let 4 alt Pattern
+  let 5 last Pattern
+fn parse_alternative(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 literal Token
+fn parse_variant_pattern(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 enum_name Token
+  let 2 variant Token
+  let 3 binders [Binder]
+  var 4 end int
+  var 5 more bool
+  let 6 name Token
+  let 7 close Token
+fn parse_expr(Parser): Option[Expr]
+  param 0 p Parser
+fn parse_header_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 saved bool
+  let 2 e Option[Expr]
+fn parse_expr_with_struct_lits(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 saved bool
+  let 2 e Option[Expr]
+fn level_ops(int): [string]
+  param 0 level int
+fn level_chainable(int): bool
+  param 0 level int
+fn contains([string], string): bool
+  param 0 words [string]
+  param 1 w string
+  let 2 x string
+fn parse_binary(Parser, int): Option[Expr]
+  param 0 p Parser
+  param 1 level int
+  let 2 ops [string]
+  var 3 left Expr
+  let 4 op string
+  let 5 right Expr
+fn parse_unary(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 t Token
+  let 2 literal Token
+  let 3 digits string
+  var 4 value string
+  let 5 operand Expr
+fn parse_expr_list(Parser, string, bool, bool): Option[[Expr]]
+  param 0 p Parser
+  param 1 close string
+  param 2 allow_empty bool
+  param 3 trailing bool
+  let 4 saved bool
+  let 5 exprs Option[[Expr]]
+fn parse_exprs(Parser, string, bool, bool): Option[[Expr]]
+  param 0 p Parser
+  param 1 close string
+  param 2 allow_empty bool
+  param 3 trailing bool
+  let 4 exprs [Expr]
+  let 5 e Expr
+fn parse_postfix(Parser): Option[Expr]
+  param 0 p Parser
+  var 1 e Expr
+  let 2 args [Expr]
+  let 3 close Token
+  let 4 field Token
+  let 5 index Expr
+  let 6 close Token
+  let 7 q Token
+fn parse_primary(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 digits string
+  let 4 elements [Expr]
+  let 5 close Token
+  let 6 inner Expr
+fn parse_struct_lit(Parser, Token): Option[Expr]
+  param 0 p Parser
+  param 1 name Token
+  let 2 saved bool
+  let 3 inits Option[[FieldInit]]
+  let 4 fields [FieldInit]
+  let 5 close Token
+fn parse_field_inits(Parser): Option[[FieldInit]]
+  param 0 p Parser
+  let 1 fields [FieldInit]
+  let 2 field Token
+  let 3 value Expr
+fn parse_variant_expr(Parser, Token): Option[Expr]
+  param 0 p Parser
+  param 1 enum_name Token
+  let 2 variant Token
+  var 3 args [Expr]
+  var 4 end int
+  let 5 close Token
+fn parse_if_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 cond Expr
+  let 3 then Expr
+  let 4 els Expr
+fn parse_match_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 scrutinee Expr
+  let 3 saved bool
+  let 4 parsed Option[[Arm]]
+  let 5 arms [Arm]
+  let 6 close Token
+fn parse_expr_arms(Parser): Option[[Arm]]
+  param 0 p Parser
+  let 1 arms [Arm]
+  let 2 pattern Pattern
+  let 3 b Block
+  let 4 body Expr
+fn parse_expr_block(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 e Expr
+fn new_parser(Lexer): Parser
+  param 0 lx Lexer
+fn new_parser_at(Lexer, int): Parser
+  param 0 lx Lexer
+  param 1 base int
+  let 2 tokens [Token]
+  let 3 t Token
+fn min(int, int): int
+  param 0 a int
+  param 1 b int
+fn is_digit(int): bool
+  param 0 c int
+fn is_ident_start(int): bool
+  param 0 c int
+fn is_ident_part(int): bool
+  param 0 c int
+fn is_escape(int): bool
+  param 0 c int
+fn is_space(int): bool
+  param 0 c int
+fn utf8_len(int): int
+  param 0 c int
+fn is_keyword(string): bool
+  param 0 w string
+fn is_punct(string): bool
+  param 0 p string
+fn peek_byte(Lexer, int): int
+  param 0 lx Lexer
+  param 1 offset int
+  let 2 i int
+fn push_token(Lexer, string, int): void
+  param 0 lx Lexer
+  param 1 kind string
+  param 2 start int
+fn add_error(Lexer, int, int, string): void
+  param 0 lx Lexer
+  param 1 start int
+  param 2 end int
+  param 3 message string
+fn lex_string(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  let 5 next int
+  var 6 width int
+  let 7 end int
+fn lex_char(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  var 5 body_len int
+  let 6 single string
+  let 7 next int
+  let 8 width int
+  let 9 valid bool
+fn bom_len(string): int
+  param 0 src string
+fn lex(string): Lexer
+  param 0 src string
+fn lex_from(string, int): Lexer
+  param 0 src string
+  param 1 pos int
+  let 2 lx Lexer
+  let 3 start int
+  let 4 c int
+  let 5 word string
+== stderr

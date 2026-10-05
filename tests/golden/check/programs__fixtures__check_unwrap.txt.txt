@@ -1,0 +1,39 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_unwrap.txt 252 257 'never' is only allowed as a return type
+error tests/programs/programs/fixtures/check_unwrap.txt 317 335 cannot return from a function that returns 'never'
+error tests/programs/programs/fixtures/check_unwrap.txt 398 408 void function cannot return a value
+error tests/programs/programs/fixtures/check_unwrap.txt 548 570 cannot infer type of empty array
+error tests/programs/programs/fixtures/check_unwrap.txt 634 658 cannot infer type arguments for 'Option'
+error tests/programs/programs/fixtures/check_unwrap.txt 772 788 operator '+=' cannot be applied to int and never
+error tests/programs/programs/fixtures/check_unwrap.txt 796 806 condition must be bool, found never
+error tests/programs/programs/fixtures/check_unwrap.txt 843 851 condition must be bool, found never
+error tests/programs/programs/fixtures/check_unwrap.txt 899 909 function 'len' expects a string or array, found never
+error tests/programs/programs/fixtures/check_unwrap.txt 931 942 operator '-' cannot be applied to never
+error tests/programs/programs/fixtures/check_unwrap.txt 965 989 operator '==' cannot be applied to never and never
+error tests/programs/programs/fixtures/check_unwrap.txt 1015 1025 array index must be int, found never
+error tests/programs/programs/fixtures/check_unwrap.txt 1054 1055 unknown field 'x' on 'never'
+error tests/programs/programs/fixtures/check_unwrap.txt 1070 1080 cannot iterate over a value of type never
+error tests/programs/programs/fixtures/check_unwrap.txt 1192 1217 if branches have different types: int and string
+error tests/programs/programs/fixtures/check_unwrap.txt 1466 1530 type mismatch: expected int, found string
+error tests/programs/programs/fixtures/check_unwrap.txt 1627 1628 unreachable match arm
+error tests/programs/programs/fixtures/check_unwrap.txt 1667 1760 match expression cannot have type void
+error tests/programs/programs/fixtures/check_unwrap.txt 1793 1803 cannot match on 'never' values
+error tests/programs/programs/fixtures/check_unwrap.txt 1869 1873 match arm block must diverge
+error tests/programs/programs/fixtures/check_unwrap.txt 1904 1908 undefined name 'nope'
+error tests/programs/programs/fixtures/check_unwrap.txt 1940 1948 operator '+' cannot be applied to int and bool
+error tests/programs/programs/fixtures/check_unwrap.txt 2022 2029 match arm block must diverge
+error tests/programs/programs/fixtures/check_unwrap.txt 2458 2459 duplicate binding 'a'
+error tests/programs/programs/fixtures/check_unwrap.txt 2511 2512 or-pattern alternatives cannot bind names
+error tests/programs/programs/fixtures/check_unwrap.txt 2567 2583 pattern always matches
+error tests/programs/programs/fixtures/check_unwrap.txt 2644 2648 duplicate pattern alternative
+error tests/programs/programs/fixtures/check_unwrap.txt 2708 2715 undefined name 'missing'
+error tests/programs/programs/fixtures/check_unwrap.txt 2774 2784 cannot match on 'never' values
+error tests/programs/programs/fixtures/check_unwrap.txt 2829 2830 unknown variant 'C' on 'AB'
+error tests/programs/programs/fixtures/check_unwrap.txt 2879 2897 variant 'Option::Some' expects 1 value, got 2
+error tests/programs/programs/fixtures/check_unwrap.txt 3083 3084 'm' is already declared in this scope
+error tests/programs/programs/fixtures/check_unwrap.txt 3150 3154 'else' block of 'let' must diverge
+error tests/programs/programs/fixtures/check_unwrap.txt 3182 3183 undefined name 'k'
+error tests/programs/programs/fixtures/check_unwrap.txt 3499 3511 function 'if_let_falls' is missing a return on some paths
+error tests/programs/programs/fixtures/check_unwrap.txt 3662 3676 function 'if_let_no_else' is missing a return on some paths

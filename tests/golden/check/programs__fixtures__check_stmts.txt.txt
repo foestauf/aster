@@ -1,0 +1,16 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_stmts.txt 109 116 missing return value: expected int
+error tests/programs/programs/fixtures/check_stmts.txt 146 147 void function cannot return a value
+error tests/programs/programs/fixtures/check_stmts.txt 176 177 condition must be bool, found int
+error tests/programs/programs/fixtures/check_stmts.txt 214 217 condition must be bool, found string
+error tests/programs/programs/fixtures/check_stmts.txt 237 241 variable cannot have type void
+error tests/programs/programs/fixtures/check_stmts.txt 264 268 'give' is a function, not a value
+error tests/programs/programs/fixtures/check_stmts.txt 287 292 operator '-' cannot be applied to bool
+error tests/programs/programs/fixtures/check_stmts.txt 312 314 operator '!' cannot be applied to int
+error tests/programs/programs/fixtures/check_stmts.txt 333 367 if expression cannot have type void
+error tests/programs/programs/fixtures/check_stmts.txt 373 377 cannot assign to function 'give'
+error tests/programs/programs/fixtures/check_stmts.txt 387 394 undefined name 'missing'
+error tests/programs/programs/fixtures/check_stmts.txt 437 438 'g' is not a function
+error tests/programs/programs/fixtures/check_stmts.txt 460 464 undefined function 'nope'

@@ -1,0 +1,21 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+enum Pair[string, int]
+  variant P(string, int)
+  variant Q
+fn kind(Option[int]): string
+  param 0 o Option[int]
+fn main(): int
+  let 0 o Option[int]
+  let 1 n int
+  let 2 r Result[int, string]
+  let 3 msg string
+  let 4 p Pair[string, int]
+  let 5 s string
+== stderr

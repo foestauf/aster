@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+enum ReadResult
+  variant A
+  variant B
+fn main(): int
+  let 0 r ReadResult
+== stderr

@@ -1,0 +1,24 @@
+== exit 0
+== stdout
+enum Shape
+  variant Circle(int)
+  variant Square(int)
+  variant Dot
+enum Option[int]
+  variant Some(int)
+  variant None
+fn die(string): never
+  param 0 msg string
+fn side(Shape): Option[int]
+  param 0 s Shape
+  let 1 n int
+fn area(Shape): int
+  param 0 s Shape
+  let 1 n int
+fn radius(Shape): int
+  param 0 s Shape
+  let 1 r int
+fn main(): int
+  let 0 r int
+  let 1 code int
+== stderr

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/struct_literal_in_header.aster 127 128 expected ';', found ':'

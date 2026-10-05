@@ -1,0 +1,17 @@
+== exit 0
+== stdout
+struct Light
+  field color Color
+enum Color
+  variant Red
+  variant Green
+  variant Blue
+fn next(Color): Color
+  param 0 c Color
+fn main(): int
+  let 0 c Color
+  let 1 colors [Color]
+  var 2 blues int
+  let 3 x Color
+  let 4 l Light
+== stderr

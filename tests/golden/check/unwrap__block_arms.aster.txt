@@ -1,0 +1,42 @@
+== exit 0
+== stdout
+enum Token
+  variant Num(int)
+  variant Plus
+  variant Stop
+  variant Skip
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+fn die(string): never
+  param 0 msg string
+fn first_num([Token]): int
+  param 0 ts [Token]
+  let 1 t Token
+  let 2 v int
+  let 3 n int
+fn sum_until_stop([Token]): int
+  param 0 ts [Token]
+  var 1 total int
+  let 2 t Token
+  let 3 v int
+  let 4 n int
+fn lookup(Option[int]): int
+  param 0 o Option[int]
+  let 1 x int
+  let 2 fallback int
+  let 3 v int
+fn parsed(Result[int, string]): int
+  param 0 r Result[int, string]
+  let 1 n int
+  let 2 msg string
+  let 3 v int
+fn unwrap_or_die(Option[int]): int
+  param 0 o Option[int]
+  let 1 n int
+  let 2 v int
+fn main(): int
+== stderr

@@ -1,0 +1,8 @@
+== exit 0
+== stdout
+fn stop(int): int
+  param 0 i int
+fn never(): int
+fn main(): int
+  let 0 i int
+== stderr

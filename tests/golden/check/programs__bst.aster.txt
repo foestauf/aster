@@ -1,0 +1,36 @@
+== exit 0
+== stdout
+enum Tree
+  variant Leaf
+  variant Node(Tree, int, Tree)
+fn insert(Tree, int): Tree
+  param 0 t Tree
+  param 1 v int
+  let 2 l Tree
+  let 3 x int
+  let 4 r Tree
+fn contains(Tree, int): bool
+  param 0 t Tree
+  param 1 v int
+  let 2 l Tree
+  let 3 x int
+  let 4 r Tree
+fn walk(Tree, [int]): void
+  param 0 t Tree
+  param 1 out [int]
+  let 2 l Tree
+  let 3 x int
+  let 4 r Tree
+fn height(Tree): int
+  param 0 t Tree
+  let 1 l Tree
+  let 2 r Tree
+  let 3 a int
+  let 4 b int
+fn main(): int
+  var 0 t Tree
+  let 1 v int
+  let 2 values [int]
+  var 3 line string
+  let 4 v int
+== stderr

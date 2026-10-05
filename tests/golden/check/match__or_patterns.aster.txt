@@ -1,0 +1,13 @@
+== exit 0
+== stdout
+enum Shape
+  variant Dot
+  variant Rect(int, int)
+  variant Circle(int)
+fn describe(Shape): string
+  param 0 s Shape
+  let 1 r int
+fn is_space(int): int
+  param 0 c int
+fn main(): int
+== stderr

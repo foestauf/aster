@@ -1,0 +1,14 @@
+== exit 0
+== stdout
+struct Item
+  field name string
+fn main(): int
+  let 0 items [Item]
+  let 1 it Item
+  let 2 xs [int]
+  let 3 x int
+  let 4 ys [int]
+  let 5 y int
+  var 6 zs [int]
+  let 7 z int
+== stderr

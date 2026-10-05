@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/type_mismatch.aster 98 105 type mismatch: expected int, found string

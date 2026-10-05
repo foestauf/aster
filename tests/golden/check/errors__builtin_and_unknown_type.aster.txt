@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/builtin_and_unknown_type.aster 119 122 'len' is a builtin function and cannot be redefined
+error tests/programs/errors/builtin_and_unknown_type.aster 181 186 unknown type 'float'

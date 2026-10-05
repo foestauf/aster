@@ -1,0 +1,18 @@
+== exit 0
+== stdout
+struct Pair
+  field a int
+  field b int
+enum Color
+  variant Red
+  variant Green
+fn main(): int
+  let 0 p Pair
+fn double(int): int
+  param 0 n int
+fn make_pair(int, int): Pair
+  param 0 a int
+  param 1 b int
+fn name(Color): string
+  param 0 c Color
+== stderr

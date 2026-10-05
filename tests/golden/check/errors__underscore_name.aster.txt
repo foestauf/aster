@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/underscore_name.aster 143 144 expected identifier, found '_'
+error tests/programs/errors/underscore_name.aster 175 176 expected expression, found ')'

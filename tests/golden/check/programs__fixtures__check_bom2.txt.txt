@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_bom2.txt 3 6 unexpected character '﻿'

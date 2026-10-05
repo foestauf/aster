@@ -1,0 +1,22 @@
+== exit 0
+== stdout
+fn split(string): [string]
+  param 0 src string
+  let 1 words [string]
+  var 2 start int
+  let 3 i int
+fn parse_int(string): int
+  param 0 s string
+  var 1 n int
+  let 2 i int
+fn eval(string): int
+  param 0 src string
+  let 1 stack [int]
+  let 2 w string
+  let 3 b int
+  let 4 a int
+  let 5 result int
+fn show(string): void
+  param 0 src string
+fn main(): int
+== stderr

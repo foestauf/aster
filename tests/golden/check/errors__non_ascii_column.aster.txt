@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/non_ascii_column.aster 235 236 type mismatch: expected int, found string

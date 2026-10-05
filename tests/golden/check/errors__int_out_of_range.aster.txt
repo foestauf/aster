@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/int_out_of_range.aster 85 104 integer literal out of range

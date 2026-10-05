@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/match_missing_return.aster 87 88 function 'f' is missing a return on some paths

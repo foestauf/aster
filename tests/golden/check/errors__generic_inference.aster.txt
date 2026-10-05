@@ -1,0 +1,7 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_inference.aster 326 338 cannot infer type arguments for 'Option'
+error tests/programs/errors/generic_inference.aster 358 371 cannot infer type arguments for 'Result'
+error tests/programs/errors/generic_inference.aster 452 456 type mismatch: expected int, found bool
+error tests/programs/errors/generic_inference.aster 515 521 pattern type 'Result' does not match 'Option[int]'

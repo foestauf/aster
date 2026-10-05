@@ -1,0 +1,3115 @@
+== exit 0
+== stdout
+struct CliArgs
+  field command string
+  field file string
+  field out Option[string]
+  field emit_stage string
+  field backend string
+  field program_args [string]
+struct SourceFile
+  field path string
+  field src string
+  field base int
+  field bom int
+struct Diag
+  field start int
+  field end int
+  field message string
+struct Loaded
+  field files [SourceFile]
+  field items [Item]
+  field root_end int
+  field diags [Diag]
+struct Ident
+  field name string
+  field start int
+  field end int
+struct TypeExpr
+  field start int
+  field end int
+  field node TypeNode
+struct Typed
+  field name Ident
+  field ty TypeExpr
+struct VariantDecl
+  field name Ident
+  field payload [TypeExpr]
+struct FnDecl
+  field start int
+  field end int
+  field name Ident
+  field params [Typed]
+  field ret Option[TypeExpr]
+  field body Block
+struct StructDecl
+  field start int
+  field end int
+  field name Ident
+  field fields [Typed]
+struct EnumDecl
+  field start int
+  field end int
+  field name Ident
+  field params [Ident]
+  field variants [VariantDecl]
+struct ImportDecl
+  field start int
+  field end int
+  field path_start int
+  field path_end int
+struct Block
+  field start int
+  field end int
+  field stmts [Stmt]
+struct Stmt
+  field start int
+  field end int
+  field node StmtNode
+struct Expr
+  field start int
+  field end int
+  field node ExprNode
+struct FieldInit
+  field name Ident
+  field value Expr
+struct Pattern
+  field start int
+  field end int
+  field node PatternNode
+struct Arm
+  field pattern Pattern
+  field body ArmBody
+struct Parser
+  field src string
+  field tokens [Token]
+  field pos int
+  field errors [LexError]
+  field no_struct_lit bool
+  field base int
+struct Token
+  field kind string
+  field start int
+  field end int
+struct LexError
+  field start int
+  field end int
+  field message string
+struct Lexer
+  field src string
+  field pos int
+  field tokens [Token]
+  field errors [LexError]
+struct Signature
+  field name string
+  field params [Type]
+  field ret Type
+struct Local
+  field id int
+  field name string
+  field ty Type
+  field mutable bool
+struct TField
+  field name string
+  field ty Type
+struct TStruct
+  field name string
+  field fields [TField]
+struct TVariant
+  field name string
+  field payload [Type]
+struct TEnum
+  field name string
+  field payload_free bool
+  field variants [TVariant]
+  field base string
+  field args [Type]
+struct TFunction
+  field name string
+  field params int
+  field locals [Local]
+  field ret Type
+  field body TBlock
+struct TBlock
+  field stmts [TStmt]
+struct TArm
+  field pattern TPattern
+  field body TArmBody
+struct TVariantRef
+  field name string
+  field tag int
+struct TPlace
+  field ty Type
+  field node TPlaceNode
+struct TFieldInit
+  field field string
+  field value TExpr
+struct TTry
+  field operand TExpr
+  field ok_variant string
+  field ok_tag int
+  field fail_variant string
+  field fail_tag int
+  field return_type Type
+  field return_enum string
+  field return_fail_variant string
+  field return_fail_tag int
+  field fail_payload_type Option[Type]
+struct TExpr
+  field ty Type
+  field node TExprNode
+struct Template
+  field decl EnumDecl
+  field params [string]
+  field broken bool
+  field has_errors bool
+struct Edge
+  field from int
+  field to int
+  field expanding bool
+struct ExpansionGraph
+  field edges [Edge]
+  field nodes [string]
+  field successors [[int]]
+  field index [int]
+  field low [int]
+  field stack [int]
+  field on_stack [bool]
+  field component [int]
+  field visited int
+  field components int
+struct Env
+  field diags [Diag]
+  field structs [TStruct]
+  field enums [TEnum]
+  field templates [Template]
+struct Loop
+  field has_break bool
+struct Ctx
+  field env Env
+  field signatures [Signature]
+  field ret Type
+  field locals [Local]
+  field scopes [[Local]]
+  field loops [Loop]
+struct Checked
+  field diags [Diag]
+  field structs [TStruct]
+  field enums [TEnum]
+  field functions [TFunction]
+struct Binding
+  field name string
+  field ty Type
+struct CheckedStmt
+  field node TStmt
+  field diverges bool
+struct CheckedBlock
+  field node TBlock
+  field diverges bool
+struct ForBody
+  field local Local
+  field body TBlock
+struct ResolvedAlt
+  field key string
+  field variant int
+  field value string
+struct MatchArms
+  field scrutinee TExpr
+  field patterns [TPattern]
+  field bodies [TArmBody]
+  field types [Type]
+  field diverges [bool]
+  field binders [Local]
+struct IrStrings
+  field values [string]
+struct IrLoop
+  field continue_label string
+  field break_label string
+  field continued bool
+struct IrOpen
+  field label string
+  field instrs [IrInstr]
+struct IrState
+  field locals [IrLocal]
+  field blocks [IrBlock]
+  field current Option[IrOpen]
+  field label_count int
+  field loops [IrLoop]
+  field strings IrStrings
+  field structs [TStruct]
+struct IrLocal
+  field id int
+  field name Option[string]
+  field ty Type
+struct IrField
+  field name string
+  field ty Type
+struct IrStruct
+  field name string
+  field fields [IrField]
+struct IrVariant
+  field name string
+  field tag int
+  field payload [Type]
+struct IrEnum
+  field name string
+  field payload_free bool
+  field variants [IrVariant]
+struct IrFieldValue
+  field name string
+  field value IrOperand
+struct IrCase
+  field value string
+  field target string
+struct IrBlock
+  field label string
+  field instrs [IrInstr]
+  field term IrTerm
+struct IrFunction
+  field name string
+  field param_count int
+  field locals [IrLocal]
+  field ret Type
+  field blocks [IrBlock]
+struct IrProgram
+  field structs [IrStruct]
+  field enums [IrEnum]
+  field functions [IrFunction]
+  field strings [string]
+struct LlvmState
+  field program IrProgram
+  field function IrFunction
+  field out [string]
+  field temp_count int
+struct LlvmField
+  field ty Type
+  field offset int
+enum TypeNode
+  variant Named(string, [TypeExpr])
+  variant Array(TypeExpr)
+enum Item
+  variant Fn(FnDecl)
+  variant Struct(StructDecl)
+  variant Enum(EnumDecl)
+  variant Import(ImportDecl)
+enum StmtNode
+  variant Let(bool, Ident, TypeExpr, Expr)
+  variant LetElse(Pattern, Expr, Ident, Block)
+  variant Assign(string, Expr, Expr)
+  variant If(Expr, Block, Else)
+  variant IfLet(Pattern, Expr, Block, Else)
+  variant While(Expr, Block)
+  variant ForRange(Ident, Expr, Expr, Block)
+  variant ForEach(Ident, Expr, Block)
+  variant Match(Ident, Expr, [Arm])
+  variant Break
+  variant Continue
+  variant Return(Option[Expr])
+  variant Block(Block)
+  variant Expr(Expr)
+enum Else
+  variant None
+  variant Block(Block)
+  variant If(Stmt)
+  variant IfLet(Stmt)
+enum ExprNode
+  variant Int(string)
+  variant Char(string)
+  variant Str(string)
+  variant Bool(bool)
+  variant Name(string)
+  variant Unary(string, Expr)
+  variant Binary(string, Expr, Expr)
+  variant Call(Expr, [Expr])
+  variant If(Expr, Expr, Expr)
+  variant Field(Expr, Ident)
+  variant StructLit(Ident, [FieldInit])
+  variant Index(Expr, Expr)
+  variant Try(Expr)
+  variant ArrayLit([Expr])
+  variant Variant(Ident, Ident, [Expr])
+  variant Match(Ident, Expr, [Arm])
+enum PatternNode
+  variant Wildcard
+  variant Variant(Ident, Ident, [Binder])
+  variant Or([Pattern])
+  variant IntPat(string)
+  variant CharPat(string)
+  variant StringPat(string)
+  variant BoolPat(bool)
+enum Binder
+  variant Wild
+  variant Named(Ident)
+enum ArmBody
+  variant Block(Block)
+  variant Expr(Expr)
+enum Type
+  variant Int
+  variant Bool
+  variant Str
+  variant Void
+  variant Never
+  variant Struct(string)
+  variant Enum(string)
+  variant Array(Type)
+  variant Error
+enum TArmBody
+  variant Block(TBlock)
+  variant Expr(TExpr)
+enum TPattern
+  variant Wildcard
+  variant Variants([TVariantRef], [Option[Local]])
+  variant Ints([string])
+  variant Strings([string])
+enum TPlaceNode
+  variant Local(Local)
+  variant Field(TExpr, string)
+  variant Index(TExpr, TExpr)
+enum TExprNode
+  variant Int(string)
+  variant Str(string)
+  variant Bool(bool)
+  variant Local(Local)
+  variant Unary(string, TExpr)
+  variant Binary(string, TExpr, TExpr)
+  variant Call(string, [TExpr])
+  variant Builtin(string, [TExpr])
+  variant If(TExpr, TExpr, TExpr)
+  variant Field(TExpr, string)
+  variant Index(TExpr, TExpr)
+  variant ArrayLit([TExpr])
+  variant StructLit(string, [TFieldInit])
+  variant Variant(string, string, int, [TExpr])
+  variant EnumCompare(string, TExpr, TExpr)
+  variant Match(TExpr, [TArm])
+  variant Try(TTry)
+  variant Error
+enum TStmt
+  variant Let(Local, TExpr)
+  variant Assign(TPlace, string, TExpr)
+  variant If(TExpr, TBlock, Option[TBlock])
+  variant While(TExpr, TBlock)
+  variant ForRange(Local, TExpr, TExpr, TBlock)
+  variant ForEach(Local, TExpr, TBlock)
+  variant Break
+  variant Continue
+  variant Return(Option[TExpr])
+  variant Match(TExpr, [TArm])
+  variant Block(TBlock)
+  variant Expr(TExpr)
+enum FoundVariant
+  variant Missing
+  variant Plain(TEnum, TVariant)
+  variant Generic(Template, VariantDecl)
+enum IrPlaceRef
+  variant Field(IrOperand, string)
+  variant Index(IrOperand, IrOperand)
+enum IrForKind
+  variant Range(int, int)
+  variant Each(int, int)
+enum IrOperand
+  variant Local(int)
+  variant Int(string)
+  variant Bool(bool)
+  variant Str(int)
+enum IrInstr
+  variant Copy(int, IrOperand)
+  variant Unop(int, string, IrOperand)
+  variant Binop(int, string, IrOperand, IrOperand)
+  variant Call(Option[int], string, [IrOperand])
+  variant CallBuiltin(Option[int], string, [IrOperand])
+  variant StructNew(int, string, [IrFieldValue])
+  variant FieldGet(int, IrOperand, string)
+  variant FieldSet(IrOperand, string, IrOperand)
+  variant ArrayNew(int, Type, [IrOperand])
+  variant IndexGet(int, IrOperand, IrOperand)
+  variant IndexSet(IrOperand, IrOperand, IrOperand)
+  variant ArrayLen(int, IrOperand)
+  variant ArrayPush(IrOperand, IrOperand)
+  variant ArrayPop(int, IrOperand)
+  variant EnumNew(int, string, string, int, [IrOperand])
+  variant EnumTag(int, IrOperand)
+  variant EnumField(int, IrOperand, string, string, int, int)
+  variant ReadFile(int, int, IrOperand)
+  variant Sys(string, int, int, int, [IrOperand])
+enum IrTerm
+  variant Jmp(string)
+  variant Br(IrOperand, string, string)
+  variant Switch(IrOperand, [IrCase], Option[string])
+  variant Ret(Option[IrOperand])
+  variant Unreachable
+enum Option[string]
+  variant Some(string)
+  variant None
+enum Option[TypeExpr]
+  variant Some(TypeExpr)
+  variant None
+enum Option[Type]
+  variant Some(Type)
+  variant None
+enum Option[IrOpen]
+  variant Some(IrOpen)
+  variant None
+enum Option[Expr]
+  variant Some(Expr)
+  variant None
+enum Option[Local]
+  variant Some(Local)
+  variant None
+enum Option[TBlock]
+  variant Some(TBlock)
+  variant None
+enum Option[TExpr]
+  variant Some(TExpr)
+  variant None
+enum Option[int]
+  variant Some(int)
+  variant None
+enum Option[IrOperand]
+  variant Some(IrOperand)
+  variant None
+enum Result[CliArgs, string]
+  variant Ok(CliArgs)
+  variant Err(string)
+enum Option[Token]
+  variant Some(Token)
+  variant None
+enum Option[Item]
+  variant Some(Item)
+  variant None
+enum Option[Block]
+  variant Some(Block)
+  variant None
+enum Option[Stmt]
+  variant Some(Stmt)
+  variant None
+enum Option[Else]
+  variant Some(Else)
+  variant None
+enum Option[Pattern]
+  variant Some(Pattern)
+  variant None
+enum Option[[Expr]]
+  variant Some([Expr])
+  variant None
+enum Option[[FieldInit]]
+  variant Some([FieldInit])
+  variant None
+enum Option[[Arm]]
+  variant Some([Arm])
+  variant None
+enum Option[ResolvedAlt]
+  variant Some(ResolvedAlt)
+  variant None
+enum Option[[string]]
+  variant Some([string])
+  variant None
+enum Option[TField]
+  variant Some(TField)
+  variant None
+enum Option[TPlace]
+  variant Some(TPlace)
+  variant None
+enum Option[[Type]]
+  variant Some([Type])
+  variant None
+enum Option[IrEnum]
+  variant Some(IrEnum)
+  variant None
+enum Result[int, string]
+  variant Ok(int)
+  variant Err(string)
+enum Result[string, string]
+  variant Ok(string)
+  variant Err(string)
+fn usage_text(): string
+fn cli_starts_with(string, string): bool
+  param 0 s string
+  param 1 prefix string
+fn parse_cli([string]): Result[CliArgs, string]
+  param 0 args [string]
+  let 1 command string
+  var 2 file Option[string]
+  var 3 out Option[string]
+  var 4 emit_stage string
+  var 5 backend string
+  let 6 program_args [string]
+  var 7 i int
+  let 8 arg string
+  let 9 first int
+  let 10 k int
+  let 11 stage string
+  let 12 path string
+fn default_output(string): string
+  param 0 file string
+  var 1 end int
+  var 2 slash int
+  let 3 i int
+  let 4 base string
+  let 5 ext string
+fn cli_report([SourceFile], [Diag]): void
+  param 0 files [SourceFile]
+  param 1 diags [Diag]
+  let 2 d Diag
+fn join_lines([string], int, int): string
+  param 0 lines [string]
+  param 1 from int
+  param 2 to int
+  let 3 mid int
+fn compile_c(Checked): string
+  param 0 checked Checked
+  let 1 lines [string]
+fn compile_llvm(Checked): string
+  param 0 checked Checked
+  let 1 lines [string]
+fn main([string]): int
+  param 0 args [string]
+  let 1 a CliArgs
+  let 2 reason string
+  let 3 parsed CliArgs
+  let 4 src string
+  let 5 bad int
+  let 6 loaded Loaded
+  let 7 checked Checked
+  let 8 llvm bool
+  let 9 c string
+  var 10 result Result[int, string]
+  let 11 o string
+  let 12 out string
+  let 13 msg string
+  let 14 status int
+fn dirname(string): string
+  param 0 path string
+  let 1 has_root bool
+  var 2 end int
+  var 3 matched_slash bool
+  var 4 i int
+fn normalise(string): string
+  param 0 path string
+  let 1 absolute bool
+  let 2 stack [string]
+  var 3 start int
+  let 4 i int
+  let 5 seg string
+  var 6 out string
+  let 7 k int
+fn decode_literal(string): Option[string]
+  param 0 body string
+  var 1 out string
+  var 2 i int
+  var 3 run int
+  let 4 c int
+fn utf8_invalid_at(string): int
+  param 0 raw string
+  var 1 i int
+  let 2 b int
+  var 3 n int
+  var 4 lo int
+  var 5 hi int
+  let 6 second int
+  let 7 k int
+  let 8 c int
+fn utf8_reason(string, int): string
+  param 0 raw string
+  param 1 at int
+  var 2 line int
+  let 3 i int
+fn visit(Loaded, [string], string, string): void
+  param 0 ld Loaded
+  param 1 seen [string]
+  param 2 path string
+  param 3 raw string
+  let 4 bom int
+  let 5 src string
+  var 6 base int
+  let 7 last SourceFile
+  let 8 lx Lexer
+  let 9 e LexError
+  let 10 p Parser
+  let 11 items [Item]
+  let 12 e LexError
+  let 13 item Item
+  let 14 item Item
+  let 15 imp ImportDecl
+fn load_import(Loaded, [string], string, string, int, ImportDecl): void
+  param 0 ld Loaded
+  param 1 seen [string]
+  param 2 from string
+  param 3 src string
+  param 4 base int
+  param 5 imp ImportDecl
+  let 6 literal string
+  let 7 decoded string
+  var 8 target string
+  let 9 id string
+  let 10 text string
+  let 11 bad int
+  let 12 msg string
+  let 13 prefix string
+  var 14 reason string
+fn import_error(Loaded, ImportDecl, string, string): void
+  param 0 ld Loaded
+  param 1 imp ImportDecl
+  param 2 literal string
+  param 3 reason string
+fn load_program(string, string): Loaded
+  param 0 path string
+  param 1 src string
+  let 2 ld Loaded
+  let 3 seen [string]
+fn peek_at(Parser, int): Token
+  param 0 p Parser
+  param 1 offset int
+fn peek(Parser): Token
+  param 0 p Parser
+fn previous(Parser): Token
+  param 0 p Parser
+fn at(Parser, string): bool
+  param 0 p Parser
+  param 1 kind string
+fn advance(Parser): Token
+  param 0 p Parser
+  let 1 t Token
+fn eat(Parser, string): bool
+  param 0 p Parser
+  param 1 kind string
+fn at_item(Parser): bool
+  param 0 p Parser
+fn text(Parser, Token): string
+  param 0 p Parser
+  param 1 t Token
+fn ident_of(Parser, Token): Ident
+  param 0 p Parser
+  param 1 t Token
+fn describe(Parser, Token): string
+  param 0 p Parser
+  param 1 t Token
+fn error_at(Parser, string, int, int): void
+  param 0 p Parser
+  param 1 message string
+  param 2 start int
+  param 3 end int
+fn fail(Parser, string, Token): void
+  param 0 p Parser
+  param 1 message string
+  param 2 t Token
+fn expect(Parser, string): Option[Token]
+  param 0 p Parser
+  param 1 kind string
+  var 2 what string
+  let 3 t Token
+fn canonical_digits(string): string
+  param 0 s string
+  var 1 i int
+fn fits(string, bool): bool
+  param 0 digits string
+  param 1 negative bool
+  var 2 limit string
+  let 3 i int
+  let 4 a int
+  let 5 b int
+fn parse_program(Parser): [Item]
+  param 0 p Parser
+  let 1 items [Item]
+  let 2 t Token
+  let 3 item Option[Item]
+  let 4 i Item
+fn sync_to_item(Parser): void
+  param 0 p Parser
+fn parse_function(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 params [Typed]
+  var 4 more bool
+  let 5 param Token
+  let 6 ty TypeExpr
+  var 7 ret Option[TypeExpr]
+  let 8 body Block
+fn parse_struct(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 fields [Typed]
+  let 4 field Token
+  let 5 ty TypeExpr
+  let 6 close Token
+fn parse_enum(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 params [Ident]
+  var 4 more_params bool
+  let 5 param Token
+  let 6 variants [VariantDecl]
+  let 7 variant Token
+  let 8 payload [TypeExpr]
+  var 9 more bool
+  let 10 ty TypeExpr
+  let 11 close Token
+fn parse_import(Parser): Option[Item]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 path Token
+  let 3 semi Token
+fn parse_type(Parser): Option[TypeExpr]
+  param 0 p Parser
+  let 1 open Token
+  let 2 elem TypeExpr
+  let 3 close Token
+  let 4 t Token
+  let 5 args [TypeExpr]
+  var 6 more bool
+  let 7 arg TypeExpr
+  let 8 close Token
+fn parse_block(Parser): Option[Block]
+  param 0 p Parser
+  let 1 open Token
+  let 2 stmts [Stmt]
+  let 3 s Stmt
+  let 4 close Token
+fn sync_statement(Parser): void
+  param 0 p Parser
+fn at_pattern_let(Parser): bool
+  param 0 p Parser
+  let 1 k string
+fn parse_statement(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 pattern Pattern
+  let 4 init Expr
+  let 5 kw Token
+  let 6 else_block Block
+  let 7 semi Token
+  let 8 name Token
+  let 9 ty TypeExpr
+  let 10 init Expr
+  let 11 semi Token
+  let 12 cond Expr
+  let 13 body Block
+  let 14 semi Token
+  let 15 node StmtNode
+  var 16 value Option[Expr]
+  let 17 semi Token
+  let 18 b Block
+fn is_assign_op(string): bool
+  param 0 k string
+fn parse_simple_statement(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 e Expr
+  let 2 op string
+  let 3 value Expr
+  let 4 semi Token
+  let 5 semi Token
+fn parse_for(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 name Token
+  let 3 first Expr
+  let 4 end Expr
+  let 5 body Block
+  let 6 body Block
+fn parse_if_stmt(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 pattern Pattern
+  let 3 scrutinee Expr
+  let 4 then Block
+  let 5 els Else
+  let 6 cond Expr
+  let 7 then Block
+  let 8 els Else
+fn parse_else(Parser): Option[Else]
+  param 0 p Parser
+  let 1 s Stmt
+fn if_end(Block, Else): int
+  param 0 then Block
+  param 1 els Else
+  let 2 b Block
+  let 3 s Stmt
+  let 4 s Stmt
+fn parse_match_stmt(Parser): Option[Stmt]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 scrutinee Expr
+  let 3 arms [Arm]
+  let 4 pattern Pattern
+  let 5 b Block
+  let 6 e Expr
+  let 7 close Token
+fn parse_pattern(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 w Token
+  let 2 first Pattern
+  let 3 alternatives [Pattern]
+  let 4 alt Pattern
+  let 5 last Pattern
+fn parse_alternative(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 literal Token
+fn parse_variant_pattern(Parser): Option[Pattern]
+  param 0 p Parser
+  let 1 enum_name Token
+  let 2 variant Token
+  let 3 binders [Binder]
+  var 4 end int
+  var 5 more bool
+  let 6 name Token
+  let 7 close Token
+fn parse_expr(Parser): Option[Expr]
+  param 0 p Parser
+fn parse_header_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 saved bool
+  let 2 e Option[Expr]
+fn parse_expr_with_struct_lits(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 saved bool
+  let 2 e Option[Expr]
+fn level_ops(int): [string]
+  param 0 level int
+fn level_chainable(int): bool
+  param 0 level int
+fn contains([string], string): bool
+  param 0 words [string]
+  param 1 w string
+  let 2 x string
+fn parse_binary(Parser, int): Option[Expr]
+  param 0 p Parser
+  param 1 level int
+  let 2 ops [string]
+  var 3 left Expr
+  let 4 op string
+  let 5 right Expr
+fn parse_unary(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 t Token
+  let 2 literal Token
+  let 3 digits string
+  var 4 value string
+  let 5 operand Expr
+fn parse_expr_list(Parser, string, bool, bool): Option[[Expr]]
+  param 0 p Parser
+  param 1 close string
+  param 2 allow_empty bool
+  param 3 trailing bool
+  let 4 saved bool
+  let 5 exprs Option[[Expr]]
+fn parse_exprs(Parser, string, bool, bool): Option[[Expr]]
+  param 0 p Parser
+  param 1 close string
+  param 2 allow_empty bool
+  param 3 trailing bool
+  let 4 exprs [Expr]
+  let 5 e Expr
+fn parse_postfix(Parser): Option[Expr]
+  param 0 p Parser
+  var 1 e Expr
+  let 2 args [Expr]
+  let 3 close Token
+  let 4 field Token
+  let 5 index Expr
+  let 6 close Token
+  let 7 q Token
+fn parse_primary(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 t Token
+  let 2 k string
+  let 3 digits string
+  let 4 elements [Expr]
+  let 5 close Token
+  let 6 inner Expr
+fn parse_struct_lit(Parser, Token): Option[Expr]
+  param 0 p Parser
+  param 1 name Token
+  let 2 saved bool
+  let 3 inits Option[[FieldInit]]
+  let 4 fields [FieldInit]
+  let 5 close Token
+fn parse_field_inits(Parser): Option[[FieldInit]]
+  param 0 p Parser
+  let 1 fields [FieldInit]
+  let 2 field Token
+  let 3 value Expr
+fn parse_variant_expr(Parser, Token): Option[Expr]
+  param 0 p Parser
+  param 1 enum_name Token
+  let 2 variant Token
+  var 3 args [Expr]
+  var 4 end int
+  let 5 close Token
+fn parse_if_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 cond Expr
+  let 3 then Expr
+  let 4 els Expr
+fn parse_match_expr(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 kw Token
+  let 2 scrutinee Expr
+  let 3 saved bool
+  let 4 parsed Option[[Arm]]
+  let 5 arms [Arm]
+  let 6 close Token
+fn parse_expr_arms(Parser): Option[[Arm]]
+  param 0 p Parser
+  let 1 arms [Arm]
+  let 2 pattern Pattern
+  let 3 b Block
+  let 4 body Expr
+fn parse_expr_block(Parser): Option[Expr]
+  param 0 p Parser
+  let 1 e Expr
+fn new_parser(Lexer): Parser
+  param 0 lx Lexer
+fn new_parser_at(Lexer, int): Parser
+  param 0 lx Lexer
+  param 1 base int
+  let 2 tokens [Token]
+  let 3 t Token
+fn min(int, int): int
+  param 0 a int
+  param 1 b int
+fn is_digit(int): bool
+  param 0 c int
+fn is_ident_start(int): bool
+  param 0 c int
+fn is_ident_part(int): bool
+  param 0 c int
+fn is_escape(int): bool
+  param 0 c int
+fn is_space(int): bool
+  param 0 c int
+fn utf8_len(int): int
+  param 0 c int
+fn is_keyword(string): bool
+  param 0 w string
+fn is_punct(string): bool
+  param 0 p string
+fn peek_byte(Lexer, int): int
+  param 0 lx Lexer
+  param 1 offset int
+  let 2 i int
+fn push_token(Lexer, string, int): void
+  param 0 lx Lexer
+  param 1 kind string
+  param 2 start int
+fn add_error(Lexer, int, int, string): void
+  param 0 lx Lexer
+  param 1 start int
+  param 2 end int
+  param 3 message string
+fn lex_string(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  let 5 next int
+  var 6 width int
+  let 7 end int
+fn lex_char(Lexer): void
+  param 0 lx Lexer
+  let 1 src string
+  let 2 start int
+  var 3 terminated bool
+  let 4 c int
+  var 5 body_len int
+  let 6 single string
+  let 7 next int
+  let 8 width int
+  let 9 valid bool
+fn bom_len(string): int
+  param 0 src string
+fn lex(string): Lexer
+  param 0 src string
+fn lex_from(string, int): Lexer
+  param 0 src string
+  param 1 pos int
+  let 2 lx Lexer
+  let 3 start int
+  let 4 c int
+  let 5 word string
+fn kind_of_type(Type): string
+  param 0 t Type
+fn type_equals(Type, Type): bool
+  param 0 a Type
+  param 1 b Type
+  let 2 x string
+  let 3 y string
+  let 4 x string
+  let 5 y string
+  let 6 x Type
+  let 7 y Type
+fn type_to_string(Type): string
+  param 0 t Type
+  let 1 name string
+  let 2 name string
+  let 3 elem Type
+fn instance_name(string, [Type]): string
+  param 0 base string
+  param 1 args [Type]
+  var 2 s string
+  let 3 i int
+fn special_builtins(): [string]
+fn prelude_source(): string
+fn builtin_signatures(): [Signature]
+fn find_signature([Signature], string): Option[int]
+  param 0 sigs [Signature]
+  param 1 name string
+  let 2 i int
+fn is_builtin(string): bool
+  param 0 name string
+fn mentions_param(TypeExpr, string): bool
+  param 0 ref TypeExpr
+  param 1 param string
+  let 2 elem TypeExpr
+  let 3 name string
+  let 4 args [TypeExpr]
+  let 5 arg TypeExpr
+fn node_key(string, string): string
+  param 0 enum_name string
+  param 1 param string
+fn find_node(ExpansionGraph, string): Option[int]
+  param 0 g ExpansionGraph
+  param 1 key string
+  let 2 i int
+fn intern_node(ExpansionGraph, string): int
+  param 0 g ExpansionGraph
+  param 1 key string
+  let 2 i int
+fn add_edge(ExpansionGraph, string, string, bool): void
+  param 0 g ExpansionGraph
+  param 1 from string
+  param 2 to string
+  param 3 expanding bool
+  let 4 f int
+  let 5 t int
+fn find_template_in([Template], string): Option[int]
+  param 0 templates [Template]
+  param 1 name string
+  let 2 i int
+fn walk_expansion(ExpansionGraph, [Template], Template, TypeExpr): void
+  param 0 g ExpansionGraph
+  param 1 templates [Template]
+  param 2 template Template
+  param 3 ref TypeExpr
+  let 4 elem TypeExpr
+  let 5 name string
+  let 6 args [TypeExpr]
+  let 7 ti int
+  let 8 target Template
+  let 9 i int
+  let 10 arg TypeExpr
+  let 11 param string
+  let 12 n string
+  let 13 a [TypeExpr]
+  let 14 exact bool
+  let 15 arg TypeExpr
+fn find_expanding_enums([Template]): [string]
+  param 0 templates [Template]
+  let 1 g ExpansionGraph
+  let 2 template Template
+  let 3 variant VariantDecl
+  let 4 ref TypeExpr
+  let 5 expanding_components [bool]
+  let 6 i int
+  let 7 edge Edge
+  let 8 c int
+  let 9 expanding [string]
+  let 10 template Template
+  var 11 on_cycle bool
+  let 12 param string
+  let 13 n int
+  let 14 c int
+fn strongly_connected_components(ExpansionGraph): void
+  param 0 g ExpansionGraph
+  let 1 node int
+fn scc_visit(ExpansionGraph, int): void
+  param 0 g ExpansionGraph
+  param 1 node int
+  let 2 next int
+  var 3 member int
+fn primitive_type(string): Option[Type]
+  param 0 name string
+fn is_primitive(string): bool
+  param 0 name string
+fn report(Env, string, int, int): void
+  param 0 env Env
+  param 1 message string
+  param 2 start int
+  param 3 end int
+fn builtin_type_message(string): string
+  param 0 name string
+fn is_builtin_type(string): bool
+  param 0 name string
+fn find_struct(Env, string): Option[int]
+  param 0 env Env
+  param 1 name string
+  let 2 i int
+fn find_enum(Env, string): Option[int]
+  param 0 env Env
+  param 1 name string
+  let 2 i int
+fn find_template(Env, string): Option[int]
+  param 0 env Env
+  param 1 name string
+fn type_kind_of(Env, string): string
+  param 0 env Env
+  param 1 name string
+fn is_error(Type): bool
+  param 0 t Type
+fn is_void(Type): bool
+  param 0 t Type
+fn is_never(Type): bool
+  param 0 t Type
+fn find_binding([Binding], string): Option[Type]
+  param 0 bindings [Binding]
+  param 1 name string
+  var 2 i int
+fn resolve_type(Env, TypeExpr): Type
+  param 0 env Env
+  param 1 ref TypeExpr
+fn resolve_type_with(Env, TypeExpr, [Binding], bool, bool, bool): Type
+  param 0 env Env
+  param 1 ref TypeExpr
+  param 2 bindings [Binding]
+  param 3 quiet bool
+  param 4 instantiates bool
+  param 5 allow_never bool
+  let 6 elem_ref TypeExpr
+  let 7 elem Type
+  let 8 name string
+  let 9 args [TypeExpr]
+  let 10 bound Type
+  let 11 ti int
+  let 12 template Template
+  let 13 expected int
+  let 14 noun string
+  let 15 types [Type]
+  var 16 any_error bool
+  let 17 arg TypeExpr
+  var 18 t Type
+  var 19 found Option[Type]
+  let 20 t Type
+fn say(Env, bool, string, int, int): void
+  param 0 env Env
+  param 1 quiet bool
+  param 2 message string
+  param 3 start int
+  param 4 end int
+fn instantiate(Env, Template, [Type]): Type
+  param 0 env Env
+  param 1 template Template
+  param 2 args [Type]
+  let 3 base string
+  let 4 name string
+  let 5 enum_type TEnum
+  let 6 bindings [Binding]
+  let 7 i int
+  let 8 variant VariantDecl
+  let 9 payload [Type]
+  let 10 ref TypeExpr
+  let 11 t Type
+fn find_tfield([TField], string): Option[int]
+  param 0 fields [TField]
+  param 1 name string
+  let 2 i int
+fn find_tvariant([TVariant], string): Option[int]
+  param 0 variants [TVariant]
+  param 1 name string
+  let 2 i int
+fn article(string): string
+  param 0 kind string
+fn collect_types(Env, [Item]): void
+  param 0 env Env
+  param 1 items [Item]
+  let 2 struct_decls [StructDecl]
+  let 3 enum_decls [EnumDecl]
+  let 4 templates [Template]
+  let 5 item Item
+  var 6 name Ident
+  var 7 kind string
+  let 8 d StructDecl
+  let 9 d EnumDecl
+  let 10 previous string
+  let 11 d StructDecl
+  let 12 d EnumDecl
+  let 13 params [string]
+  let 14 p Ident
+  let 15 template Template
+  var 16 payload_free bool
+  let 17 v VariantDecl
+  let 18 template Template
+  let 19 decl EnumDecl
+  let 20 before int
+  let 21 seen [string]
+  let 22 param Ident
+  var 23 used bool
+  let 24 v VariantDecl
+  let 25 ref TypeExpr
+  let 26 expanding [string]
+  let 27 template Template
+  let 28 name Ident
+  let 29 i int
+  let 30 st TStruct
+  let 31 field Typed
+  var 32 t Type
+  let 33 i int
+  let 34 en TEnum
+  let 35 decl EnumDecl
+  let 36 variant VariantDecl
+  let 37 payload [Type]
+  let 38 ref TypeExpr
+  let 39 t Type
+  let 40 template Template
+  let 41 decl EnumDecl
+  let 42 before int
+  let 43 placeholders [Binding]
+  let 44 param string
+  let 45 names [string]
+  let 46 variant VariantDecl
+  let 47 ref TypeExpr
+  let 48 t Type
+fn is_main_signature(Signature): bool
+  param 0 sig Signature
+  let 1 elem Type
+fn prelude_templates(): [Template]
+  let 0 p Parser
+  let 1 templates [Template]
+  let 2 item Item
+  let 3 d EnumDecl
+  let 4 params [string]
+  let 5 tp Ident
+fn collect_signature(Env, [Signature], FnDecl, int): bool
+  param 0 env Env
+  param 1 sigs [Signature]
+  param 2 decl FnDecl
+  param 3 root_end int
+  let 4 name string
+  let 5 type_kind string
+  let 6 params [Type]
+  let 7 p Typed
+  let 8 t Type
+  let 9 r TypeExpr
+  let 10 ret Type
+fn check_program([Item], int): Checked
+  param 0 items [Item]
+  param 1 root_end int
+  let 2 env Env
+  let 3 sigs [Signature]
+  let 4 declared [FnDecl]
+  let 5 item Item
+  let 6 decl FnDecl
+  let 7 i int
+  let 8 name Ident
+  let 9 functions [TFunction]
+  let 10 i int
+fn check_function(Env, [Signature], FnDecl, Signature): TFunction
+  param 0 env Env
+  param 1 sigs [Signature]
+  param 2 decl FnDecl
+  param 3 sig Signature
+  let 4 ctx Ctx
+  let 5 i int
+  let 6 p Typed
+  let 7 body CheckedBlock
+fn find_local([Local], string): Option[int]
+  param 0 scope [Local]
+  param 1 name string
+  var 2 i int
+fn declare(Ctx, Ident, Type, bool): Local
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 ty Type
+  param 3 mutable bool
+  let 4 scope [Local]
+  let 5 local Local
+fn lookup(Ctx, string): Option[Local]
+  param 0 ctx Ctx
+  param 1 name string
+  var 2 i int
+  let 3 scope [Local]
+  let 4 j int
+fn is_function_name(Ctx, string): bool
+  param 0 ctx Ctx
+  param 1 name string
+fn expect_type(Ctx, Type, Type, int, int): void
+  param 0 ctx Ctx
+  param 1 expected Type
+  param 2 actual Type
+  param 3 start int
+  param 4 end int
+fn check_condition(Ctx, Expr): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  let 2 cond TExpr
+fn check_block(Ctx, Block): CheckedBlock
+  param 0 ctx Ctx
+  param 1 b Block
+  let 2 stmts [TStmt]
+  var 3 diverges bool
+  let 4 s Stmt
+  let 5 checked CheckedStmt
+fn check_stmt(Ctx, Stmt): CheckedStmt
+  param 0 ctx Ctx
+  param 1 s Stmt
+  let 2 mutable bool
+  let 3 name Ident
+  let 4 ty TypeExpr
+  let 5 init Expr
+  var 6 t Type
+  let 7 value TExpr
+  let 8 local Local
+  let 9 pattern Pattern
+  let 10 init Expr
+  let 11 else_keyword Ident
+  let 12 other Block
+  let 13 pattern Pattern
+  let 14 scrutinee Expr
+  let 15 then Block
+  let 16 other Else
+  let 17 op string
+  let 18 target Expr
+  let 19 value Expr
+  let 20 place Option[TPlace]
+  let 21 p TPlace
+  let 22 expected Type
+  let 23 v TExpr
+  let 24 p TPlace
+  let 25 cond Expr
+  let 26 then Block
+  let 27 other Else
+  let 28 cond Expr
+  let 29 body Block
+  let 30 c TExpr
+  let 31 lp Loop
+  let 32 b CheckedBlock
+  let 33 v bool
+  let 34 literal_true bool
+  let 35 name Ident
+  let 36 start Expr
+  let 37 end Expr
+  let 38 body Block
+  let 39 from TExpr
+  let 40 to TExpr
+  let 41 f ForBody
+  let 42 name Ident
+  let 43 iterable Expr
+  let 44 body Block
+  let 45 array TExpr
+  var 46 elem Type
+  let 47 t Type
+  let 48 f ForBody
+  let 49 value Option[Expr]
+  var 50 checked Option[TExpr]
+  let 51 v Expr
+  let 52 v Expr
+  let 53 expected Type
+  let 54 checked TExpr
+  let 55 keyword Ident
+  let 56 scrutinee Expr
+  let 57 arms [Arm]
+  let 58 b Block
+  let 59 checked CheckedBlock
+  let 60 e Expr
+  let 61 checked TExpr
+fn check_loop_exit(Ctx, Stmt, string): void
+  param 0 ctx Ctx
+  param 1 s Stmt
+  param 2 kind string
+fn check_if(Ctx, Expr, Block, Else): CheckedStmt
+  param 0 ctx Ctx
+  param 1 cond Expr
+  param 2 then Block
+  param 3 other Else
+  let 4 c TExpr
+  let 5 t CheckedBlock
+  let 6 o CheckedBlock
+fn check_else(Ctx, Else): CheckedBlock
+  param 0 ctx Ctx
+  param 1 other Else
+  let 2 b Block
+  let 3 nested Stmt
+  let 4 c Expr
+  let 5 t Block
+  let 6 e Else
+  let 7 checked CheckedStmt
+  let 8 nested Stmt
+  let 9 p Pattern
+  let 10 sc Expr
+  let 11 t Block
+  let 12 e Else
+  let 13 checked CheckedStmt
+fn declare_existing(Ctx, Ident, Local): void
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 local Local
+  let 3 scope [Local]
+fn refutable_arms(Pattern, Block): [Arm]
+  param 0 pattern Pattern
+  param 1 body Block
+  let 2 wildcard Pattern
+  let 3 empty Block
+fn check_let_else(Ctx, Pattern, Expr, Ident, Block): CheckedStmt
+  param 0 ctx Ctx
+  param 1 pattern Pattern
+  param 2 init Expr
+  param 3 else_keyword Ident
+  param 4 other Block
+  let 5 keyword Ident
+  let 6 m MatchArms
+  let 7 binders [Binder]
+  let 8 declared [string]
+  let 9 b Binder
+  let 10 id Ident
+  let 11 j int
+  let 12 arms [TArm]
+fn has_else_branch(Else): bool
+  param 0 other Else
+fn check_if_let(Ctx, Pattern, Expr, Block, Else): CheckedStmt
+  param 0 ctx Ctx
+  param 1 pattern Pattern
+  param 2 scrutinee Expr
+  param 3 then Block
+  param 4 other Else
+  let 5 keyword Ident
+  let 6 m MatchArms
+  let 7 arms [TArm]
+fn check_range_bound(Ctx, Expr): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  let 2 bound TExpr
+fn check_for_body(Ctx, Ident, Type, Block): ForBody
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 ty Type
+  param 3 b Block
+  let 4 local Local
+  let 5 body CheckedBlock
+fn error_expr(): TExpr
+fn check_expr(Ctx, Expr, Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 expected Option[Type]
+  let 3 value string
+  let 4 text string
+  let 5 text string
+  let 6 value bool
+  let 7 name string
+  let 8 local Local
+  let 9 message string
+  let 10 op string
+  let 11 operand_expr Expr
+  let 12 operand TExpr
+  let 13 want Type
+  let 14 op string
+  let 15 left Expr
+  let 16 right Expr
+  let 17 callee Expr
+  let 18 args [Expr]
+  let 19 keyword Ident
+  let 20 scrutinee Expr
+  let 21 arms [Arm]
+  let 22 cond_expr Expr
+  let 23 then_expr Expr
+  let 24 other_expr Expr
+  let 25 cond TExpr
+  let 26 then TExpr
+  let 27 other TExpr
+  let 28 ty Type
+  let 29 object_expr Expr
+  let 30 field Ident
+  let 31 object TExpr
+  let 32 name string
+  let 33 f TField
+  let 34 name Ident
+  let 35 fields [FieldInit]
+  let 36 operand Expr
+  let 37 array_expr Expr
+  let 38 index_expr Expr
+  let 39 array TExpr
+  let 40 index TExpr
+  let 41 elem Type
+  let 42 elements [Expr]
+  let 43 enum_name Ident
+  let 44 variant Ident
+  let 45 args [Expr]
+fn tryable(Env, Type): Option[int]
+  param 0 env Env
+  param 1 t Type
+  let 2 name string
+  let 3 ei int
+  let 4 base string
+fn check_try(Ctx, Expr, Expr): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 operand_expr Expr
+  let 3 operand TExpr
+  let 4 t Type
+  let 5 oi int
+  let 6 op TEnum
+  let 7 is_result bool
+  let 8 ty Type
+  let 9 fail_payload_type Option[Type]
+  let 10 name string
+  let 11 return_enum string
+  let 12 unresolved TTry
+  let 13 kind string
+  let 14 wrong_return string
+  let 15 ri int
+  let 16 ret TEnum
+  let 17 mine string
+  let 18 theirs string
+  let 19 node TTry
+fn variant_arity_message(string, string, int, int): string
+  param 0 enum_name string
+  param 1 variant string
+  param 2 expected int
+  param 3 found int
+  let 4 noun string
+fn resolve_variant(Env, Ident, Ident): FoundVariant
+  param 0 env Env
+  param 1 enum_name Ident
+  param 2 variant_name Ident
+  let 3 ti int
+  let 4 template Template
+  let 5 v VariantDecl
+  let 6 ei int
+  let 7 is_type bool
+  let 8 message string
+  let 9 enum_type TEnum
+  let 10 vi int
+fn check_variant_expr(Ctx, Expr, Ident, Ident, [Expr], Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 enum_name Ident
+  param 3 variant_name Ident
+  param 4 args [Expr]
+  param 5 expected Option[Type]
+  let 6 a Expr
+  let 7 template Template
+  let 8 variant_decl VariantDecl
+  let 9 enum_type TEnum
+  let 10 variant TVariant
+  let 11 values [TExpr]
+  let 12 i int
+  let 13 slot Type
+  let 14 i int
+  let 15 tag int
+fn check_generic_variant_expr(Ctx, Expr, [Expr], Template, VariantDecl, Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 args [Expr]
+  param 3 template Template
+  param 4 variant_decl VariantDecl
+  param 5 expected Option[Type]
+  let 6 base string
+  let 7 a Expr
+  let 8 bindings [Binding]
+  var 9 expected_error bool
+  let 10 t Type
+  let 11 name string
+  let 12 ei int
+  let 13 en TEnum
+  let 14 i int
+  let 15 slots [TypeExpr]
+  let 16 values [TExpr]
+  let 17 i int
+  let 18 slot TypeExpr
+  var 19 known bool
+  let 20 p string
+  let 21 context Option[Type]
+  let 22 value TExpr
+  let 23 type_args [Type]
+  let 24 p string
+  let 25 t Type
+  var 26 reported bool
+  let 27 v TExpr
+  let 28 ty Type
+  let 29 name string
+  let 30 ei int
+  let 31 tag int
+  let 32 payload [Type]
+  let 33 i int
+fn unify(Env, [string], TypeExpr, Type, [Binding]): void
+  param 0 env Env
+  param 1 params [string]
+  param 2 slot TypeExpr
+  param 3 actual Type
+  param 4 bindings [Binding]
+  let 5 elem TypeExpr
+  let 6 actual_elem Type
+  let 7 name string
+  let 8 slot_args [TypeExpr]
+  let 9 actual_name string
+  let 10 ei int
+  let 11 en TEnum
+  let 12 i int
+fn enum_base_name(Env, Type): string
+  param 0 env Env
+  param 1 t Type
+  let 2 name string
+  let 3 ei int
+fn match_category(Type): string
+  param 0 t Type
+  let 1 kind string
+fn check_match(Ctx, Ident, Expr, [Arm]): CheckedStmt
+  param 0 ctx Ctx
+  param 1 keyword Ident
+  param 2 scrutinee Expr
+  param 3 arms [Arm]
+  let 4 m MatchArms
+  let 5 typed [TArm]
+  let 6 i int
+  var 7 diverges bool
+  let 8 d bool
+fn check_arms(Ctx, Ident, Expr, [Arm], bool, Option[Type], Option[Else]): MatchArms
+  param 0 ctx Ctx
+  param 1 keyword Ident
+  param 2 scrutinee Expr
+  param 3 arms [Arm]
+  param 4 as_expr bool
+  param 5 expected Option[Type]
+  param 6 refutable Option[Else]
+  let 7 scrutinee_expr TExpr
+  let 8 st Type
+  var 9 has_decl bool
+  var 10 variants [TVariant]
+  let 11 name string
+  let 12 ei int
+  let 13 category string
+  let 14 is_refutable bool
+  let 15 covered [string]
+  var 16 wildcard_seen bool
+  var 17 all_resolved bool
+  let 18 result MatchArms
+  var 19 index int
+  let 20 arm Arm
+  let 21 pattern Pattern
+  let 22 is_wildcard bool
+  let 23 alts [Pattern]
+  let 24 alternatives [Pattern]
+  var 25 single int
+  var 26 fresh [ResolvedAlt]
+  let 27 diags_before int
+  var 28 irrefutable bool
+  let 29 resolved [Option[ResolvedAlt]]
+  let 30 alt Pattern
+  var 31 pattern_resolved bool
+  let 32 r Option[ResolvedAlt]
+  var 33 none_missing bool
+  let 34 missing [string]
+  let 35 r ResolvedAlt
+  let 36 missing [string]
+  let 37 r ResolvedAlt
+  let 38 binders [Option[Local]]
+  let 39 b Block
+  var 40 block CheckedBlock
+  let 41 other Else
+  let 42 diverges bool
+  let 43 body Expr
+  let 44 checked TExpr
+  let 45 checked TExpr
+  let 46 missing [string]
+  var 47 list string
+  let 48 i int
+fn resolve_alternative(Ctx, Type, bool, [TVariant], Pattern): Option[ResolvedAlt]
+  param 0 ctx Ctx
+  param 1 st Type
+  param 2 has_decl bool
+  param 3 variants [TVariant]
+  param 4 alt Pattern
+  let 5 enum_name Ident
+  let 6 variant_name Ident
+  let 7 binders [Binder]
+  let 8 vi int
+  let 9 pattern_type Type
+  let 10 text string
+  let 11 b bool
+  let 12 value string
+  let 13 text string
+  let 14 text string
+  let 15 value string
+fn int_pattern_value(string): string
+  param 0 text string
+  let 1 digits string
+fn char_pattern_value(string): int
+  param 0 text string
+  let 1 c int
+fn escape_value(int): int
+  param 0 c int
+fn string_pattern_value(string): string
+  param 0 text string
+  var 1 out string
+  var 2 i int
+  var 3 c int
+  var 4 width int
+fn string_literal_value(string): string
+  param 0 text string
+  var 1 out string
+  var 2 i int
+  let 3 c int
+fn check_reachability(Ctx, Pattern, [Pattern], [Option[ResolvedAlt]], [string], bool): [ResolvedAlt]
+  param 0 ctx Ctx
+  param 1 pattern Pattern
+  param 2 alternatives [Pattern]
+  param 3 resolved [Option[ResolvedAlt]]
+  param 4 covered [string]
+  param 5 wildcard_seen bool
+  let 6 fresh [ResolvedAlt]
+  let 7 stale [Pattern]
+  let 8 arm_keys [string]
+  let 9 i int
+  let 10 r ResolvedAlt
+  let 11 alt Pattern
+fn missing_values(Env, string, Type, [TVariant], [string]): Option[[string]]
+  param 0 env Env
+  param 1 category string
+  param 2 st Type
+  param 3 variants [TVariant]
+  param 4 covered [string]
+  let 5 missing [string]
+  let 6 i int
+  let 7 b string
+fn declare_binders(Ctx, Pattern, [TVariant], int): [Option[Local]]
+  param 0 ctx Ctx
+  param 1 pattern Pattern
+  param 2 variants [TVariant]
+  param 3 vi int
+  let 4 locals [Option[Local]]
+  let 5 alts [Pattern]
+  let 6 alt Pattern
+  let 7 binders [Binder]
+  let 8 binder Binder
+  let 9 id Ident
+  let 10 binders [Binder]
+  var 11 slots [Type]
+  var 12 has_slots bool
+  let 13 seen [string]
+  let 14 i int
+  let 15 id Ident
+  let 16 ty Type
+fn typed_pattern(Pattern, string, [ResolvedAlt], [Option[Local]], [TVariant]): TPattern
+  param 0 pattern Pattern
+  param 1 category string
+  param 2 fresh [ResolvedAlt]
+  param 3 binders [Option[Local]]
+  param 4 variants [TVariant]
+  let 5 values [string]
+  let 6 r ResolvedAlt
+  let 7 values [string]
+  let 8 r ResolvedAlt
+  let 9 refs [TVariantRef]
+  let 10 r ResolvedAlt
+  let 11 kept [Option[Local]]
+fn resolve_pattern_variant(Ctx, Type, [TVariant], Pattern, Ident, Ident, [Binder]): Option[int]
+  param 0 ctx Ctx
+  param 1 st Type
+  param 2 variants [TVariant]
+  param 3 alt Pattern
+  param 4 enum_name Ident
+  param 5 variant_name Ident
+  param 6 binders [Binder]
+  let 7 base string
+  let 8 vi int
+  let 9 payload [Type]
+fn check_match_expr(Ctx, Expr, Ident, Expr, [Arm], Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 keyword Ident
+  param 3 scrutinee Expr
+  param 4 arms [Arm]
+  param 5 expected Option[Type]
+  let 6 m MatchArms
+  let 7 t Type
+  var 8 ty Type
+  let 9 t Type
+  let 10 t Type
+  let 11 typed [TArm]
+  let 12 i int
+fn find_field(Env, string, string): Option[TField]
+  param 0 env Env
+  param 1 struct_name string
+  param 2 name string
+  let 3 fields [TField]
+fn is_reference(Type): bool
+  param 0 t Type
+fn check_struct_lit(Ctx, Ident, [FieldInit]): TExpr
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 inits [FieldInit]
+  let 3 si int
+  let 4 init FieldInit
+  let 5 st TStruct
+  let 6 fields [TFieldInit]
+  let 7 init FieldInit
+  let 8 decl Option[TField]
+  let 9 f TField
+  let 10 field_type Type
+  let 11 value TExpr
+  let 12 f TField
+  let 13 f TField
+fn has_field_init([TFieldInit], string): bool
+  param 0 fields [TFieldInit]
+  param 1 name string
+  let 2 f TFieldInit
+fn check_array_lit(Ctx, Expr, [Expr], Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 elements [Expr]
+  param 3 expected Option[Type]
+  var 4 elem Option[Type]
+  let 5 t Type
+  let 6 el Expr
+  let 7 x Type
+  let 8 x Type
+  let 9 values [TExpr]
+  let 10 el Expr
+  let 11 value TExpr
+  let 12 x Type
+  let 13 x Type
+fn check_place(Ctx, Expr): Option[TPlace]
+  param 0 ctx Ctx
+  param 1 target Expr
+  let 2 name string
+  let 3 local Local
+  let 4 message string
+  let 5 checked TExpr
+  let 6 object TExpr
+  let 7 field string
+  let 8 array TExpr
+  let 9 index TExpr
+fn check_compound(Ctx, Stmt, string, Type, Type): void
+  param 0 ctx Ctx
+  param 1 s Stmt
+  param 2 op string
+  param 3 target Type
+  param 4 value Type
+  let 5 result Type
+  let 6 applies bool
+fn binary_result_type(string, Type, Type): Option[Type]
+  param 0 op string
+  param 1 left Type
+  param 2 right Type
+  let 3 same bool
+  let 4 l string
+  let 5 r string
+fn check_binary(Ctx, Expr, string, Expr, Expr): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 op string
+  param 3 left_expr Expr
+  param 4 right_expr Expr
+  let 5 left TExpr
+  let 6 right TExpr
+  var 7 is_enum bool
+  var 8 payload_free_enum bool
+  let 9 name string
+  let 10 i int
+  let 11 t Type
+fn arity_message(string, int, int): string
+  param 0 name string
+  param 1 expected int
+  param 2 found int
+  let 3 noun string
+fn check_args(Ctx, [Expr], Option[[Type]]): [TExpr]
+  param 0 ctx Ctx
+  param 1 args [Expr]
+  param 2 params Option[[Type]]
+  let 3 values [TExpr]
+  let 4 i int
+  var 5 expected Type
+  let 6 ps [Type]
+fn check_call(Ctx, Expr, Expr, [Expr]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 callee Expr
+  param 3 args [Expr]
+  let 4 name string
+  let 5 values [TExpr]
+  let 6 a Expr
+  let 7 expected Option[Type]
+  let 8 builtins [Signature]
+  var 9 sigs [Signature]
+  var 10 builtin bool
+  let 11 si int
+  let 12 sg Signature
+  let 13 values [TExpr]
+  let 14 i int
+  var 15 ret Type
+  let 16 ok Type
+  let 17 ti int
+fn builtin_result_ok(string): Option[Type]
+  param 0 name string
+fn check_print(Ctx, Expr, string, [Expr], [TExpr]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 name string
+  param 3 args [Expr]
+  param 4 values [TExpr]
+  let 5 t Type
+  let 6 k string
+fn check_collection_builtin(Ctx, string, Expr, [Expr]): TExpr
+  param 0 ctx Ctx
+  param 1 name string
+  param 2 e Expr
+  param 3 args [Expr]
+  let 4 values [TExpr]
+  var 5 t Type
+  let 6 first TExpr
+  var 7 elem Option[Type]
+  let 8 x Type
+  let 9 x Type
+  let 10 rest_expected Type
+  let 11 i int
+  let 12 arity int
+  let 13 k string
+  let 14 x Type
+fn sort_diags([Diag]): [Diag]
+  param 0 diags [Diag]
+  let 1 sorted [Diag]
+  let 2 d Diag
+  var 3 i int
+  let 4 out [Diag]
+  let 5 d Diag
+  var 6 seen bool
+  var 7 k int
+fn print_diags([SourceFile], [Diag]): void
+  param 0 files [SourceFile]
+  param 1 diags [Diag]
+  let 2 d Diag
+  var 3 f SourceFile
+  let 4 candidate SourceFile
+  let 5 end int
+  let 6 start_text string
+  let 7 end_text string
+fn diag_max(int, int): int
+  param 0 a int
+  param 1 b int
+fn diag_utf16_len(string, int, int): int
+  param 0 src string
+  param 1 from int
+  param 2 to int
+  var 3 n int
+  let 4 i int
+  let 5 b int
+fn format_diag([SourceFile], Diag): string
+  param 0 files [SourceFile]
+  param 1 d Diag
+  var 2 f SourceFile
+  let 3 candidate SourceFile
+  let 4 start int
+  let 5 end int
+  var 6 line_start int
+  var 7 line int
+  let 8 i int
+  var 9 line_end int
+  var 10 text_end int
+  let 11 text string
+  let 12 col int
+  var 13 padding string
+  let 14 i int
+  let 15 b int
+  var 16 span_units int
+  let 17 width int
+  var 18 carets string
+  let 19 k int
+  let 20 head string
+fn lower_program(Checked): IrProgram
+  param 0 c Checked
+  let 1 strings IrStrings
+  let 2 functions [IrFunction]
+  let 3 f TFunction
+  let 4 structs [IrStruct]
+  let 5 s TStruct
+  let 6 fields [IrField]
+  let 7 f TField
+  let 8 enums [IrEnum]
+  let 9 e TEnum
+  let 10 variants [IrVariant]
+  let 11 i int
+  let 12 payload [Type]
+  let 13 p Type
+fn ir_type(Type): Type
+  param 0 t Type
+fn lower_function(TFunction, IrStrings, [TStruct]): IrFunction
+  param 0 f TFunction
+  param 1 strings IrStrings
+  param 2 structs [TStruct]
+  let 3 locals [IrLocal]
+  let 4 l Local
+  let 5 st IrState
+  let 6 ret Type
+fn ir_block_index([IrBlock], string): int
+  param 0 blocks [IrBlock]
+  param 1 label string
+  let 2 i int
+fn ir_prune_unreachable([IrBlock]): [IrBlock]
+  param 0 blocks [IrBlock]
+  let 1 reached [bool]
+  let 2 b IrBlock
+  let 3 work [string]
+  let 4 i int
+  let 5 target string
+  let 6 then string
+  let 7 otherwise string
+  let 8 cases [IrCase]
+  let 9 fallback Option[string]
+  let 10 c IrCase
+  let 11 d string
+  let 12 kept [IrBlock]
+  let 13 i int
+fn ir_new_label(IrState, string): string
+  param 0 st IrState
+  param 1 hint string
+fn ir_new_temp(IrState, Type): int
+  param 0 st IrState
+  param 1 ty Type
+  let 2 id int
+fn ir_emit(IrState, IrInstr): void
+  param 0 st IrState
+  param 1 i IrInstr
+  let 2 open IrOpen
+fn ir_terminate(IrState, IrTerm): void
+  param 0 st IrState
+  param 1 t IrTerm
+  let 2 open IrOpen
+fn ir_start_block(IrState, string): void
+  param 0 st IrState
+  param 1 label string
+fn ir_reachable(IrState): bool
+  param 0 st IrState
+fn intern_ir_string(IrStrings, string): int
+  param 0 table IrStrings
+  param 1 value string
+  let 2 i int
+fn ir_current_loop(IrState): IrLoop
+  param 0 st IrState
+fn ir_ref(int): IrOperand
+  param 0 id int
+fn ir_placeholder(): IrOperand
+fn ir_bin_op(string, Type): string
+  param 0 op string
+  param 1 t Type
+fn ir_compound_base(string): string
+  param 0 op string
+fn ir_enum_tag(IrState, IrOperand): IrOperand
+  param 0 st IrState
+  param 1 value IrOperand
+  let 2 dst int
+fn ir_find_struct([TStruct], string): TStruct
+  param 0 structs [TStruct]
+  param 1 name string
+  let 2 s TStruct
+fn ir_place_read(IrPlaceRef, int): IrInstr
+  param 0 r IrPlaceRef
+  param 1 dst int
+  let 2 object IrOperand
+  let 3 field string
+  let 4 array IrOperand
+  let 5 index IrOperand
+fn ir_place_write(IrPlaceRef, IrOperand): IrInstr
+  param 0 r IrPlaceRef
+  param 1 value IrOperand
+  let 2 object IrOperand
+  let 3 field string
+  let 4 array IrOperand
+  let 5 index IrOperand
+fn lower_block(IrState, TBlock): void
+  param 0 st IrState
+  param 1 b TBlock
+  let 2 s TStmt
+fn lower_stmt(IrState, TStmt): void
+  param 0 st IrState
+  param 1 s TStmt
+  let 2 local Local
+  let 3 init TExpr
+  let 4 v IrOperand
+  let 5 place TPlace
+  let 6 op string
+  let 7 value TExpr
+  let 8 scrutinee TExpr
+  let 9 arms [TArm]
+  let 10 e TExpr
+  let 11 b TBlock
+  let 12 value Option[TExpr]
+  let 13 e TExpr
+  let 14 v IrOperand
+  let 15 lp IrLoop
+  let 16 lp IrLoop
+  let 17 cond TExpr
+  let 18 then TBlock
+  let 19 otherwise Option[TBlock]
+  let 20 cond TExpr
+  let 21 body TBlock
+  let 22 head string
+  let 23 body_label string
+  let 24 end string
+  let 25 c IrOperand
+  let 26 local Local
+  let 27 start TExpr
+  let 28 end TExpr
+  let 29 body TBlock
+  let 30 s0 IrOperand
+  let 31 e0 IrOperand
+  let 32 counter int
+  let 33 limit int
+  let 34 local Local
+  let 35 array TExpr
+  let 36 body TBlock
+  let 37 source IrOperand
+  let 38 arr int
+  let 39 index int
+fn lower_if_stmt(IrState, TExpr, TBlock, Option[TBlock]): void
+  param 0 st IrState
+  param 1 cond TExpr
+  param 2 then TBlock
+  param 3 otherwise Option[TBlock]
+  let 4 c IrOperand
+  let 5 then_label string
+  var 6 else_label string
+  let 7 end_label string
+  var 8 reaches_end bool
+  let 9 b TBlock
+fn lower_assign(IrState, TPlace, string, TExpr): void
+  param 0 st IrState
+  param 1 place TPlace
+  param 2 op string
+  param 3 value TExpr
+  let 4 l Local
+  let 5 v IrOperand
+  let 6 object TExpr
+  let 7 field string
+  let 8 o IrOperand
+  let 9 array TExpr
+  let 10 index TExpr
+  let 11 a IrOperand
+  let 12 i IrOperand
+fn ir_store_through_place(IrState, IrPlaceRef, Type, string, TExpr): void
+  param 0 st IrState
+  param 1 r IrPlaceRef
+  param 2 ty Type
+  param 3 op string
+  param 4 rhs TExpr
+  var 5 value IrOperand
+fn ir_combine(IrState, string, Type, IrPlaceRef, TExpr): IrOperand
+  param 0 st IrState
+  param 1 op string
+  param 2 ty Type
+  param 3 r IrPlaceRef
+  param 4 rhs TExpr
+  let 5 old int
+  let 6 value IrOperand
+  let 7 dst int
+fn lower_value(IrState, TExpr): IrOperand
+  param 0 st IrState
+  param 1 e TExpr
+  let 2 v IrOperand
+fn lower_args(IrState, [TExpr]): [IrOperand]
+  param 0 st IrState
+  param 1 es [TExpr]
+  let 2 out [IrOperand]
+  let 3 e TExpr
+fn lower_for(IrState, TBlock, int, IrForKind): void
+  param 0 st IrState
+  param 1 body TBlock
+  param 2 counter int
+  param 3 kind IrForKind
+  let 4 head string
+  let 5 body_label string
+  let 6 step string
+  let 7 end string
+  var 8 cond int
+  let 9 limit int
+  let 10 array int
+  let 11 n int
+  let 12 local int
+  let 13 array int
+  let 14 local int
+  let 15 lp IrLoop
+fn lower_expr(IrState, TExpr): Option[IrOperand]
+  param 0 st IrState
+  param 1 e TExpr
+  let 2 value string
+  let 3 value bool
+  let 4 value string
+  let 5 l Local
+  let 6 op string
+  let 7 operand TExpr
+  let 8 op string
+  let 9 left TExpr
+  let 10 right TExpr
+  let 11 name string
+  let 12 args [TExpr]
+  let 13 name string
+  let 14 args [TExpr]
+  let 15 object TExpr
+  let 16 field string
+  let 17 array TExpr
+  let 18 index TExpr
+  let 19 elements [TExpr]
+  let 20 name string
+  let 21 fields [TFieldInit]
+  let 22 enum_name string
+  let 23 variant string
+  let 24 tag int
+  let 25 args [TExpr]
+  let 26 op string
+  let 27 left TExpr
+  let 28 right TExpr
+  let 29 cond TExpr
+  let 30 then TExpr
+  let 31 otherwise TExpr
+  let 32 scrutinee TExpr
+  let 33 arms [TArm]
+  let 34 x TTry
+fn lower_unary(IrState, Type, string, TExpr): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 op string
+  param 3 operand TExpr
+  let 4 v IrOperand
+  let 5 dst int
+fn lower_binary(IrState, Type, string, TExpr, TExpr): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 op string
+  param 3 left TExpr
+  param 4 right TExpr
+  let 5 l IrOperand
+  let 6 r IrOperand
+  let 7 dst int
+fn lower_short_circuit(IrState, string, TExpr, TExpr): IrOperand
+  param 0 st IrState
+  param 1 op string
+  param 2 left TExpr
+  param 3 right TExpr
+  let 4 l IrOperand
+  var 5 rhs string
+  var 6 end string
+  let 7 dst int
+  let 8 r IrOperand
+fn lower_if_expr(IrState, Type, TExpr, TExpr, TExpr): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 cond TExpr
+  param 3 then TExpr
+  param 4 otherwise TExpr
+  let 5 c IrOperand
+  let 6 then_label string
+  let 7 else_label string
+  let 8 end_label string
+  let 9 never bool
+  var 10 dst int
+  let 11 tv IrOperand
+  let 12 ev IrOperand
+fn lower_call(IrState, Type, string, [TExpr]): Option[IrOperand]
+  param 0 st IrState
+  param 1 ty Type
+  param 2 name string
+  param 3 args [TExpr]
+  let 4 a [IrOperand]
+  let 5 k string
+  let 6 dst int
+fn ir_builtin_name(string, [TExpr]): string
+  param 0 name string
+  param 1 args [TExpr]
+  let 2 k string
+fn lower_builtin(IrState, Type, string, [TExpr]): Option[IrOperand]
+  param 0 st IrState
+  param 1 ty Type
+  param 2 name string
+  param 3 args [TExpr]
+  let 4 a [IrOperand]
+  let 5 dst int
+  let 6 dst int
+  let 7 k string
+  let 8 dst int
+fn lower_field(IrState, Type, TExpr, string): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 object TExpr
+  param 3 field string
+  let 4 o IrOperand
+  let 5 dst int
+fn lower_index(IrState, Type, TExpr, TExpr): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 array TExpr
+  param 3 index TExpr
+  let 4 a IrOperand
+  let 5 i IrOperand
+  let 6 dst int
+fn lower_array_lit(IrState, Type, [TExpr]): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 elements [TExpr]
+  let 3 els [IrOperand]
+  let 4 t Type
+  let 5 e Type
+  let 6 elem Type
+  let 7 dst int
+fn lower_variant(IrState, Type, string, string, int, [TExpr]): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 enum_name string
+  param 3 variant string
+  param 4 tag int
+  param 5 args [TExpr]
+  let 6 a [IrOperand]
+  let 7 dst int
+fn lower_enum_compare(IrState, string, TExpr, TExpr): IrOperand
+  param 0 st IrState
+  param 1 op string
+  param 2 left TExpr
+  param 3 right TExpr
+  let 4 l IrOperand
+  let 5 r IrOperand
+  let 6 dst int
+fn ir_field_value([IrFieldValue], string): IrOperand
+  param 0 values [IrFieldValue]
+  param 1 name string
+  let 2 v IrFieldValue
+fn lower_struct_lit(IrState, Type, string, [TFieldInit]): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 name string
+  param 3 fields [TFieldInit]
+  let 4 values [IrFieldValue]
+  let 5 f TFieldInit
+  let 6 decl TStruct
+  let 7 ordered [IrFieldValue]
+  let 8 d TField
+  let 9 dst int
+fn lower_match(IrState, TExpr, [TArm], Option[int]): void
+  param 0 st IrState
+  param 1 scrutinee TExpr
+  param 2 arms [TArm]
+  param 3 into Option[int]
+  let 4 value IrOperand
+  let 5 labels [string]
+  let 6 a TArm
+  let 7 end string
+  var 8 enum_name string
+  let 9 name string
+  var 10 reaches_end bool
+  let 11 i int
+  let 12 variants [TVariantRef]
+  let 13 binders [Option[Local]]
+  let 14 slot int
+  let 15 b Local
+  let 16 b TBlock
+  let 17 e TExpr
+  let 18 v IrOperand
+  let 19 dst int
+fn ir_lower_switch(IrState, IrOperand, [TArm], [string]): void
+  param 0 st IrState
+  param 1 on IrOperand
+  param 2 arms [TArm]
+  param 3 labels [string]
+  let 4 cases [IrCase]
+  var 5 fallback Option[string]
+  let 6 i int
+  let 7 variants [TVariantRef]
+  let 8 v TVariantRef
+  let 9 values [string]
+  let 10 v string
+fn ir_lower_string_tests(IrState, IrOperand, [TArm], [string]): void
+  param 0 st IrState
+  param 1 on IrOperand
+  param 2 arms [TArm]
+  param 3 labels [string]
+  let 4 i int
+  let 5 values [string]
+  let 6 v string
+  let 7 test int
+  let 8 lit int
+  let 9 next string
+fn lower_match_expr(IrState, Type, TExpr, [TArm]): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 scrutinee TExpr
+  param 3 arms [TArm]
+  let 4 dst int
+fn lower_try(IrState, Type, TTry): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 x TTry
+  let 3 name string
+  let 4 operand_enum string
+  let 5 value IrOperand
+  let 6 tag IrOperand
+  let 7 is_ok int
+  let 8 ok_label string
+  let 9 fail_label string
+  let 10 args [IrOperand]
+  let 11 pt Type
+  let 12 payload int
+  let 13 fail_value int
+  let 14 dst int
+fn lower_read_file(IrState, IrOperand, Type): IrOperand
+  param 0 st IrState
+  param 1 path IrOperand
+  param 2 ty Type
+  let 3 name string
+  let 4 result_enum string
+  let 5 ok int
+  let 6 text int
+  let 7 dst int
+  let 8 ok_label string
+  let 9 err_label string
+  let 10 end_label string
+fn lower_sys(IrState, string, [IrOperand], Type): IrOperand
+  param 0 st IrState
+  param 1 name string
+  param 2 args [IrOperand]
+  param 3 ty Type
+  let 4 n string
+  let 5 result_enum string
+  let 6 ok int
+  var 7 value_ty Type
+  let 8 value int
+  let 9 err int
+  let 10 dst int
+  let 11 ok_label string
+  let 12 err_label string
+  let 13 end_label string
+fn is_sys_builtin(string): bool
+  param 0 name string
+fn c_join([string], string): string
+  param 0 items [string]
+  param 1 sep string
+  var 2 out string
+  let 3 i int
+fn c_type(Type): string
+  param 0 t Type
+  let 1 name string
+  let 2 name string
+fn c_zero(Type): string
+  param 0 t Type
+fn c_binop(string, string, string): string
+  param 0 op string
+  param 1 a string
+  param 2 b string
+fn c_mangle_fn(string): string
+  param 0 name string
+fn c_mangle_struct(string): string
+  param 0 name string
+fn c_mangle_enum(string): string
+  param 0 name string
+  var 1 generic bool
+  let 2 i int
+  var 3 out string
+  var 4 i int
+  let 5 c int
+fn c_mangle_variant(string): string
+  param 0 name string
+fn c_mangle_field(string): string
+  param 0 name string
+fn c_mangle_local(IrLocal): string
+  param 0 l IrLocal
+  let 1 n string
+fn emit_c(IrProgram): [string]
+  param 0 p IrProgram
+  let 1 out [string]
+  let 2 s IrStruct
+  let 3 e IrEnum
+  let 4 s IrStruct
+  let 5 f IrField
+  let 6 e IrEnum
+  let 7 i int
+  let 8 f IrFunction
+  let 9 f IrFunction
+  var 10 main_takes_args bool
+  let 11 f IrFunction
+fn emit_enum_typedef(IrEnum): string
+  param 0 e IrEnum
+  let 1 m string
+fn emit_enum_definition([string], IrEnum): void
+  param 0 out [string]
+  param 1 e IrEnum
+  let 2 v IrVariant
+  let 3 slots [string]
+  let 4 i int
+fn c_digit(string, int): string
+  param 0 digits string
+  param 1 d int
+fn c_string_literal(string): string
+  param 0 s string
+  let 1 oct string
+  var 2 body string
+  let 3 i int
+  let 4 b int
+fn emit_signature(IrFunction): string
+  param 0 f IrFunction
+  let 1 params [string]
+  let 2 i int
+  var 3 list string
+fn emit_function([string], IrFunction, [IrEnum]): void
+  param 0 out [string]
+  param 1 f IrFunction
+  param 2 enums [IrEnum]
+  let 3 i int
+  let 4 l IrLocal
+  let 5 i int
+  let 6 bi int
+  let 7 b IrBlock
+  let 8 ins IrInstr
+fn c_int_literal(string): string
+  param 0 v string
+fn c_operand(IrFunction, IrOperand): string
+  param 0 f IrFunction
+  param 1 o IrOperand
+  let 2 id int
+  let 3 v string
+  let 4 b bool
+  let 5 index int
+fn c_bool(bool): string
+  param 0 b bool
+fn c_args(IrFunction, [IrOperand]): string
+  param 0 f IrFunction
+  param 1 args [IrOperand]
+  let 2 parts [string]
+  let 3 a IrOperand
+fn c_sys_args(IrFunction, [IrOperand], int, int): string
+  param 0 f IrFunction
+  param 1 args [IrOperand]
+  param 2 value int
+  param 3 err int
+  let 4 parts [string]
+  let 5 a IrOperand
+fn c_slot(string, string): string
+  param 0 t string
+  param 1 call string
+fn c_local_type(IrFunction, IrOperand): Type
+  param 0 f IrFunction
+  param 1 o IrOperand
+  let 2 id int
+fn c_elem_type(IrFunction, IrOperand): string
+  param 0 f IrFunction
+  param 1 array IrOperand
+  let 2 elem Type
+fn c_find_enum([IrEnum], string): Option[IrEnum]
+  param 0 enums [IrEnum]
+  param 1 name string
+  let 2 e IrEnum
+fn c_enum_of(IrFunction, [IrEnum], IrOperand): IrEnum
+  param 0 f IrFunction
+  param 1 enums [IrEnum]
+  param 2 o IrOperand
+  let 3 name string
+  let 4 found Option[IrEnum]
+  let 5 e IrEnum
+fn c_assign(IrFunction, Option[int], string): string
+  param 0 f IrFunction
+  param 1 dst Option[int]
+  param 2 value string
+  let 3 d int
+fn c_set(IrFunction, int, string): string
+  param 0 f IrFunction
+  param 1 dst int
+  param 2 value string
+fn c_unop(string, string): string
+  param 0 op string
+  param 1 a string
+fn c_array_at(IrFunction, IrOperand, IrOperand): string
+  param 0 f IrFunction
+  param 1 array IrOperand
+  param 2 index IrOperand
+fn emit_instr(IrFunction, [IrEnum], IrInstr): string
+  param 0 f IrFunction
+  param 1 enums [IrEnum]
+  param 2 i IrInstr
+  let 3 dst int
+  let 4 src IrOperand
+  let 5 dst int
+  let 6 op string
+  let 7 operand IrOperand
+  let 8 dst int
+  let 9 op string
+  let 10 left IrOperand
+  let 11 right IrOperand
+  let 12 dst Option[int]
+  let 13 name string
+  let 14 args [IrOperand]
+  let 15 dst Option[int]
+  let 16 name string
+  let 17 args [IrOperand]
+  let 18 dst int
+  let 19 name string
+  let 20 fields [IrFieldValue]
+  let 21 dst int
+  let 22 object IrOperand
+  let 23 field string
+  let 24 object IrOperand
+  let 25 field string
+  let 26 value IrOperand
+  let 27 dst int
+  let 28 elem Type
+  let 29 elements [IrOperand]
+  let 30 dst int
+  let 31 array IrOperand
+  let 32 index IrOperand
+  let 33 array IrOperand
+  let 34 index IrOperand
+  let 35 value IrOperand
+  let 36 dst int
+  let 37 array IrOperand
+  let 38 array IrOperand
+  let 39 value IrOperand
+  let 40 dst int
+  let 41 array IrOperand
+  let 42 dst int
+  let 43 name string
+  let 44 variant string
+  let 45 tag int
+  let 46 args [IrOperand]
+  let 47 dst int
+  let 48 value IrOperand
+  let 49 dst int
+  let 50 value IrOperand
+  let 51 variant string
+  let 52 index int
+  let 53 ok int
+  let 54 text int
+  let 55 path IrOperand
+  let 56 name string
+  let 57 ok int
+  let 58 value int
+  let 59 err int
+  let 60 args [IrOperand]
+fn emit_struct_new(IrFunction, int, string, [IrFieldValue]): string
+  param 0 f IrFunction
+  param 1 dst int
+  param 2 name string
+  param 3 fields [IrFieldValue]
+  let 4 target string
+  let 5 parts [string]
+  let 6 fv IrFieldValue
+fn emit_array_new(IrFunction, int, Type, [IrOperand]): string
+  param 0 f IrFunction
+  param 1 dst int
+  param 2 elem Type
+  param 3 elements [IrOperand]
+  let 4 target string
+  let 5 t string
+  let 6 parts [string]
+  let 7 i int
+fn emit_enum_new(IrFunction, [IrEnum], int, string, string, int, [IrOperand]): string
+  param 0 f IrFunction
+  param 1 enums [IrEnum]
+  param 2 dst int
+  param 3 name string
+  param 4 variant string
+  param 5 tag int
+  param 6 args [IrOperand]
+  let 7 e IrEnum
+  let 8 decl IrEnum
+  let 9 target string
+  let 10 member string
+  let 11 parts [string]
+  let 12 i int
+fn c_enum_tag(IrFunction, [IrEnum], IrOperand): string
+  param 0 f IrFunction
+  param 1 enums [IrEnum]
+  param 2 value IrOperand
+fn emit_term(IrFunction, IrTerm): string
+  param 0 f IrFunction
+  param 1 t IrTerm
+  let 2 target string
+  let 3 cond IrOperand
+  let 4 then string
+  let 5 otherwise string
+  let 6 value IrOperand
+  let 7 cases [IrCase]
+  let 8 fallback Option[string]
+  let 9 value Option[IrOperand]
+fn emit_switch(IrFunction, IrOperand, [IrCase], Option[string]): string
+  param 0 f IrFunction
+  param 1 value IrOperand
+  param 2 cases [IrCase]
+  param 3 fallback Option[string]
+  let 4 parts [string]
+  let 5 c IrCase
+  let 6 d string
+  let 7 id int
+  let 8 is_bool bool
+  var 9 on string
+fn c_ret(IrFunction, Option[IrOperand]): string
+  param 0 f IrFunction
+  param 1 value Option[IrOperand]
+  let 2 v IrOperand
+fn llvm_enum(IrProgram, string): IrEnum
+  param 0 p IrProgram
+  param 1 name string
+  let 2 e IrEnum
+fn llvm_type(IrProgram, Type): string
+  param 0 p IrProgram
+  param 1 t Type
+  let 2 name string
+fn llvm_memory_type(IrProgram, Type): string
+  param 0 p IrProgram
+  param 1 t Type
+fn llvm_size(Type): int
+  param 0 t Type
+fn llvm_alignment(Type): int
+  param 0 t Type
+fn llvm_align_up(int, int): int
+  param 0 size int
+  param 1 alignment int
+fn llvm_struct(IrProgram, string): IrStruct
+  param 0 p IrProgram
+  param 1 name string
+  let 2 s IrStruct
+fn llvm_struct_size(IrStruct): int
+  param 0 s IrStruct
+  var 1 size int
+  var 2 alignment int
+  let 3 f IrField
+  let 4 a int
+fn llvm_struct_field(IrProgram, string, string): LlvmField
+  param 0 p IrProgram
+  param 1 name string
+  param 2 field string
+  var 3 offset int
+  let 4 f IrField
+fn llvm_variant(IrEnum, string): IrVariant
+  param 0 e IrEnum
+  param 1 name string
+  let 2 v IrVariant
+fn llvm_payload_size([Type]): int
+  param 0 payload [Type]
+  var 1 size int
+  var 2 alignment int
+  let 3 t Type
+  let 4 a int
+fn llvm_enum_size(IrEnum): int
+  param 0 e IrEnum
+  var 1 size int
+  var 2 alignment int
+  let 3 v IrVariant
+  let 4 n int
+  let 5 t Type
+  let 6 a int
+fn llvm_payload_field(IrVariant, int): LlvmField
+  param 0 v IrVariant
+  param 1 index int
+  var 2 offset int
+  let 3 i int
+  let 4 t Type
+fn llvm_local(int): string
+  param 0 id int
+fn llvm_label(string): string
+  param 0 label string
+fn llvm_line(LlvmState, string): void
+  param 0 st LlvmState
+  param 1 line string
+fn llvm_temp(LlvmState, string): string
+  param 0 st LlvmState
+  param 1 instruction string
+  let 2 name string
+fn llvm_load(LlvmState, Type, string): string
+  param 0 st LlvmState
+  param 1 t Type
+  param 2 address string
+  let 3 value string
+fn llvm_store(LlvmState, Type, string, string): void
+  param 0 st LlvmState
+  param 1 t Type
+  param 2 value string
+  param 3 address string
+  var 4 stored string
+fn llvm_set(LlvmState, int, string): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 value string
+fn llvm_operand_type(LlvmState, IrOperand): Type
+  param 0 st LlvmState
+  param 1 o IrOperand
+  let 2 id int
+fn llvm_operand(LlvmState, IrOperand): string
+  param 0 st LlvmState
+  param 1 o IrOperand
+  let 2 id int
+  let 3 n string
+  let 4 b bool
+  let 5 i int
+fn llvm_pointer(LlvmState, string, int): string
+  param 0 st LlvmState
+  param 1 object string
+  param 2 offset int
+fn llvm_object_field(LlvmState, IrOperand, string): LlvmField
+  param 0 st LlvmState
+  param 1 object IrOperand
+  param 2 field string
+  let 3 name string
+fn llvm_element_type(LlvmState, IrOperand): Type
+  param 0 st LlvmState
+  param 1 array IrOperand
+  let 2 elem Type
+fn llvm_array_at(LlvmState, IrOperand, IrOperand): string
+  param 0 st LlvmState
+  param 1 array IrOperand
+  param 2 index IrOperand
+  let 3 object string
+  let 4 at string
+fn llvm_args(LlvmState, [IrOperand]): string
+  param 0 st LlvmState
+  param 1 args [IrOperand]
+  let 2 parts [string]
+  let 3 a IrOperand
+  let 4 value string
+fn llvm_runtime_args(LlvmState, [IrOperand]): [string]
+  param 0 st LlvmState
+  param 1 args [IrOperand]
+  let 2 parts [string]
+  let 3 a IrOperand
+  let 4 t Type
+  let 5 value string
+  let 6 data string
+  let 7 size string
+fn llvm_call(LlvmState, Option[int], string, string, bool): void
+  param 0 st LlvmState
+  param 1 dst Option[int]
+  param 2 name string
+  param 3 args string
+  param 4 runtime bool
+  let 5 id int
+  let 6 t Type
+  var 7 result string
+fn llvm_binop(LlvmState, int, string, IrOperand, IrOperand): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 op string
+  param 3 left IrOperand
+  param 4 right IrOperand
+  let 5 args string
+  var 6 value string
+  let 7 a string
+  let 8 b string
+  var 9 operation string
+  let 10 predicate string
+fn llvm_struct_new(LlvmState, int, string, [IrFieldValue]): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 name string
+  param 3 fields [IrFieldValue]
+  let 4 object string
+  let 5 fv IrFieldValue
+  let 6 field LlvmField
+  let 7 value string
+fn llvm_array_new(LlvmState, int, Type, [IrOperand]): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 elem Type
+  param 3 elements [IrOperand]
+  let 4 object string
+  let 5 i int
+  let 6 address string
+fn llvm_enum_new(LlvmState, int, string, string, int, [IrOperand]): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 name string
+  param 3 variant string
+  param 4 tag int
+  param 5 args [IrOperand]
+  let 6 e IrEnum
+  let 7 object string
+  let 8 v IrVariant
+  let 9 i int
+  let 10 field LlvmField
+fn llvm_instr(LlvmState, IrInstr): void
+  param 0 st LlvmState
+  param 1 ins IrInstr
+  let 2 dst int
+  let 3 src IrOperand
+  let 4 dst int
+  let 5 op string
+  let 6 operand IrOperand
+  let 7 value string
+  var 8 instruction string
+  let 9 dst int
+  let 10 op string
+  let 11 left IrOperand
+  let 12 right IrOperand
+  let 13 dst Option[int]
+  let 14 name string
+  let 15 args [IrOperand]
+  let 16 dst Option[int]
+  let 17 name string
+  let 18 args [IrOperand]
+  let 19 dst int
+  let 20 name string
+  let 21 fields [IrFieldValue]
+  let 22 dst int
+  let 23 object IrOperand
+  let 24 name string
+  let 25 field LlvmField
+  let 26 address string
+  let 27 object IrOperand
+  let 28 name string
+  let 29 value IrOperand
+  let 30 field LlvmField
+  let 31 address string
+  let 32 dst int
+  let 33 elem Type
+  let 34 elements [IrOperand]
+  let 35 dst int
+  let 36 array IrOperand
+  let 37 index IrOperand
+  let 38 array IrOperand
+  let 39 index IrOperand
+  let 40 value IrOperand
+  let 41 address string
+  let 42 dst int
+  let 43 array IrOperand
+  let 44 array IrOperand
+  let 45 value IrOperand
+  let 46 address string
+  let 47 dst int
+  let 48 array IrOperand
+  let 49 address string
+  let 50 dst int
+  let 51 name string
+  let 52 variant string
+  let 53 tag int
+  let 54 args [IrOperand]
+  let 55 dst int
+  let 56 value IrOperand
+  let 57 e IrEnum
+  var 58 tag string
+  let 59 dst int
+  let 60 value IrOperand
+  let 61 name string
+  let 62 variant string
+  let 63 index int
+  let 64 field LlvmField
+  let 65 ok int
+  let 66 text int
+  let 67 path IrOperand
+  let 68 args [string]
+  let 69 name string
+  let 70 ok int
+  let 71 value int
+  let 72 err int
+  let 73 operands [IrOperand]
+  let 74 args [string]
+fn llvm_unreachable(LlvmState): void
+  param 0 st LlvmState
+fn llvm_term(LlvmState, IrTerm): void
+  param 0 st LlvmState
+  param 1 term IrTerm
+  let 2 target string
+  let 3 cond IrOperand
+  let 4 yes string
+  let 5 no string
+  let 6 value string
+  let 7 value IrOperand
+  let 8 cases [IrCase]
+  let 9 fallback Option[string]
+  var 10 on string
+  var 11 otherwise string
+  var 12 missing bool
+  let 13 target string
+  let 14 c IrCase
+  let 15 value Option[IrOperand]
+  let 16 o IrOperand
+  let 17 result string
+fn llvm_function([string], IrProgram, IrFunction): void
+  param 0 out [string]
+  param 1 p IrProgram
+  param 2 f IrFunction
+  let 3 params [string]
+  let 4 i int
+  let 5 st LlvmState
+  let 6 local IrLocal
+  let 7 i int
+  let 8 b IrBlock
+  let 9 ins IrInstr
+fn llvm_string_bytes(string): string
+  param 0 s string
+  let 1 hex string
+  var 2 out string
+  let 3 i int
+  let 4 b int
+fn llvm_runtime_declarations([string]): void
+  param 0 out [string]
+  let 1 declarations [string]
+  let 2 declaration string
+fn llvm_division_helpers([string]): void
+  param 0 out [string]
+  let 1 op string
+fn emit_llvm(IrProgram): [string]
+  param 0 p IrProgram
+  let 1 out [string]
+  let 2 i int
+  let 3 s string
+  let 4 f IrFunction
+  var 5 args bool
+  let 6 f IrFunction
+fn driver_remove_all([string]): void
+  param 0 paths [string]
+  let 1 p string
+fn driver_remove_then([string], Result[int, string]): Result[int, string]
+  param 0 paths [string]
+  param 1 result Result[int, string]
+  var 2 first Option[string]
+  let 3 p string
+  let 4 e string
+  let 5 e string
+fn build_c(string, string): Result[int, string]
+  param 0 c string
+  param 1 out string
+  let 2 tmp string
+fn driver_build_in(string, string, string): Result[int, string]
+  param 0 tmp string
+  param 1 c string
+  param 2 out string
+fn build_llvm(string, string): Result[int, string]
+  param 0 ir string
+  param 1 out string
+  let 2 tmp string
+fn driver_build_backend_in(string, string, string, bool): Result[int, string]
+  param 0 tmp string
+  param 1 c string
+  param 2 out string
+  param 3 llvm bool
+  let 4 program string
+  let 5 names [string]
+  let 6 texts [string]
+  let 7 written [string]
+  let 8 i int
+  let 9 path string
+  let 10 e string
+  let 11 compiler string
+  let 12 argv [string]
+  let 13 status int
+  let 14 e string
+  let 15 result Result[int, string]
+fn run_c(string, [string]): Result[int, string]
+  param 0 c string
+  param 1 args [string]
+fn run_llvm(string, [string]): Result[int, string]
+  param 0 ir string
+  param 1 args [string]
+fn run_backend(string, [string], bool): Result[int, string]
+  param 0 c string
+  param 1 args [string]
+  param 2 llvm bool
+  let 3 dir string
+  let 4 exe string
+  let 5 built Result[int, string]
+  let 6 e string
+  let 7 argv [string]
+  let 8 a string
+  let 9 s int
+  let 10 e string
+  let 11 status Result[int, string]
+fn runtime_h(): string
+fn runtime_c(): string
+== stderr

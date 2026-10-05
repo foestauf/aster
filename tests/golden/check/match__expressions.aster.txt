@@ -1,0 +1,28 @@
+== exit 0
+== stdout
+enum Expr
+  variant Num(int)
+  variant Add(Expr, Expr)
+  variant Neg(Expr)
+enum Sign
+  variant Neg
+  variant Zero
+  variant Pos
+fn eval(Expr): int
+  param 0 e Expr
+  let 1 n int
+  let 2 a Expr
+  let 3 b Expr
+  let 4 x Expr
+fn sign(int): Sign
+  param 0 n int
+fn name(Sign): string
+  param 0 s Sign
+fn main(): int
+  let 0 e Expr
+  let 1 a Expr
+  let 2 b Expr
+  let 3 doubled int
+  let 4 empty [int]
+  let 5 n int
+== stderr

@@ -1,0 +1,10 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/programs/fixtures/check_generics.txt 139 140 duplicate variant 'A' in 'Dup'
+error tests/programs/programs/fixtures/check_generics.txt 160 161 duplicate type parameter 'T'
+error tests/programs/programs/fixtures/check_generics.txt 282 286 unknown variant 'Nope' on 'Option'
+error tests/programs/programs/fixtures/check_generics.txt 313 331 variant 'Option::Some' expects 1 value, got 2
+error tests/programs/programs/fixtures/check_generics.txt 508 512 type mismatch: expected string, found bool
+error tests/programs/programs/fixtures/check_generics.txt 643 653 variant 'Pair::P' expects 2 values, got 1
+error tests/programs/programs/fixtures/check_generics.txt 688 702 type mismatch: expected Result[int, string], found Result[string, string]

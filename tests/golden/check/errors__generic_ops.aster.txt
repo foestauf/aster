@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/generic_ops.aster 256 257 cannot print a value of type Option[int]
+error tests/programs/errors/generic_ops.aster 278 284 cannot compare 'Option[int]' values
+error tests/programs/errors/generic_ops.aster 290 295 non-exhaustive match: missing 'Option::None'

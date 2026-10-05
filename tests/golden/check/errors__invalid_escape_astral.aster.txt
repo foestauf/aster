@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/invalid_escape_astral.aster 206 211 invalid escape sequence '\😀'

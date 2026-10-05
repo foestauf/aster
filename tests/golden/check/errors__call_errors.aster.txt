@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/call_errors.aster 194 200 function 'add' expects 2 arguments, found 1
+error tests/programs/errors/call_errors.aster 213 217 type mismatch: expected int, found bool

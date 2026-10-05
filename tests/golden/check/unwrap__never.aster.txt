@@ -1,0 +1,29 @@
+== exit 0
+== stdout
+enum Shape
+  variant Circle(int)
+  variant Square(int)
+  variant Empty
+fn die(string): never
+  param 0 msg string
+fn pick(bool): int
+  param 0 c bool
+fn parse_digit(string): int
+  param 0 s string
+  let 1 x int
+fn area(Shape): int
+  param 0 s Shape
+  let 1 r int
+  let 2 w int
+fn add(int, int): int
+  param 0 a int
+  param 1 b int
+fn checked(bool): int
+  param 0 c bool
+fn fallback(bool): int
+  param 0 c bool
+  let 1 x int
+fn classify(int): string
+  param 0 n int
+fn main(): int
+== stderr
