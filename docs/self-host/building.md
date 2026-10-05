@@ -11,7 +11,7 @@
 - For the LLVM backend only: clang 18 as `clang` and lld 18 as `ld.lld` (Ubuntu 24.04 packages `clang-18`, `lld-18`). Textual `--emit=llvm` does not need clang.
 - Node 24 or later and pnpm. They are needed for the bootstrap, the orchestration scripts and the tests only.
 - `origin` must be a GitHub remote: `pnpm bootstrap` derives the repository from it to download releases.
-- An authenticated `gh` for `pnpm bootstrap`, because the repository is private. Not needed with `ASTER_BOOTSTRAP_DIR`.
+- An authenticated `gh` for `pnpm bootstrap`, which downloads releases with `gh release download`. Not needed with `ASTER_BOOTSTRAP_DIR`.
 
 `build/asterc` itself needs only `cc` and libc at run time. The C runtime is embedded in the binary (contract section 4.4).
 
