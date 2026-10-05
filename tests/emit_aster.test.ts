@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildExecutable, emitC, lower } from '../packages/asterc/src/index.js';
-import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { acceptedCorpus, PROGRAMS_DIR } from './corpus_ts.js';
 import { buildDriver } from './stage.js';
 import { spawnStrict } from './spawn.js';
 

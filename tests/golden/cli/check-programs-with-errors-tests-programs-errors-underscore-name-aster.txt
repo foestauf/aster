@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/underscore_name.aster:5:9: error: expected identifier, found '_'
+      let _: int = 1;
+          ^
+tests/programs/errors/underscore_name.aster:6:21: error: expected expression, found ')'
+      let e: E = E::A();
+                      ^

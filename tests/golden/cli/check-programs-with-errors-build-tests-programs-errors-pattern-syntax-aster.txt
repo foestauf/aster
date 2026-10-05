@@ -1,0 +1,27 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/pattern_syntax.aster:11:28: error: expected '=>', found '|'
+  fn a(x: int) { match x { _ | 1 => {} } }
+                             ^
+tests/programs/errors/pattern_syntax.aster:11:38: error: expected 'fn', 'struct', 'enum' or 'import', found '}'
+  fn a(x: int) { match x { _ | 1 => {} } }
+                                       ^
+tests/programs/errors/pattern_syntax.aster:12:30: error: expected pattern, found '_'
+  fn b(x: int) { match x { 1 | _ => {} } }
+                               ^
+tests/programs/errors/pattern_syntax.aster:12:38: error: expected 'fn', 'struct', 'enum' or 'import', found '}'
+  fn b(x: int) { match x { 1 | _ => {} } }
+                                       ^
+tests/programs/errors/pattern_syntax.aster:13:26: error: expected pattern, found '('
+  fn c(x: int) { match x { ( => {} } }
+                           ^
+tests/programs/errors/pattern_syntax.aster:13:34: error: expected 'fn', 'struct', 'enum' or 'import', found '}'
+  fn c(x: int) { match x { ( => {} } }
+                                   ^
+tests/programs/errors/pattern_syntax.aster:14:27: error: expected 'int', found character literal
+  fn d(x: int) { match x { -'a' => {} } }
+                            ^^^
+tests/programs/errors/pattern_syntax.aster:14:37: error: expected 'fn', 'struct', 'enum' or 'import', found '}'
+  fn d(x: int) { match x { -'a' => {} } }
+                                      ^

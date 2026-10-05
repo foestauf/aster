@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/unwrap_binder_immutable.aster:10:5: error: cannot assign to immutable variable 'n'
+      n = 2;
+      ^
+tests/programs/errors/unwrap_binder_immutable.aster:13:9: error: cannot assign to immutable variable 'm'
+          m = 3;
+          ^
+tests/programs/errors/unwrap_binder_immutable.aster:19:17: error: duplicate binding 'x'
+      let P::T(x, x) = p else { return 0; };
+                  ^

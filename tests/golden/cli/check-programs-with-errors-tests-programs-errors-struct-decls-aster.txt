@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/struct_decls.aster:8:8: error: 'int' is a built-in type and cannot be redefined
+  struct int { a: int }
+         ^^^
+tests/programs/errors/struct_decls.aster:9:8: error: 'print' is a builtin function and cannot be redefined
+  struct print { a: int }
+         ^^^^^
+tests/programs/errors/struct_decls.aster:11:8: error: duplicate struct 'P'
+  struct P { y: int }
+         ^
+tests/programs/errors/struct_decls.aster:12:4: error: 'P' is already declared as a struct
+  fn P() { }
+     ^
+tests/programs/errors/struct_decls.aster:13:20: error: duplicate field 'x'
+  struct Q { x: int, x: bool }
+                     ^
+tests/programs/errors/struct_decls.aster:14:15: error: unknown type 'Nope'
+  struct R { a: Nope, b: void }
+                ^^^^
+tests/programs/errors/struct_decls.aster:14:24: error: field cannot have type void
+  struct R { a: Nope, b: void }
+                         ^^^^

@@ -1,0 +1,15 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/irrefutable.aster:10:9: error: pattern always matches
+      let Wrapper::W(x) = w else {
+          ^^^^^^^^^^^^^
+tests/programs/errors/irrefutable.aster:17:12: error: pattern always matches
+      if let Wrapper::W(x) = w {
+             ^^^^^^^^^^^^^
+tests/programs/errors/irrefutable.aster:24:9: error: pattern always matches
+      let true | false = b else {
+          ^^^^^^^^^^^^
+tests/programs/errors/irrefutable.aster:31:12: error: pattern always matches
+      if let false | true = b {
+             ^^^^^^^^^^^^

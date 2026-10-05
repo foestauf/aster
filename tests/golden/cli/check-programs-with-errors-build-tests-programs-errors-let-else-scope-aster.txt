@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/let_else_scope.aster:5:16: error: undefined name 'v'
+          return v;
+                 ^
+tests/programs/errors/let_else_scope.aster:12:22: error: 'v' is already declared in this scope
+      let Option::Some(v) = o else {
+                       ^

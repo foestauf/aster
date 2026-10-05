@@ -1,0 +1,36 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/variant_exprs.aster:15:16: error: unknown enum 'Nope'
+      let a: E = Nope::A;
+                 ^^^^
+tests/programs/errors/variant_exprs.aster:16:16: error: 'S' is not an enum
+      let b: E = S::A;
+                 ^
+tests/programs/errors/variant_exprs.aster:17:16: error: 'int' is not an enum
+      let c: E = int::A;
+                 ^^^
+tests/programs/errors/variant_exprs.aster:18:19: error: unknown variant 'Z' on 'E'
+      let d: E = E::Z;
+                    ^
+tests/programs/errors/variant_exprs.aster:19:16: error: variant 'E::B' expects 1 value, got 0
+      let e: E = E::B;
+                 ^^^^
+tests/programs/errors/variant_exprs.aster:20:16: error: variant 'E::A' expects 0 values, got 1
+      let f: E = E::A(1);
+                 ^^^^^^^
+tests/programs/errors/variant_exprs.aster:21:24: error: type mismatch: expected string, found int
+      let g: E = E::C(1, 2);
+                         ^
+tests/programs/errors/variant_exprs.aster:22:18: error: type mismatch: expected int, found E
+      let h: int = E::A;
+                   ^^^^
+tests/programs/errors/variant_exprs.aster:23:11: error: cannot print a value of type E
+      print(E::A);
+            ^^^^
+tests/programs/errors/variant_exprs.aster:24:19: error: cannot compare 'E' values
+      let j: bool = E::B(1) == E::B(2);
+                    ^^^^^^^^^^^^^^^^^^
+tests/programs/errors/variant_exprs.aster:25:19: error: operator '<' cannot be applied to E and E
+      let k: bool = E::A < E::A;
+                    ^^^^^^^^^^^

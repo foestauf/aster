@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/read_stdin_call.aster:4:5: error: function 'read_stdin' expects 0 arguments, found 1
+      read_stdin(1);
+      ^^^^^^^^^^^^^
+tests/programs/errors/read_stdin_call.aster:5:18: error: type mismatch: expected int, found string
+      let n: int = read_stdin();
+                   ^^^^^^^^^^^^

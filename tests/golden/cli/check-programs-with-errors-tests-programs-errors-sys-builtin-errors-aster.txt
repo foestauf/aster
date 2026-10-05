@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/sys_builtin_errors.aster:9:50: error: type mismatch: expected string, found int
+      let a: Result[int, string] = write_file("p", 1);       // wrong second argument type
+                                                   ^
+tests/programs/errors/sys_builtin_errors.aster:10:18: error: type mismatch: expected int, found Result[string, string]
+      let b: int = make_temp_dir("t-");                      // Result used as int
+                   ^^^^^^^^^^^^^^^^^^^
+tests/programs/errors/sys_builtin_errors.aster:11:34: error: function 'remove_path' expects 1 argument, found 0
+      let c: Result[int, string] = remove_path();            // arity
+                                   ^^^^^^^^^^^^^
+tests/programs/errors/sys_builtin_errors.aster:12:46: error: type mismatch: expected [string], found string
+      let d: Result[int, string] = run_process("true");     // string, not [string]
+                                               ^^^^^^
+tests/programs/errors/sys_builtin_errors.aster:13:37: error: type mismatch: expected Result[string, string], found Result[int, string]
+      let e: Result[string, string] = write_file("p", "x");  // wrong Result instance
+                                      ^^^^^^^^^^^^^^^^^^^^
+tests/programs/errors/sys_builtin_errors.aster:14:51: error: type mismatch: expected string, found int
+      let f: Result[string, string] = make_temp_dir(1);      // int, not string
+                                                    ^
+tests/programs/errors/sys_builtin_errors.aster:15:46: error: type mismatch: expected string, found bool
+      let g: Result[int, string] = remove_path(true);        // bool, not string
+                                               ^^^^

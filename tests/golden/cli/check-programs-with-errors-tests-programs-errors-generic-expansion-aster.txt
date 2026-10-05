@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_expansion.aster:5:6: error: generic enum 'Bad' expands infinitely
+  enum Bad[T] { X(Bad[[T]]), Y(T) }
+       ^^^
+tests/programs/errors/generic_expansion.aster:6:6: error: generic enum 'A' expands infinitely
+  enum A[T] { X(B[T]), Y(T) }
+       ^
+tests/programs/errors/generic_expansion.aster:7:6: error: generic enum 'B' expands infinitely
+  enum B[T] { Z(A[Option[T]]), W(T) }
+       ^

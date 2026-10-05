@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lower, type IrProgram } from '../packages/asterc/src/index.js';
-import { acceptedCorpus } from './corpus.js';
+import { acceptedCorpus } from './corpus_ts.js';
 import { validateIr } from './ir_validate.js';
 
 const accepted = acceptedCorpus();

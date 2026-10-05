@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/builtin_and_unknown_type.aster:3:4: error: 'len' is a builtin function and cannot be redefined
+  fn len(s: string): int { return 0; }
+     ^^^
+tests/programs/errors/builtin_and_unknown_type.aster:5:12: error: unknown type 'float'
+      let x: float = 1;
+             ^^^^^

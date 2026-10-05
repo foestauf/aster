@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/block_arm_unclosed.aster:8:9: error: expected expression, found ','
+          ,
+          ^
+tests/programs/errors/block_arm_unclosed.aster:9:6: error: expected pattern, found ';'
+      };
+       ^

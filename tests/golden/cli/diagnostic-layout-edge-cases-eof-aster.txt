@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+eof.aster:3:1: error: expected '}', found end of file
+  
+  ^

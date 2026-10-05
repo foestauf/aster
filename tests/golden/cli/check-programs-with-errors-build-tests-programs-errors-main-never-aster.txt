@@ -1,0 +1,6 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/main_never.aster:2:4: error: 'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'
+  fn main(): never {
+     ^^^^

@@ -1,0 +1,18 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/../errors/import_collisions_lib.aster:2:4: error: duplicate function 'f'
+  fn f() {}
+     ^
+tests/programs/errors/../errors/import_collisions_lib.aster:3:8: error: duplicate struct 'S'
+  struct S { x: int }
+         ^
+tests/programs/errors/../errors/import_collisions_lib.aster:4:6: error: duplicate enum 'E'
+  enum E { A }
+       ^
+tests/programs/errors/../errors/import_collisions_lib.aster:5:8: error: duplicate struct 'Both'
+  struct Both { y: int }
+         ^^^^
+tests/programs/errors/../errors/import_collisions_lib.aster:6:6: error: 'Both' is already declared as a struct
+  enum Both { B }
+       ^^^^

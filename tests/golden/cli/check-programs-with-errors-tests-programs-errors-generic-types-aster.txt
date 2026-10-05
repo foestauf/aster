@@ -1,0 +1,24 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_types.aster:9:18: error: 'T' is not generic
+  enum Wrap[T] { W(T[int]) }
+                   ^^^^^^
+tests/programs/errors/generic_types.aster:10:9: error: 'Option' expects 1 type argument, got 2
+  fn a(x: Option[int, bool]) {}
+          ^^^^^^^^^^^^^^^^^
+tests/programs/errors/generic_types.aster:11:9: error: 'Result' expects 2 type arguments, got 1
+  fn b(x: Result[int]) {}
+          ^^^^^^^^^^^
+tests/programs/errors/generic_types.aster:12:9: error: 'Option' expects 1 type argument, got 0
+  fn c(x: Option) {}
+          ^^^^^^
+tests/programs/errors/generic_types.aster:13:9: error: 'Point' is not generic
+  fn d(x: Point[int]) {}
+          ^^^^^^^^^^
+tests/programs/errors/generic_types.aster:14:9: error: 'int' is not generic
+  fn e(x: int[bool]) {}
+          ^^^^^^^^^
+tests/programs/errors/generic_types.aster:15:16: error: type argument cannot be void
+  fn f(x: Option[void]) {}
+                 ^^^^

@@ -1,22 +1,20 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { emitC, lower } from '../packages/asterc/src/index.js';
-import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { acceptedFiles, PROGRAMS_DIR } from './corpus.js';
+import { goldenPath, normalise, renderOutcome } from './golden.js';
 import { parseExpectations } from './harness.js';
 import { stage } from './stage.js';
 import { spawnStrict } from './spawn.js';
 
-// Checks the self-hosted compiler under test (S1 by default; see tests/stage.ts), built from
-// packages/asterc-self/asterc.aster, against the stage-0 CLI
-// (S0, packages/asterc/dist/cli/bin.js) on stdout, stderr and exit status, byte for byte. The only allowed difference
-// is the usage text's `--emit=c` (self-hosting contract §4.1, §4.5). Both run with LC_ALL=C and a private TMPDIR that
-// must be empty after every test.
+// Checks the self-hosted compiler under test (see tests/stage.ts), built from packages/asterc-self/asterc.aster, on
+// stdout, stderr and exit status, byte for byte. The CLI is pinned by the golden files under tests/golden/cli/ (one per
+// case, in tests/golden.ts's format, identical for every stage) and by the literal outcomes below. `pnpm golden`
+// rewrites the goldens. Every run uses LC_ALL=C and a private TMPDIR that must be empty after every test.
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
-const S0_BIN = join(REPO_ROOT, 'packages', 'asterc', 'dist', 'cli', 'bin.js');
 const SELF_SOURCE = join(REPO_ROOT, 'packages', 'asterc-self', 'asterc.aster');
 
 const workDir = mkdtempSync(join(tmpdir(), 'aster-self-'));
@@ -54,16 +52,24 @@ function spawn(command: string, argv: readonly string[], opts: RunOptions = {}):
 }
 
 const runSn = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(stage().bin, argv, opts);
-const runS0 = (argv: readonly string[], opts?: RunOptions): Outcome => spawn(process.execPath, [S0_BIN, ...argv], opts);
 
-/** S0's outcome with its usage text narrowed to the emit stages S1 supports: the one allowed text difference. */
-function s0UsageToSn(o: Outcome): Outcome {
-  return { ...o, stderr: o.stderr.replace('[-o <out>] [--emit=tokens|ast|ir|c]', '[-o <out>] [--backend=c|llvm] [--emit=c|llvm]').replace('aster run <file.aster> [-- <args>...]', 'aster run <file.aster> [--backend=c|llvm] [-- <args>...]') };
+/** Every golden slug in use: each is claimed once, at collection time. */
+const slugs = new Set<string>();
+
+/** The golden file for case `label` of describe `group`: lower-case, each run of non-alphanumerics a single `-`. */
+function cliGolden(group: string, label: string): string {
+  const slug = `${group}-${label}`.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/^-|-$/g, '');
+  if (slugs.has(slug)) throw new Error(`duplicate golden slug ${slug}`);
+  slugs.add(slug);
+  return goldenPath('cli', slug);
 }
 
+/** `o` in the golden format, with the repo root and this suite's private directories made machine-independent. */
+const golden = (o: Outcome): string => normalise(renderOutcome(o), { tmp: [tmpDir, workDir] });
+
 describe('usage errors', () => {
-  // packages/asterc/src/cli/cli.test.ts's list, plus `--emit` with run and `--` with build.
-  it.for<string[]>([
+  // The stage-0 CLI's usage-error list, plus `--emit` with run and `--` with build.
+  it.for(([
     [],
     ['frob', 'x.aster'],
     ['check'],
@@ -74,23 +80,23 @@ describe('usage errors', () => {
     ['build', 'a.aster', '-o'],
     ['run', 'a.aster', '--emit=c'],
     ['build', 'a', '--', 'x'],
-  ])('%j', (argv) => {
-    const s0 = runS0(argv);
-    expect(s0.status).toBe(2);
-    expect(runSn(argv)).toEqual(s0UsageToSn(s0));
+  ] as string[][])
+    .map((argv) => ({ argv, label: argv.join(' ') || '(no arguments)' }))
+    .map((c) => ({ ...c, file: cliGolden('usage errors', c.label) })))('$label', async ({ argv, file }) => {
+    const sn = runSn(argv);
+    expect(sn.status).toBe(2);
+    await expect(golden(sn)).toMatchFileSnapshot(file);
   });
 });
 
 describe('an unreadable file', () => {
   it('check missing.aster', () => {
-    const s0 = runS0(['check', 'missing.aster']);
-    expect(s0).toEqual({ stdout: '', stderr: "error: cannot read 'missing.aster'\n", status: 2 });
-    expect(runSn(['check', 'missing.aster'])).toEqual(s0);
+    expect(runSn(['check', 'missing.aster'])).toEqual({ stdout: '', stderr: "error: cannot read 'missing.aster'\n", status: 2 });
   });
 });
 
 describe('check, accepted programs', () => {
-  const accepted = acceptedCorpus().map(({ file }) => file);
+  const accepted = acceptedFiles();
 
   it('covers the compiler itself', () => {
     expect(accepted).toContain(join('..', '..', 'packages', 'asterc-self', 'asterc.aster'));
@@ -113,20 +119,20 @@ describe('check, programs with errors', () => {
     expect(errorGoldens).toContain(join('tests', 'programs', 'errors', 'non_ascii_column.aster'));
   });
 
-  it.for(errorGoldens)('%s', (file) => {
-    const s0 = runS0(['check', file]);
-    expect(s0.status).toBe(1);
-    expect(runSn(['check', file])).toEqual(s0);
+  it.for(errorGoldens.map((file) => ({ file, golden: cliGolden('check, programs with errors', file) })))('$file', async ({ file, golden: g }) => {
+    const sn = runSn(['check', file]);
+    expect(sn.status).toBe(1);
+    await expect(golden(sn)).toMatchFileSnapshot(g);
   });
 
   // Diagnostics exit 1 before any cc call, so `build` is cheap. -o goes into the work dir: a wrongly successful build
   // cannot litter the repo.
-  it.for(errorGoldens)('build %s', (file) => {
+  it.for(errorGoldens.map((file) => ({ file, golden: cliGolden('check, programs with errors', `build ${file}`) })))('build $file', async ({ file, golden: g }) => {
     const out = join(workDir, 'error-golden-out');
-    const s0 = runS0(['build', file, '-o', out]);
-    expect(s0.status).toBe(1);
-    expect(runSn(['build', file, '-o', out])).toEqual(s0);
+    const sn = runSn(['build', file, '-o', out]);
+    expect(sn.status).toBe(1);
     expect(existsSync(out)).toBe(false);
+    await expect(golden(sn)).toMatchFileSnapshot(g);
   });
 });
 
@@ -135,8 +141,8 @@ function spellings(dir: string, file: string): { name: string; path: string; cwd
   return [
     { name: 'relative', path: join('tests', 'programs', dir, file) },
     { name: 'absolute', path: join(REPO_ROOT, 'tests', 'programs', dir, file) },
-    { name: './', path: `./tests/programs/${dir}/${file}` },
-    { name: '..', path: `tests/programs/${dir}/../${dir}/${file}` },
+    { name: 'dot-slash prefix', path: `./tests/programs/${dir}/${file}` },
+    { name: 'dot-dot segment', path: `tests/programs/${dir}/../${dir}/${file}` },
     { name: 'bare, from its directory', path: file, cwd: join(REPO_ROOT, 'tests', 'programs', dir) },
   ];
 }
@@ -157,16 +163,21 @@ describe('path spellings', () => {
     { dir: 'errors', file: 'missing_main.aster' },
   ];
 
-  it.for(cases.flatMap(({ dir, file }) => spellings(dir, file).map((s) => ({ ...s, label: `${dir}/${file} ${s.name}` }))))(
-    '$label',
-    ({ path, cwd }) => {
-      expect(runSn(['check', path], { cwd })).toEqual(runS0(['check', path], { cwd }));
-    },
-  );
+  it.for(
+    cases.flatMap(({ dir, file }) =>
+      spellings(dir, file).map((s) => ({ ...s, label: `${dir}/${file} ${s.name}`, golden: cliGolden('path spellings', `${dir}/${file} ${s.name}`) })),
+    ),
+  )('$label', async ({ name, path, cwd, golden: g }) => {
+    const sn = runSn(['check', path], { cwd });
+    // The goldens strip the repo root, so check here that an absolute root gives absolute diagnostic paths.
+    expect(name !== 'absolute' || sn.stderr === '' || sn.stderr.startsWith(join(REPO_ROOT, 'tests', 'programs'))).toBe(true);
+    await expect(golden(sn)).toMatchFileSnapshot(g);
+  });
 });
 
 describe('diagnostic layout edge cases', () => {
-  // Not goldens: a BOM, CRLF line ends and spans at EOF, across lines or over astral characters, compared with S0.
+  // Files written here, not goldens under tests/programs/: a BOM, CRLF line ends and spans at EOF, across lines or over
+  // astral characters.
   const edgeDir = join(workDir, 'edge');
   mkdirSync(edgeDir);
   const cases: { name: string; bytes: Buffer }[] = [
@@ -185,20 +196,14 @@ describe('diagnostic layout edge cases', () => {
   ];
   for (const c of cases) writeFileSync(join(edgeDir, c.name), c.bytes);
 
-  it.for(cases.map((c) => c.name))('%s', (name) => {
-    const s0 = runS0(['check', name], { cwd: edgeDir });
-    expect(s0.status).toBe(1);
-    expect(runSn(['check', name], { cwd: edgeDir })).toEqual(s0);
+  it.for(cases.map((c) => ({ name: c.name, golden: cliGolden('diagnostic layout edge cases', c.name) })))('$name', async ({ name, golden: g }) => {
+    const sn = runSn(['check', name], { cwd: edgeDir });
+    expect(sn.status).toBe(1);
+    await expect(golden(sn)).toMatchFileSnapshot(g);
   });
 });
 
-describe('build --emit=c, accepted programs', () => {
-  const corpus = acceptedCorpus().map(({ file, typed }) => ({ file, c: emitC(lower(typed)) }));
-
-  it.for(corpus)('$file', ({ file, c }) => {
-    expect(runSn(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: c, stderr: '', status: 0 });
-  });
-
+describe('build --emit=c', () => {
   it('prints about a megabyte for the compiler itself', () => {
     const r = runSn(['build', SELF_SOURCE, '--emit=c']);
     expect(r.status).toBe(0);
@@ -223,10 +228,8 @@ function freshDir(name: string, files: Record<string, string>): string {
 describe('build', () => {
   it('with -o, to an executable that runs', () => {
     const dir = freshDir('build-o', { 'hello.aster': HELLO });
-    const s0 = runS0(['build', 'hello.aster', '-o', join(dir, 'h0')], { cwd: dir });
-    expect(s0).toEqual({ stdout: '', stderr: '', status: 0 });
-    expect(runSn(['build', 'hello.aster', '-o', join(dir, 'h1')], { cwd: dir })).toEqual(s0);
-    for (const exe of ['h0', 'h1']) expect(spawn(join(dir, exe), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
+    expect(runSn(['build', 'hello.aster', '-o', join(dir, 'h')], { cwd: dir })).toEqual({ stdout: '', stderr: '', status: 0 });
+    expect(spawn(join(dir, 'h'), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
   });
 
   // Without -o, the output goes in the cwd, named by default_output: the root may be in another directory.
@@ -235,44 +238,36 @@ describe('build', () => {
     { name: 'noext.txt', file: 'noext.txt', out: 'noext.txt.out' },
     { name: 'a root in a subdirectory', file: 'sub/x.aster', out: 'x' },
   ])('without -o: $name', ({ name, file, out }) => {
-    const outcomes = (['s0', 's1'] as const).map((who) => {
-      const dir = freshDir(`build-default-${name.replaceAll(/\W/g, '_')}-${who}`, { [file]: HELLO });
-      const r = (who === 's0' ? runS0 : runSn)(['build', file], { cwd: dir });
-      expect(readdirSync(dir).toSorted()).toEqual([file.split('/')[0], out].toSorted());
-      expect(spawn(join(dir, out), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
-      return r;
-    });
-    expect(outcomes[0]).toEqual({ stdout: '', stderr: '', status: 0 });
-    expect(outcomes[1]).toEqual(outcomes[0]);
+    const dir = freshDir(`build-default-${name.replaceAll(/\W/g, '_')}`, { [file]: HELLO });
+    expect(runSn(['build', file], { cwd: dir })).toEqual({ stdout: '', stderr: '', status: 0 });
+    expect(readdirSync(dir).toSorted()).toEqual([file.split('/')[0], out].toSorted());
+    expect(spawn(join(dir, out), [])).toEqual({ stdout: '30\n', stderr: '', status: 0 });
   });
 });
 
 describe('a directory as input', () => {
   it('check <a directory>', () => {
-    const s0 = runS0(['check', 'tests']);
-    expect(s0).toEqual({ stdout: '', stderr: "error: cannot read 'tests'\n", status: 2 });
-    expect(runSn(['check', 'tests'])).toEqual(s0);
+    expect(runSn(['check', 'tests'])).toEqual({ stdout: '', stderr: "error: cannot read 'tests'\n", status: 2 });
   });
 });
 
 describe('run', () => {
   const io = join('tests', 'programs', 'io');
 
-  it('passes the arguments after --', () => {
+  const argsGolden = cliGolden('run', 'passes the arguments after --');
+  it('passes the arguments after --', async () => {
     const file = join(io, 'args.aster');
     const args = parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).args;
     expect(args).toEqual(['one', 'two', '-3', 'é']);
-    const s0 = runS0(['run', file, '--', ...args]);
-    expect(s0.status).toBe(0);
-    expect(runSn(['run', file, '--', ...args])).toEqual(s0);
+    const sn = runSn(['run', file, '--', ...args]);
+    expect(sn.status).toBe(0);
+    await expect(golden(sn)).toMatchFileSnapshot(argsGolden);
   });
 
   it('passes stdin through', () => {
     const file = join(io, 'stdin.aster');
     const input = parseExpectations(readFileSync(join(REPO_ROOT, file), 'utf8')).stdin;
-    const s0 = runS0(['run', file], { input });
-    expect(s0).toEqual({ stdout: '13\nhello\n0\n', stderr: '', status: 0 });
-    expect(runSn(['run', file], { input })).toEqual(s0);
+    expect(runSn(['run', file], { input })).toEqual({ stdout: '13\nhello\n0\n', stderr: '', status: 0 });
   });
 
   const dir = freshDir('run', {
@@ -289,24 +284,19 @@ describe('run', () => {
     { file: 'panics.aster', expected: { stdout: 'before\n', stderr: 'panic: boom\n', status: 101 } },
     { file: 'recurses.aster', expected: { stdout: '', stderr: '', status: 139 } },
   ])('$file exits $expected.status', ({ file, expected }) => {
-    const s0 = runS0(['run', file], { cwd: dir });
-    expect(s0).toEqual(expected);
-    expect(runSn(['run', file], { cwd: dir })).toEqual(s0);
+    expect(runSn(['run', file], { cwd: dir })).toEqual(expected);
   });
 });
 
-describe('divergences from stage 0', () => {
+describe('self-hosted CLI behaviour (formerly divergences from stage 0)', () => {
   const dir = freshDir('divergences', { 'hello.aster': HELLO, 'fakecc/cc': "#!/bin/sh\necho 'cc: boom' >&2\nexit 1\n" });
   chmodSync(join(dir, 'fakecc', 'cc'), 0o755);
 
-  it('--emit=ir is an unknown emit stage', () => {
-    // S0's rejection of a stage neither supports, with the stage name swapped.
-    const llvm = s0UsageToSn(runS0(['build', 'hello.aster', '--emit=llvm'], { cwd: dir }));
-    expect(llvm.status).toBe(2);
-    expect(runSn(['build', 'hello.aster', '--emit=ir'], { cwd: dir })).toEqual({
-      ...llvm,
-      stderr: llvm.stderr.replace("'llvm'", "'ir'"),
-    });
+  const emitIrGolden = cliGolden('self-hosted CLI behaviour (formerly divergences from stage 0)', '--emit=ir is an unknown emit stage');
+  it('--emit=ir is an unknown emit stage', async () => {
+    const sn = runSn(['build', 'hello.aster', '--emit=ir'], { cwd: dir });
+    expect(sn.status).toBe(2);
+    await expect(golden(sn)).toMatchFileSnapshot(emitIrGolden);
   });
 
   it('ASTER_CC is ignored', () => {
@@ -343,9 +333,7 @@ describe('divergences from stage 0', () => {
   });
 
   it('an unusable TMPDIR is an internal error', () => {
-    // Not compared with S0: both exit 3, but after `internal compiler error:` the text differs (stage 0 prints Node's
-    // ENOENT message and a stack). The test's own TMPDIR keeps
-    // the harness's empty-TMPDIR check on the shared one meaningful.
+    // The test's own TMPDIR keeps the harness's empty-TMPDIR check on the shared one meaningful.
     const missing = join(dir, 'no-such-tmp');
     expect(runSn(['build', 'hello.aster', '-o', join(dir, 'w')], { cwd: dir, env: { TMPDIR: missing } })).toEqual({
       stdout: '',
@@ -373,12 +361,6 @@ describe('divergences from stage 0', () => {
 describe('the next stage', () => {
   const next = join(workDir, 'next');
   const runNext = (argv: readonly string[]): Outcome => spawn(next, argv);
-  const corpus = acceptedCorpus();
-  const emitOf = (file: string): string => {
-    const entry = corpus.find((e) => e.file === file);
-    if (!entry) throw new Error(`${file} is not in the corpus`);
-    return emitC(lower(entry.typed));
-  };
 
   beforeAll(() => {
     const r = runSn(['build', join('packages', 'asterc-self', 'asterc.aster'), '-o', next]);
@@ -390,8 +372,12 @@ describe('the next stage', () => {
     join('programs', 'fib.aster'),
     join('io', 'files.aster'),
     join('programs', 'emit.aster'),
-  ])(`${stage().name} builds the next stage, whose C matches stage 0: --emit=c of %s`, (file) => {
-    expect(runNext(['build', join('tests', 'programs', file), '--emit=c'])).toEqual({ stdout: emitOf(file), stderr: '', status: 0 });
+  ])(`${stage().name} builds the next stage, whose C matches its own: --emit=c of %s`, (file) => {
+    const argv = ['build', join('tests', 'programs', file), '--emit=c'];
+    const r = runNext(argv);
+    expect(r).toEqual(runSn(argv));
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe('');
   });
 });
 
@@ -403,7 +389,6 @@ describe('LLVM backend surface', () => {
     ['build', '--emit=llvm', 'missing.aster'],
   ])('recognizes LLVM options before normal input handling: %j', (args) => {
     expect(runSn(args)).toEqual({ stdout: '', stderr: "error: cannot read 'missing.aster'\n", status: 2 });
-    expect(runS0(args).status).toBe(2);
   });
   it.for([
     ['check', '--backend=c', 'missing.aster'],
@@ -417,7 +402,6 @@ describe('LLVM backend surface', () => {
   it('explicit C keeps the normal code generation', () => {
     const source = 'tests/programs/basics/hello.aster';
     expect(runSn(['build', source, '--backend=c', '--emit=c'])).toEqual(runSn(['build', source, '--emit=c']));
-    expect(runS0(['build', source, '--backend=c']).status).toBe(2);
   });
 });
 
@@ -448,5 +432,17 @@ describe('LLVM driver failure and emission isolation', () => {
   });
   it('C builds work with an unusable clang', () => {
     expect(runSn(['run', 'hello.aster', '--backend=c'], { cwd: dir, env })).toEqual({ stdout: '30\n', stderr: '', status: 0 });
+  });
+});
+
+describe('the CLI goldens', () => {
+  it('carry no machine-specific paths or stage names, and none is stale', () => {
+    const dir = dirname(goldenPath('cli', 'x'));
+    const files = readdirSync(dir);
+    expect(files.toSorted()).toEqual([...slugs].map((slug) => `${slug}.txt`).toSorted());
+    for (const f of files) {
+      const text = readFileSync(join(dir, f), 'utf8');
+      for (const bad of ['/home/', '/tmp/', 'S1']) expect(text, `${f} contains ${bad}`).not.toContain(bad);
+    }
   });
 });

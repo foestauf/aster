@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/eprint_exit_redefined.aster:3:4: error: 'eprint' is a builtin function and cannot be redefined
+  fn eprint() { }
+     ^^^^^^
+tests/programs/errors/eprint_exit_redefined.aster:4:4: error: 'exit' is a builtin function and cannot be redefined
+  fn exit() { }
+     ^^^^

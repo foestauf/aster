@@ -1,0 +1,15 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/for_errors.aster:6:14: error: cannot iterate over a value of type int
+      for x in 5 { }
+               ^
+tests/programs/errors/for_errors.aster:7:17: error: range bound must be int, found bool
+      for i in 0..true { }
+                  ^^^^
+tests/programs/errors/for_errors.aster:8:21: error: cannot assign to immutable variable 'i'
+      for i in 0..3 { i = 1; }
+                      ^
+tests/programs/errors/for_errors.aster:11:4: error: function 'f' is missing a return on some paths
+  fn f(xs: [int]): int {
+     ^

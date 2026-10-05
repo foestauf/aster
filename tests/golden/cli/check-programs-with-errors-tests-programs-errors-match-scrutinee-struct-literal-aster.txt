@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/match_scrutinee_struct_literal.aster:5:16: error: expected '::', found ':'
+      match P { x: 1 } {
+                 ^
+tests/programs/errors/match_scrutinee_struct_literal.aster:5:22: error: expected 'fn', 'struct', 'enum' or 'import', found '{'
+      match P { x: 1 } {
+                       ^

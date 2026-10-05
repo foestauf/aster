@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/option_redefined.aster:4:6: error: 'Option' is a builtin type and cannot be redefined
+  enum Option { A }
+       ^^^^^^
+tests/programs/errors/option_redefined.aster:5:8: error: 'Result' is a builtin type and cannot be redefined
+  struct Result { x: int }
+         ^^^^^^
+tests/programs/errors/option_redefined.aster:6:4: error: 'Option' is a builtin type and cannot be redefined
+  fn Option(): int { return 0; }
+     ^^^^^^

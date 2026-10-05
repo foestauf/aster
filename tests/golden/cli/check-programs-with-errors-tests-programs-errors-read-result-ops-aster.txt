@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/read_result_ops.aster:6:11: error: cannot print a value of type Result[string, string]
+      print(r);
+            ^
+tests/programs/errors/read_result_ops.aster:7:19: error: cannot compare 'Result[string, string]' values
+      let b: bool = r == r;
+                    ^^^^^^
+tests/programs/errors/read_result_ops.aster:8:5: error: non-exhaustive match: missing 'Result::Err'
+      match r { Result::Ok(_) => {} }
+      ^^^^^

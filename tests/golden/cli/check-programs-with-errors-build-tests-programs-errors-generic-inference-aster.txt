@@ -1,0 +1,15 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/generic_inference.aster:7:23: error: cannot infer type arguments for 'Option'
+      let a: int = len([Option::None]);
+                        ^^^^^^^^^^^^
+tests/programs/errors/generic_inference.aster:8:17: error: cannot infer type arguments for 'Result'
+      print(match Result::Ok(1) { Result::Ok(n) => n, Result::Err(_) => 0 });
+                  ^^^^^^^^^^^^^
+tests/programs/errors/generic_inference.aster:9:35: error: type mismatch: expected int, found bool
+      let p: Pair[int] = Pair::P(1, true);
+                                    ^^^^
+tests/programs/errors/generic_inference.aster:11:15: error: pattern type 'Result' does not match 'Option[int]'
+      match o { Result::Ok(_) => {}, _ => {} }
+                ^^^^^^

@@ -1,0 +1,27 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/match_or_patterns.aster:12:20: error: or-pattern alternatives cannot bind names
+      match e { E::B(x) | E::A => {} _ => {} }
+                     ^
+tests/programs/errors/match_or_patterns.aster:13:33: error: or-pattern alternatives cannot bind names
+      match e { E::B(_) | E::C(_, s) => {} _ => {} }
+                                  ^
+tests/programs/errors/match_or_patterns.aster:14:23: error: duplicate pattern alternative
+      match 1 { 1 => {} 1 | 2 => {} _ => {} }
+                        ^
+tests/programs/errors/match_or_patterns.aster:15:19: error: duplicate pattern alternative
+      match 1 { 1 | 1 => {} _ => {} }
+                    ^
+tests/programs/errors/match_or_patterns.aster:16:26: error: duplicate pattern alternative
+      match e { E::A => {} E::A | E::B(_) => {} _ => {} }
+                           ^^^^
+tests/programs/errors/match_or_patterns.aster:17:53: error: unreachable match arm
+      match e { E::A | E::B(_) => {} E::C(_, _) => {} _ => {} }
+                                                      ^
+tests/programs/errors/match_or_patterns.aster:18:34: error: unreachable match arm
+      match "s" { "=" | "==" => {} "==" | "=" => {} _ => {} }
+                                   ^^^^^^^^^^
+tests/programs/errors/match_or_patterns.aster:19:19: error: pattern type 'string' does not match 'int'
+      match 1 { 1 | "a" => {} }
+                    ^^^

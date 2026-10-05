@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+./astral_span.aster:1:22: error: type mismatch: expected int, found string
+  fn f(): int { return "😀😀"; }
+                       ^^^^^^
+./astral_span.aster:2:4: error: 'main' must be declared in the root file
+  fn main(): int { return 0; }
+     ^^^^

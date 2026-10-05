@@ -1,0 +1,18 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/let_else_errors.aster:11:29: error: 'else' block of 'let' must diverge
+      let Option::Some(v) = o else {
+                              ^^^^
+tests/programs/errors/let_else_errors.aster:18:9: error: pattern type 'Result' does not match 'Option[int]'
+      let Result::Ok(v) = o else {
+          ^^^^^^
+tests/programs/errors/let_else_errors.aster:21:9: error: pattern type 'int' does not match 'string'
+      let 1 = "one" else {
+          ^
+tests/programs/errors/let_else_errors.aster:28:9: error: variant 'Option::Some' expects 1 value, got 2
+      let Option::Some(a, b) = o else {
+          ^^^^^^^^^^^^^^^^^^
+tests/programs/errors/let_else_errors.aster:35:27: error: cannot match on 'Point' values
+      let Option::Some(v) = p else {
+                            ^

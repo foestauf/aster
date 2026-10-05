@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { acceptedCorpus, PROGRAMS_DIR } from './corpus.js';
+import { acceptedCorpus, PROGRAMS_DIR } from './corpus_ts.js';
 import { buildDriver } from './stage.js';
 import { dumpTyped } from './typed_dump.js';
 import { spawnStrict } from './spawn.js';
