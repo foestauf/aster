@@ -1,6 +1,6 @@
 # Aster
 
-A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the TypeScript `asterc` is the archived fallback seed. An LLVM backend is the next goal.
+A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the original TypeScript compiler is archived at the `seed-final` git tag. An LLVM backend is the next goal.
 
 ## Quick start
 
@@ -49,7 +49,7 @@ fn main(): int {
 
 ```
 aster check <file.aster>                                   # type-check only (follows imports)
-aster build <file.aster> [-o <out>] [--emit=tokens|ast|ir|c]     # tokens|ast|ir: `pnpm aster:seed` only
+aster build <file.aster> [-o <out>] [--emit=c|llvm]
 aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
 ```
 
@@ -57,7 +57,7 @@ A program can span several files: `import "other.aster";` is a top-level item, a
 
 Exit codes: `0` ok, `1` compile errors, `2` usage error, `3` internal compiler error. `run` returns the program's own exit code. Arguments after `--` are passed to the program, and stdin passes through.
 
-`pnpm aster` is the self-hosted compiler (`build/asterc`, built by `pnpm bootstrap`). `pnpm aster:seed` is the TypeScript compiler, and it alone supports `--emit=tokens|ast|ir` and `ASTER_CC`. `build/asterc run` passes arguments to the program as raw bytes. `pnpm aster:seed run` goes through Node, which decodes arguments as UTF-8, so bytes that aren't valid UTF-8 arrive as U+FFFD; run a built executable directly to pass raw bytes.
+`pnpm aster` is the self-hosted compiler (`build/asterc`, built by `pnpm bootstrap`). `build/asterc run` passes arguments to the program as raw bytes.
 
 ## System builtins
 
@@ -73,7 +73,7 @@ Failures are `Err("<subject>: <reason>")`. The subject is the path; for `make_te
 
 ## Self-hosted compiler
 
-`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the nearest published release (`pnpm bootstrap:seed` uses the TypeScript compiler instead), and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
+`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the nearest published release and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
 
 ```
 pnpm bootstrap
@@ -98,7 +98,7 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 
 `packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (the installed compiler, `build/asterc`; in CI, bootstrapped from the base's release and rebuilt from this tree) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
 
-The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The TypeScript compiler stays as the fallback seed (`pnpm bootstrap:seed`) and the recovery path.
+The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The original TypeScript compiler is archived at the `seed-final` git tag; the last-resort recovery path that uses it is in [docs/self-host/building.md](docs/self-host/building.md#recovery).
 
 ## Remaining work
 
@@ -116,7 +116,7 @@ These are not part of self-hosting:
 source → lexer → parser → checker → IR (basic blocks) → C → cc → executable
 ```
 
-`--emit=<stage>` prints any intermediate stage. The code lives in `packages/asterc/src/`, one folder per stage, and the C runtime is in `runtime/`.
+`--emit=c` and `--emit=llvm` print the generated code. The compiler lives in `packages/asterc-self/`, one file per stage, and the C runtime is in `runtime/`.
 
 ## Docs
 

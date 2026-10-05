@@ -1,6 +1,6 @@
-// The Aster compiler, written in Aster: `check`, `build` and `run`, as packages/asterc/src/cli/cli.ts provides them,
-// minus the debug emit stages (self-hosting contract §4.1). Its stdout, stderr and exit status match the TypeScript
-// CLI's byte for byte, apart from the documented divergences (contract §4.5). tests/asterc_self.test.ts checks it.
+// The Aster compiler, written in Aster: `check`, `build` and `run`,
+// minus the debug emit stages (self-hosting contract §4.1). Its stdout, stderr and exit status are pinned byte for
+// byte by goldens, with the documented divergences (contract §4.5). tests/asterc_self.test.ts checks it.
 
 import "loader.aster";
 import "checker.aster";

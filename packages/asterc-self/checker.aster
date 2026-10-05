@@ -1,6 +1,6 @@
 // expect-library
-// The Aster type checker, written in Aster: a port of packages/asterc/src/check (checker.ts, generics.ts and
-// builtins.ts) and the parts of types/type.ts it needs. `check_program` checks the items of a loaded program and
+// The Aster type checker, written in Aster: covering generics, builtins and the type
+// representation it needs. `check_program` checks the items of a loaded program and
 // returns its diagnostics, with global byte offsets, and the typed program: its structs, enums and functions, with
 // their locals and typed bodies. tests/check_aster.test.ts checks its diagnostics and summary, through check.aster,
 // against the compiler's own checker. The functions follow checker.ts's order, with the same names in snake_case.

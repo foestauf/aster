@@ -1,9 +1,9 @@
 // expect-library
 // The Aster lexer, imported by lex.aster and parser.aster, and through parser.aster by loader.aster, checker.aster and
 // check.aster. `lex` turns source text into a Lexer holding every token and lexical error, with byte offsets;
-// `lex_from` does the same from a given offset (the loader strips the BOM itself). It mirrors
-// packages/asterc/src/lexer; tests/lex_aster.test.ts and tests/parse_aster.test.ts check it against the compiler's own
-// lexer.
+// `lex_from` does the same from a given offset (the loader strips the BOM itself). It is
+// hand-written; tests/lex_aster.test.ts and tests/parse_aster.test.ts check it against recorded
+// output.
 
 struct Token {
     kind: string,

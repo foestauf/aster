@@ -1,6 +1,6 @@
 // expect-library
-// Lowering, written in Aster: a port of packages/asterc/src/ir/lower.ts, function by function. `lower_program` turns
-// the checked program into the IR. It allocates temps, labels and interned strings in exactly the order lower.ts does,
+// Lowering, written in Aster: function by function. `lower_program` turns
+// the checked program into the IR. It allocates temps, labels and interned strings in a fixed order,
 // because tests/ir_aster.test.ts compares the printed IR byte for byte.
 //
 // Aster has no closures or maps. lower.ts's callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`

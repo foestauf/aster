@@ -1,5 +1,5 @@
 // expect-library
-// The compiler IR, written in Aster: a port of packages/asterc/src/ir/ir.ts, field for field. It is deliberately not
+// The compiler IR, written in Aster: the IR's data types. It is deliberately not
 // SSA: every value lives in a typed, mutable local slot, and control flow is explicit basic blocks that each end in
 // exactly one terminator. Names start with `Ir` because the flat namespace already has `Loop`, `Block` and `Local`.
 

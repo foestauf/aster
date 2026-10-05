@@ -1,5 +1,5 @@
 // expect-library
-// The Aster program loader, written in Aster: a port of packages/asterc/src/driver/load.ts. `load_program` lexes and
+// The Aster program loader, written in Aster. `load_program` lexes and
 // parses the root file and, depth first in the order the imports appear, every file it reaches, each once. Every file
 // gets a global base (the root's is 0, each later file's is one past the end of the previous one), and every span the
 // lexer and parser produce is offset by it, so spans are global and sort by load order, then position. Offsets are in
@@ -139,7 +139,7 @@ fn decode_literal(body: string): Option[string] {
 // ---- source encoding
 
 // Offset of the first byte of the first ill-formed UTF-8 sequence in `raw` (Unicode Table 3-7), or -1 if it is
-// well-formed. The same algorithm as packages/asterc/src/driver/utf8.ts's invalidUtf8At.
+// well-formed. Unicode Table 3-7's well-formedness rules, applied byte by byte.
 fn utf8_invalid_at(raw: string): int {
     var i: int = 0;
     while i < len(raw) {

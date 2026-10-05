@@ -1,6 +1,6 @@
 // expect-library
-// C emission, written in Aster: a port of packages/asterc/src/codegen/c/emit.ts, function by function. `emit_c`
-// returns emitC's `out` array, so the C text is those elements joined by newlines. A multi-statement instruction is one
+// C emission, written in Aster: function by function. `emit_c`
+// returns an `out` array, so the C text is those elements joined by newlines. A multi-statement instruction is one
 // element containing "\n    ", as in TS. tests/emit_aster.test.ts compares the C, through emit.aster, with emitC byte
 // for byte, and also with the C that the emitter compiled from its own output (E1) produces.
 //

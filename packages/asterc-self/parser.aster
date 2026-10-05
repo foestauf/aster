@@ -3,8 +3,8 @@
 // `TypeExpr`, `Pattern`, `Block`, `Ident` and the structs around them, each spanned with byte offsets) and a recursive
 // descent parser over the lexer's tokens. `new_parser` builds a Parser from a Lexer (`new_parser_at` also offsets every
 // span by a file's global base) and `parse_program` turns it into the items of a file, recording syntax errors in
-// `Parser.errors`. It mirrors packages/asterc/src/parser; tests/parse_aster.test.ts checks it against the compiler's
-// own parser.
+// `Parser.errors`. It is a recursive-descent parser; tests/parse_aster.test.ts checks it against recorded
+// output.
 
 import "lexer.aster";
 
@@ -180,7 +180,7 @@ enum ArmBody {
     Expr(Expr),
 }
 
-// ---- parser. A port of packages/asterc/src/parser/parser.ts, function by function. The TypeScript parser throws on a
+// ---- parser. Recursive descent, function by function. The original TypeScript parser threw on a
 // syntax error and catches at statement and item boundaries. Aster has no exceptions, so a function that can fail
 // returns an Option: `fail` records the error and the function returns `Option::None`, which every caller passes up
 // with `?`. parse_block and parse_program match on the Option and resynchronise on `None`.
