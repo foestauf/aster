@@ -282,7 +282,7 @@ Notes:
 **Maps and sets**
 - `Map[K, V]` and `Set[K]` are checked in this order: the number of type arguments (`'Map' expects 2 type argument(s), got <n>`, `'Set' expects 1 type argument(s), got <n>`), then the key (`map key must be int or string, found <T>`, for both `Map` and `Set`), then the value (`map value cannot be void`). An instantiation of a generic enum that makes a key invalid is reported at the instantiation: `enum Wrap[T] { A(Map[T, int]) }` used as `Wrap[bool]` is `map key must be int or string, found bool`.
 - `{}` is the empty map or set. It takes its type from the same contexts that type an empty `[]` (a `let`/`var` type, an assignment target, a function argument, a `return` value, a struct literal field, a variant payload value, `push`'s second argument, an array literal element, and an `if`-expression or `match`-expression arm in one of those positions). The context type must be a `Map` or a `Set`, otherwise the error is `type mismatch: expected <T>, found empty map or set`. With no context it is `cannot infer type of empty map or set`. There are no literals with entries.
-- At the start of a statement, `{` opens a block, so `{}` there is an empty block. That includes the tail of a block and the body of a match arm. To get an empty map or set in an `if` or `match` arm, parenthesise it: `({})`.
+- At the start of a statement, `{` opens a block, so `{}` there is an empty block. In expression arms, plain `{}` works: an `if`-expression branch is a single expression, so `if c { {} } else { {} }` is two empty literals, and in a `match` expression whose expected type is a `Map` or `Set`, an arm `X => {}` is the empty literal rather than an empty block arm. With any other expected type, or none, `X => {}` stays a block arm and must diverge. `({})` is also valid wherever `{}` is.
 - The builtins `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove` and `set_items` (see [Builtins](#builtins)) are the only operations. There are no methods and no index syntax. A missing key is `None` or `false`, never a panic.
 - **Iteration order.** `map_keys` and `set_items` return the keys in insertion order, and the language guarantees it. Overwriting a key with `map_set` does not move it. Removing a key and adding it again puts it at the end.
 - `==` and `!=` on maps or sets are `cannot compare '<T>' values`, and `print` and `eprint` reject them.
@@ -378,7 +378,7 @@ let ty: Type = match find_struct(env, name) {
 };
 ```
 
-- A block arm is checked as a block in the arm's scope, so the arm's binders are visible. It must diverge, or the error is `match arm block must diverge`, at the arm's pattern span. Its type is `never`.
+- A block arm is checked as a block in the arm's scope, so the arm's binders are visible. It must diverge, or the error is `match arm block must diverge`, at the arm's pattern span. Its type is `never`. The one exception is an empty block arm `X => {}` when the expected type is a `Map` or `Set`: that is the empty literal `{}` (see Maps and sets).
 - An expression arm may be a `never` expression: `Option::None => panic("internal")`.
 - If-expression branches cannot be blocks (only `{ expr }`). They diverge through a `never` value: `let x: int = if c { 1 } else { die("x") };`.
 

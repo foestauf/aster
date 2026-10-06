@@ -392,7 +392,7 @@ fn llvm_instr(st: LlvmState, ins: IrInstr) {
         IrInstr::MapNew(dst, key, value) => {
             var size: int = 0;
             if kind_of_type(value) != "void" { size = llvm_size(value); }
-            var kind: string = "0";
+            var kind: string = "0"; // ASTER_KEY_INT; "1" is ASTER_KEY_STRING (runtime/aster_rt.h)
             if kind_of_type(key) == "string" { kind = "1"; }
             llvm_set(st, dst, llvm_temp(st, "call ptr @aster_rt_map_new(i64 " + kind + ", i64 " + int_to_string(size) + ")"));
         }

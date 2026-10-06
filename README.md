@@ -69,7 +69,7 @@ fn main(): int {
 }
 ```
 
-The operations are `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove`, `set_items` and `len`. At the start of a statement `{}` is an empty block, so write `({})` for an empty map in an `if` or `match` arm. v0.8a ships the feature, and the compiler's own sources don't use it yet (v0.8b rewrites them).
+The operations are `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove`, `set_items` and `len`. Plain `{}` works in `if` and `match` expression arms too (`if c { {} } else { m }`, `_ => {}` where a map is expected); only at the start of a statement does `{` open a block. v0.8a ships the feature, and the compiler's own sources don't use it yet (v0.8b rewrites them).
 
 ## CLI
 
