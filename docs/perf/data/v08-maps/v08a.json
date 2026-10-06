@@ -1,0 +1,4638 @@
+{
+  "schemaVersion": 1,
+  "environment": {
+    "recordedAt": "2026-10-06T10:41:59.307Z",
+    "gitCommit": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+    "gitDirty": false,
+    "sourceRevision": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+    "inputSha256": "f7491e86520c38b63186f134fbbaa0dc955edd73488a4f4f7be05a07082e586b",
+    "compilerSha256": "8ff4f245a90a6e8179bfafb33687da64ac437d99a71e5adafb25f606ffc77efb",
+    "uname": "Linux x86_64",
+    "osRelease": "Debian GNU/Linux 13 (trixie)",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "cpuCount": 9,
+    "cpuAffinity": "0",
+    "governor": "unavailable",
+    "cc": "x86_64-linux-gnu-gcc-13 (Debian 13.3.0-16) 13.3.0",
+    "clang": "Debian clang version 18.1.8 (18+b1)",
+    "lld": "Debian LLD 18.1.8 (compatible with GNU linkers)",
+    "node": "v24.19.0",
+    "note": "Fresh clean-tree v0.8a main. Development cloud Debian 13 AMD EPYC 9V74; pinned CPU 0. GCC 13.3.0-16, clang/lld 18.1.8 Debian 18+b1 (clang package differs from historical report). Node 24.19.0. Full selfhost conformance completed before measurement. Fresh combined run, no reused samples and no other assistant compile/test jobs during samples. Five original workload sources unchanged from original LLVM decision.",
+    "deviations": [
+      "reference CI OS is Ubuntu 24.04; this machine differs"
+    ]
+  },
+  "options": {
+    "runs": 10,
+    "configs": [
+      "c-O2",
+      "c-O3",
+      "c-lto",
+      "llvm"
+    ],
+    "compiler": "build/asterc",
+    "record": null,
+    "sourceRevision": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+    "environmentNote": "Fresh clean-tree v0.8a main. Development cloud Debian 13 AMD EPYC 9V74; pinned CPU 0. GCC 13.3.0-16, clang/lld 18.1.8 Debian 18+b1 (clang package differs from historical report). Node 24.19.0. Full selfhost conformance completed before measurement. Fresh combined run, no reused samples and no other assistant compile/test jobs during samples. Five original workload sources unchanged from original LLVM decision."
+  },
+  "workloadSources": [
+    {
+      "name": "array_sort",
+      "sha256": "c8bdb38d9d0c50e5b6f0f842681387330cb5ca726c2898c8656c1d0f618e6138",
+      "expected": {
+        "stdout": "68652146336000035\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "calc_interpreter",
+      "sha256": "29981cf4c3c1c6f40d23f45669dfb71084d5795c8e4434433a59ede8b978dfda",
+      "expected": {
+        "stdout": "74910056192\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "integer_loops",
+      "sha256": "215a97b8cd5e67a77349c2212d89ba0c25fa1227e2ce31d84ad46b0d81abfcf7",
+      "expected": {
+        "stdout": "592666852\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "string_build",
+      "sha256": "0240f307a0bcb4b429f616e0f885168547fffa88ec54fd9fc70d30d190cbf888",
+      "expected": {
+        "stdout": "584164027\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "struct_enum",
+      "sha256": "51b3e8c444248f20d14cfc27c8cd1dd1b2b64653d95ae62f96caf851c59010e1",
+      "expected": {
+        "stdout": "667174078821\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    }
+  ],
+  "buildCommands": [
+    {
+      "configuration": "c-O2",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/string_build.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O3.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/string_build.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08A_ROOT/runtime",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-lto.c",
+        "$V08A_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-lto"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08A_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/self-llvm"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 209.549821,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 213.354887,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 219.170468,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 211.172541,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 220.741045,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 239.184191,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 213.966972,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 212.335453,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 222.869741,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 214.348904,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 228.781422,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 216.759686,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 209.945479,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 210.459121,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 226.078569,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 218.677401,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 231.192264,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 239.004884,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 212.791808,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 211.361423,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 208.501065,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 215.320853,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 215.292058,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 215.3064555,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 96.86141,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 97.741846,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.153437,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.856856,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 102.366663,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 97.410606,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 100.011501,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.382459,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.740841,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 97.797231,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.971305,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 98.61965749999999,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/array_sort-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 105.729402,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 106.020195,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.877945,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 108.24825,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 119.420945,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.115758,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 111.040571,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.312239,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.191809,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 104.788054,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 111.058685,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 109.0630975,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 82.558408,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 80.917221,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.556842,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 88.996515,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 85.85442,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 90.912038,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 81.608307,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 80.397769,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 85.817627,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 80.538386,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 92.099104,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 85.83602350000001,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 67.779129,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.970643,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.523101,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 81.16511,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.979468,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 82.386705,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.569662,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.695203,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.886779,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.643749,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.84655,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 70.41300899999999,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 66.917847,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.106378,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.392292,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 70.016038,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.227772,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 69.09577,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 69.459625,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 66.349692,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.861613,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 66.072558,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 69.888705,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 69.674165,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/calc_interpreter-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 74.29875,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.592832,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 74.545023,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 80.192372,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.767555,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.784108,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 76.343338,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 74.362058,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 77.749041,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.91686,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 84.316286,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 75.77583150000001,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 163.440395,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.817337,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.086299,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 170.736011,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 167.801481,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 200.478822,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.932714,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 164.87411,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 175.925268,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 159.867156,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 172.490254,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 166.3377955,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 162.639355,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.14403,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.639293,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 164.479866,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 183.710835,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 169.819452,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 159.418058,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.481173,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.219526,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 164.283823,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 171.51378,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 164.3818445,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 167.29392,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 159.848193,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 185.507853,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 173.769992,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 176.159798,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 176.959963,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.491228,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 163.302643,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 174.66151,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 163.949128,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 169.558689,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 171.66434049999998,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/integer_loops-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 195.691009,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.829264,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.662986,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 206.089457,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 206.747387,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.485853,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 188.873759,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 190.269843,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 198.722082,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 196.147312,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 210.382906,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 194.988288,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 129.550387,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.535704,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.002126,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.130436,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.000837,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 164.427707,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.058955,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.475089,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.94111,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.664851,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 132.041391,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 127.06563650000001,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 133.820195,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.673732,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.048427,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 142.292298,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 136.954671,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 135.033793,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 123.73068,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.481638,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.149446,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.753865,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 130.579624,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 128.45165550000002,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 133.433721,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.186567,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.113404,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 140.384667,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 132.368919,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.503974,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.445318,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.122516,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.928151,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.138688,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 133.80926,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 127.974646,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/string_build-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 128.158836,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 123.816878,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.865571,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 134.00089,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.990481,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 146.823032,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.275893,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.77459,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 133.802764,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.574115,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 135.543397,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 126.3825355,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 116.572201,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 111.926584,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.614542,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.814743,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 120.112565,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 113.387271,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.788171,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 113.019225,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 122.1182,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.632538,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 110.702318,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 112.91698400000001,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 115.942531,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.466951,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 118.378556,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 118.138512,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.269,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 122.84523,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.346224,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 110.987548,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 119.936818,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 110.601319,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.513912,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 112.4904315,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 107.046738,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.04307,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.400538,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 102.806223,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 108.048575,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 110.329545,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.993902,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 104.929102,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.026797,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 100.674503,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 103.120472,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 106.518486,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/struct_enum-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 66.755539,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 63.899896,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 73.407396,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 69.88563,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 66.483842,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 73.123446,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 64.165563,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 63.911802,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.248917,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 62.921951,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 64.835637,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 65.6597395,
+      "medianPeakRssKiB": 63232
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O2",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 204.114518,
+          "peakRssKiB": 424252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 191.876105,
+          "peakRssKiB": 424264,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 186.845908,
+          "peakRssKiB": 424256,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.782031,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 188.931936,
+          "peakRssKiB": 424256,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 201.161387,
+          "peakRssKiB": 424248,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 184.730336,
+          "peakRssKiB": 424264,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 186.838003,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 190.549925,
+          "peakRssKiB": 424252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 181.282647,
+          "peakRssKiB": 424264,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.662064,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 189.7409305,
+      "medianPeakRssKiB": 424254
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O3",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 197.107427,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 188.25704,
+          "peakRssKiB": 424232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.634025,
+          "peakRssKiB": 424216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.125825,
+          "peakRssKiB": 424216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 190.258138,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 217.807334,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 182.972804,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 200.973161,
+          "peakRssKiB": 424232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 191.360715,
+          "peakRssKiB": 424248,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 180.35763,
+          "peakRssKiB": 424216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 202.625337,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 191.99737,
+      "medianPeakRssKiB": 424240
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-lto",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 198.449133,
+          "peakRssKiB": 424200,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 179.463122,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 189.701068,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.946638,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 184.507177,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 196.790608,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 173.960584,
+          "peakRssKiB": 424204,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 178.450951,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 183.482667,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 181.422628,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 179.078109,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 182.4526475,
+      "medianPeakRssKiB": 424238
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-llvm",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 188.210403,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 181.552186,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 172.127326,
+          "peakRssKiB": 422932,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 171.568728,
+          "peakRssKiB": 422840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 176.615922,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 176.510519,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 171.346871,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 174.05202,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 177.553516,
+          "peakRssKiB": 422928,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 167.610364,
+          "peakRssKiB": 422916,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 171.500018,
+          "peakRssKiB": 422884,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 173.089673,
+      "medianPeakRssKiB": 422912
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-O2",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O2",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/rebuilt-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4283.58812,
+          "peakRssKiB": 425532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4186.712333,
+          "peakRssKiB": 425544,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4410.667465,
+          "peakRssKiB": 425532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4451.000954,
+          "peakRssKiB": 425532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4419.532681,
+          "peakRssKiB": 425496,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4290.136425,
+          "peakRssKiB": 425544,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4134.331927,
+          "peakRssKiB": 425540,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4401.654773,
+          "peakRssKiB": 425536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4323.3416,
+          "peakRssKiB": 425524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4533.315866,
+          "peakRssKiB": 425532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4761.884043,
+          "peakRssKiB": 425532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4406.161119,
+      "medianPeakRssKiB": 425532
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-O3",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-O3",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/rebuilt-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4258.630009,
+          "peakRssKiB": 425552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4218.119869,
+          "peakRssKiB": 425584,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4493.090937,
+          "peakRssKiB": 425640,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4469.889236,
+          "peakRssKiB": 425552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4413.741219,
+          "peakRssKiB": 425624,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4523.747535,
+          "peakRssKiB": 425528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4369.921996,
+          "peakRssKiB": 425640,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4461.883679,
+          "peakRssKiB": 425624,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4200.736995,
+          "peakRssKiB": 425624,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4411.838917,
+          "peakRssKiB": 425624,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4537.038451,
+          "peakRssKiB": 425552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4437.812448999999,
+      "medianPeakRssKiB": 425624
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-lto",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-c-lto",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/rebuilt-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4304.262906,
+          "peakRssKiB": 425536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4312.353802,
+          "peakRssKiB": 425480,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4327.650699,
+          "peakRssKiB": 425520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4587.260397,
+          "peakRssKiB": 425480,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4282.139815,
+          "peakRssKiB": 425520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4413.473911,
+          "peakRssKiB": 425528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4332.919987,
+          "peakRssKiB": 425520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4567.70214,
+          "peakRssKiB": 425524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4232.61624,
+          "peakRssKiB": 425516,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4220.651681,
+          "peakRssKiB": 425524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4501.875764,
+          "peakRssKiB": 425484,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4330.285343,
+      "medianPeakRssKiB": 425520
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "llvm",
+      "command": [
+        "$V08A_ROOT/.bench/work-1JPxvh/self-llvm",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08A_ROOT/.bench/work-1JPxvh/rebuilt-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4425.748138,
+          "peakRssKiB": 806272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4281.762716,
+          "peakRssKiB": 806316,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4476.579964,
+          "peakRssKiB": 806344,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4762.258977,
+          "peakRssKiB": 806292,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4571.936208,
+          "peakRssKiB": 806276,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4482.590672,
+          "peakRssKiB": 806328,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4372.72765,
+          "peakRssKiB": 806324,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4462.062982,
+          "peakRssKiB": 806292,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4299.376358,
+          "peakRssKiB": 806276,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4125.648268,
+          "peakRssKiB": 806292,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 5014.646476,
+          "peakRssKiB": 806276,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4469.321473,
+      "medianPeakRssKiB": 806292
+    }
+  ],
+  "bestC": "c-lto",
+  "geometricMeanSpeedups": {
+    "c-O2": 1,
+    "c-O3": 1.0428010685921443,
+    "c-lto": 1.225271780646835,
+    "llvm": 1.271289995504584
+  },
+  "decision": {
+    "status": "inconclusive",
+    "reason": "Measured gates are shown, but sample quality requires a fresh, quieter combined run before a performance conclusion.",
+    "bestC": "c-lto",
+    "suiteSpeedup": 1.0375575570943578,
+    "suitePass": false,
+    "selfBuildSpeedup": 0.9688909981436906,
+    "selfBuildPass": false,
+    "runtimePass": false,
+    "measuredGatesPass": false,
+    "workloads": [
+      {
+        "benchmark": "array_sort",
+        "llvmVsBestCSpeedup": 0.9042440546858665,
+        "regression": 0.10589612927828318,
+        "pass": false,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 0.9042440546858665
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "llvmVsBestCSpeedup": 0.9194774061964598,
+        "regression": 0.08757430390446741,
+        "pass": false,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 0.9194774061964598
+      },
+      {
+        "benchmark": "integer_loops",
+        "llvmVsBestCSpeedup": 0.8803828284291617,
+        "regression": 0.13586949643743873,
+        "pass": false,
+        "fastestC": "c-O3",
+        "llvmVsFastestCSpeedup": 0.8430344518948748
+      },
+      {
+        "benchmark": "string_build",
+        "llvmVsBestCSpeedup": 1.0125975515026757,
+        "regression": -0.01244082753704201,
+        "pass": true,
+        "fastestC": "c-O2",
+        "llvmVsFastestCSpeedup": 1.0054050268678143
+      },
+      {
+        "benchmark": "struct_enum",
+        "llvmVsBestCSpeedup": 1.6222800579341317,
+        "regression": -0.3835836204055698,
+        "pass": true,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 1.6222800579341317
+      }
+    ],
+    "variability": [
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 211.172541,
+        "maxMs": 239.184191,
+        "relativeSpread": 0.12922905784242558,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 208.501065,
+        "maxMs": 239.004884,
+        "relativeSpread": 0.14167628615297134,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 95.740841,
+        "maxMs": 109.153437,
+        "relativeSpread": 0.13600327095031733,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 104.788054,
+        "maxMs": 131.115758,
+        "relativeSpread": 0.24139882878349386,
+        "noisy": true
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 80.397769,
+        "maxMs": 98.556842,
+        "relativeSpread": 0.2115553850185057,
+        "noisy": true
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 67.569662,
+        "maxMs": 105.523101,
+        "relativeSpread": 0.5390117471048569,
+        "noisy": true
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 66.072558,
+        "maxMs": 72.861613,
+        "relativeSpread": 0.09744006261144292,
+        "noisy": false
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 71.592832,
+        "maxMs": 84.316286,
+        "relativeSpread": 0.16790913076288713,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 159.867156,
+        "maxMs": 200.478822,
+        "relativeSpread": 0.2441517628505544,
+        "noisy": true
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 159.418058,
+        "maxMs": 183.710835,
+        "relativeSpread": 0.14778260381425518,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 159.848193,
+        "maxMs": 185.507853,
+        "relativeSpread": 0.14947577304210133,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 188.873759,
+        "maxMs": 210.382906,
+        "relativeSpread": 0.11030994333362208,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 124.058955,
+        "maxMs": 164.427707,
+        "relativeSpread": 0.31769999436472346,
+        "noisy": true
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 123.73068,
+        "maxMs": 142.292298,
+        "relativeSpread": 0.1445027541898826,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 125.138688,
+        "maxMs": 140.384667,
+        "relativeSpread": 0.1191328085408418,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 123.816878,
+        "maxMs": 146.823032,
+        "relativeSpread": 0.18203586364984747,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 107.788171,
+        "maxMs": 126.614542,
+        "relativeSpread": 0.1667275402963295,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 107.346224,
+        "maxMs": 122.84523,
+        "relativeSpread": 0.13778066092670285,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 100.674503,
+        "maxMs": 128.400538,
+        "relativeSpread": 0.2602931757779585,
+        "noisy": true
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 62.921951,
+        "maxMs": 73.407396,
+        "relativeSpread": 0.15969367347246338,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-O2",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 181.282647,
+        "maxMs": 201.161387,
+        "relativeSpread": 0.10476780074608096,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-O3",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 180.35763,
+        "maxMs": 217.807334,
+        "relativeSpread": 0.1950532134893306,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-lto",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 173.960584,
+        "maxMs": 196.790608,
+        "relativeSpread": 0.12512848847534525,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "llvm",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 167.610364,
+        "maxMs": 181.552186,
+        "relativeSpread": 0.08054681575370473,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-O2",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4134.331927,
+        "maxMs": 4761.884043,
+        "relativeSpread": 0.14242604822004917,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-O3",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4200.736995,
+        "maxMs": 4537.038451,
+        "relativeSpread": 0.07578090779293323,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-lto",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4220.651681,
+        "maxMs": 4587.260397,
+        "relativeSpread": 0.08466156083516083,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "llvm",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4125.648268,
+        "maxMs": 5014.646476,
+        "relativeSpread": 0.19891122475091647,
+        "noisy": false
+      }
+    ],
+    "qualityIssues": [
+      "array_sort/llvm: (max-min)/median is 24.1%, above 20%",
+      "calc_interpreter/c-O2: (max-min)/median is 21.2%, above 20%",
+      "calc_interpreter/c-O3: (max-min)/median is 53.9%, above 20%",
+      "integer_loops/c-O2: (max-min)/median is 24.4%, above 20%",
+      "string_build/c-O2: (max-min)/median is 31.8%, above 20%",
+      "struct_enum/c-lto: (max-min)/median is 26.0%, above 20%"
+    ]
+  },
+  "ok": true,
+  "failure": null
+}

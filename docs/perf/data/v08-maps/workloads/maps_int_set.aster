@@ -1,0 +1,54 @@
+// expect-stdout: 119998800000
+// expect-stdout: 400000
+// expect-stdout: 400000
+// expect-stdout: 19999750000
+// expect-stdout: 14999850007
+// expect-stdout: 100000
+// expect-stdout: 100000
+// New, nonhistorical workload: int map+set insertion, 8 lookup passes,
+// order-preserving delete/reinsert churn and enumeration. 100000 keys.
+fn main(): int {
+    let m: Map[int, int] = {};
+    let s: Set[int] = {};
+    for k in 0..100000 {
+        map_set(m, k, k * 3);
+        set_add(s, k);
+    }
+    var sum: int = 0;
+    var removed: int = 0;
+    var misses: int = 0;
+    for pass in 0..8 {
+        for k in 0..100000 {
+            if let Option::Some(v) = map_get(m, k) { sum += v; }
+            if !set_has(s, k) { return 2; }
+        }
+    }
+    for pass in 0..8 {
+        for i in 0..50000 {
+            let k: int = i * 2;
+            if map_remove(m, k) { removed += 1; }
+            set_remove(s, k);
+            if !map_has(m, k) && !set_has(s, k) { misses += 1; }
+        }
+        for i in 0..50000 {
+            let k: int = i * 2;
+            map_set(m, k, k * 5);
+            set_add(s, k);
+        }
+    }
+    var total: int = 0;
+    var order: int = 0;
+    for k in map_keys(m) {
+        if let Option::Some(v) = map_get(m, k) { total += v; }
+    }
+    let items: [int] = set_items(s);
+    for i in 0..len(items) { order += items[i] * (i % 7); }
+    print(sum);
+    print(removed);
+    print(misses);
+    print(total);
+    print(order);
+    print(len(m));
+    print(len(s));
+    return 0;
+}

@@ -1,0 +1,4631 @@
+{
+  "schemaVersion": 1,
+  "environment": {
+    "recordedAt": "2026-10-06T11:02:25.709Z",
+    "gitCommit": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+    "gitDirty": true,
+    "sourceRevision": null,
+    "inputSha256": "a2513e3bca5acff4b9b2399feefb5251fd2efbf62d9d626d0eb733a80d5336d3",
+    "compilerSha256": "c706711b77bbe811061a151ff76110edfa3e272124f436ad5c28121dd8053b70",
+    "uname": "Linux x86_64",
+    "osRelease": "Debian GNU/Linux 13 (trixie)",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "cpuCount": 9,
+    "cpuAffinity": "0",
+    "governor": "unavailable",
+    "cc": "x86_64-linux-gnu-gcc-13 (Debian 13.3.0-16) 13.3.0",
+    "clang": "Debian clang version 18.1.8 (18+b1)",
+    "lld": "Debian LLD 18.1.8 (compatible with GNU linkers)",
+    "node": "v24.19.0",
+    "note": "Frozen local v0.8b implementation atop main22e693d. Compiler checker SHA256 e1b7984bd5bfc8038434a4394fadf74a7daca16ac3d454a39d5a155aec79a945; loader d8e2cc8b93518e0f940d0e2ced07fe53eb9b5aa7bf7c3ebf8f7dc22497d701e0. Publication provenance verified separately after run; code unchanged since full C+LLVM selfhost proof PASS. Same development cloud Debian13 AMD EPYC9V74 CPU0, GCC13.3.0-16, clang/lld18.1.8 Debian18+b1, Node24.19.0 as paired v0.8a baseline. Original five workload C/LLVM emissions byte-identical a versus b. Fresh combined serial rotated run, no reused samples or concurrent assistant compile/test jobs.",
+    "deviations": [
+      "reference CI OS is Ubuntu 24.04; this machine differs"
+    ]
+  },
+  "options": {
+    "runs": 10,
+    "configs": [
+      "c-O2",
+      "c-O3",
+      "c-lto",
+      "llvm"
+    ],
+    "compiler": "build/asterc",
+    "record": null,
+    "sourceRevision": null,
+    "environmentNote": "Frozen local v0.8b implementation atop main22e693d. Compiler checker SHA256 e1b7984bd5bfc8038434a4394fadf74a7daca16ac3d454a39d5a155aec79a945; loader d8e2cc8b93518e0f940d0e2ced07fe53eb9b5aa7bf7c3ebf8f7dc22497d701e0. Publication provenance verified separately after run; code unchanged since full C+LLVM selfhost proof PASS. Same development cloud Debian13 AMD EPYC9V74 CPU0, GCC13.3.0-16, clang/lld18.1.8 Debian18+b1, Node24.19.0 as paired v0.8a baseline. Original five workload C/LLVM emissions byte-identical a versus b. Fresh combined serial rotated run, no reused samples or concurrent assistant compile/test jobs."
+  },
+  "workloadSources": [
+    {
+      "name": "array_sort",
+      "sha256": "c8bdb38d9d0c50e5b6f0f842681387330cb5ca726c2898c8656c1d0f618e6138",
+      "expected": {
+        "stdout": "68652146336000035\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "calc_interpreter",
+      "sha256": "29981cf4c3c1c6f40d23f45669dfb71084d5795c8e4434433a59ede8b978dfda",
+      "expected": {
+        "stdout": "74910056192\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "integer_loops",
+      "sha256": "215a97b8cd5e67a77349c2212d89ba0c25fa1227e2ce31d84ad46b0d81abfcf7",
+      "expected": {
+        "stdout": "592666852\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "string_build",
+      "sha256": "0240f307a0bcb4b429f616e0f885168547fffa88ec54fd9fc70d30d190cbf888",
+      "expected": {
+        "stdout": "584164027\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "struct_enum",
+      "sha256": "51b3e8c444248f20d14cfc27c8cd1dd1b2b64653d95ae62f96caf851c59010e1",
+      "expected": {
+        "stdout": "667174078821\n",
+        "stderr": "",
+        "exitCode": 0
+      }
+    }
+  ],
+  "buildCommands": [
+    {
+      "configuration": "c-O2",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O2",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O2"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/string_build.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-O3",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O3",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O3.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O3"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/string_build.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-lto"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ]
+    },
+    {
+      "configuration": "c-lto",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-flto",
+        "-Wall",
+        "-I$V08B_ROOT/runtime",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-lto.c",
+        "$V08B_ROOT/runtime/aster_rt.c",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-lto"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/array_sort.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/array_sort.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/calc_interpreter.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/calc_interpreter.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/integer_loops.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/integer_loops.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/string_build.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/string_build.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "bench/struct_enum.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "bench/struct_enum.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-llvm"
+      ]
+    },
+    {
+      "configuration": "llvm",
+      "source": "packages/asterc-self/asterc.aster",
+      "command": [
+        "$V08B_ROOT/build/asterc",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-llvm"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 226.74498,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 226.652341,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 247.768588,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 216.009552,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 215.359824,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 218.036879,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 212.567043,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 209.167248,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 209.97002,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 217.633208,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 251.798504,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 216.82138,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 253.291477,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 223.730655,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 238.23186,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 212.587837,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 214.685978,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 209.533813,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 220.667422,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 209.630818,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 209.1811,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 210.161539,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 223.439173,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 213.6369075,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 111.12386,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 106.434452,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.664527,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.806941,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.44925,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 98.640624,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 97.750861,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.929921,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 96.474774,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.756529,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 113.172691,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 98.65257550000001,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "array_sort",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/array_sort-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 118.403785,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.34255,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 104.948834,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 111.439572,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 115.714857,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.251438,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.136639,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 103.587641,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 103.849626,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.770074,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 121.814616,
+          "peakRssKiB": 2688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "b941ff83759987f46ba1f11f254a45c217cb34bc4610f1623270729f4c7bd6d0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 107.51075599999999,
+      "medianPeakRssKiB": 2688
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 89.574227,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 84.790679,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 82.811284,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 84.707747,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 90.483878,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 88.818727,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 83.58118,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 82.963758,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 83.113234,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 85.725848,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 83.384674,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 84.1444635,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 71.797581,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.632305,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.063511,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.227857,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.204685,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 73.642377,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 70.727318,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.911255,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 70.115944,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 73.588685,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.96723,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 71.4775875,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 69.701065,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.704624,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.506368,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 70.071561,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 77.970439,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.869811,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.691024,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.5301,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 76.037763,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.456249,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 69.100682,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 70.78896449999999,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "calc_interpreter",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/calc_interpreter-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 79.902937,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 77.320792,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 76.344792,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 73.628992,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 80.436432,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 85.898639,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.780787,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.4464,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 71.55112,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 75.361828,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 72.751933,
+          "peakRssKiB": 74752,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "7ab2ce60ee900d9e0fe224ec3bd708bc5373f77641c1259c254ba331fbc7b430",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 75.40411399999999,
+      "medianPeakRssKiB": 74752
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 172.375079,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 163.611685,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.980159,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.186078,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 168.075958,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 163.133269,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.834699,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 158.67656,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 174.909836,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.707897,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 158.822221,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 163.056714,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 170.000254,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 170.94772,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 169.912754,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 165.292379,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 174.751365,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.916199,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.626053,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 165.475623,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 161.637089,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 165.585931,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 164.62479,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 166.10599200000001,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 169.442602,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.488769,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 167.907518,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 165.154741,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 166.754253,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 158.48334,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 170.46003,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 159.234803,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 158.217999,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 160.658002,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 162.493263,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 163.824002,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "integer_loops",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/integer_loops-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 218.768428,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 197.261132,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.519822,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 196.875978,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 203.338117,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.877119,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.71195,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 191.601181,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.129217,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.83163,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.451907,
+          "peakRssKiB": 512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "2859e146bd0c68596b17aa6e66cd72c380483dd9deb7cd65ec09a221ed049d02",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 194.3245195,
+      "medianPeakRssKiB": 512
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 131.148772,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 130.185992,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 130.818216,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.177189,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 136.091686,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.849927,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.828595,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.167376,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.839229,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 133.78736,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 145.782056,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 130.502104,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 134.007787,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 136.7067,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 138.436267,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.729451,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 135.844362,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 128.621381,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.882025,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 126.145503,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.82019,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 132.645972,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 140.859134,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 132.1877115,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 151.096956,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 144.270559,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 142.078365,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.192611,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 135.031376,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.042367,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.256651,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 125.011771,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 135.444201,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 143.935374,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.338624,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 133.11199349999998,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "string_build",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/string_build-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 160.183624,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 132.587723,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.648149,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.314785,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 136.367612,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.3945,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 127.561392,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 130.026611,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 129.879289,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 130.693049,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 131.826881,
+          "peakRssKiB": 145024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "c53fd8c3a9335bce5020e3a7dd2a81c7f698187913fe69e853ceb813a135a47f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 131.003917,
+      "medianPeakRssKiB": 145024
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 117.223258,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 115.134065,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 116.043933,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.025486,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 123.145944,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 113.186912,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 114.795971,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.777675,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 124.666556,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 121.563036,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.52986,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 114.965018,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 119.306443,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 116.351703,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 116.990637,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 114.060641,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 120.319898,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 111.295988,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 115.055042,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.810274,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 114.763962,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 115.900529,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 112.698445,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 114.909502,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 110.484335,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.922048,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.965438,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.467137,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 118.612161,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 103.989457,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 106.443694,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 102.967074,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 107.379916,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 110.949359,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 109.3302,
+          "peakRssKiB": 125696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 106.91180499999999,
+      "medianPeakRssKiB": 125696
+    },
+    {
+      "benchmark": "struct_enum",
+      "kind": "runtime",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/struct_enum-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 67.181562,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 65.389601,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.325486,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 66.052254,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.559855,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 63.492706,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 65.25008,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 63.465835,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 67.199572,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 68.524863,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 76.527223,
+          "peakRssKiB": 63232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "f2e652261fc51dda47dd00fe815881e0f846b65e50a80a01c17526eded57a1fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 66.625913,
+      "medianPeakRssKiB": 63232
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O2",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 194.7513,
+          "peakRssKiB": 421764,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 200.208131,
+          "peakRssKiB": 421820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 198.66569,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 202.161275,
+          "peakRssKiB": 421832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.944176,
+          "peakRssKiB": 421696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.350864,
+          "peakRssKiB": 421696,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.046857,
+          "peakRssKiB": 421820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 187.087318,
+          "peakRssKiB": 421820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 198.23816,
+          "peakRssKiB": 421820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.206468,
+          "peakRssKiB": 421704,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 236.547246,
+          "peakRssKiB": 421820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 196.09116799999998,
+      "medianPeakRssKiB": 421820
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O3",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 195.690618,
+          "peakRssKiB": 421792,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.500405,
+          "peakRssKiB": 421656,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 194.158326,
+          "peakRssKiB": 421788,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 202.199407,
+          "peakRssKiB": 421832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.829613,
+          "peakRssKiB": 421840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 193.748694,
+          "peakRssKiB": 421840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.080467,
+          "peakRssKiB": 421840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 190.375662,
+          "peakRssKiB": 421688,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.965971,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 197.500929,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 218.845577,
+          "peakRssKiB": 421672,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 194.8293655,
+      "medianPeakRssKiB": 421786
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-lto",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 182.906058,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 197.009703,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.958655,
+          "peakRssKiB": 421812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.321981,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 190.974693,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 183.945686,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 185.23199,
+          "peakRssKiB": 421772,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 184.085606,
+          "peakRssKiB": 421776,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 196.434628,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 191.178324,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 192.751649,
+          "peakRssKiB": 421772,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 191.7501525,
+      "medianPeakRssKiB": 421808
+    },
+    {
+      "benchmark": "self-emit-c",
+      "kind": "self-emit-c",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-llvm",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--emit=c"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 192.806384,
+          "peakRssKiB": 420272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 211.021726,
+          "peakRssKiB": 420368,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 177.545177,
+          "peakRssKiB": 420380,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 178.732703,
+          "peakRssKiB": 420356,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 179.592092,
+          "peakRssKiB": 420376,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 178.331421,
+          "peakRssKiB": 420284,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 176.911368,
+          "peakRssKiB": 420272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 175.685957,
+          "peakRssKiB": 420384,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 195.547899,
+          "peakRssKiB": 420384,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 181.339663,
+          "peakRssKiB": 420268,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 182.334264,
+          "peakRssKiB": 420380,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 179.1623975,
+      "medianPeakRssKiB": 420372
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-O2",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O2",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/rebuilt-c-O2"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4455.959666,
+          "peakRssKiB": 422936,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4436.144084,
+          "peakRssKiB": 422976,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4364.02246,
+          "peakRssKiB": 422976,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4574.845944,
+          "peakRssKiB": 422976,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4286.136366,
+          "peakRssKiB": 422976,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4263.898796,
+          "peakRssKiB": 422972,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4638.707801,
+          "peakRssKiB": 422972,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4382.884756,
+          "peakRssKiB": 422976,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4228.637131,
+          "peakRssKiB": 422984,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4426.871522,
+          "peakRssKiB": 422984,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4463.033654,
+          "peakRssKiB": 422972,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4404.878139,
+      "medianPeakRssKiB": 422976
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-O3",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-O3",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/rebuilt-c-O3"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4330.984124,
+          "peakRssKiB": 423068,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4328.045534,
+          "peakRssKiB": 423064,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4403.142197,
+          "peakRssKiB": 422992,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4270.607671,
+          "peakRssKiB": 423072,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4567.515669,
+          "peakRssKiB": 422992,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4570.940004,
+          "peakRssKiB": 423072,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4363.978105,
+          "peakRssKiB": 423064,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4235.598891,
+          "peakRssKiB": 422992,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4603.562751,
+          "peakRssKiB": 422992,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4236.811364,
+          "peakRssKiB": 423024,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4658.378805,
+          "peakRssKiB": 422992,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4383.560151,
+      "medianPeakRssKiB": 423008
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "c-lto",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-c-lto",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/rebuilt-c-lto"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4447.599732,
+          "peakRssKiB": 423088,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4370.531845,
+          "peakRssKiB": 423092,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4413.269162,
+          "peakRssKiB": 423092,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4250.144034,
+          "peakRssKiB": 423096,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4282.082929,
+          "peakRssKiB": 423088,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4387.836591,
+          "peakRssKiB": 423072,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4323.771704,
+          "peakRssKiB": 423056,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4222.084999,
+          "peakRssKiB": 423072,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4377.330638,
+          "peakRssKiB": 423092,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4358.971619,
+          "peakRssKiB": 423052,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4496.667863,
+          "peakRssKiB": 423088,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4364.751732000001,
+      "medianPeakRssKiB": 423088
+    },
+    {
+      "benchmark": "self-build",
+      "kind": "self-build",
+      "configuration": "llvm",
+      "command": [
+        "$V08B_ROOT/.bench/work-Z9pZIM/self-llvm",
+        "build",
+        "packages/asterc-self/asterc.aster",
+        "--backend=llvm",
+        "-o",
+        "$V08B_ROOT/.bench/work-Z9pZIM/rebuilt-llvm"
+      ],
+      "samples": [
+        {
+          "elapsedMs": 4376.58198,
+          "peakRssKiB": 804244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4582.748618,
+          "peakRssKiB": 804284,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4381.968053,
+          "peakRssKiB": 804264,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4514.898861,
+          "peakRssKiB": 804240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4144.625006,
+          "peakRssKiB": 804228,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4029.180209,
+          "peakRssKiB": 804252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4443.832489,
+          "peakRssKiB": 804288,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4016.366645,
+          "peakRssKiB": 804252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4335.352425,
+          "peakRssKiB": 804236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4457.391357,
+          "peakRssKiB": 804236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        },
+        {
+          "elapsedMs": 4240.671669,
+          "peakRssKiB": 804252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "valid": true
+        }
+      ],
+      "medianWallMs": 4358.660239,
+      "medianPeakRssKiB": 804252
+    }
+  ],
+  "bestC": "c-lto",
+  "geometricMeanSpeedups": {
+    "c-O2": 1,
+    "c-O3": 1.0298505692820241,
+    "c-lto": 1.2234635599639094,
+    "llvm": 1.265521446349587
+  },
+  "decision": {
+    "status": "fails",
+    "reason": "At least one median-based L5 gate fails on this recorded run.",
+    "bestC": "c-lto",
+    "suiteSpeedup": 1.034376084226749,
+    "suitePass": false,
+    "selfBuildSpeedup": 1.001397560870998,
+    "selfBuildPass": true,
+    "runtimePass": false,
+    "measuredGatesPass": false,
+    "workloads": [
+      {
+        "benchmark": "array_sort",
+        "llvmVsBestCSpeedup": 0.9176065648724488,
+        "regression": 0.08979168009658278,
+        "pass": false,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 0.9176065648724488
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "llvmVsBestCSpeedup": 0.9387944602067733,
+        "regression": 0.06519588939600895,
+        "pass": false,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 0.9387944602067733
+      },
+      {
+        "benchmark": "integer_loops",
+        "llvmVsBestCSpeedup": 0.8430433916498119,
+        "regression": 0.18617856435957414,
+        "pass": false,
+        "fastestC": "c-O2",
+        "llvmVsFastestCSpeedup": 0.8390949038214397
+      },
+      {
+        "benchmark": "string_build",
+        "llvmVsBestCSpeedup": 1.0160917058686114,
+        "regression": -0.015836863715815275,
+        "pass": true,
+        "fastestC": "c-O2",
+        "llvmVsFastestCSpeedup": 0.9961694809476574
+      },
+      {
+        "benchmark": "struct_enum",
+        "llvmVsBestCSpeedup": 1.6046580104650872,
+        "regression": -0.3768142535803225,
+        "pass": true,
+        "fastestC": "c-lto",
+        "llvmVsFastestCSpeedup": 1.6046580104650872
+      }
+    ],
+    "variability": [
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 209.167248,
+        "maxMs": 251.798504,
+        "relativeSpread": 0.19661924483646404,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 209.1811,
+        "maxMs": 238.23186,
+        "relativeSpread": 0.13598193467577704,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 95.756529,
+        "maxMs": 113.172691,
+        "relativeSpread": 0.17654036817315527,
+        "noisy": false
+      },
+      {
+        "benchmark": "array_sort",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 103.587641,
+        "maxMs": 121.814616,
+        "relativeSpread": 0.1695362927221905,
+        "noisy": false
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 82.811284,
+        "maxMs": 90.483878,
+        "relativeSpread": 0.09118358690349251,
+        "noisy": false
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 68.063511,
+        "maxMs": 75.204685,
+        "relativeSpread": 0.09990787671729956,
+        "noisy": false
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 67.456249,
+        "maxMs": 77.970439,
+        "relativeSpread": 0.14852865943532767,
+        "noisy": false
+      },
+      {
+        "benchmark": "calc_interpreter",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 71.55112,
+        "maxMs": 85.898639,
+        "relativeSpread": 0.19027501602896635,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 158.67656,
+        "maxMs": 174.909836,
+        "relativeSpread": 0.09955601092267821,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 161.637089,
+        "maxMs": 174.751365,
+        "relativeSpread": 0.07895125180071763,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 158.217999,
+        "maxMs": 170.46003,
+        "relativeSpread": 0.07472672410969423,
+        "noisy": false
+      },
+      {
+        "benchmark": "integer_loops",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 191.601181,
+        "maxMs": 203.338117,
+        "relativeSpread": 0.06039863641602888,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 125.167376,
+        "maxMs": 145.782056,
+        "relativeSpread": 0.15796434975485152,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 126.145503,
+        "maxMs": 140.859134,
+        "relativeSpread": 0.11130861434120527,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 125.011771,
+        "maxMs": 144.270559,
+        "relativeSpread": 0.14468108765871648,
+        "noisy": false
+      },
+      {
+        "benchmark": "string_build",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 127.3945,
+        "maxMs": 136.367612,
+        "relativeSpread": 0.06849499011544834,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-O2",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 109.777675,
+        "maxMs": 124.666556,
+        "relativeSpread": 0.1295079256196002,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-O3",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 109.810274,
+        "maxMs": 120.319898,
+        "relativeSpread": 0.09146000824196408,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "c-lto",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 102.967074,
+        "maxMs": 118.612161,
+        "relativeSpread": 0.14633638446194044,
+        "noisy": false
+      },
+      {
+        "benchmark": "struct_enum",
+        "configuration": "llvm",
+        "kind": "runtime",
+        "timedRuns": 10,
+        "minMs": 63.465835,
+        "maxMs": 76.527223,
+        "relativeSpread": 0.19604066063605025,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-O2",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 187.087318,
+        "maxMs": 236.547246,
+        "relativeSpread": 0.25222924879513187,
+        "noisy": true
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-O3",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 190.375662,
+        "maxMs": 218.845577,
+        "relativeSpread": 0.14612743272522738,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "c-lto",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 183.945686,
+        "maxMs": 197.009703,
+        "relativeSpread": 0.06813041256903306,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-emit-c",
+        "configuration": "llvm",
+        "kind": "self-emit-c",
+        "timedRuns": 10,
+        "minMs": 175.685957,
+        "maxMs": 211.021726,
+        "relativeSpread": 0.19722759626500308,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-O2",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4228.637131,
+        "maxMs": 4638.707801,
+        "relativeSpread": 0.09309466846978287,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-O3",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4235.598891,
+        "maxMs": 4658.378805,
+        "relativeSpread": 0.09644670072647549,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "c-lto",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4222.084999,
+        "maxMs": 4496.667863,
+        "relativeSpread": 0.06290915975516015,
+        "noisy": false
+      },
+      {
+        "benchmark": "self-build",
+        "configuration": "llvm",
+        "kind": "self-build",
+        "timedRuns": 10,
+        "minMs": 4016.366645,
+        "maxMs": 4582.748618,
+        "relativeSpread": 0.1299440520580571,
+        "noisy": false
+      }
+    ],
+    "qualityIssues": []
+  },
+  "ok": true,
+  "failure": null
+}

@@ -1,0 +1,455 @@
+{
+  "formatVersion": 1,
+  "recordedDate": "2026-10-06",
+  "sourceVersions": {
+    "v08a": {
+      "commit": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+      "sourceUrl": "https://github.com/foestauf/aster/commit/22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+      "compilerBinarySha256": "8ff4f245a90a6e8179bfafb33687da64ac437d99a71e5adafb25f606ffc77efb",
+      "benchmarkInputSha256": "f7491e86520c38b63186f134fbbaa0dc955edd73488a4f4f7be05a07082e586b"
+    },
+    "v08b": {
+      "commit": "842e320f594d3a5b7546152e9c326ca6a1fb36bd",
+      "sourceUrl": "https://github.com/foestauf/aster/commit/842e320f594d3a5b7546152e9c326ca6a1fb36bd",
+      "gitTree": "029d345b2f8957d0a5a60120959da3bccddb6910",
+      "compilerBinarySha256": "c706711b77bbe811061a151ff76110edfa3e272124f436ad5c28121dd8053b70",
+      "benchmarkInputSha256": "a2513e3bca5acff4b9b2399feefb5251fd2efbf62d9d626d0eb733a80d5336d3",
+      "compilerFilesSha256": {
+        "packages/asterc-self/checker.aster": "e1b7984bd5bfc8038434a4394fadf74a7daca16ac3d454a39d5a155aec79a945",
+        "packages/asterc-self/loader.aster": "d8e2cc8b93518e0f940d0e2ced07fe53eb9b5aa7bf7c3ebf8f7dc22497d701e0"
+      }
+    }
+  },
+  "provenanceNote": "The v0.8b run began from local HEAD22e693d plus frozen staged implementation. Its raw report truthfully retains that HEAD, dirty=true and sourceRevision=null. The independently fetched GitHub commit842e320 has tree029d345; local git write-tree returned the same tree and there were no unstaged tracked changes. Compiler file hashes and binary hash matched after the run. Thus the sampled implementation corresponds to that remote source commit; this overlay does not rewrite raw measured metadata. The present report-only commit is later than the measured compiler source.",
+  "dataTransform": "Timing, RSS, output hashes, source hashes, samples, decisions and recorded metadata unchanged. Only execution-local absolute path prefixes replaced with $V08A_ROOT, $V08B_ROOT or $RESULTS; command paths are descriptive placeholders. No credentials or private account data are included.",
+  "toolchainPackages": {
+    "clang-18_18.1.8-18+b1_amd64.deb": "0476e0ebad77c0b91a1e3fd5344d79a185745703f954f44673cdf5ba7c88f800",
+    "lld-18_18.1.8-18+b1_amd64.deb": "61558585e38e50ed031dab35c68bf847342765d5eb6af6cf5903b7eef2bf164d",
+    "libllvm18_18.1.8-18+b1_amd64.deb": "b7494ab739370262e8a2204cc1e24b74c7fab3adcc87c7812a7c208f3ccd229b",
+    "libgcc-13-dev_13.3.0-16_amd64.deb": "0cd4b5bbead6f7908db91846caa7d73533e8ffe26e628e60cd572b8bd363fbdf",
+    "cpp-13-x86-64-linux-gnu_13.3.0-16_amd64.deb": "8c6efaa4557b6311c22530f5b64dcb739d0338d317161c73f0bce791a3e45c2f",
+    "gcc-13-x86-64-linux-gnu_13.3.0-16_amd64.deb": "11a6636a24780eaec7194e45760c612a3bbb42de7b310005b5033760b2154455",
+    "libclang-common-18-dev_18.1.8-18+b1_amd64.deb": "ca27d5915b97ef559eb6b3f9b025f9b162cd89e76e96c9ae3b0c3b90ff15d766",
+    "libclang-cpp18_18.1.8-18+b1_amd64.deb": "0d6b06b620b83d6936a504af7617812eb3a778ccc77d643a80de266992bf3ec9",
+    "libclang1-18_18.1.8-18+b1_amd64.deb": "a4cac44bbe60786a1e98cd889b080bbcc95278da65b1d1e3b70879a03768a4a1"
+  },
+  "verification": {
+    "v08a": {
+      "commit": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+      "dirty": false,
+      "uname": "Linux x86_64",
+      "cc": "x86_64-linux-gnu-gcc-13 (Debian 13.3.0-16) 13.3.0",
+      "clang": "Debian clang version 18.1.8 (18+b1)",
+      "lld": "Debian LLD 18.1.8 (compatible with GNU linkers)",
+      "node": "v24.19.0",
+      "locale": "LC_ALL=C",
+      "stages": [
+        {
+          "name": "S0",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "matchesS0": true,
+          "suite": null
+        },
+        {
+          "name": "S1",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "matchesS0": true,
+          "suite": {
+            "total": 992,
+            "passed": 992,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S2",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "matchesS0": true,
+          "suite": {
+            "total": 992,
+            "passed": 992,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S3",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "matchesS0": true,
+          "suite": {
+            "total": 992,
+            "passed": 992,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S4",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "matchesS0": true,
+          "suite": null
+        },
+        {
+          "name": "SL1",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "llvmSha256": "223064750728e726bd994f10b661f861671d3c2483fbfaef44694a071677a130",
+          "matchesS0": true,
+          "suite": {
+            "total": 992,
+            "passed": 992,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "SL2",
+          "cSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+          "llvmSha256": "223064750728e726bd994f10b661f861671d3c2483fbfaef44694a071677a130",
+          "matchesS0": true,
+          "suite": null
+        }
+      ],
+      "fullSuite": {
+        "total": 1178,
+        "passed": 1178,
+        "failed": 0,
+        "skipped": 0
+      },
+      "suites": [
+        "full",
+        "S1",
+        "S2",
+        "S3",
+        "SL1"
+      ],
+      "ok": true,
+      "failedStep": null
+    },
+    "v08b": {
+      "commit": "22e693d71243915c4aabd1c5c6ab67a337c14fc5",
+      "dirty": true,
+      "uname": "Linux x86_64",
+      "cc": "x86_64-linux-gnu-gcc-13 (Debian 13.3.0-16) 13.3.0",
+      "clang": "Debian clang version 18.1.8 (18+b1)",
+      "lld": "Debian LLD 18.1.8 (compatible with GNU linkers)",
+      "node": "v24.19.0",
+      "locale": "LC_ALL=C",
+      "stages": [
+        {
+          "name": "S0",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "matchesS0": true,
+          "suite": null
+        },
+        {
+          "name": "S1",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "matchesS0": true,
+          "suite": {
+            "total": 1003,
+            "passed": 1003,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S2",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "matchesS0": true,
+          "suite": {
+            "total": 1003,
+            "passed": 1003,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S3",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "matchesS0": true,
+          "suite": {
+            "total": 1003,
+            "passed": 1003,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "S4",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "matchesS0": true,
+          "suite": null
+        },
+        {
+          "name": "SL1",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "llvmSha256": "ee4879f61840d3ae77ddbe92a40899d5a2524b931b182be5f9716efa307c7247",
+          "matchesS0": true,
+          "suite": {
+            "total": 1003,
+            "passed": 1003,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "name": "SL2",
+          "cSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2",
+          "llvmSha256": "ee4879f61840d3ae77ddbe92a40899d5a2524b931b182be5f9716efa307c7247",
+          "matchesS0": true,
+          "suite": null
+        }
+      ],
+      "fullSuite": {
+        "total": 1172,
+        "passed": 1172,
+        "failed": 0,
+        "skipped": 0
+      },
+      "suites": [
+        "full",
+        "S1",
+        "S2",
+        "S3",
+        "SL1"
+      ],
+      "ok": true,
+      "failedStep": null
+    },
+    "independentSampleAndMedianAudit": "PASS: every case has 1warmup+10valid timed samples; all medians independently recomputed; both original-suite geometric means independently recomputed."
+  },
+  "ownSourceCheckInformational": {
+    "v08a": {
+      "version": "v0.8a",
+      "configuration": "c-O2",
+      "command": [
+        "build/asterc",
+        "check",
+        "packages/asterc-self/asterc.aster"
+      ],
+      "cpuAffinity": "0",
+      "samples": [
+        {
+          "elapsedMs": 100.424086,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.161776,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 94.482452,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 96.339002,
+          "peakRssKiB": 196552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 96.113602,
+          "peakRssKiB": 196552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.696543,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 93.862275,
+          "peakRssKiB": 196552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 96.315187,
+          "peakRssKiB": 196552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 94.872329,
+          "peakRssKiB": 196552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.763284,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 95.89347,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true
+        }
+      ],
+      "medianWallMs": 95.72991350000001,
+      "medianPeakRssKiB": 196544.0,
+      "relativeSpread": 0.025872027973784774
+    },
+    "v08b": {
+      "version": "v0.8b",
+      "configuration": "c-O2",
+      "command": [
+        "build/asterc",
+        "check",
+        "packages/asterc-self/asterc.aster"
+      ],
+      "cpuAffinity": "0",
+      "samples": [
+        {
+          "elapsedMs": 94.089881,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true
+        },
+        {
+          "elapsedMs": 105.904312,
+          "peakRssKiB": 193864,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 91.131876,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 93.545169,
+          "peakRssKiB": 193864,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 97.045775,
+          "peakRssKiB": 193848,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 94.221661,
+          "peakRssKiB": 193860,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 90.559872,
+          "peakRssKiB": 193864,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 92.756523,
+          "peakRssKiB": 193864,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 90.678241,
+          "peakRssKiB": 193836,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 88.831202,
+          "peakRssKiB": 193860,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true
+        },
+        {
+          "elapsedMs": 89.162092,
+          "peakRssKiB": 193864,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true
+        }
+      ],
+      "medianWallMs": 91.9441995,
+      "medianPeakRssKiB": 193862.0,
+      "relativeSpread": 0.1856899085841734
+    }
+  },
+  "recordedAuxiliaryScriptsSha256": {
+    "measure_extra.py": "a076005e3fe38158f505b0186262169367ef59924de184f7eade77cfc35ec32f",
+    "measure_compilers.py": "3d4a68c18d241979fc31a1532c945b31403a820c27397e8eb6bb7581c2493942"
+  }
+}

@@ -1,0 +1,4058 @@
+{
+  "note": "Diagnostic: matched-source check and C emission, separate from native self-build gate. Both versions compile/check both frozen compiler-source trees. CPU0, serial, configurations and versions interleaved with rotating order. One checked warmup+10 checked timed rounds. Output oracle for each target obtained using released v0.8a compiler. C-O2 compiler copied from fixed-point bootstrapped build/asterc.",
+  "roots": {
+    "v08a": "$V08A_ROOT",
+    "v08b": "$V08B_ROOT"
+  },
+  "commands": [
+    [
+      "COPY",
+      "$V08A_ROOT/build/asterc",
+      "$RESULTS/paired/v08a-c-O2"
+    ],
+    [
+      "$V08A_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--emit=c"
+    ],
+    [
+      "cc",
+      "-std=c11",
+      "-O3",
+      "-Wall",
+      "-I$V08A_ROOT/runtime",
+      "$RESULTS/paired/v08a.c",
+      "$V08A_ROOT/runtime/aster_rt.c",
+      "-o",
+      "$RESULTS/paired/v08a-c-O3"
+    ],
+    [
+      "$V08A_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--emit=c"
+    ],
+    [
+      "cc",
+      "-std=c11",
+      "-O2",
+      "-flto",
+      "-Wall",
+      "-I$V08A_ROOT/runtime",
+      "$RESULTS/paired/v08a.c",
+      "$V08A_ROOT/runtime/aster_rt.c",
+      "-o",
+      "$RESULTS/paired/v08a-c-lto"
+    ],
+    [
+      "$V08A_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--backend=llvm",
+      "-o",
+      "$RESULTS/paired/v08a-llvm"
+    ],
+    [
+      "COPY",
+      "$V08B_ROOT/build/asterc",
+      "$RESULTS/paired/v08b-c-O2"
+    ],
+    [
+      "$V08B_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--emit=c"
+    ],
+    [
+      "cc",
+      "-std=c11",
+      "-O3",
+      "-Wall",
+      "-I$V08B_ROOT/runtime",
+      "$RESULTS/paired/v08b.c",
+      "$V08B_ROOT/runtime/aster_rt.c",
+      "-o",
+      "$RESULTS/paired/v08b-c-O3"
+    ],
+    [
+      "$V08B_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--emit=c"
+    ],
+    [
+      "cc",
+      "-std=c11",
+      "-O2",
+      "-flto",
+      "-Wall",
+      "-I$V08B_ROOT/runtime",
+      "$RESULTS/paired/v08b.c",
+      "$V08B_ROOT/runtime/aster_rt.c",
+      "-o",
+      "$RESULTS/paired/v08b-c-lto"
+    ],
+    [
+      "$V08B_ROOT/build/asterc",
+      "build",
+      "packages/asterc-self/asterc.aster",
+      "--backend=llvm",
+      "-o",
+      "$RESULTS/paired/v08b-llvm"
+    ]
+  ],
+  "binaries": {
+    "v08a/c-O2": "8ff4f245a90a6e8179bfafb33687da64ac437d99a71e5adafb25f606ffc77efb",
+    "v08a/c-O3": "9183d2cb4a8fcc64be54c09dc5d473884cf128ceb2a6c5f55cf926bf0c0f6e86",
+    "v08a/c-lto": "47510e09ff2a80e23fb65407df40ec110f8ce7210bf31133d218073066ab0e7f",
+    "v08a/llvm": "13feb2514d4b47d6af32f8140ffac0f6c2e0c62d62278b0780841b3e4e4fc210",
+    "v08b/c-O2": "c706711b77bbe811061a151ff76110edfa3e272124f436ad5c28121dd8053b70",
+    "v08b/c-O3": "6d17bedfe89f0fadcb4db48dc2e832c4125dc0cded4f96663eb1f7271f43720d",
+    "v08b/c-lto": "1924774a088f62ce129fd32526403cbcc96bba59a7e695462001d73ddac06a65",
+    "v08b/llvm": "e9f04aa0192550a54090fdfcbdd507c7e42ddb0b1784328cf97acbe7e0ed148f"
+  },
+  "oracleHashes": {
+    "v08a": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f",
+    "v08b": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+  },
+  "results": [
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 96.108167,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.819832,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 102.799098,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 99.467872,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.236903,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 107.387245,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 102.860609,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.932924,
+          "peakRssKiB": 196484,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 111.509743,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.772818,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.015881,
+          "peakRssKiB": 196508,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 98.24187649999999,
+      "medianPeakRssKiB": 196504.0,
+      "minMs": 93.772818,
+      "maxMs": 111.509743,
+      "relativeSpread": 0.18054342640737325
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 94.251825,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 94.914134,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 94.235893,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.617073,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 118.746799,
+          "peakRssKiB": 196560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 100.868619,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 98.528429,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 110.462311,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.568643,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.376209,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.382764,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 96.592858,
+      "medianPeakRssKiB": 196520.0,
+      "minMs": 94.235893,
+      "maxMs": 118.746799,
+      "relativeSpread": 0.2537548480033585
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 88.014386,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.529925,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.612192,
+          "peakRssKiB": 196416,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 98.682933,
+          "peakRssKiB": 196416,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.891622,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 100.540522,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.444353,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.082851,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.970296,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.423011,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.06784,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 89.7073245,
+      "medianPeakRssKiB": 196524.0,
+      "minMs": 87.529925,
+      "maxMs": 100.540522,
+      "relativeSpread": 0.1450338316577482
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 81.964166,
+          "peakRssKiB": 195200,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 83.328861,
+          "peakRssKiB": 195220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 99.083877,
+          "peakRssKiB": 195204,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.857282,
+          "peakRssKiB": 195116,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 82.671681,
+          "peakRssKiB": 195112,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.834396,
+          "peakRssKiB": 195200,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 84.038742,
+          "peakRssKiB": 195220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 82.626632,
+          "peakRssKiB": 195200,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 82.231547,
+          "peakRssKiB": 195112,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 84.086154,
+          "peakRssKiB": 195220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.376707,
+          "peakRssKiB": 195200,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 84.06244799999999,
+      "medianPeakRssKiB": 195200.0,
+      "minMs": 82.231547,
+      "maxMs": 99.083877,
+      "relativeSpread": 0.2004739381370383
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 89.060456,
+          "peakRssKiB": 193848,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.532619,
+          "peakRssKiB": 193796,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 108.738044,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.490368,
+          "peakRssKiB": 193828,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 137.312491,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 101.765306,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.010007,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.643757,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.34689,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.76044,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.676438,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 91.7020985,
+      "medianPeakRssKiB": 193816.0,
+      "minMs": 87.532619,
+      "maxMs": 137.312491,
+      "relativeSpread": 0.5428433243542403
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 89.762976,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.669826,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.974389,
+          "peakRssKiB": 193848,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 101.10207,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 103.30178,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.695391,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.175217,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.880054,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.662857,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 112.494015,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.315894,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 93.5276355,
+      "medianPeakRssKiB": 193860.0,
+      "minMs": 86.669826,
+      "maxMs": 112.494015,
+      "relativeSpread": 0.2761129249332942
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 83.154088,
+          "peakRssKiB": 193844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.50065,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.354484,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.626597,
+          "peakRssKiB": 193844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.668456,
+          "peakRssKiB": 193728,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.232553,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.724227,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.521432,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.331817,
+          "peakRssKiB": 193844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.868955,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 83.728629,
+          "peakRssKiB": 193728,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 86.6963415,
+      "medianPeakRssKiB": 193840.0,
+      "minMs": 83.728629,
+      "maxMs": 97.626597,
+      "relativeSpread": 0.1603062800521981
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 77.494933,
+          "peakRssKiB": 192424,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 78.622845,
+          "peakRssKiB": 192528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 79.571992,
+          "peakRssKiB": 192516,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.993011,
+          "peakRssKiB": 192432,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 77.132999,
+          "peakRssKiB": 192532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.382359,
+          "peakRssKiB": 192528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.485386,
+          "peakRssKiB": 192528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 84.591631,
+          "peakRssKiB": 192444,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 78.19338,
+          "peakRssKiB": 192444,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 79.90397,
+          "peakRssKiB": 192424,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 80.432191,
+          "peakRssKiB": 192532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 80.1680805,
+      "medianPeakRssKiB": 192522.0,
+      "minMs": 77.132999,
+      "maxMs": 88.993011,
+      "relativeSpread": 0.1479393285461038
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 193.649559,
+          "peakRssKiB": 424220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 203.625832,
+          "peakRssKiB": 424212,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 200.00549,
+          "peakRssKiB": 424220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 193.498932,
+          "peakRssKiB": 424228,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 201.86166,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 202.580488,
+          "peakRssKiB": 424212,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.154828,
+          "peakRssKiB": 424228,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 187.153493,
+          "peakRssKiB": 424232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 193.889342,
+          "peakRssKiB": 424212,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 206.78723,
+          "peakRssKiB": 424252,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 191.5408,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 196.947416,
+      "medianPeakRssKiB": 424228.0,
+      "minMs": 187.153493,
+      "maxMs": 206.78723,
+      "relativeSpread": 0.09969024929984355
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 197.459372,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.823511,
+          "peakRssKiB": 424220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.091151,
+          "peakRssKiB": 424224,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 209.420873,
+          "peakRssKiB": 424216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 202.790732,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 197.142677,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.724813,
+          "peakRssKiB": 424232,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 187.967772,
+          "peakRssKiB": 424248,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 189.334646,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 190.162367,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 189.963949,
+          "peakRssKiB": 424272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 189.6492975,
+      "medianPeakRssKiB": 424260.0,
+      "minMs": 187.967772,
+      "maxMs": 209.420873,
+      "relativeSpread": 0.11311985482044828
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 181.861084,
+          "peakRssKiB": 424128,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 181.492663,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 181.993855,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 191.067911,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 199.53361,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.126245,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 185.704804,
+          "peakRssKiB": 424236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 174.953392,
+          "peakRssKiB": 424240,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 191.446554,
+          "peakRssKiB": 424244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 201.335746,
+          "peakRssKiB": 424128,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 178.927016,
+          "peakRssKiB": 424128,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 184.9155245,
+      "medianPeakRssKiB": 424240.0,
+      "minMs": 174.953392,
+      "maxMs": 201.335746,
+      "relativeSpread": 0.14267246663759695
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 173.2326,
+          "peakRssKiB": 422920,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 173.632804,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 185.649765,
+          "peakRssKiB": 422836,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 177.58636,
+          "peakRssKiB": 422920,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 190.259713,
+          "peakRssKiB": 422916,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 178.359549,
+          "peakRssKiB": 422932,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 177.153597,
+          "peakRssKiB": 422844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 169.414539,
+          "peakRssKiB": 422844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 173.582152,
+          "peakRssKiB": 422844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 185.843717,
+          "peakRssKiB": 422912,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 173.007917,
+          "peakRssKiB": 422824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 177.3699785,
+      "medianPeakRssKiB": 422878.0,
+      "minMs": 169.414539,
+      "maxMs": 190.259713,
+      "relativeSpread": 0.11752368792219262
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 188.58445,
+          "peakRssKiB": 421544,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 181.956683,
+          "peakRssKiB": 421540,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 195.500789,
+          "peakRssKiB": 421524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 192.837174,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 192.03277,
+          "peakRssKiB": 421528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 196.748362,
+          "peakRssKiB": 421564,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.360634,
+          "peakRssKiB": 421548,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 179.748212,
+          "peakRssKiB": 421556,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 182.463671,
+          "peakRssKiB": 421564,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 181.634372,
+          "peakRssKiB": 421528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 183.819191,
+          "peakRssKiB": 421540,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 184.0899125,
+      "medianPeakRssKiB": 421544.0,
+      "minMs": 179.748212,
+      "maxMs": 196.748362,
+      "relativeSpread": 0.0923469937550217
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 187.108222,
+          "peakRssKiB": 421532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 189.541666,
+          "peakRssKiB": 421608,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 182.459378,
+          "peakRssKiB": 421528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 186.636075,
+          "peakRssKiB": 421584,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 215.781907,
+          "peakRssKiB": 421584,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.890078,
+          "peakRssKiB": 421544,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.070786,
+          "peakRssKiB": 421584,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 183.585044,
+          "peakRssKiB": 421544,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 186.379103,
+          "peakRssKiB": 421528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.637896,
+          "peakRssKiB": 421576,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 179.868566,
+          "peakRssKiB": 421528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 185.5084995,
+      "medianPeakRssKiB": 421560.0,
+      "minMs": 179.868566,
+      "maxMs": 215.781907,
+      "relativeSpread": 0.19359404607765696
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 176.893768,
+          "peakRssKiB": 421556,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 175.345601,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.103009,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.088583,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 203.417598,
+          "peakRssKiB": 421520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 188.641738,
+          "peakRssKiB": 421560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 179.105979,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 173.730175,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.762141,
+          "peakRssKiB": 421520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 180.518357,
+          "peakRssKiB": 421556,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 182.508102,
+          "peakRssKiB": 421552,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 183.2983425,
+      "medianPeakRssKiB": 421552.0,
+      "minMs": 173.730175,
+      "maxMs": 203.417598,
+      "relativeSpread": 0.16196231016109705
+    },
+    {
+      "targetSource": "v08a",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 168.256557,
+          "peakRssKiB": 420228,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 171.551436,
+          "peakRssKiB": 420136,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 177.139475,
+          "peakRssKiB": 420160,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 182.817484,
+          "peakRssKiB": 420236,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 180.698632,
+          "peakRssKiB": 420228,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 175.41949,
+          "peakRssKiB": 420144,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 169.702719,
+          "peakRssKiB": 420196,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 165.051892,
+          "peakRssKiB": 420144,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 170.530725,
+          "peakRssKiB": 420156,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 184.286742,
+          "peakRssKiB": 420248,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        },
+        {
+          "elapsedMs": 169.352219,
+          "peakRssKiB": 420244,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "0414c56fe13a0eccb45c5f275a669aac661151e835a6970e42b7374433494b4f"
+        }
+      ],
+      "medianWallMs": 173.48546299999998,
+      "medianPeakRssKiB": 420178.0,
+      "minMs": 165.051892,
+      "maxMs": 184.286742,
+      "relativeSpread": 0.11087297844661484
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 103.458336,
+          "peakRssKiB": 196508,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.04472,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 102.874497,
+          "peakRssKiB": 196492,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 101.517486,
+          "peakRssKiB": 196484,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 112.014153,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.957027,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.111187,
+          "peakRssKiB": 196528,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 94.817825,
+          "peakRssKiB": 196512,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.11633,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 105.31451,
+          "peakRssKiB": 196500,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.902767,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 96.6137585,
+      "medianPeakRssKiB": 196502.0,
+      "minMs": 94.817825,
+      "maxMs": 112.014153,
+      "relativeSpread": 0.17799046706168659
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 105.511045,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.399212,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 101.413921,
+          "peakRssKiB": 196560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.195581,
+          "peakRssKiB": 196560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 121.507428,
+          "peakRssKiB": 196560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.017548,
+          "peakRssKiB": 196536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 100.806316,
+          "peakRssKiB": 196560,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 97.576335,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 106.893131,
+          "peakRssKiB": 196556,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 104.871201,
+          "peakRssKiB": 196520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.730937,
+          "peakRssKiB": 196504,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 99.1913255,
+      "medianPeakRssKiB": 196546.0,
+      "minMs": 92.195581,
+      "maxMs": 121.507428,
+      "relativeSpread": 0.29550816920981665
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 96.325325,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.227498,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.210735,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.303595,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 94.16159,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.943396,
+          "peakRssKiB": 196508,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 98.062092,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.372107,
+          "peakRssKiB": 196416,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.807369,
+          "peakRssKiB": 196492,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.5081,
+          "peakRssKiB": 196524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.589807,
+          "peakRssKiB": 196532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 93.1234955,
+      "medianPeakRssKiB": 196524.0,
+      "minMs": 85.589807,
+      "maxMs": 98.062092,
+      "relativeSpread": 0.13393274095902052
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08a",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 93.262831,
+          "peakRssKiB": 195216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.350269,
+          "peakRssKiB": 195116,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.956751,
+          "peakRssKiB": 195216,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.040447,
+          "peakRssKiB": 195220,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 84.652622,
+          "peakRssKiB": 195204,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.691507,
+          "peakRssKiB": 195124,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.703102,
+          "peakRssKiB": 195128,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 83.830931,
+          "peakRssKiB": 195116,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 105.829005,
+          "peakRssKiB": 195212,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.801297,
+          "peakRssKiB": 195124,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 80.594585,
+          "peakRssKiB": 195112,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 88.3717745,
+      "medianPeakRssKiB": 195126.0,
+      "minMs": 80.594585,
+      "maxMs": 105.829005,
+      "relativeSpread": 0.2855484134246959
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 97.787673,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.709525,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.625421,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.597117,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 94.911792,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.840371,
+          "peakRssKiB": 193820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 93.257118,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.681925,
+          "peakRssKiB": 193832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 99.936749,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.22076,
+          "peakRssKiB": 193812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.611709,
+          "peakRssKiB": 193836,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 93.73289600000001,
+      "medianPeakRssKiB": 193822.0,
+      "minMs": 88.611709,
+      "maxMs": 99.936749,
+      "relativeSpread": 0.12082246984025757
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 105.899681,
+          "peakRssKiB": 193820,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.934355,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.1807,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.446719,
+          "peakRssKiB": 193856,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 109.803311,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 92.47549,
+          "peakRssKiB": 193824,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 96.408606,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.335336,
+          "peakRssKiB": 193848,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.537728,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 106.740173,
+          "peakRssKiB": 193816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.118114,
+          "peakRssKiB": 193872,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 93.82809499999999,
+      "medianPeakRssKiB": 193836.0,
+      "minMs": 89.118114,
+      "maxMs": 109.803311,
+      "relativeSpread": 0.22045845649962295
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 92.89829,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.551968,
+          "peakRssKiB": 193844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.320351,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 90.793084,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 89.93042,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 88.156159,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 91.642158,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.354382,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.152698,
+          "peakRssKiB": 193844,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 95.786975,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 81.749038,
+          "peakRssKiB": 193840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 88.23825500000001,
+      "medianPeakRssKiB": 193840.0,
+      "minMs": 81.749038,
+      "maxMs": 95.786975,
+      "relativeSpread": 0.15909128076025528
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "check",
+      "compilerVersion": "v08b",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 90.665128,
+          "peakRssKiB": 192444,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 81.171544,
+          "peakRssKiB": 192516,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 82.212028,
+          "peakRssKiB": 192484,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 83.839335,
+          "peakRssKiB": 192524,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 87.206534,
+          "peakRssKiB": 192532,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 85.673561,
+          "peakRssKiB": 192536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 86.614779,
+          "peakRssKiB": 192448,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 77.12048,
+          "peakRssKiB": 192520,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 79.761397,
+          "peakRssKiB": 192536,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 82.749221,
+          "peakRssKiB": 192448,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "elapsedMs": 76.369316,
+          "peakRssKiB": 192516,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "medianWallMs": 82.4806245,
+      "medianPeakRssKiB": 192518.0,
+      "minMs": 76.369316,
+      "maxMs": 87.206534,
+      "relativeSpread": 0.13139107597324273
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 192.17093,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 189.349291,
+          "peakRssKiB": 424360,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 199.425454,
+          "peakRssKiB": 424348,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.851718,
+          "peakRssKiB": 424360,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 191.070597,
+          "peakRssKiB": 424340,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 188.147718,
+          "peakRssKiB": 424340,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 195.293201,
+          "peakRssKiB": 424340,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 192.906569,
+          "peakRssKiB": 424348,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.614086,
+          "peakRssKiB": 424380,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 191.224407,
+          "peakRssKiB": 424368,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 183.756581,
+          "peakRssKiB": 424344,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 190.209944,
+      "medianPeakRssKiB": 424348.0,
+      "minMs": 183.756581,
+      "maxMs": 199.425454,
+      "relativeSpread": 0.08237672894746234
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 188.960379,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 202.837065,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 203.468478,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 192.0866,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 205.591724,
+          "peakRssKiB": 424344,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 192.365254,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 192.216305,
+          "peakRssKiB": 424344,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 194.899597,
+          "peakRssKiB": 424392,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 189.07793,
+          "peakRssKiB": 424376,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 193.855885,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.409066,
+          "peakRssKiB": 424400,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 193.1105695,
+      "medianPeakRssKiB": 424400.0,
+      "minMs": 186.409066,
+      "maxMs": 205.591724,
+      "relativeSpread": 0.09933510138604819
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 195.615727,
+          "peakRssKiB": 424360,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 187.228454,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 232.757,
+          "peakRssKiB": 424256,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 177.326965,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 193.020201,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 216.252619,
+          "peakRssKiB": 424368,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 189.163497,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 179.517353,
+          "peakRssKiB": 424372,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 183.89211,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 191.173405,
+          "peakRssKiB": 424364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 180.694618,
+          "peakRssKiB": 424372,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 188.1959755,
+      "medianPeakRssKiB": 424364.0,
+      "minMs": 177.326965,
+      "maxMs": 232.757,
+      "relativeSpread": 0.294533583158371
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08a",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 169.766687,
+          "peakRssKiB": 423044,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 179.573871,
+          "peakRssKiB": 423040,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 176.186267,
+          "peakRssKiB": 423052,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 171.559458,
+          "peakRssKiB": 423056,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 179.932971,
+          "peakRssKiB": 422960,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 174.382263,
+          "peakRssKiB": 423040,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 180.90756,
+          "peakRssKiB": 423060,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 188.832507,
+          "peakRssKiB": 423044,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 174.691961,
+          "peakRssKiB": 423044,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 177.896489,
+          "peakRssKiB": 423040,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 169.580079,
+          "peakRssKiB": 422956,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 177.041378,
+      "medianPeakRssKiB": 423042.0,
+      "minMs": 169.580079,
+      "maxMs": 188.832507,
+      "relativeSpread": 0.10874535782250848
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-O2",
+      "samples": [
+        {
+          "elapsedMs": 183.419882,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 182.876528,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 197.557239,
+          "peakRssKiB": 421664,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 196.228424,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 185.638676,
+          "peakRssKiB": 421800,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 183.44734,
+          "peakRssKiB": 421800,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.036825,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 179.166068,
+          "peakRssKiB": 421792,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 179.903219,
+          "peakRssKiB": 421788,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 192.474591,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 181.02031,
+          "peakRssKiB": 421652,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 184.543008,
+      "medianPeakRssKiB": 421784.0,
+      "minMs": 179.166068,
+      "maxMs": 197.557239,
+      "relativeSpread": 0.09965791280480274
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-O3",
+      "samples": [
+        {
+          "elapsedMs": 181.360603,
+          "peakRssKiB": 421832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 201.009566,
+          "peakRssKiB": 421840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 200.238251,
+          "peakRssKiB": 421712,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 185.676052,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 190.556762,
+          "peakRssKiB": 421832,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 236.957845,
+          "peakRssKiB": 421840,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 187.187964,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.729572,
+          "peakRssKiB": 421656,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 183.544035,
+          "peakRssKiB": 421800,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 191.97821,
+          "peakRssKiB": 421784,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 182.484556,
+          "peakRssKiB": 421800,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 188.872363,
+      "medianPeakRssKiB": 421800.0,
+      "minMs": 182.484556,
+      "maxMs": 236.957845,
+      "relativeSpread": 0.28841323386206585
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "c-lto",
+      "samples": [
+        {
+          "elapsedMs": 176.882771,
+          "peakRssKiB": 421804,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.999933,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 197.921433,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 171.81883,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 186.574729,
+          "peakRssKiB": 421808,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 180.635956,
+          "peakRssKiB": 421812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 183.705176,
+          "peakRssKiB": 421812,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 187.646497,
+          "peakRssKiB": 421772,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 180.820083,
+          "peakRssKiB": 421804,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 180.340179,
+          "peakRssKiB": 421776,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 175.549711,
+          "peakRssKiB": 421816,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 182.2626295,
+      "medianPeakRssKiB": 421808.0,
+      "minMs": 171.81883,
+      "maxMs": 197.921433,
+      "relativeSpread": 0.14321423470958985
+    },
+    {
+      "targetSource": "v08b",
+      "mode": "emit-c",
+      "compilerVersion": "v08b",
+      "configuration": "llvm",
+      "samples": [
+        {
+          "elapsedMs": 167.130647,
+          "peakRssKiB": 420264,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 0,
+          "warmup": true,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 171.07538,
+          "peakRssKiB": 420368,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 1,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 174.270493,
+          "peakRssKiB": 420384,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 2,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 167.434991,
+          "peakRssKiB": 420356,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 3,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 189.655254,
+          "peakRssKiB": 420360,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 4,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 169.245177,
+          "peakRssKiB": 420364,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 5,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 173.56222,
+          "peakRssKiB": 420284,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 6,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 172.073324,
+          "peakRssKiB": 420372,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 7,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 170.752483,
+          "peakRssKiB": 420272,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 8,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 174.23477,
+          "peakRssKiB": 420260,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 9,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        },
+        {
+          "elapsedMs": 166.618507,
+          "peakRssKiB": 420284,
+          "exitCode": 0,
+          "signal": 0,
+          "round": 10,
+          "warmup": false,
+          "valid": true,
+          "stdoutSha256": "fc9609d897f9725e52647889bba958155774263b82c3c1949db11cf12c65c3a2"
+        }
+      ],
+      "medianWallMs": 171.574352,
+      "medianPeakRssKiB": 420358.0,
+      "minMs": 166.618507,
+      "maxMs": 189.655254,
+      "relativeSpread": 0.1342668454315364
+    }
+  ],
+  "ok": true
+}
