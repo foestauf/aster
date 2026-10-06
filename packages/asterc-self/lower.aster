@@ -518,6 +518,7 @@ fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
         TExprNode::Variant(enum_name, variant, tag, args) => Option::Some(lower_variant(st, e.ty, enum_name, variant, tag, args)),
         TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
         TExprNode::If(cond, then, otherwise) => Option::Some(lower_if_expr(st, e.ty, cond, then, otherwise)),
+        TExprNode::EmptyMap => panic("unimplemented: maps (v0.8 task 4)"),
         TExprNode::Error => panic("internal: error expression reached lowering"),
         TExprNode::Match(scrutinee, arms) => Option::Some(lower_match_expr(st, e.ty, scrutinee, arms)),
         TExprNode::Try(x) => Option::Some(lower_try(st, e.ty, x)),

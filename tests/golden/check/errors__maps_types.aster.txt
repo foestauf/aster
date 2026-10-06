@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/maps_types.aster 579 582 'Map' is a builtin type and cannot be redefined
+error tests/programs/errors/maps_types.aster 599 602 'Set' is a builtin type and cannot be redefined
+error tests/programs/errors/maps_types.aster 621 625 map key must be int or string, found bool
+error tests/programs/errors/maps_types.aster 640 645 map key must be int or string, found [int]
+error tests/programs/errors/maps_types.aster 663 667 map value cannot be void
+error tests/programs/errors/maps_types.aster 682 693 'Map' expects 2 type arguments, got 1
+error tests/programs/errors/maps_types.aster 698 711 'Set' expects 1 type argument, got 2
+error tests/programs/errors/maps_types.aster 778 784 cannot compare 'Map[string, int]' values
+error tests/programs/errors/maps_types.aster 797 798 cannot print a value of type Map[string, int]

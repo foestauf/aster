@@ -122,7 +122,8 @@ struct Expr {
     node: ExprNode,
 }
 
-// `Int` holds the canonical decimal value, and `Char` and `Str` the literal's source text, quotes included.
+// `Int` holds the canonical decimal value, and `Char` and `Str` the literal's source text, quotes included. `EmptyMap` is
+// the empty map or set literal `{}`.
 enum ExprNode {
     Int(string),
     Char(string),
@@ -140,6 +141,7 @@ enum ExprNode {
     ArrayLit([Expr]),
     Variant(Ident, Ident, [Expr]),
     Match(Ident, Expr, [Arm]),
+    EmptyMap,
 }
 
 struct FieldInit {
@@ -920,6 +922,12 @@ fn parse_primary(p: Parser): Option[Expr] {
             let elements: [Expr] = parse_expr_list(p, "]", true, true)?;
             let close: Token = expect(p, "]")?;
             return Option::Some(Expr { start: t.start, end: close.end, node: ExprNode::ArrayLit(elements) });
+        }
+        "{" => {
+            // In expression position, `{` can only start the empty map or set literal `{}`.
+            advance(p);
+            let close: Token = expect(p, "}")?;
+            return Option::Some(Expr { start: t.start, end: close.end, node: ExprNode::EmptyMap });
         }
         "(" => {
             advance(p);

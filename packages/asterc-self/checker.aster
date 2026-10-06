@@ -29,10 +29,13 @@ enum Type {
     Struct(string),
     Enum(string),
     Array(Type),
+    Map(Type, Type),
+    Set(Type),
     Error,
 }
 
-// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `never`, `struct`, `enum`, `array` or `error`.
+// The TS checker's `kind`: `int`, `bool`, `string`, `void`, `never`, `struct`, `enum`, `array`, `map`, `set` or
+// `error`.
 fn kind_of_type(t: Type): string {
     return match t {
         Type::Int => "int",
@@ -43,6 +46,8 @@ fn kind_of_type(t: Type): string {
         Type::Struct(_) => "struct",
         Type::Enum(_) => "enum",
         Type::Array(_) => "array",
+        Type::Map(_, _) => "map",
+        Type::Set(_) => "set",
         Type::Error => "error",
     };
 }
@@ -64,6 +69,16 @@ fn type_equals(a: Type, b: Type): bool {
                 return type_equals(x, y);
             }
         }
+        Type::Map(xk, xv) => {
+            if let Type::Map(yk, yv) = b {
+                return type_equals(xk, yk) && type_equals(xv, yv);
+            }
+        }
+        Type::Set(x) => {
+            if let Type::Set(y) = b {
+                return type_equals(x, y);
+            }
+        }
         _ => {}
     }
     return kind_of_type(a) == kind_of_type(b);
@@ -75,6 +90,8 @@ fn type_to_string(t: Type): string {
         Type::Struct(name) => name,
         Type::Enum(name) => name,
         Type::Array(elem) => "[" + type_to_string(elem) + "]",
+        Type::Map(k, v) => "Map[" + type_to_string(k) + ", " + type_to_string(v) + "]",
+        Type::Set(k) => "Set[" + type_to_string(k) + "]",
         _ => kind_of_type(t),
     };
 }
@@ -232,7 +249,7 @@ enum TExprNode {
     Int(string), Str(string), Bool(bool), Local(Local), Unary(string, TExpr), Binary(string, TExpr, TExpr),
     Call(string, [TExpr]), Builtin(string, [TExpr]), If(TExpr, TExpr, TExpr), Field(TExpr, string),
     Index(TExpr, TExpr), ArrayLit([TExpr]), StructLit(string, [TFieldInit]), Variant(string, string, int, [TExpr]),
-    EnumCompare(string, TExpr, TExpr), Match(TExpr, [TArm]), Try(TTry), Error,
+    EnumCompare(string, TExpr, TExpr), Match(TExpr, [TArm]), Try(TTry), EmptyMap, Error,
 }
 
 enum TStmt {
@@ -540,7 +557,7 @@ fn builtin_type_message(name: string): string {
 
 // Names of predeclared types, which no declaration may reuse.
 fn is_builtin_type(name: string): bool {
-    return name == "Option" || name == "Result";
+    return name == "Option" || name == "Result" || name == "Map" || name == "Set";
 }
 
 fn find_struct(env: Env, name: string): Option[int] {
@@ -650,6 +667,9 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
                 }
                 return bound;
             }
+            if name == "Map" || name == "Set" {
+                return resolve_map_type(env, ref, name, args, bindings, quiet, instantiates);
+            }
             if let Option::Some(ti) = find_template(env, name) {
                 let template: Template = env.templates[ti];
                 let expected: int = len(template.params);
@@ -698,6 +718,38 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
             return t;
         }
     }
+}
+
+// `Map[K, V]` or `Set[K]`: the arity, then a key of int or string, then a value other than void.
+fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bindings: [Binding], quiet: bool, instantiates: bool): Type {
+    let expected: int = if name == "Map" { 2 } else { 1 };
+    if len(args) != expected {
+        let noun: string = if expected == 1 { "argument" } else { "arguments" };
+        say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+        return Type::Error;
+    }
+    let key: Type = resolve_type_with(env, args[0], bindings, quiet, instantiates, false);
+    var ok: bool = !is_error(key);
+    let key_kind: string = kind_of_type(key);
+    if ok && key_kind != "int" && key_kind != "string" {
+        say(env, quiet, "map key must be int or string, found " + type_to_string(key), args[0].start, args[0].end);
+        ok = false;
+    }
+    if name == "Set" {
+        if !ok {
+            return Type::Error;
+        }
+        return Type::Set(key);
+    }
+    let value: Type = resolve_type_with(env, args[1], bindings, quiet, instantiates, false);
+    if is_void(value) {
+        say(env, quiet, "map value cannot be void", args[1].start, args[1].end);
+        return Type::Error;
+    }
+    if !ok || is_error(value) {
+        return Type::Error;
+    }
+    return Type::Map(key, value);
 }
 
 // resolveType's `say`: reports unless `quiet`.
@@ -1520,6 +1572,9 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
         ExprNode::ArrayLit(elements) => {
             return check_array_lit(ctx, e, elements, expected);
         }
+        ExprNode::EmptyMap => {
+            return check_empty_map(ctx, e, expected);
+        }
         ExprNode::Variant(enum_name, variant, args) => {
             return check_variant_expr(ctx, e, enum_name, variant, args, expected);
         }
@@ -1755,7 +1810,8 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
 }
 
 // Matches a value's type against a template slot, binding each of `params` the slot fixes that is still unbound: a
-// bare parameter takes the whole type, and arrays and instantiations of the same template are matched part by part.
+// bare parameter takes the whole type, and arrays, maps, sets and instantiations of the same template are matched part
+// by part.
 // Error and void types bind nothing. `env` is only read, to find an instantiation's generic origin.
 fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Binding]) {
     if is_error(actual) || is_void(actual) || is_never(actual) {
@@ -1775,6 +1831,22 @@ fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Bi
                     }
                 }
                 return;
+            }
+            match actual {
+                Type::Map(k, v) => {
+                    if name == "Map" && len(slot_args) == 2 {
+                        unify(env, params, slot_args[0], k, bindings);
+                        unify(env, params, slot_args[1], v, bindings);
+                    }
+                    return;
+                }
+                Type::Set(k) => {
+                    if name == "Set" && len(slot_args) == 1 {
+                        unify(env, params, slot_args[0], k, bindings);
+                    }
+                    return;
+                }
+                _ => {}
             }
             let Type::Enum(actual_name) = actual else {
                 return;
@@ -2349,11 +2421,13 @@ fn find_field(env: Env, struct_name: string, name: string): Option[TField] {
     return Option::Some(fields[find_tfield(fields, name)?]);
 }
 
-// Struct and array values are heap references; v0.1 defines no equality for them.
+// Struct, array, map and set values are heap references; no equality is defined for them.
 fn is_reference(t: Type): bool {
     return match t {
         Type::Struct(_) => true,
         Type::Array(_) => true,
+        Type::Map(_, _) => true,
+        Type::Set(_) => true,
         _ => false,
     };
 }
@@ -2460,6 +2534,29 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
         return error_expr();
     }
     return TExpr { ty: Type::Array(x), node: TExprNode::ArrayLit(values) };
+}
+
+// `{}` takes its type from `expected`, which must be a map or a set.
+fn check_empty_map(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
+    let Option::Some(t) = expected else {
+        report(ctx.env, "cannot infer type of empty map or set", e.start, e.end);
+        return error_expr();
+    };
+    match t {
+        Type::Map(_, _) => {
+            return TExpr { ty: t, node: TExprNode::EmptyMap };
+        }
+        Type::Set(_) => {
+            return TExpr { ty: t, node: TExprNode::EmptyMap };
+        }
+        Type::Error => {
+            return error_expr();
+        }
+        _ => {
+            report(ctx.env, "type mismatch: expected " + type_to_string(t) + ", found empty map or set", e.start, e.end);
+            return error_expr();
+        }
+    }
 }
 
 // Resolves an assignment target, or None once it has been reported. Only a bare local needs to be `var`; writing

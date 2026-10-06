@@ -121,6 +121,13 @@ import { spawnStrict } from './spawn.js';
 //  match arm block must diverge                                     errors/block_arm_errors.aster, fixtures/check_unwrap.txt
 //  cannot infer type of empty array (every element never)          fixtures/check_unwrap.txt
 //  operator '<op>' cannot be applied to never and <T> (never operand) errors/never_errors.aster, fixtures/check_unwrap.txt
+//   v0.8 rows (maps and sets):
+//  map key must be int or string, found <T>                         errors/maps_types.aster
+//  map value cannot be void                                         errors/maps_types.aster
+//  'Map'|'Set' expects <n> type argument(s), got <m>                errors/maps_types.aster
+//  'Map'|'Set' is a builtin type and cannot be redefined            errors/maps_types.aster
+//  cannot infer type of empty map or set                            errors/maps_empty_literal.aster
+//  type mismatch: expected <T>, found empty map or set              errors/maps_empty_literal.aster
 //  cannot import '<literal>': <reason>                              errors/import_missing.aster, import_dir.aster
 //  lexical and syntax errors of every loaded file                   errors/lex_errors.aster, import_syntax.aster
 const PROGRAMS_DIR = fileURLToPath(new URL('./programs/', import.meta.url));

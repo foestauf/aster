@@ -1,0 +1,5 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/maps_empty_literal.aster 165 167 cannot infer type of empty map or set
+error tests/programs/errors/maps_empty_literal.aster 188 190 type mismatch: expected int, found empty map or set

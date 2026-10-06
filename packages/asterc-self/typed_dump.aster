@@ -256,6 +256,7 @@ fn dump_expr(out: [string], d: int, e: TExpr) {
             }
             dump_expr(out, d + 1, x.operand);
         }
+        TExprNode::EmptyMap => dump_put(out, d, "empty_map" + t),
         TExprNode::Error => dump_put(out, d, "error" + t),
     }
 }

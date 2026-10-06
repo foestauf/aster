@@ -258,6 +258,7 @@ enum ExprNode
   variant ArrayLit([Expr])
   variant Variant(Ident, Ident, [Expr])
   variant Match(Ident, Expr, [Arm])
+  variant EmptyMap
 enum PatternNode
   variant Wildcard
   variant Variant(Ident, Ident, [Binder])
@@ -281,6 +282,8 @@ enum Type
   variant Struct(string)
   variant Enum(string)
   variant Array(Type)
+  variant Map(Type, Type)
+  variant Set(Type)
   variant Error
 enum TArmBody
   variant Block(TBlock)
@@ -312,6 +315,7 @@ enum TExprNode
   variant EnumCompare(string, TExpr, TExpr)
   variant Match(TExpr, [TArm])
   variant Try(TTry)
+  variant EmptyMap
   variant Error
 enum TStmt
   variant Let(Local, TExpr)
@@ -765,7 +769,8 @@ fn parse_primary(Parser): Option[Expr]
   let 3 digits string
   let 4 elements [Expr]
   let 5 close Token
-  let 6 inner Expr
+  let 6 close Token
+  let 7 inner Expr
 fn parse_struct_lit(Parser, Token): Option[Expr]
   param 0 p Parser
   param 1 name Token
@@ -889,11 +894,20 @@ fn type_equals(Type, Type): bool
   let 5 y string
   let 6 x Type
   let 7 y Type
+  let 8 xk Type
+  let 9 xv Type
+  let 10 yk Type
+  let 11 yv Type
+  let 12 x Type
+  let 13 y Type
 fn type_to_string(Type): string
   param 0 t Type
   let 1 name string
   let 2 name string
   let 3 elem Type
+  let 4 k Type
+  let 5 v Type
+  let 6 k Type
 fn instance_name(string, [Type]): string
   param 0 base string
   param 1 args [Type]
@@ -1040,6 +1054,20 @@ fn resolve_type_with(Env, TypeExpr, [Binding], bool, bool, bool): Type
   var 18 t Type
   var 19 found Option[Type]
   let 20 t Type
+fn resolve_map_type(Env, TypeExpr, string, [TypeExpr], [Binding], bool, bool): Type
+  param 0 env Env
+  param 1 ref TypeExpr
+  param 2 name string
+  param 3 args [TypeExpr]
+  param 4 bindings [Binding]
+  param 5 quiet bool
+  param 6 instantiates bool
+  let 7 expected int
+  let 8 noun string
+  let 9 key Type
+  var 10 ok bool
+  let 11 key_kind string
+  let 12 value Type
 fn say(Env, bool, string, int, int): void
   param 0 env Env
   param 1 quiet bool
@@ -1490,10 +1518,13 @@ fn unify(Env, [string], TypeExpr, Type, [Binding]): void
   let 6 actual_elem Type
   let 7 name string
   let 8 slot_args [TypeExpr]
-  let 9 actual_name string
-  let 10 ei int
-  let 11 en TEnum
-  let 12 i int
+  let 9 k Type
+  let 10 v Type
+  let 11 k Type
+  let 12 actual_name string
+  let 13 ei int
+  let 14 en TEnum
+  let 15 i int
 fn enum_base_name(Env, Type): string
   param 0 env Env
   param 1 t Type
@@ -1717,6 +1748,11 @@ fn check_array_lit(Ctx, Expr, [Expr], Option[Type]): TExpr
   let 11 value TExpr
   let 12 x Type
   let 13 x Type
+fn check_empty_map(Ctx, Expr, Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 expected Option[Type]
+  let 3 t Type
 fn check_place(Ctx, Expr): Option[TPlace]
   param 0 ctx Ctx
   param 1 target Expr

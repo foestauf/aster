@@ -29,6 +29,8 @@ fn c_type(t: Type): string {
         Type::Struct(name) => c_mangle_struct(name),
         Type::Enum(name) => c_mangle_enum(name),
         Type::Array(_) => "aster_array",
+        Type::Map(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        Type::Set(_) => panic("unimplemented: maps (v0.8 task 5)"),
         Type::Void => "void",
         Type::Error => panic("internal: error type reached codegen"),
         Type::Never => panic("internal: never type reached codegen"),

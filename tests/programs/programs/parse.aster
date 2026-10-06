@@ -165,6 +165,7 @@ fn print_expr(src: string, d: int, e: Expr) {
             line(d, "variant-lit " + head + " " + named(enum_name) + " " + named(variant));
             print_exprs(src, d + 1, args);
         }
+        ExprNode::EmptyMap => line(d, "empty-map " + head),
         ExprNode::Match(kw, scrutinee, arms) => {
             line(d, "match-expr " + head + " " + span(kw.start, kw.end));
             print_expr(src, d + 1, scrutinee);

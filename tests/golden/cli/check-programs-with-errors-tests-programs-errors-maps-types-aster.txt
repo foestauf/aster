@@ -1,0 +1,30 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/maps_types.aster:10:8: error: 'Map' is a builtin type and cannot be redefined
+  struct Map { x: int }
+         ^^^
+tests/programs/errors/maps_types.aster:11:6: error: 'Set' is a builtin type and cannot be redefined
+  enum Set { A }
+       ^^^
+tests/programs/errors/maps_types.aster:12:13: error: map key must be int or string, found bool
+  fn f(a: Map[bool, int], b: Set[[int]], c: Map[string, void]) { }
+              ^^^^
+tests/programs/errors/maps_types.aster:12:32: error: map key must be int or string, found [int]
+  fn f(a: Map[bool, int], b: Set[[int]], c: Map[string, void]) { }
+                                 ^^^^^
+tests/programs/errors/maps_types.aster:12:55: error: map value cannot be void
+  fn f(a: Map[bool, int], b: Set[[int]], c: Map[string, void]) { }
+                                                        ^^^^
+tests/programs/errors/maps_types.aster:13:9: error: 'Map' expects 2 type arguments, got 1
+  fn g(d: Map[string], e: Set[int, int]) { }
+          ^^^^^^^^^^^
+tests/programs/errors/maps_types.aster:13:25: error: 'Set' expects 1 type argument, got 2
+  fn g(d: Map[string], e: Set[int, int]) { }
+                          ^^^^^^^^^^^^^
+tests/programs/errors/maps_types.aster:16:11: error: cannot compare 'Map[string, int]' values
+      print(m == m);
+            ^^^^^^
+tests/programs/errors/maps_types.aster:17:11: error: cannot print a value of type Map[string, int]
+      print(m);
+            ^

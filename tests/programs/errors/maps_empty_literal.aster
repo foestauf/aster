@@ -1,0 +1,7 @@
+// expect-error: 4:15 cannot infer type of empty map or set
+// expect-error: 5:18 type mismatch: expected int, found empty map or set
+fn main(): int {
+    print(len({}));
+    let n: int = {};
+    return n;
+}

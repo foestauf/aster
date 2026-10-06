@@ -1,0 +1,9 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/maps_empty_literal.aster:4:15: error: cannot infer type of empty map or set
+      print(len({}));
+                ^^
+tests/programs/errors/maps_empty_literal.aster:5:18: error: type mismatch: expected int, found empty map or set
+      let n: int = {};
+                   ^^

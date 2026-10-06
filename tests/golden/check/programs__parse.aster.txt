@@ -124,6 +124,7 @@ enum ExprNode
   variant ArrayLit([Expr])
   variant Variant(Ident, Ident, [Expr])
   variant Match(Ident, Expr, [Arm])
+  variant EmptyMap
 enum PatternNode
   variant Wildcard
   variant Variant(Ident, Ident, [Binder])
@@ -597,7 +598,8 @@ fn parse_primary(Parser): Option[Expr]
   let 3 digits string
   let 4 elements [Expr]
   let 5 close Token
-  let 6 inner Expr
+  let 6 close Token
+  let 7 inner Expr
 fn parse_struct_lit(Parser, Token): Option[Expr]
   param 0 p Parser
   param 1 name Token
