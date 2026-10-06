@@ -106,6 +106,152 @@ void *aster_rt_array_pop_slot(aster_array a) {
     return a->data + a->len * a->elem_size;
 }
 
+typedef struct {
+    uint64_t hash;
+    int64_t live;
+    int64_t ikey;
+    aster_string skey;
+} aster_map_entry; /* followed by value_size bytes, rounded up to 8 */
+
+struct aster_map_obj {
+    int64_t key_kind, value_size, stride;
+    int64_t count; /* live entries */
+    int64_t used;  /* entries appended since the last rebuild, live or dead */
+    int64_t cap;   /* index slots (power of two); entries hold up to cap */
+    char *entries;
+    int32_t *index; /* -1 = empty, else an entry number */
+};
+
+#define MAP_ENTRY(m, i) ((aster_map_entry *)((m)->entries + (i) * (m)->stride))
+#define MAP_VALUE(e) ((void *)((char *)(e) + sizeof(aster_map_entry)))
+
+static uint64_t map_hash(const struct aster_map_obj *m, int64_t ikey, aster_string skey) {
+    if (m->key_kind == ASTER_KEY_STRING) {
+        uint64_t h = 1469598103934665603ULL;
+        for (int64_t i = 0; i < skey.len; i++) {
+            h ^= (unsigned char)skey.ptr[i];
+            h *= 1099511628211ULL;
+        }
+        return h;
+    }
+    uint64_t x = (uint64_t)ikey + 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    return x ^ (x >> 31);
+}
+
+static int map_key_eq(const struct aster_map_obj *m, const aster_map_entry *e, int64_t ikey, aster_string skey) {
+    if (m->key_kind == ASTER_KEY_STRING)
+        return e->skey.len == skey.len && (skey.len == 0 || memcmp(e->skey.ptr, skey.ptr, (size_t)skey.len) == 0);
+    return e->ikey == ikey;
+}
+
+/* The entry number for the key, or -1; *slot gets the index slot where it is or would go. */
+static int64_t map_find(const struct aster_map_obj *m, uint64_t h, int64_t ikey, aster_string skey, uint64_t *slot) {
+    uint64_t mask = (uint64_t)m->cap - 1;
+    for (uint64_t s = h & mask;; s = (s + 1) & mask) {
+        int32_t n = m->index[s];
+        if (n < 0) {
+            *slot = s;
+            return -1;
+        }
+        aster_map_entry *e = MAP_ENTRY(m, n);
+        if (e->live && e->hash == h && map_key_eq(m, e, ikey, skey)) {
+            *slot = s;
+            return n;
+        }
+    }
+}
+
+/* Copies the live entries, in order, into a table of new_cap slots and rebuilds the index. */
+static void map_rebuild(struct aster_map_obj *m, int64_t new_cap) {
+    char *entries = aster_rt_alloc(new_cap * m->stride);
+    int64_t w = 0;
+    for (int64_t r = 0; r < m->used; r++) {
+        aster_map_entry *e = MAP_ENTRY(m, r);
+        if (e->live) {
+            memcpy(entries + w * m->stride, e, (size_t)m->stride);
+            w++;
+        }
+    }
+    m->entries = entries;
+    m->used = w;
+    m->cap = new_cap;
+    m->index = aster_rt_alloc(new_cap * (int64_t)sizeof(int32_t));
+    memset(m->index, 0xff, (size_t)new_cap * sizeof(int32_t));
+    uint64_t mask = (uint64_t)new_cap - 1;
+    for (int64_t i = 0; i < w; i++) {
+        uint64_t s = MAP_ENTRY(m, i)->hash & mask;
+        while (m->index[s] >= 0) s = (s + 1) & mask;
+        m->index[s] = (int32_t)i;
+    }
+}
+
+aster_map aster_rt_map_new(int64_t key_kind, int64_t value_size) {
+    struct aster_map_obj *m = aster_rt_alloc((int64_t)sizeof(struct aster_map_obj));
+    m->key_kind = key_kind;
+    m->value_size = value_size;
+    m->stride = (int64_t)sizeof(aster_map_entry) + ((value_size + 7) & ~(int64_t)7);
+    m->used = 0;
+    map_rebuild(m, 8);
+    return m;
+}
+
+void *aster_rt_map_slot(aster_map m, int64_t ikey, aster_string skey, int64_t create) {
+    uint64_t h = map_hash(m, ikey, skey), s;
+    int64_t n = map_find(m, h, ikey, skey, &s);
+    if (n >= 0) return MAP_VALUE(MAP_ENTRY(m, n));
+    if (!create) return NULL;
+    if ((m->used + 1) * 3 > m->cap * 2) {
+        /* Grow only if the live entries need it; otherwise the rebuild just drops tombstones. */
+        map_rebuild(m, (m->count + 1) * 3 > m->cap ? m->cap * 2 : m->cap);
+        map_find(m, h, ikey, skey, &s);
+    }
+    aster_map_entry *e = MAP_ENTRY(m, m->used);
+    e->hash = h;
+    e->live = 1;
+    e->ikey = ikey;
+    e->skey = skey;
+    memset(MAP_VALUE(e), 0, (size_t)(m->stride - (int64_t)sizeof(aster_map_entry)));
+    m->index[s] = (int32_t)m->used;
+    m->used++;
+    m->count++;
+    return MAP_VALUE(e);
+}
+
+int64_t aster_rt_map_insert(aster_map m, int64_t ikey, aster_string skey) {
+    int64_t before = m->count;
+    aster_rt_map_slot(m, ikey, skey, 1);
+    return m->count != before;
+}
+
+int64_t aster_rt_map_remove(aster_map m, int64_t ikey, aster_string skey) {
+    uint64_t s;
+    int64_t n = map_find(m, map_hash(m, ikey, skey), ikey, skey, &s);
+    if (n < 0) return 0;
+    MAP_ENTRY(m, n)->live = 0;
+    m->count--;
+    return 1;
+}
+
+int64_t aster_rt_map_len(aster_map m) { return m->count; }
+
+aster_array aster_rt_map_keys(aster_map m) {
+    int64_t size = m->key_kind == ASTER_KEY_STRING ? (int64_t)sizeof(aster_string) : (int64_t)sizeof(int64_t);
+    aster_array a = aster_rt_array_new(size, m->count);
+    int64_t w = 0;
+    for (int64_t r = 0; r < m->used; r++) {
+        aster_map_entry *e = MAP_ENTRY(m, r);
+        if (!e->live) continue;
+        if (m->key_kind == ASTER_KEY_STRING)
+            *(aster_string *)aster_rt_array_at(a, w) = e->skey;
+        else
+            *(int64_t *)aster_rt_array_at(a, w) = e->ikey;
+        w++;
+    }
+    return a;
+}
+
 void aster_rt_print_int(int64_t n) { printf("%" PRId64 "\n", n); }
 
 void aster_rt_print_bool(bool b) { puts(b ? "true" : "false"); }
