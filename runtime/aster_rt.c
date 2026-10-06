@@ -174,6 +174,10 @@ static void map_rebuild(struct aster_map_obj *m, int64_t new_cap) {
             w++;
         }
     }
+    /* Nothing holds a slot pointer across map calls, so the old tables can go now.
+     * map_new's calloc leaves them NULL before the first rebuild. */
+    free(m->entries);
+    free(m->index);
     m->entries = entries;
     m->used = w;
     m->cap = new_cap;

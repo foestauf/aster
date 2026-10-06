@@ -1,12 +1,21 @@
+#define _POSIX_C_SOURCE 200809L
 #include "aster_rt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %d\n", __LINE__); exit(1); } } while (0)
 
 static const aster_string NOSTR = { "", 0 };
+
+/* Peak resident set size so far, in kilobytes (Linux reports ru_maxrss in KB). */
+static long peak_rss_kb(void) {
+    struct rusage ru;
+    if (getrusage(RUSAGE_SELF, &ru) != 0) return 0;
+    return ru.ru_maxrss;
+}
 
 static aster_string str(const char *s) {
     aster_string r = { s, (int64_t)strlen(s) };
@@ -105,6 +114,20 @@ int main(void) {
     }
     CHECK(aster_rt_map_len(c) == 2);
     CHECK_KEYS(c, 49998, 49999);
+
+    /* single-key churn: rebuilds that only drop tombstones must free the old tables */
+    aster_map one = aster_rt_map_new(ASTER_KEY_INT, 0);
+    long rss_before = peak_rss_kb();
+    for (int64_t i = 0; i < 5000000; i++) {
+        CHECK(aster_rt_map_insert(one, i, NOSTR) == 1);
+        CHECK(aster_rt_map_remove(one, i, NOSTR) == 1);
+    }
+    CHECK(aster_rt_map_len(one) == 0);
+    long rss_growth = peak_rss_kb() - rss_before;
+    if (rss_growth > 16 * 1024) {
+        printf("FAIL %d: peak RSS grew %ld KB during churn\n", __LINE__, rss_growth);
+        exit(1);
+    }
 
     /* sets: value_size 0 */
     aster_map set = aster_rt_map_new(ASTER_KEY_INT, 0);
