@@ -2648,6 +2648,30 @@ fn c_array_at(IrFunction, IrOperand, IrOperand): string
   param 0 f IrFunction
   param 1 array IrOperand
   param 2 index IrOperand
+fn map_key_type(Type): Type
+  param 0 t Type
+  let 1 key Type
+  let 2 key Type
+fn map_value_type(Type): Type
+  param 0 t Type
+  let 1 value Type
+fn c_map_kind(Type): string
+  param 0 key Type
+fn c_map_value_size(Type): string
+  param 0 value Type
+fn c_map_key(IrFunction, Type, IrOperand): string
+  param 0 f IrFunction
+  param 1 map_ty Type
+  param 2 key IrOperand
+fn c_map_args(IrFunction, IrOperand, IrOperand): string
+  param 0 f IrFunction
+  param 1 map IrOperand
+  param 2 key IrOperand
+fn c_map_slot(IrFunction, IrOperand, IrOperand, string): string
+  param 0 f IrFunction
+  param 1 map IrOperand
+  param 2 key IrOperand
+  param 3 create string
 fn emit_instr(IrFunction, [IrEnum], IrInstr): string
   param 0 f IrFunction
   param 1 enums [IrEnum]
@@ -2710,6 +2734,28 @@ fn emit_instr(IrFunction, [IrEnum], IrInstr): string
   let 58 value int
   let 59 err int
   let 60 args [IrOperand]
+  let 61 dst int
+  let 62 key Type
+  let 63 value Type
+  let 64 dst int
+  let 65 map IrOperand
+  let 66 key IrOperand
+  let 67 map IrOperand
+  let 68 key IrOperand
+  let 69 value IrOperand
+  let 70 dst int
+  let 71 map IrOperand
+  let 72 key IrOperand
+  let 73 dst int
+  let 74 map IrOperand
+  let 75 key IrOperand
+  let 76 dst int
+  let 77 map IrOperand
+  let 78 key IrOperand
+  let 79 dst int
+  let 80 map IrOperand
+  let 81 dst int
+  let 82 map IrOperand
 fn emit_struct_new(IrFunction, int, string, [IrFieldValue]): string
   param 0 f IrFunction
   param 1 dst int

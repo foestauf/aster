@@ -1,0 +1,74 @@
+// The empty literal {} takes its type from every context an empty [] does. In a block's tail or a match arm, a bare
+// {} is an empty block, so those positions use ({}). At the start of a statement, {} is still an empty block.
+// expect-stdout:
+// 0
+// 0
+// 1
+// 0
+// 0
+// 0
+// 0
+// 0
+// 0
+// 2
+// 0
+// 0
+// 0
+// 0
+// 0
+struct Holder { m: Map[string, int], s: Set[int] }
+
+enum Slot {
+    Full(Map[int, string]),
+    Empty,
+}
+
+fn count(m: Map[string, int]): int {
+    return len(m);
+}
+
+fn fresh(): Set[string] {
+    return {};
+}
+
+fn slot_len(s: Slot): int {
+    return match s {
+        Slot::Full(m) => len(m),
+        Slot::Empty => -1,
+    };
+}
+
+fn main(): int {
+    var a: Map[string, int] = {};
+    print(len(a));
+    var b: Set[int] = {};
+    print(len(b));
+    set_add(b, 1);
+    print(len(b));
+    b = {};
+    print(len(b));
+    print(count({}));
+    print(len(fresh()));
+    let h: Holder = Holder { m: {}, s: {} };
+    print(len(h.m) + len(h.s));
+    print(slot_len(Slot::Full({})));
+    let maps: [Map[string, int]] = [];
+    push(maps, {});
+    print(len(maps[0]));
+    let more: [Set[int]] = [{}, {}];
+    print(len(more));
+    print(len(more[1]));
+    let pick: Map[string, int] = if len(a) > 0 { ({}) } else { ({}) };
+    print(len(pick));
+    let chosen: Set[int] = match len(b) {
+        0 => ({}),
+        _ => b,
+    };
+    print(len(chosen));
+    {}
+    let paren: Map[int, int] = ({});
+    print(len(paren));
+    a = {};
+    print(len(a));
+    return 0;
+}

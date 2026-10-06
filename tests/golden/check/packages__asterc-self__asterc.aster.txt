@@ -2747,6 +2747,30 @@ fn c_array_at(IrFunction, IrOperand, IrOperand): string
   param 0 f IrFunction
   param 1 array IrOperand
   param 2 index IrOperand
+fn map_key_type(Type): Type
+  param 0 t Type
+  let 1 key Type
+  let 2 key Type
+fn map_value_type(Type): Type
+  param 0 t Type
+  let 1 value Type
+fn c_map_kind(Type): string
+  param 0 key Type
+fn c_map_value_size(Type): string
+  param 0 value Type
+fn c_map_key(IrFunction, Type, IrOperand): string
+  param 0 f IrFunction
+  param 1 map_ty Type
+  param 2 key IrOperand
+fn c_map_args(IrFunction, IrOperand, IrOperand): string
+  param 0 f IrFunction
+  param 1 map IrOperand
+  param 2 key IrOperand
+fn c_map_slot(IrFunction, IrOperand, IrOperand, string): string
+  param 0 f IrFunction
+  param 1 map IrOperand
+  param 2 key IrOperand
+  param 3 create string
 fn emit_instr(IrFunction, [IrEnum], IrInstr): string
   param 0 f IrFunction
   param 1 enums [IrEnum]
@@ -2809,6 +2833,28 @@ fn emit_instr(IrFunction, [IrEnum], IrInstr): string
   let 58 value int
   let 59 err int
   let 60 args [IrOperand]
+  let 61 dst int
+  let 62 key Type
+  let 63 value Type
+  let 64 dst int
+  let 65 map IrOperand
+  let 66 key IrOperand
+  let 67 map IrOperand
+  let 68 key IrOperand
+  let 69 value IrOperand
+  let 70 dst int
+  let 71 map IrOperand
+  let 72 key IrOperand
+  let 73 dst int
+  let 74 map IrOperand
+  let 75 key IrOperand
+  let 76 dst int
+  let 77 map IrOperand
+  let 78 key IrOperand
+  let 79 dst int
+  let 80 map IrOperand
+  let 81 dst int
+  let 82 map IrOperand
 fn emit_struct_new(IrFunction, int, string, [IrFieldValue]): string
   param 0 f IrFunction
   param 1 dst int
@@ -2984,6 +3030,23 @@ fn llvm_array_at(LlvmState, IrOperand, IrOperand): string
   param 2 index IrOperand
   let 3 object string
   let 4 at string
+fn llvm_map_args(LlvmState, IrOperand, IrOperand): string
+  param 0 st LlvmState
+  param 1 map IrOperand
+  param 2 key IrOperand
+  let 3 object string
+fn llvm_map_slot(LlvmState, IrOperand, IrOperand, string): string
+  param 0 st LlvmState
+  param 1 map IrOperand
+  param 2 key IrOperand
+  param 3 create string
+fn llvm_map_flag(LlvmState, int, string, IrOperand, IrOperand): void
+  param 0 st LlvmState
+  param 1 dst int
+  param 2 name string
+  param 3 map IrOperand
+  param 4 key IrOperand
+  let 5 result string
 fn llvm_args(LlvmState, [IrOperand]): string
   param 0 st LlvmState
   param 1 args [IrOperand]
@@ -3125,6 +3188,34 @@ fn llvm_instr(LlvmState, IrInstr): void
   let 72 err int
   let 73 operands [IrOperand]
   let 74 args [string]
+  let 75 dst int
+  let 76 key Type
+  let 77 value Type
+  var 78 size int
+  var 79 kind string
+  let 80 dst int
+  let 81 map IrOperand
+  let 82 key IrOperand
+  let 83 address string
+  let 84 map IrOperand
+  let 85 key IrOperand
+  let 86 value IrOperand
+  let 87 stored string
+  let 88 address string
+  let 89 dst int
+  let 90 map IrOperand
+  let 91 key IrOperand
+  let 92 dst int
+  let 93 map IrOperand
+  let 94 key IrOperand
+  let 95 address string
+  let 96 dst int
+  let 97 map IrOperand
+  let 98 key IrOperand
+  let 99 dst int
+  let 100 map IrOperand
+  let 101 dst int
+  let 102 map IrOperand
 fn llvm_unreachable(LlvmState): void
   param 0 st LlvmState
 fn llvm_term(LlvmState, IrTerm): void

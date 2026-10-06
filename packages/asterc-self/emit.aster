@@ -4,7 +4,7 @@
 // element containing "\n    ", as in the original. The self-host fixed point (`pnpm selfhost`) checks the C byte for byte,
 // and so do the program expectations in tests/programs/ (selfhost_golden.test.ts).
 //
-// Aster has no maps: the enum table is a linear scan, `c_find_enum`.
+// The compiler does not use its own maps yet (the two-step rule), so the enum table is a linear scan, `c_find_enum`.
 
 import "lower.aster";
 
@@ -29,8 +29,8 @@ fn c_type(t: Type): string {
         Type::Struct(name) => c_mangle_struct(name),
         Type::Enum(name) => c_mangle_enum(name),
         Type::Array(_) => "aster_array",
-        Type::Map(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        Type::Set(_) => panic("unimplemented: maps (v0.8 task 5)"),
+        Type::Map(_, _) => "aster_map",
+        Type::Set(_) => "aster_map",
         Type::Void => "void",
         Type::Error => panic("internal: error type reached codegen"),
         Type::Never => panic("internal: never type reached codegen"),
@@ -46,6 +46,8 @@ fn c_zero(t: Type): string {
         Type::Enum(_) => "0",
         Type::Struct(_) => "NULL",
         Type::Array(_) => "NULL",
+        Type::Map(_, _) => "NULL",
+        Type::Set(_) => "NULL",
         Type::Void => "",
         _ => panic("internal: no zero value"),
     };
@@ -378,6 +380,55 @@ fn c_array_at(f: IrFunction, array: IrOperand, index: IrOperand): string {
     return "aster_rt_array_at(" + c_operand(f, array) + ", " + c_operand(f, index) + ")";
 }
 
+// ---- maps and sets: a set is a map whose values are zero bytes (its value type is void)
+
+fn map_key_type(t: Type): Type {
+    return match t {
+        Type::Map(key, _) => key,
+        Type::Set(key) => key,
+        _ => panic("internal: map operand is not a map or set local"),
+    };
+}
+
+fn map_value_type(t: Type): Type {
+    return match t {
+        Type::Map(_, value) => value,
+        Type::Set(_) => Type::Void,
+        _ => panic("internal: map operand is not a map or set local"),
+    };
+}
+
+fn c_map_kind(key: Type): string {
+    if kind_of_type(key) == "string" {
+        return "ASTER_KEY_STRING";
+    }
+    return "ASTER_KEY_INT";
+}
+
+fn c_map_value_size(value: Type): string {
+    if kind_of_type(value) == "void" {
+        return "0";
+    }
+    return "sizeof(" + c_type(value) + ")";
+}
+
+// The runtime's (ikey, skey) pair: the key goes in the argument its kind uses, and the other is zero.
+fn c_map_key(f: IrFunction, map_ty: Type, key: IrOperand): string {
+    if kind_of_type(map_key_type(map_ty)) == "string" {
+        return "0, " + c_operand(f, key);
+    }
+    return c_operand(f, key) + ", (aster_string){0}";
+}
+
+fn c_map_args(f: IrFunction, map: IrOperand, key: IrOperand): string {
+    return c_operand(f, map) + ", " + c_map_key(f, c_local_type(f, map), key);
+}
+
+// A slot pointer is valid only until the next insertion, so every use reads or writes it in the same statement.
+fn c_map_slot(f: IrFunction, map: IrOperand, key: IrOperand, create: string): string {
+    return "aster_rt_map_slot(" + c_map_args(f, map, key) + ", " + create + ")";
+}
+
 fn emit_instr(f: IrFunction, enums: [IrEnum], i: IrInstr): string {
     return match i {
         IrInstr::Copy(dst, src) => c_set(f, dst, c_operand(f, src)),
@@ -399,14 +450,14 @@ fn emit_instr(f: IrFunction, enums: [IrEnum], i: IrInstr): string {
         IrInstr::EnumField(dst, value, _, variant, _, index) => c_set(f, dst, c_operand(f, value) + "->u." + c_mangle_variant(variant) + ".p" + int_to_string(index)),
         IrInstr::ReadFile(ok, text, path) => c_mangle_local(f.locals[text]) + " = aster_rt_read_file(" + c_operand(f, path) + ", &" + c_mangle_local(f.locals[ok]) + ");",
         IrInstr::Sys(name, ok, value, err, args) => c_mangle_local(f.locals[ok]) + " = aster_rt_" + name + "(" + c_sys_args(f, args, value, err) + ");",
-        IrInstr::MapNew(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapValue(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapSet(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapInsert(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapHas(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapRemove(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapLen(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
-        IrInstr::MapKeys(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapNew(dst, key, value) => c_set(f, dst, "aster_rt_map_new(" + c_map_kind(key) + ", " + c_map_value_size(value) + ")"),
+        IrInstr::MapValue(dst, map, key) => c_set(f, dst, c_slot(c_type(f.locals[dst].ty), c_map_slot(f, map, key, "0"))),
+        IrInstr::MapSet(map, key, value) => c_slot(c_type(map_value_type(c_local_type(f, map))), c_map_slot(f, map, key, "1")) + " = " + c_operand(f, value) + ";",
+        IrInstr::MapInsert(dst, map, key) => c_set(f, dst, "aster_rt_map_insert(" + c_map_args(f, map, key) + ") != 0"),
+        IrInstr::MapHas(dst, map, key) => c_set(f, dst, c_map_slot(f, map, key, "0") + " != NULL"),
+        IrInstr::MapRemove(dst, map, key) => c_set(f, dst, "aster_rt_map_remove(" + c_map_args(f, map, key) + ") != 0"),
+        IrInstr::MapLen(dst, map) => c_set(f, dst, "aster_rt_map_len(" + c_operand(f, map) + ")"),
+        IrInstr::MapKeys(dst, map) => c_set(f, dst, "aster_rt_map_keys(" + c_operand(f, map) + ")"),
     };
 }
 

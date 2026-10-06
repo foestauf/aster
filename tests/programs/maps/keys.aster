@@ -1,0 +1,74 @@
+// Int keys (negative, zero and the extremes) and string keys (empty, non-ASCII bytes and long) are distinct and exact.
+// expect-stdout:
+// 7
+// -1
+// 0
+// 1
+// max
+// min
+// 64
+// 5
+// 6
+// empty
+// e-acute
+// e-plain
+// kanji
+// long
+// long-b
+// 6
+// false
+// false
+// true
+fn name_of(m: Map[int, string], k: int): string {
+    if let Option::Some(v) = map_get(m, k) {
+        return v;
+    }
+    return "?";
+}
+
+fn word(m: Map[string, string], k: string): string {
+    if let Option::Some(v) = map_get(m, k) {
+        return v;
+    }
+    return "?";
+}
+
+fn main(): int {
+    let ints: Map[int, string] = {};
+    map_set(ints, -1, "-1");
+    map_set(ints, 0, "0");
+    map_set(ints, 1, "1");
+    map_set(ints, 9223372036854775807, "max");
+    map_set(ints, -9223372036854775808, "min");
+    map_set(ints, 4294967296, "2^32");
+    map_set(ints, 1 * 64, "64");
+    print(len(ints));
+    print(name_of(ints, -1));
+    print(name_of(ints, 0));
+    print(name_of(ints, 1));
+    print(name_of(ints, 9223372036854775807));
+    print(name_of(ints, -9223372036854775808));
+    print(name_of(ints, 64));
+
+    let long: string = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+    let strs: Map[string, string] = {};
+    map_set(strs, "", "empty");
+    map_set(strs, "é", "e-acute");
+    map_set(strs, "e", "e-plain");
+    map_set(strs, "日本", "kanji");
+    map_set(strs, long, "long");
+    print(len(strs));
+    map_set(strs, long + "b", "long-b");
+    print(len(strs));
+    print(word(strs, ""));
+    print(word(strs, "é"));
+    print(word(strs, "e"));
+    print(word(strs, "日" + "本"));
+    print(word(strs, substring(long + "!", 0, len(long))));
+    print(word(strs, long + "b"));
+    print(len(strs));
+    print(map_has(strs, " "));
+    print(map_has(strs, substring(long, 0, len(long) - 1)));
+    print(map_has(ints, 4294967296));
+    return 0;
+}

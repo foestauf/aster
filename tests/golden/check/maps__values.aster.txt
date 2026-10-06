@@ -1,0 +1,62 @@
+== exit 0
+== stdout
+struct Counter
+  field n int
+enum Shape
+  variant Circle(int)
+  variant Square
+enum Color
+  variant Red
+  variant Green
+  variant Blue
+enum Option[string]
+  variant Some(string)
+  variant None
+enum Option[Counter]
+  variant Some(Counter)
+  variant None
+enum Option[[int]]
+  variant Some([int])
+  variant None
+enum Option[Shape]
+  variant Some(Shape)
+  variant None
+enum Option[Color]
+  variant Some(Color)
+  variant None
+enum Option[Map[int, bool]]
+  variant Some(Map[int, bool])
+  variant None
+enum Option[bool]
+  variant Some(bool)
+  variant None
+fn describe(Shape): string
+  param 0 s Shape
+  let 1 r int
+fn color_name(Color): string
+  param 0 c Color
+fn main(): int
+  let 0 words Map[int, string]
+  let 1 a string
+  let 2 b string
+  let 3 c Counter
+  let 4 counters Map[string, Counter]
+  let 5 found Counter
+  let 6 found Counter
+  let 7 lists Map[string, [int]]
+  let 8 xs [int]
+  let 9 found [int]
+  let 10 shapes Map[int, Shape]
+  let 11 k int
+  let 12 s Shape
+  let 13 s Shape
+  let 14 colors Map[string, Color]
+  let 15 k string
+  let 16 col Color
+  let 17 nested Map[string, Map[int, bool]]
+  let 18 inner Map[int, bool]
+  let 19 inner Map[int, bool]
+  let 20 b bool
+  let 21 b bool
+  let 22 inner Map[int, bool]
+== stderr

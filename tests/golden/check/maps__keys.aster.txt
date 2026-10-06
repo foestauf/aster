@@ -1,0 +1,18 @@
+== exit 0
+== stdout
+enum Option[string]
+  variant Some(string)
+  variant None
+fn name_of(Map[int, string], int): string
+  param 0 m Map[int, string]
+  param 1 k int
+  let 2 v string
+fn word(Map[string, string], string): string
+  param 0 m Map[string, string]
+  param 1 k string
+  let 2 v string
+fn main(): int
+  let 0 ints Map[int, string]
+  let 1 long string
+  let 2 strs Map[string, string]
+== stderr

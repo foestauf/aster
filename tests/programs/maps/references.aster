@@ -1,0 +1,61 @@
+// Maps and sets are references: passing, returning, storing in struct fields and aliasing all share one object.
+// expect-stdout:
+// 2
+// 3
+// 3
+// 1
+// 2
+// 2
+// 2
+// true
+// 1
+fn add_two(m: Map[string, int]) {
+    map_set(m, "x", 1);
+    map_set(m, "y", 2);
+}
+
+fn make(): Map[string, int] {
+    let m: Map[string, int] = {};
+    map_set(m, "only", 1);
+    return m;
+}
+
+fn tag(s: Set[int], k: int): Set[int] {
+    set_add(s, k);
+    return s;
+}
+
+struct Registry { names: Map[int, string], ids: Set[int] }
+
+fn register(r: Registry, id: int, name: string) {
+    map_set(r.names, id, name);
+    set_add(r.ids, id);
+}
+
+fn main(): int {
+    let m: Map[string, int] = {};
+    add_two(m);
+    print(len(m));
+    let alias: Map[string, int] = m;
+    map_set(alias, "z", 3);
+    print(len(m));
+    if let Option::Some(z) = map_get(m, "z") {
+        print(z);
+    }
+    print(len(make()));
+
+    let s: Set[int] = {};
+    let same: Set[int] = tag(tag(s, 1), 2);
+    print(len(s));
+    print(len(same));
+
+    let r: Registry = Registry { names: {}, ids: {} };
+    register(r, 10, "ten");
+    register(r, 20, "twenty");
+    let names: Map[int, string] = r.names;
+    print(len(names));
+    print(set_has(r.ids, 20));
+    map_remove(names, 10);
+    print(len(r.names));
+    return 0;
+}

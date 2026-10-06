@@ -1,0 +1,126 @@
+// Map values of every kind: strings, structs and arrays (shared, not copied), payload and payload-free enums,
+// and nested maps.
+// expect-stdout:
+// hello world
+// 2
+// 7
+// 3
+// 9
+// circle 5
+// square
+// none
+// green
+// blue
+// true
+// false
+// false
+// 2
+// 1
+// 0
+struct Counter { n: int }
+
+enum Shape {
+    Circle(int),
+    Square,
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+fn describe(s: Shape): string {
+    return match s {
+        Shape::Circle(r) => "circle " + int_to_string(r),
+        Shape::Square => "square",
+    };
+}
+
+fn color_name(c: Color): string {
+    return match c {
+        Color::Red => "red",
+        Color::Green => "green",
+        Color::Blue => "blue",
+    };
+}
+
+fn main(): int {
+    let words: Map[int, string] = {};
+    map_set(words, 1, "hello");
+    map_set(words, 2, "world");
+    if let Option::Some(a) = map_get(words, 1) {
+        if let Option::Some(b) = map_get(words, 2) {
+            print(a + " " + b);
+        }
+    }
+
+    // A struct value is a reference: changes through the map show in the original and back.
+    let c: Counter = Counter { n: 1 };
+    let counters: Map[string, Counter] = {};
+    map_set(counters, "c", c);
+    if let Option::Some(found) = map_get(counters, "c") {
+        found.n += 1;
+    }
+    print(c.n);
+    c.n = 7;
+    if let Option::Some(found) = map_get(counters, "c") {
+        print(found.n);
+    }
+
+    let lists: Map[string, [int]] = {};
+    let xs: [int] = [1, 2];
+    map_set(lists, "xs", xs);
+    if let Option::Some(found) = map_get(lists, "xs") {
+        push(found, 9);
+    }
+    print(len(xs));
+    print(xs[2]);
+
+    let shapes: Map[int, Shape] = {};
+    map_set(shapes, 0, Shape::Circle(5));
+    map_set(shapes, 1, Shape::Square);
+    for k in map_keys(shapes) {
+        if let Option::Some(s) = map_get(shapes, k) {
+            print(describe(s));
+        }
+    }
+    if let Option::Some(s) = map_get(shapes, 2) {
+        print(describe(s));
+    } else {
+        print("none");
+    }
+
+    let colors: Map[string, Color] = {};
+    map_set(colors, "grass", Color::Green);
+    map_set(colors, "sky", Color::Red);
+    map_set(colors, "sky", Color::Blue);
+    for k in map_keys(colors) {
+        if let Option::Some(col) = map_get(colors, k) {
+            print(color_name(col));
+        }
+    }
+
+    let nested: Map[string, Map[int, bool]] = {};
+    map_set(nested, "a", {});
+    if let Option::Some(inner) = map_get(nested, "a") {
+        map_set(inner, 1, true);
+        map_set(inner, 2, false);
+    }
+    if let Option::Some(inner) = map_get(nested, "a") {
+        if let Option::Some(b) = map_get(inner, 1) {
+            print(b);
+        }
+        if let Option::Some(b) = map_get(inner, 2) {
+            print(b);
+        }
+        print(map_has(inner, 3));
+        print(len(inner));
+    }
+    map_set(nested, "b", {});
+    if let Option::Some(inner) = map_get(nested, "b") {
+        print(len(nested) - len(inner) - 1);
+        print(len(inner));
+    }
+    return 0;
+}

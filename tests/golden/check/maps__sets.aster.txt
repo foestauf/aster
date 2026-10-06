@@ -1,0 +1,11 @@
+== exit 0
+== stdout
+fn joined([string]): string
+  param 0 xs [string]
+  var 1 out string
+  let 2 i int
+fn main(): int
+  let 0 s Set[string]
+  let 1 seen Set[int]
+  let 2 x int
+== stderr

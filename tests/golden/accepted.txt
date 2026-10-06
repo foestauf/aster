@@ -64,6 +64,14 @@ loops/break_continue.aster
 loops/foreach.aster
 loops/range.aster
 loops/shadowing_and_returns.aster
+maps/basics.aster
+maps/empty_literal.aster
+maps/keys.aster
+maps/order.aster
+maps/references.aster
+maps/sets.aster
+maps/stress.aster
+maps/values.aster
 match/bool.aster
 match/control_flow.aster
 match/expressions.aster
