@@ -1938,6 +1938,12 @@ fn check_array_lit(Ctx, Expr, [Expr], Option[Type]): TExpr
   let 11 value TExpr
   let 12 x Type
   let 13 x Type
+fn expr_arm_body(ArmBody, bool, Option[Type]): ArmBody
+  param 0 body ArmBody
+  param 1 as_expr bool
+  param 2 expected Option[Type]
+  let 3 b Block
+  let 4 t Type
 fn check_empty_map(Ctx, Expr, Option[Type]): TExpr
   param 0 ctx Ctx
   param 1 e Expr

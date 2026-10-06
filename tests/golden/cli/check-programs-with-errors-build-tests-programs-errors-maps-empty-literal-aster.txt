@@ -1,9 +1,15 @@
 == exit 1
 == stdout
 == stderr
-tests/programs/errors/maps_empty_literal.aster:4:15: error: cannot infer type of empty map or set
+tests/programs/errors/maps_empty_literal.aster:6:15: error: cannot infer type of empty map or set
       print(len({}));
                 ^^
-tests/programs/errors/maps_empty_literal.aster:5:18: error: type mismatch: expected int, found empty map or set
+tests/programs/errors/maps_empty_literal.aster:7:18: error: type mismatch: expected int, found empty map or set
       let n: int = {};
                    ^^
+tests/programs/errors/maps_empty_literal.aster:8:28: error: match arm block must diverge
+      let k: int = match n { _ => {} };
+                             ^
+tests/programs/errors/maps_empty_literal.aster:9:38: error: match arm block must diverge
+      let m: Map[int, int] = match n { _ => { print(1); } };
+                                       ^

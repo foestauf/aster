@@ -2100,7 +2100,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         if index == 0 {
             result.binders = ctx.scopes[len(ctx.scopes) - 1];
         }
-        match arm.body {
+        match expr_arm_body(arm.body, as_expr, expected) {
             ArmBody::Block(b) => {
                 var block: CheckedBlock = CheckedBlock { node: TBlock { stmts: [] }, diverges: false };
                 if index == 0 || !is_refutable {
@@ -2599,6 +2599,25 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
         return error_expr();
     }
     return TExpr { ty: Type::Array(x), node: TExprNode::ArrayLit(values) };
+}
+
+// `X => {}` parses as an empty block arm, but in a match expression whose expected type is a map or set it is the empty
+// literal: only the expected type can tell them apart. Any other arm is returned unchanged.
+fn expr_arm_body(body: ArmBody, as_expr: bool, expected: Option[Type]): ArmBody {
+    let ArmBody::Block(b) = body else {
+        return body;
+    };
+    if !as_expr || len(b.stmts) != 0 {
+        return body;
+    }
+    let Option::Some(t) = expected else {
+        return body;
+    };
+    return match t {
+        Type::Map(_, _) => ArmBody::Expr(Expr { start: b.start, end: b.end, node: ExprNode::EmptyMap }),
+        Type::Set(_) => ArmBody::Expr(Expr { start: b.start, end: b.end, node: ExprNode::EmptyMap }),
+        _ => body,
+    };
 }
 
 // `{}` takes its type from `expected`, which must be a map or a set.

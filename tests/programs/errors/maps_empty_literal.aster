@@ -1,7 +1,11 @@
-// expect-error: 4:15 cannot infer type of empty map or set
-// expect-error: 5:18 type mismatch: expected int, found empty map or set
+// expect-error: 6:15 cannot infer type of empty map or set
+// expect-error: 7:18 type mismatch: expected int, found empty map or set
+// expect-error: 8:28 match arm block must diverge
+// expect-error: 9:38 match arm block must diverge
 fn main(): int {
     print(len({}));
     let n: int = {};
-    return n;
+    let k: int = match n { _ => {} };
+    let m: Map[int, int] = match n { _ => { print(1); } };
+    return n + k + len(m);
 }

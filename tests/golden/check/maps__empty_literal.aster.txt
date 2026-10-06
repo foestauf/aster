@@ -12,13 +12,20 @@ fn fresh(): Set[string]
 fn slot_len(Slot): int
   param 0 s Slot
   let 1 m Map[int, string]
+fn pick(int): Map[string, int]
+  param 0 n int
+fn reset_unless_small(Set[int]): Set[int]
+  param 0 s Set[int]
 fn main(): int
   var 0 a Map[string, int]
   var 1 b Set[int]
   let 2 h Holder
   let 3 maps [Map[string, int]]
   let 4 more [Set[int]]
-  let 5 pick Map[string, int]
-  let 6 chosen Set[int]
-  let 7 paren Map[int, int]
+  let 5 chosen Set[int]
+  let 6 paren Map[int, int]
+  var 7 three Set[int]
+  let 8 few Set[int]
+  let 9 kept Set[int]
+  let 10 local Map[int, int]
 == stderr

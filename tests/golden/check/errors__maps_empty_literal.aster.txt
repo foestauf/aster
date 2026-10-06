@@ -1,5 +1,7 @@
 == exit 1
 == stdout
 == stderr
-error tests/programs/errors/maps_empty_literal.aster 165 167 cannot infer type of empty map or set
-error tests/programs/errors/maps_empty_literal.aster 188 190 type mismatch: expected int, found empty map or set
+error tests/programs/errors/maps_empty_literal.aster 267 269 cannot infer type of empty map or set
+error tests/programs/errors/maps_empty_literal.aster 290 292 type mismatch: expected int, found empty map or set
+error tests/programs/errors/maps_empty_literal.aster 321 322 match arm block must diverge
+error tests/programs/errors/maps_empty_literal.aster 369 370 match arm block must diverge
