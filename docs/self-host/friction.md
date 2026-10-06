@@ -362,6 +362,8 @@ easy-to-miss last-wins search direction.
 
 **Workaround:** one hand-written search per array type, and `contains` for sets.
 
+**Status:** v0.8a ships maps and sets (`Map[K, V]`, `Set[K]`, `{}` and nine builtins; see the language reference). The compiler's own sources don't use them yet: v0.8b, after v0.8a's release, rewrites the compiler onto them (the two-step rule), and until then `tests/two_step_guard.test.ts` keeps `packages/asterc-self/` free of the map surface.
+
 ### 12. No closures (annoying)
 
 Five TS closures became top-level functions that take their captures as parameters: `walk` and Tarjan's `visit` in

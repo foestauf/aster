@@ -1,4 +1,4 @@
-# Aster v0.7 Language Reference
+# Aster v0.8 Language Reference
 
 Aster is a small, statically typed, compiled language. It compiles to C and then to a native executable.
 
@@ -105,7 +105,7 @@ fn norm2(p: Point): int {
 - Comments: `//` to end of line. No block comments.
 - Whitespace is insignificant except as a separator.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`, excluding keywords.
-- Keywords: `fn let var if else while for in break continue return true false struct enum match import`. `Option` and `Result` are predeclared type names, not keywords.
+- Keywords: `fn let var if else while for in break continue return true false struct enum match import`. `Option`, `Result`, `Map` and `Set` are predeclared type names, not keywords.
 - Type names `int bool string void never` are ordinary identifiers resolved as types in type position. They are not keywords.
 - Integer literals: decimal digits only. A literal that does not fit in a signed 64-bit integer is a compile error. A negative number is unary minus applied to a literal. As a special case, `-9223372036854775808` is accepted.
 - String literals: `"..."` with escapes `\n \t \r \\ \" \' \0`. Any other escape is a compile error. Raw newlines inside a string literal are a compile error.
@@ -131,10 +131,12 @@ fn norm2(p: Point): int {
 | `Name`   | A struct or a non-generic enum named `Name`. |
 | `Name[T1, …]` | An instantiation of a generic enum, such as `Option[int]` or `Result[[string], string]`. Arguments may be any type except `void`. |
 | `[T]`    | A reference to a growable array of `T`. `T` may be any type except `void`, including another array. |
+| `Map[K, V]` | A reference to a mutable map from `K` to `V`, which iterates in insertion order. `K` must be `int` or `string`. `V` may be any type except `void`. |
+| `Set[K]` | A reference to a mutable set of `K`, which iterates in insertion order. `K` must be `int` or `string`. |
 
-There are no implicit conversions. Array types are equal when their element types are equal, and struct types are equal when their names are equal.
+There are no implicit conversions. Array types are equal when their element types are equal, struct types are equal when their names are equal, `Map[K1, V1]` equals `Map[K2, V2]` when `K1 = K2` and `V1 = V2`, and `Set[K1]` equals `Set[K2]` when `K1 = K2`.
 
-Structs and arrays are heap-allocated **references**. Assigning one, passing it to a function or returning it shares the same object, so a change made through one reference is visible through every other. There is no null: every struct literal sets every field. Nothing is freed; memory is reclaimed when the process exits.
+Structs, arrays, maps and sets are heap-allocated **references**. Assigning one, passing it to a function or returning it shares the same object, so a change made through one reference is visible through every other. There is no null: every struct literal sets every field. Nothing is freed; memory is reclaimed when the process exits.
 
 An **enum** declares variants, each with zero or more positional payload values: `enum Expr { Num(int), Add(Expr, Expr) }`. If no variant has a payload, the enum is *payload-free*: its values are plain tags that can be compared with `==`. Otherwise its values are heap-allocated references like structs, and a payload struct or array is shared, not copied. Enum types are equal when their names are equal. Two instantiations are equal when their enum names are equal and their arguments are pairwise equal.
 
@@ -229,7 +231,7 @@ Notes:
 
 **Functions, structs and enums**
 - Functions and structs are top-level and may be declared in any order. Functions may recurse directly or mutually, and structs and enums may refer to themselves and to each other.
-- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string`, `void` or `never`, and must not duplicate another struct, enum, function or builtin. `Option` and `Result` are builtin types and cannot be redefined (`'Option' is a builtin type and cannot be redefined`).
+- Function names must be unique and must not collide with builtin names. Struct and enum names share the type namespace. They must not be `int`, `bool`, `string`, `void` or `never`, and must not duplicate another struct, enum, function or builtin. `Option`, `Result`, `Map` and `Set` are builtin types and cannot be redefined (`'Option' is a builtin type and cannot be redefined`).
 - Struct and enum names live in the type namespace. A local variable may share a struct's or enum's name.
 - Field names must be unique within a struct. Any identifier is allowed, including `len` or `int`. An empty struct `struct Unit {}` is allowed.
 - `main` must exist with the signature `fn main(): int` or `fn main(args: [string]): int` (any parameter name). `args` holds the command-line arguments without the program name, as a fresh array. The return value is the process exit code (truncated to the platform's exit-status range by the OS).
@@ -276,6 +278,14 @@ Notes:
 - `e.f` reads a field. `e[i]` reads an element, where `i` must be an `int`. Indexing outside `[0, len)` panics. Strings cannot be indexed; use `byte_at`.
 - An array literal `[e1, e2]` takes its element type from the context it appears in, or else from its first element. An empty `[]` needs that context: a `let`/`var` type, an assignment target, a parameter, a return type, a field, a variant payload value (`Opt::Some([])`), `push`'s second argument, an enclosing array literal, or an `if`-expression or `match`-expression arm in one of those positions. Anywhere else, `[]` is the error `cannot infer type of empty array`.
 - `==` and `!=` are not defined on structs or arrays (`cannot compare '<T>' values`). `print` and `eprint` accept only `int`, `bool` and `string`.
+
+**Maps and sets**
+- `Map[K, V]` and `Set[K]` are checked in this order: the number of type arguments (`'Map' expects 2 type argument(s), got <n>`, `'Set' expects 1 type argument(s), got <n>`), then the key (`map key must be int or string, found <T>`, for both `Map` and `Set`), then the value (`map value cannot be void`). An instantiation of a generic enum that makes a key invalid is reported at the instantiation: `enum Wrap[T] { A(Map[T, int]) }` used as `Wrap[bool]` is `map key must be int or string, found bool`.
+- `{}` is the empty map or set. It takes its type from the same contexts that type an empty `[]` (a `let`/`var` type, an assignment target, a function argument, a `return` value, a struct literal field, a variant payload value, `push`'s second argument, an array literal element, and an `if`-expression or `match`-expression arm in one of those positions). The context type must be a `Map` or a `Set`, otherwise the error is `type mismatch: expected <T>, found empty map or set`. With no context it is `cannot infer type of empty map or set`. There are no literals with entries.
+- At the start of a statement, `{` opens a block, so `{}` there is an empty block. That includes the tail of a block and the body of a match arm. To get an empty map or set in an `if` or `match` arm, parenthesise it: `({})`.
+- The builtins `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove` and `set_items` (see [Builtins](#builtins)) are the only operations. There are no methods and no index syntax. A missing key is `None` or `false`, never a panic.
+- **Iteration order.** `map_keys` and `set_items` return the keys in insertion order, and the language guarantees it. Overwriting a key with `map_set` does not move it. Removing a key and adding it again puts it at the end.
+- `==` and `!=` on maps or sets are `cannot compare '<T>' values`, and `print` and `eprint` reject them.
 
 **Enums**
 - `E::V` / `E::V(e1, …)` builds a variant. The number of values must equal the variant's payload count (`variant 'E::V' expects N values, got M`). Values are evaluated left to right, and each takes its slot type as context (so `Opt::Some([])` works). Errors that don't involve generics are unchanged: `unknown enum 'E'`, `'E' is not an enum`, `unknown variant 'V' on 'E'`.
@@ -414,14 +424,14 @@ Evaluation order: operands left to right, arguments left to right.
 
 ## Builtins
 
-Builtins are special-cased in the checker. There is no overloading in user code, and generics exist only for enums.
+Builtins are special-cased in the checker. There is no overloading in user code, and generics exist only for enums. The map and set builtins report `function '<name>' expects a map, found <T>` or `expects a set, found <T>` for a bad first argument, and `type mismatch: expected <K>, found <T>` for a key or value. Like every builtin name, they cannot be redefined.
 
 | Builtin | Signature | Behaviour |
 |---------|-----------|-----------|
 | `print` | `(x: int \| bool \| string): void` | Writes `x` and a newline to stdout. bools print as `true`/`false`. |
 | `eprint` | `(x: int \| bool \| string): void` | Flushes stdout, then writes `x` and a newline to stderr. Typed exactly like `print`. |
 | `exit` | `(code: int): never` | Flushes stdout and ends the process with exit code `code` (truncated to the platform's exit-status range by the OS). Does not return. |
-| `len` | `(s: string): int` / `(a: [T]): int` | Byte length of a string, or element count of an array. |
+| `len` | `(s: string): int` / `(a: [T]): int` / `(m: Map[K, V]): int` / `(s: Set[K]): int` | Byte length of a string, or element count of an array, or number of entries of a map or set. A wrong argument is `function 'len' expects a string, array, map or set, found <T>`. |
 | `push` | `(a: [T], x: T): void` | Appends `x` to `a`. |
 | `pop` | `(a: [T]): T` | Removes and returns the last element. Panics if `a` is empty. |
 | `byte_at` | `(s: string, i: int): int` | Byte value 0–255 at index `i`. Panics if `i < 0` or `i >= len(s)`. |
@@ -433,6 +443,15 @@ Builtins are special-cased in the checker. There is no overloading in user code,
 | `remove_path` | `(path: string): Result[int, string]` | Removes a file or an empty directory. `Ok(0)` on success; `Err("<path>: <reason>")` on failure, with `invalid path` for a path containing `\0`. |
 | `run_process` | `(argv: [string]): Result[int, string]` | Runs `argv[0]` (searched on `PATH`) with the remaining elements as arguments, sharing the caller's stdin, stdout and stderr; the caller's buffered output is flushed first. `Ok(status)` is the exit status, or `Ok(128 + signal)` if the child was killed by a signal. `Err("<argv[0]>: <reason>")` if it cannot be started, `Err("<argument>: invalid path")` for an argument containing `\0` (shown up to the NUL), and `Err("empty argv")` for an empty array. |
 | `read_stdin` | `(): string` | Reads stdin to EOF. Later calls return `""`. |
+| `map_set` | `(m: Map[K, V], k: K, v: V): void` | Inserts or overwrites. Overwriting keeps the key's original position. |
+| `map_get` | `(m: Map[K, V], k: K): Option[V]` | `Option::Some(v)` or `Option::None`. |
+| `map_has` | `(m: Map[K, V], k: K): bool` | Whether `k` is present. |
+| `map_remove` | `(m: Map[K, V], k: K): bool` | `true` if the key was present. |
+| `map_keys` | `(m: Map[K, V]): [K]` | A fresh array of the keys, in insertion order. |
+| `set_add` | `(s: Set[K], k: K): bool` | `true` if `k` was not already present. |
+| `set_has` | `(s: Set[K], k: K): bool` | Whether `k` is present. |
+| `set_remove` | `(s: Set[K], k: K): bool` | `true` if `k` was present. |
+| `set_items` | `(s: Set[K]): [K]` | A fresh array of the elements, in insertion order. |
 | `panic` | `(msg: string): never` | Writes `panic: <msg>` to stderr and exits with code 101. |
 
 ## Runtime panics
@@ -446,6 +465,6 @@ A runtime panic writes `panic: <message>` plus a newline to stderr and exits wit
 - A read error on stdin (`cannot read stdin: <reason>`).
 - `panic(msg)`.
 
-## Not in v0.7
+## Not in v0.8
 
-Writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, `while let`, `if let` as an expression, guards or chains in `let … else` and `if let`, negated patterns, a `let … else` whose `else` block sees the failure's payload, blocks as if-expression branches, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, qualified names (`lexer::Token`), visibility (`pub`), selective imports, search paths or packages, separate compilation, `defer`, freeing memory, and C-style `for` loops.
+Map literals with entries (`{"a": 1}`), map and set key types other than `int` and `string`, equality on and printing of maps and sets, `for (k, v) in m` iteration, writing files, writing to stdout or stderr without a newline, line-at-a-time stdin, environment variables, nested patterns, range patterns (`'0'..='9'`), binding inside or-patterns, `while let`, `if let` as an expression, guards or chains in `let … else` and `if let`, negated patterns, a `let … else` whose `else` block sees the failure's payload, blocks as if-expression branches, multi-byte or Unicode character literals, matching on structs or arrays, match guards, generic structs and functions, explicit type arguments in expressions, error-type conversion in `?`, `?` on anything but `Option` and `Result`, methods (`unwrap_or` and the like), type aliases, null, equality on structs, arrays or enums with payloads (including `Option` and `Result`), printing structs, arrays or enums, qualified names (`lexer::Token`), visibility (`pub`), selective imports, search paths or packages, separate compilation, `defer`, freeing memory, and C-style `for` loops.

@@ -45,6 +45,32 @@ fn main(): int {
 }
 ```
 
+Since v0.8, `Map[K, V]` and `Set[K]` (keys are `int` or `string`) are built in. `{}` is the empty one, typed from its context, and iteration follows insertion order:
+
+```aster
+fn main(): int {
+    let counts: Map[string, int] = {};
+    let words: [string] = ["b", "a", "b"];
+    for w in words {
+        if let Option::Some(n) = map_get(counts, w) {
+            map_set(counts, w, n + 1);
+        } else {
+            map_set(counts, w, 1);
+        }
+    }
+    for k in map_keys(counts) {   // b, then a
+        if let Option::Some(n) = map_get(counts, k) {
+            print(k);
+            print(n);
+        }
+    }
+    print(len(counts));           // 2
+    return 0;
+}
+```
+
+The operations are `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove`, `set_items` and `len`. At the start of a statement `{}` is an empty block, so write `({})` for an empty map in an `if` or `match` arm. v0.8a ships the feature, and the compiler's own sources don't use it yet (v0.8b rewrites them).
+
 ## CLI
 
 ```
@@ -130,6 +156,7 @@ source → lexer → parser → checker → IR (basic blocks) → C → cc → e
 - v0.5 design (generic enums, `Option[T]` and `Result[T, E]`, the `?` operator, `read_file` returns `Result`): [`docs/superpowers/specs/2026-10-03-aster-v0.5-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.5-design.md)
 - v0.6 design (`import` and multi-file programs): [`docs/superpowers/specs/2026-10-03-aster-v0.6-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.6-design.md)
 - v0.7 design (`let … else`, `if let`, the `never` type, diverging `match` arms): [`docs/superpowers/specs/2026-10-03-aster-v0.7-design.md`](docs/superpowers/specs/2026-10-03-aster-v0.7-design.md)
+- v0.8 design (`Map[K, V]`, `Set[K]`, the empty `{}` literal, insertion-ordered iteration): [`docs/superpowers/specs/2026-10-05-aster-v0.8-maps-sets-design.md`](docs/superpowers/specs/2026-10-05-aster-v0.8-maps-sets-design.md)
 - check.aster design (the self-hosted type checker): [`docs/superpowers/specs/2026-10-03-aster-check-aster-design.md`](docs/superpowers/specs/2026-10-03-aster-check-aster-design.md)
 - Building the compiler (tools, commands, artifacts, recovery): [`docs/self-host/building.md`](docs/self-host/building.md)
 - Normal build path design (the self-hosted compiler by default): [`docs/superpowers/specs/2026-10-04-aster-normal-build-path-design.md`](docs/superpowers/specs/2026-10-04-aster-normal-build-path-design.md)
