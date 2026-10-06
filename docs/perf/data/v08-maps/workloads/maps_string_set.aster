@@ -1,0 +1,52 @@
+// expect-stdout: 29999400000
+// expect-stdout: 200000
+// expect-stdout: 200000
+// expect-stdout: 4999875000
+// expect-stdout: 50000
+// expect-stdout: 50000
+// New, nonhistorical workload: string map+set insertion, 8 lookup passes,
+// overwrites, equal-but-distinct strings, delete/reinsert churn. 50000 keys.
+fn main(): int {
+    let keys: [string] = [];
+    let m: Map[string, int] = {};
+    let s: Set[string] = {};
+    for i in 0..50000 {
+        let k: string = "symbol_" + int_to_string(i);
+        push(keys, k);
+        map_set(m, k, i * 3);
+        set_add(s, k);
+    }
+    var sum: int = 0;
+    var removed: int = 0;
+    var misses: int = 0;
+    for pass in 0..8 {
+        for i in 0..50000 {
+            if let Option::Some(v) = map_get(m, keys[i]) { sum += v; }
+            if !set_has(s, keys[i]) { return 2; }
+        }
+    }
+    for pass in 0..8 {
+        for i in 0..25000 {
+            let k: string = keys[i * 2];
+            if map_remove(m, k) { removed += 1; }
+            set_remove(s, k);
+            if !map_has(m, k) && !set_has(s, k) { misses += 1; }
+        }
+        for i in 0..25000 {
+            let k: string = "symbol_" + int_to_string(i * 2);
+            map_set(m, k, i * 10);
+            set_add(s, k);
+        }
+    }
+    var total: int = 0;
+    for k in map_keys(m) {
+        if let Option::Some(v) = map_get(m, k) { total += v; }
+    }
+    print(sum);
+    print(removed);
+    print(misses);
+    print(total);
+    print(len(m));
+    print(len(s));
+    return 0;
+}

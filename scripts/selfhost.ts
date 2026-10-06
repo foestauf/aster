@@ -25,6 +25,7 @@ export const STAGE_SUITES = [
   'tests/load_symlink.test.ts',
   'tests/source_encoding.test.ts',
   'tests/check_aster.test.ts',
+  'tests/compiler_tables.test.ts',
   'tests/runtime_aster.test.ts',
 ] as const;
 

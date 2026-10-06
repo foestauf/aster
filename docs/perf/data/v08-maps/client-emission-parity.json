@@ -1,0 +1,114 @@
+[
+  {
+    "source": "$RESULTS/extra/maps_int_set.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "1d37aed13def328d9751931d7248945e95da497e6b2c161fcf1137cd90957975",
+    "v08bSha256": "1d37aed13def328d9751931d7248945e95da497e6b2c161fcf1137cd90957975",
+    "bytes": 9496
+  },
+  {
+    "source": "$RESULTS/extra/maps_int_set.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "92ac381b27025241bcbde32ccb7c2d4cbea7e1966eb438f85890a3fba037d1ee",
+    "v08bSha256": "92ac381b27025241bcbde32ccb7c2d4cbea7e1966eb438f85890a3fba037d1ee",
+    "bytes": 24433
+  },
+  {
+    "source": "$RESULTS/extra/maps_string_set.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "a4b56f9db03c7e2faae443ac720e78524e2cbdac8f0f8b8fc9b03fc8f7d85010",
+    "v08bSha256": "a4b56f9db03c7e2faae443ac720e78524e2cbdac8f0f8b8fc9b03fc8f7d85010",
+    "bytes": 9260
+  },
+  {
+    "source": "$RESULTS/extra/maps_string_set.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "0662ea7d0f406c4cff4ccfd88bcc776e00734e8b3f910d34d4e54c850e7ef8a1",
+    "v08bSha256": "0662ea7d0f406c4cff4ccfd88bcc776e00734e8b3f910d34d4e54c850e7ef8a1",
+    "bytes": 26448
+  },
+  {
+    "source": "bench/array_sort.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "ef42feeb30648bcd445ef153cef4efd86091df80165c595a4fdbd808ff50e113",
+    "v08bSha256": "ef42feeb30648bcd445ef153cef4efd86091df80165c595a4fdbd808ff50e113",
+    "bytes": 7749
+  },
+  {
+    "source": "bench/array_sort.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "fce7ab3d748956f06a64fda79f9d01518a85bb9f0b7608b71974560ce84d8d18",
+    "v08bSha256": "fce7ab3d748956f06a64fda79f9d01518a85bb9f0b7608b71974560ce84d8d18",
+    "bytes": 21327
+  },
+  {
+    "source": "bench/calc_interpreter.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "ec34d01c95786a88e0a012517c16d9c6676d7e3a9a990563e7ee5ec9f57eff96",
+    "v08bSha256": "ec34d01c95786a88e0a012517c16d9c6676d7e3a9a990563e7ee5ec9f57eff96",
+    "bytes": 20066
+  },
+  {
+    "source": "bench/calc_interpreter.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "de3fde94a3cb8eab32387ecf423cb671ac9a38325a7c2c07e6092ceea5d6c48f",
+    "v08bSha256": "de3fde94a3cb8eab32387ecf423cb671ac9a38325a7c2c07e6092ceea5d6c48f",
+    "bytes": 51509
+  },
+  {
+    "source": "bench/integer_loops.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "212637af449920a45a58f6a9ad61e286b0b93993149c356b50cc302df20a4d3d",
+    "v08bSha256": "212637af449920a45a58f6a9ad61e286b0b93993149c356b50cc302df20a4d3d",
+    "bytes": 1299
+  },
+  {
+    "source": "bench/integer_loops.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "b4cc9c148b68743e4489559a766db1c978be605f014d008bef7a74ae8ec58b95",
+    "v08bSha256": "b4cc9c148b68743e4489559a766db1c978be605f014d008bef7a74ae8ec58b95",
+    "bytes": 5552
+  },
+  {
+    "source": "bench/string_build.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "fc0a630f76bd382c327d3ac2e223ee9608b4478c67cf1197dfa4931ad0ddd1e2",
+    "v08bSha256": "fc0a630f76bd382c327d3ac2e223ee9608b4478c67cf1197dfa4931ad0ddd1e2",
+    "bytes": 3115
+  },
+  {
+    "source": "bench/string_build.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "73a568ba32f9eba3100aa40a4bae8865ef85668906983e067a704fdeadb3c850",
+    "v08bSha256": "73a568ba32f9eba3100aa40a4bae8865ef85668906983e067a704fdeadb3c850",
+    "bytes": 10346
+  },
+  {
+    "source": "bench/struct_enum.aster",
+    "backendEmission": "c",
+    "sameBytes": true,
+    "v08aSha256": "324a0afc170c36afd771e1cc44ec8343ca05e38715ff98a18b61d36c18e2dc3a",
+    "v08bSha256": "324a0afc170c36afd771e1cc44ec8343ca05e38715ff98a18b61d36c18e2dc3a",
+    "bytes": 7951
+  },
+  {
+    "source": "bench/struct_enum.aster",
+    "backendEmission": "llvm",
+    "sameBytes": true,
+    "v08aSha256": "30093d1cd8c81559ae09f67cc67509841a74fc7de731ffa34eedc5b9d5c0ee75",
+    "v08bSha256": "30093d1cd8c81559ae09f67cc67509841a74fc7de731ffa34eedc5b9d5c0ee75",
+    "bytes": 21728
+  }
+]

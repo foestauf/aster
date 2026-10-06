@@ -104,6 +104,9 @@ struct Signature
   field name string
   field params [Type]
   field ret Type
+struct Signatures
+  field items [Signature]
+  field by_name Map[string, int]
 struct Local
   field id int
   field name string
@@ -161,6 +164,7 @@ struct TExpr
 struct Template
   field decl EnumDecl
   field params [string]
+  field param_names Set[string]
   field broken bool
   field has_errors bool
 struct Edge
@@ -169,12 +173,12 @@ struct Edge
   field expanding bool
 struct ExpansionGraph
   field edges [Edge]
-  field nodes [string]
+  field nodes Map[string, int]
   field successors [[int]]
   field index [int]
   field low [int]
   field stack [int]
-  field on_stack [bool]
+  field on_stack Set[int]
   field component [int]
   field visited int
   field components int
@@ -184,23 +188,25 @@ struct Env
   field enums [TEnum]
   field templates [Template]
   field pending [string]
+  field struct_ids Map[string, int]
+  field enum_ids Map[string, int]
+  field template_ids Map[string, int]
+  field builtins Signatures
+  field special_builtins Set[string]
 struct Loop
   field has_break bool
 struct Ctx
   field env Env
-  field signatures [Signature]
+  field signatures Signatures
   field ret Type
   field locals [Local]
-  field scopes [[Local]]
+  field scopes [Map[string, Local]]
   field loops [Loop]
 struct Checked
   field diags [Diag]
   field structs [TStruct]
   field enums [TEnum]
   field functions [TFunction]
-struct Binding
-  field name string
-  field ty Type
 struct CheckedStmt
   field node TStmt
   field diverges bool
@@ -220,7 +226,7 @@ struct MatchArms
   field bodies [TArmBody]
   field types [Type]
   field diverges [bool]
-  field binders [Local]
+  field binders Map[string, Local]
 struct IrStrings
   field values [string]
 struct IrLoop
@@ -627,9 +633,9 @@ fn utf8_reason(string, int): string
   param 1 at int
   var 2 line int
   let 3 i int
-fn visit(Loaded, [string], string, string): void
+fn visit(Loaded, Set[string], string, string): void
   param 0 ld Loaded
-  param 1 seen [string]
+  param 1 seen Set[string]
   param 2 path string
   param 3 raw string
   let 4 bom int
@@ -644,9 +650,9 @@ fn visit(Loaded, [string], string, string): void
   let 13 item Item
   let 14 item Item
   let 15 imp ImportDecl
-fn load_import(Loaded, [string], string, string, int, ImportDecl): void
+fn load_import(Loaded, Set[string], string, string, int, ImportDecl): void
   param 0 ld Loaded
-  param 1 seen [string]
+  param 1 seen Set[string]
   param 2 from string
   param 3 src string
   param 4 base int
@@ -669,7 +675,7 @@ fn load_program(string, string): Loaded
   param 0 path string
   param 1 src string
   let 2 ld Loaded
-  let 3 seen [string]
+  let 3 seen Set[string]
 fn peek_at(Parser, int): Token
   param 0 p Parser
   param 1 offset int
@@ -1078,19 +1084,30 @@ fn instance_name(string, [Type]): string
   param 1 args [Type]
   var 2 s string
   let 3 i int
-fn special_builtins(): [string]
+fn special_builtins(): Set[string]
+  let 0 names Set[string]
+  let 1 name string
 fn is_map_builtin(string): bool
   param 0 name string
 fn is_set_builtin(string): bool
   param 0 name string
 fn prelude_source(): string
-fn builtin_signatures(): [Signature]
-fn find_signature([Signature], string): Option[int]
-  param 0 sigs [Signature]
-  param 1 name string
+fn signature_table([Signature]): Signatures
+  param 0 items [Signature]
+  let 1 by_name Map[string, int]
   let 2 i int
-fn is_builtin(string): bool
-  param 0 name string
+fn builtin_signatures(): Signatures
+fn find_signature(Signatures, string): Option[int]
+  param 0 sigs Signatures
+  param 1 name string
+fn is_builtin(Env, string): bool
+  param 0 env Env
+  param 1 name string
+fn new_template(EnumDecl): Template
+  param 0 decl EnumDecl
+  let 1 params [string]
+  let 2 names Set[string]
+  let 3 param Ident
 fn mentions_param(TypeExpr, string): bool
   param 0 ref TypeExpr
   param 1 param string
@@ -1104,11 +1121,11 @@ fn node_key(string, string): string
 fn find_node(ExpansionGraph, string): Option[int]
   param 0 g ExpansionGraph
   param 1 key string
-  let 2 i int
 fn intern_node(ExpansionGraph, string): int
   param 0 g ExpansionGraph
   param 1 key string
   let 2 i int
+  let 3 index int
 fn add_edge(ExpansionGraph, string, string, bool): void
   param 0 g ExpansionGraph
   param 1 from string
@@ -1116,13 +1133,9 @@ fn add_edge(ExpansionGraph, string, string, bool): void
   param 3 expanding bool
   let 4 f int
   let 5 t int
-fn find_template_in([Template], string): Option[int]
-  param 0 templates [Template]
-  param 1 name string
-  let 2 i int
-fn walk_expansion(ExpansionGraph, [Template], Template, TypeExpr): void
+fn walk_expansion(ExpansionGraph, Env, Template, TypeExpr): void
   param 0 g ExpansionGraph
-  param 1 templates [Template]
+  param 1 env Env
   param 2 template Template
   param 3 ref TypeExpr
   let 4 elem TypeExpr
@@ -1137,22 +1150,23 @@ fn walk_expansion(ExpansionGraph, [Template], Template, TypeExpr): void
   let 13 a [TypeExpr]
   let 14 exact bool
   let 15 arg TypeExpr
-fn find_expanding_enums([Template]): [string]
-  param 0 templates [Template]
-  let 1 g ExpansionGraph
-  let 2 template Template
-  let 3 variant VariantDecl
-  let 4 ref TypeExpr
-  let 5 expanding_components [bool]
-  let 6 i int
-  let 7 edge Edge
-  let 8 c int
-  let 9 expanding [string]
-  let 10 template Template
-  var 11 on_cycle bool
-  let 12 param string
-  let 13 n int
-  let 14 c int
+fn find_expanding_enums(Env): Set[string]
+  param 0 env Env
+  let 1 templates [Template]
+  let 2 g ExpansionGraph
+  let 3 template Template
+  let 4 variant VariantDecl
+  let 5 ref TypeExpr
+  let 6 expanding_components [bool]
+  let 7 i int
+  let 8 edge Edge
+  let 9 c int
+  let 10 expanding Set[string]
+  let 11 template Template
+  var 12 on_cycle bool
+  let 13 param string
+  let 14 n int
+  let 15 c int
 fn strongly_connected_components(ExpansionGraph): void
   param 0 g ExpansionGraph
   let 1 node int
@@ -1177,11 +1191,9 @@ fn is_builtin_type(string): bool
 fn find_struct(Env, string): Option[int]
   param 0 env Env
   param 1 name string
-  let 2 i int
 fn find_enum(Env, string): Option[int]
   param 0 env Env
   param 1 name string
-  let 2 i int
 fn find_template(Env, string): Option[int]
   param 0 env Env
   param 1 name string
@@ -1194,17 +1206,13 @@ fn is_void(Type): bool
   param 0 t Type
 fn is_never(Type): bool
   param 0 t Type
-fn find_binding([Binding], string): Option[Type]
-  param 0 bindings [Binding]
-  param 1 name string
-  var 2 i int
 fn resolve_type(Env, TypeExpr): Type
   param 0 env Env
   param 1 ref TypeExpr
-fn resolve_type_with(Env, TypeExpr, [Binding], bool, bool, bool): Type
+fn resolve_type_with(Env, TypeExpr, Map[string, Type], bool, bool, bool): Type
   param 0 env Env
   param 1 ref TypeExpr
-  param 2 bindings [Binding]
+  param 2 bindings Map[string, Type]
   param 3 quiet bool
   param 4 instantiates bool
   param 5 allow_never bool
@@ -1224,12 +1232,12 @@ fn resolve_type_with(Env, TypeExpr, [Binding], bool, bool, bool): Type
   let 19 instance Type
   var 20 found Option[Type]
   let 21 t Type
-fn resolve_map_type(Env, TypeExpr, string, [TypeExpr], [Binding], bool, bool): Type
+fn resolve_map_type(Env, TypeExpr, string, [TypeExpr], Map[string, Type], bool, bool): Type
   param 0 env Env
   param 1 ref TypeExpr
   param 2 name string
   param 3 args [TypeExpr]
-  param 4 bindings [Binding]
+  param 4 bindings Map[string, Type]
   param 5 quiet bool
   param 6 instantiates bool
   let 7 expected int
@@ -1240,11 +1248,11 @@ fn resolve_map_type(Env, TypeExpr, string, [TypeExpr], [Binding], bool, bool): T
 fn is_map_key(Type): bool
   param 0 t Type
   let 1 kind string
-fn map_violations(Env, TypeExpr, [Binding], [Binding]): void
+fn map_violations(Env, TypeExpr, Map[string, Type], Map[string, Type]): void
   param 0 env Env
   param 1 ref TypeExpr
-  param 2 bindings [Binding]
-  param 3 placeholders [Binding]
+  param 2 bindings Map[string, Type]
+  param 3 placeholders Map[string, Type]
   let 4 elem TypeExpr
   let 5 name string
   let 6 args [TypeExpr]
@@ -1270,8 +1278,8 @@ fn instantiate(Env, Template, [Type]): Type
   let 3 base string
   let 4 name string
   let 5 enum_type TEnum
-  let 6 bindings [Binding]
-  let 7 placeholders [Binding]
+  let 6 bindings Map[string, Type]
+  let 7 placeholders Map[string, Type]
   let 8 i int
   let 9 variant VariantDecl
   let 10 payload [Type]
@@ -1301,42 +1309,40 @@ fn collect_types(Env, [Item]): void
   let 10 previous string
   let 11 d StructDecl
   let 12 d EnumDecl
-  let 13 params [string]
-  let 14 p Ident
-  let 15 template Template
-  var 16 payload_free bool
-  let 17 v VariantDecl
-  let 18 template Template
-  let 19 decl EnumDecl
-  let 20 before int
-  let 21 seen [string]
-  let 22 param Ident
-  var 23 used bool
-  let 24 v VariantDecl
-  let 25 ref TypeExpr
-  let 26 expanding [string]
-  let 27 template Template
-  let 28 name Ident
-  let 29 i int
-  let 30 st TStruct
-  let 31 field Typed
-  var 32 t Type
-  let 33 i int
-  let 34 en TEnum
-  let 35 decl EnumDecl
-  let 36 variant VariantDecl
-  let 37 payload [Type]
-  let 38 ref TypeExpr
-  let 39 t Type
-  let 40 template Template
-  let 41 decl EnumDecl
-  let 42 before int
-  let 43 placeholders [Binding]
-  let 44 param string
-  let 45 names [string]
-  let 46 variant VariantDecl
-  let 47 ref TypeExpr
-  let 48 t Type
+  let 13 template Template
+  var 14 payload_free bool
+  let 15 v VariantDecl
+  let 16 template Template
+  let 17 decl EnumDecl
+  let 18 before int
+  let 19 seen Set[string]
+  let 20 param Ident
+  var 21 used bool
+  let 22 v VariantDecl
+  let 23 ref TypeExpr
+  let 24 expanding Set[string]
+  let 25 template Template
+  let 26 name Ident
+  let 27 i int
+  let 28 st TStruct
+  let 29 field Typed
+  var 30 t Type
+  let 31 i int
+  let 32 en TEnum
+  let 33 decl EnumDecl
+  let 34 variant VariantDecl
+  let 35 payload [Type]
+  let 36 ref TypeExpr
+  let 37 t Type
+  let 38 template Template
+  let 39 decl EnumDecl
+  let 40 before int
+  let 41 placeholders Map[string, Type]
+  let 42 param string
+  let 43 names Set[string]
+  let 44 variant VariantDecl
+  let 45 ref TypeExpr
+  let 46 t Type
 fn is_main_signature(Signature): bool
   param 0 sig Signature
   let 1 elem Type
@@ -1345,11 +1351,9 @@ fn prelude_templates(): [Template]
   let 1 templates [Template]
   let 2 item Item
   let 3 d EnumDecl
-  let 4 params [string]
-  let 5 tp Ident
-fn collect_signature(Env, [Signature], FnDecl, int): bool
+fn collect_signature(Env, Signatures, FnDecl, int): bool
   param 0 env Env
-  param 1 sigs [Signature]
+  param 1 sigs Signatures
   param 2 decl FnDecl
   param 3 root_end int
   let 4 name string
@@ -1363,40 +1367,37 @@ fn check_program([Item], int): Checked
   param 0 items [Item]
   param 1 root_end int
   let 2 env Env
-  let 3 sigs [Signature]
-  let 4 declared [FnDecl]
-  let 5 item Item
-  let 6 decl FnDecl
-  let 7 i int
-  let 8 name Ident
-  let 9 functions [TFunction]
-  let 10 i int
-fn check_function(Env, [Signature], FnDecl, Signature): TFunction
+  let 3 i int
+  let 4 sigs Signatures
+  let 5 declared [FnDecl]
+  let 6 item Item
+  let 7 decl FnDecl
+  let 8 i int
+  let 9 name Ident
+  let 10 functions [TFunction]
+  let 11 i int
+fn check_function(Env, Signatures, FnDecl, Signature): TFunction
   param 0 env Env
-  param 1 sigs [Signature]
+  param 1 sigs Signatures
   param 2 decl FnDecl
   param 3 sig Signature
   let 4 ctx Ctx
   let 5 i int
   let 6 p Typed
   let 7 body CheckedBlock
-fn find_local([Local], string): Option[int]
-  param 0 scope [Local]
-  param 1 name string
-  var 2 i int
 fn declare(Ctx, Ident, Type, bool): Local
   param 0 ctx Ctx
   param 1 name Ident
   param 2 ty Type
   param 3 mutable bool
-  let 4 scope [Local]
+  let 4 scope Map[string, Local]
   let 5 local Local
 fn lookup(Ctx, string): Option[Local]
   param 0 ctx Ctx
   param 1 name string
   var 2 i int
-  let 3 scope [Local]
-  let 4 j int
+  let 3 scope Map[string, Local]
+  let 4 local Local
 fn is_function_name(Ctx, string): bool
   param 0 ctx Ctx
   param 1 name string
@@ -1511,7 +1512,7 @@ fn declare_existing(Ctx, Ident, Local): void
   param 0 ctx Ctx
   param 1 name Ident
   param 2 local Local
-  let 3 scope [Local]
+  let 3 scope Map[string, Local]
 fn refutable_arms(Pattern, Block): [Arm]
   param 0 pattern Pattern
   param 1 body Block
@@ -1526,10 +1527,10 @@ fn check_let_else(Ctx, Pattern, Expr, Ident, Block): CheckedStmt
   let 5 keyword Ident
   let 6 m MatchArms
   let 7 binders [Binder]
-  let 8 declared [string]
+  let 8 declared Set[string]
   let 9 b Binder
   let 10 id Ident
-  let 11 j int
+  let 11 local Local
   let 12 arms [TArm]
 fn has_else_branch(Else): bool
   param 0 other Else
@@ -1672,7 +1673,7 @@ fn check_generic_variant_expr(Ctx, Expr, [Expr], Template, VariantDecl, Option[T
   param 5 expected Option[Type]
   let 6 base string
   let 7 a Expr
-  let 8 bindings [Binding]
+  let 8 bindings Map[string, Type]
   var 9 expected_error bool
   let 10 t Type
   let 11 name string
@@ -1698,12 +1699,12 @@ fn check_generic_variant_expr(Ctx, Expr, [Expr], Template, VariantDecl, Option[T
   let 31 tag int
   let 32 payload [Type]
   let 33 i int
-fn unify(Env, [string], TypeExpr, Type, [Binding]): void
+fn unify(Env, Set[string], TypeExpr, Type, Map[string, Type]): void
   param 0 env Env
-  param 1 params [string]
+  param 1 params Set[string]
   param 2 slot TypeExpr
   param 3 actual Type
-  param 4 bindings [Binding]
+  param 4 bindings Map[string, Type]
   let 5 elem TypeExpr
   let 6 actual_elem Type
   let 7 name string
@@ -1749,7 +1750,7 @@ fn check_arms(Ctx, Ident, Expr, [Arm], bool, Option[Type], Option[Else]): MatchA
   let 12 ei int
   let 13 category string
   let 14 is_refutable bool
-  let 15 covered [string]
+  let 15 covered Set[string]
   var 16 wildcard_seen bool
   var 17 all_resolved bool
   let 18 result MatchArms
@@ -1819,25 +1820,25 @@ fn string_literal_value(string): string
   var 1 out string
   var 2 i int
   let 3 c int
-fn check_reachability(Ctx, Pattern, [Pattern], [Option[ResolvedAlt]], [string], bool): [ResolvedAlt]
+fn check_reachability(Ctx, Pattern, [Pattern], [Option[ResolvedAlt]], Set[string], bool): [ResolvedAlt]
   param 0 ctx Ctx
   param 1 pattern Pattern
   param 2 alternatives [Pattern]
   param 3 resolved [Option[ResolvedAlt]]
-  param 4 covered [string]
+  param 4 covered Set[string]
   param 5 wildcard_seen bool
   let 6 fresh [ResolvedAlt]
   let 7 stale [Pattern]
-  let 8 arm_keys [string]
+  let 8 arm_keys Set[string]
   let 9 i int
   let 10 r ResolvedAlt
   let 11 alt Pattern
-fn missing_values(Env, string, Type, [TVariant], [string]): Option[[string]]
+fn missing_values(Env, string, Type, [TVariant], Set[string]): Option[[string]]
   param 0 env Env
   param 1 category string
   param 2 st Type
   param 3 variants [TVariant]
-  param 4 covered [string]
+  param 4 covered Set[string]
   let 5 missing [string]
   let 6 i int
   let 7 b string
@@ -1855,7 +1856,7 @@ fn declare_binders(Ctx, Pattern, [TVariant], int): [Option[Local]]
   let 10 binders [Binder]
   var 11 slots [Type]
   var 12 has_slots bool
-  let 13 seen [string]
+  let 13 seen Set[string]
   let 14 i int
   let 15 id Ident
   let 16 ty Type
@@ -2010,8 +2011,8 @@ fn check_call(Ctx, Expr, Expr, [Expr]): TExpr
   let 5 values [TExpr]
   let 6 a Expr
   let 7 expected Option[Type]
-  let 8 builtins [Signature]
-  var 9 sigs [Signature]
+  let 8 builtins Signatures
+  var 9 sigs Signatures
   var 10 builtin bool
   let 11 si int
   let 12 sg Signature
