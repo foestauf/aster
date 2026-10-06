@@ -124,6 +124,7 @@ import { spawnStrict } from './spawn.js';
 //   v0.8 rows (maps and sets):
 //  map key must be int or string, found <T>                         errors/maps_types.aster
 //  map value cannot be void                                         errors/maps_types.aster
+//  map key must be int or string (instantiation of a template)     errors/maps_generic.aster
 //  'Map'|'Set' expects <n> type argument(s), got <m>                errors/maps_types.aster
 //  'Map'|'Set' is a builtin type and cannot be redefined            errors/maps_types.aster
 //  cannot infer type of empty map or set                            errors/maps_empty_literal.aster

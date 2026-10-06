@@ -1,0 +1,15 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/maps_generic.aster:8:23: error: map key must be int or string, found bool
+  enum Fixed[T] { F(Map[bool, T]) }
+                        ^^^^
+tests/programs/errors/maps_generic.aster:11:12: error: map key must be int or string, found bool
+      let w: Wrap[bool] = Wrap::A({});
+             ^^^^^^^^^^
+tests/programs/errors/maps_generic.aster:14:12: error: map key must be int or string, found [int]
+      let o: Outer[[int]] = Outer::O(Keys::K({}));
+             ^^^^^^^^^^^^
+tests/programs/errors/maps_generic.aster:15:5: error: map key must be int or string, found bool
+      Pair::P(true, {});
+      ^^^^^^^^^^^^^^^^^

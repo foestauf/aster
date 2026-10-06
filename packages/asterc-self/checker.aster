@@ -490,11 +490,14 @@ fn scc_visit(g: ExpansionGraph, node: int) {
 // enum and then every instantiation, in order of first use (all non-generic enums are registered before any type is
 // resolved, so the two never interleave); `templates` every generic enum, the prelude's first. Struct, enum and
 // template names share the type namespace.
+// `pending` holds the map and set rules that instantiations broke since the last user-written type or variant that
+// instantiated a template, which reports them at its own span (`flush_pending`).
 struct Env {
     diags: [Diag],
     structs: [TStruct],
     enums: [TEnum],
     templates: [Template],
+    pending: [string],
 }
 
 // An enclosing loop, and whether a `break` leaves it.
@@ -694,7 +697,11 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
                 if any_error || template.broken || !instantiates {
                     return Type::Error;
                 }
-                return instantiate(env, template, types);
+                let instance: Type = instantiate(env, template, types);
+                if !quiet {
+                    flush_pending(env, ref.start, ref.end);
+                }
+                return instance;
             }
             var found: Option[Type] = primitive_type(name);
             if name == "never" && !allow_never {
@@ -730,8 +737,7 @@ fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bin
     }
     let key: Type = resolve_type_with(env, args[0], bindings, quiet, instantiates, false);
     var ok: bool = !is_error(key);
-    let key_kind: string = kind_of_type(key);
-    if ok && key_kind != "int" && key_kind != "string" {
+    if !is_map_key(key) {
         say(env, quiet, "map key must be int or string, found " + type_to_string(key), args[0].start, args[0].end);
         ok = false;
     }
@@ -752,6 +758,53 @@ fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bin
     return Type::Map(key, value);
 }
 
+fn is_map_key(t: Type): bool {
+    let kind: string = kind_of_type(t);
+    return kind == "int" || kind == "string" || kind == "error";
+}
+
+// Adds to `env.pending` each map or set rule that a template payload `ref` breaks only once its parameters are bound
+// to `bindings`: validating the template (every parameter bound to the error type, `placeholders`) reported the rest.
+fn map_violations(env: Env, ref: TypeExpr, bindings: [Binding], placeholders: [Binding]) {
+    match ref.node {
+        TypeNode::Array(elem) => {
+            map_violations(env, elem, bindings, placeholders);
+        }
+        TypeNode::Named(name, args) => {
+            for arg in args {
+                map_violations(env, arg, bindings, placeholders);
+            }
+            if let Option::Some(_) = find_binding(bindings, name) {
+                return;
+            }
+            let is_map: bool = name == "Map" && len(args) == 2;
+            if !is_map && !(name == "Set" && len(args) == 1) {
+                return;
+            }
+            let key: Type = resolve_type_with(env, args[0], bindings, true, true, false);
+            if !is_map_key(key) && is_map_key(resolve_type_with(env, args[0], placeholders, true, false, false)) {
+                push(env.pending, "map key must be int or string, found " + type_to_string(key));
+            }
+            if is_map {
+                let value: Type = resolve_type_with(env, args[1], bindings, true, true, false);
+                if is_void(value) && !is_void(resolve_type_with(env, args[1], placeholders, true, false, false)) {
+                    push(env.pending, "map value cannot be void");
+                }
+            }
+        }
+    }
+}
+
+// Reports the pending map and set rules at a user-written instantiation's span.
+fn flush_pending(env: Env, start: int, end: int) {
+    for message in env.pending {
+        report(env, message, start, end);
+    }
+    while len(env.pending) > 0 {
+        pop(env.pending);
+    }
+}
+
 // resolveType's `say`: reports unless `quiet`.
 fn say(env: Env, quiet: bool, message: string, start: int, end: int) {
     if !quiet {
@@ -770,8 +823,10 @@ fn instantiate(env: Env, template: Template, args: [Type]): Type {
     let enum_type: TEnum = TEnum { name: name, payload_free: false, variants: [], base: base, args: args };
     push(env.enums, enum_type);
     let bindings: [Binding] = [];
+    let placeholders: [Binding] = [];
     for i in 0..len(template.params) {
         push(bindings, Binding { name: template.params[i], ty: args[i] });
+        push(placeholders, Binding { name: template.params[i], ty: Type::Error });
     }
     for variant in template.decl.variants {
         // Validating the template already reported the duplicate.
@@ -782,6 +837,7 @@ fn instantiate(env: Env, template: Template, args: [Type]): Type {
         for ref in variant.payload {
             let t: Type = resolve_type_with(env, ref, bindings, true, true, false);
             push(payload, if is_void(t) { Type::Error } else { t });
+            map_violations(env, ref, bindings, placeholders);
         }
         push(enum_type.variants, TVariant { name: variant.name.name, payload: payload });
     }
@@ -1065,7 +1121,7 @@ fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): 
 
 // Checks a whole program. `root_end` is the end of the root file: declarations at or past it come from imports.
 fn check_program(items: [Item], root_end: int): Checked {
-    let env: Env = Env { diags: [], structs: [], enums: [], templates: prelude_templates() };
+    let env: Env = Env { diags: [], structs: [], enums: [], templates: prelude_templates(), pending: [] };
     collect_types(env, items);
 
     // Pass 1: collect signatures so functions can be called before their declaration. `declared` is parallel to
@@ -1795,6 +1851,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         push(type_args, t);
     }
     let ty: Type = instantiate(ctx.env, template, type_args);
+    flush_pending(ctx.env, e.start, e.end);
     let name: string = type_to_string(ty);
     let Option::Some(ei) = find_enum(ctx.env, name) else {
         panic("internal: missing instantiation '" + name + "'");
