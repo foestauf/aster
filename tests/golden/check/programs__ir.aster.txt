@@ -422,6 +422,14 @@ enum IrInstr
   variant EnumField(int, IrOperand, string, string, int, int)
   variant ReadFile(int, int, IrOperand)
   variant Sys(string, int, int, int, [IrOperand])
+  variant MapNew(int, Type, Type)
+  variant MapValue(int, IrOperand, IrOperand)
+  variant MapSet(IrOperand, IrOperand, IrOperand)
+  variant MapInsert(int, IrOperand, IrOperand)
+  variant MapHas(int, IrOperand, IrOperand)
+  variant MapRemove(int, IrOperand, IrOperand)
+  variant MapLen(int, IrOperand)
+  variant MapKeys(int, IrOperand)
 enum IrTerm
   variant Jmp(string)
   variant Br(IrOperand, string, string)
@@ -2308,8 +2316,8 @@ fn lower_builtin(IrState, Type, string, [TExpr]): Option[IrOperand]
   param 1 ty Type
   param 2 name string
   param 3 args [TExpr]
-  let 4 lk string
-  let 5 a [IrOperand]
+  let 4 a [IrOperand]
+  let 5 dst int
   let 6 dst int
   let 7 dst int
   let 8 k string
@@ -2448,6 +2456,37 @@ fn lower_read_file(IrState, IrOperand, Type): IrOperand
   let 8 ok_label string
   let 9 err_label string
   let 10 end_label string
+fn lower_empty_map(IrState, Type): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  let 2 t Type
+  let 3 dst int
+  let 4 k Type
+  let 5 v Type
+  let 6 k Type
+fn lower_map_builtin(IrState, Type, string, Type, [IrOperand]): Option[IrOperand]
+  param 0 st IrState
+  param 1 ty Type
+  param 2 name string
+  param 3 container Type
+  param 4 a [IrOperand]
+  let 5 dst int
+fn lower_map_get(IrState, Type, Type, IrOperand, IrOperand): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 container Type
+  param 3 map IrOperand
+  param 4 key IrOperand
+  let 5 n string
+  let 6 option_enum string
+  let 7 v Type
+  let 8 value_ty Type
+  let 9 has int
+  let 10 value int
+  let 11 dst int
+  let 12 some_label string
+  let 13 none_label string
+  let 14 end_label string
 fn lower_sys(IrState, string, [IrOperand], Type): IrOperand
   param 0 st IrState
   param 1 name string
@@ -2553,6 +2592,28 @@ fn ir_instr_text(IrInstr): string
   let 56 value int
   let 57 err int
   let 58 args [IrOperand]
+  let 59 dst int
+  let 60 key Type
+  let 61 value Type
+  let 62 dst int
+  let 63 map IrOperand
+  let 64 key IrOperand
+  let 65 map IrOperand
+  let 66 key IrOperand
+  let 67 value IrOperand
+  let 68 dst int
+  let 69 map IrOperand
+  let 70 key IrOperand
+  let 71 dst int
+  let 72 map IrOperand
+  let 73 key IrOperand
+  let 74 dst int
+  let 75 map IrOperand
+  let 76 key IrOperand
+  let 77 dst int
+  let 78 map IrOperand
+  let 79 dst int
+  let 80 map IrOperand
 fn ir_field_values([IrFieldValue]): [string]
   param 0 fields [IrFieldValue]
   let 1 parts [string]

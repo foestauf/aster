@@ -34,6 +34,13 @@ struct IrFieldValue { name: string, value: IrOperand }
 //   EnumNew(dst, enum, variant, tag, args)  EnumTag(dst, value)
 //   EnumField(dst, value, enum, variant, tag, index)                          ReadFile(ok, text, path)
 //   Sys(builtin, ok, value, err, args)
+//   MapNew(dst, key, value)                 MapValue(dst, map, key)           MapSet(map, key, value)
+//   MapInsert(dst, map, key)                MapHas(dst, map, key)             MapRemove(dst, map, key)
+//   MapLen(dst, map)                        MapKeys(dst, map)
+// Maps and sets share the Map instructions. A set's `MapNew` value type is `void`, and `MapInsert` (set_add) is its
+// insert: it returns whether the key was new. `MapValue` reads the value of a key that must be present: `map_get`
+// lowers to `MapHas`, then a branch, and only the present branch reads it. `MapKeys` returns the keys in insertion
+// order as a new array.
 enum IrInstr {
     Copy(int, IrOperand),
     Unop(int, string, IrOperand),
@@ -54,6 +61,14 @@ enum IrInstr {
     EnumField(int, IrOperand, string, string, int, int),
     ReadFile(int, int, IrOperand),
     Sys(string, int, int, int, [IrOperand]),
+    MapNew(int, Type, Type),
+    MapValue(int, IrOperand, IrOperand),
+    MapSet(IrOperand, IrOperand, IrOperand),
+    MapInsert(int, IrOperand, IrOperand),
+    MapHas(int, IrOperand, IrOperand),
+    MapRemove(int, IrOperand, IrOperand),
+    MapLen(int, IrOperand),
+    MapKeys(int, IrOperand),
 }
 
 // A `switch` case: a decimal value and the label it jumps to.

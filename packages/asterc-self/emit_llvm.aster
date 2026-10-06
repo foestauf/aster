@@ -364,6 +364,14 @@ fn llvm_instr(st: LlvmState, ins: IrInstr) {
             push(args, "ptr " + llvm_local(err));
             llvm_call(st, Option::Some(ok), "aster_rt_" + name, c_join(args, ", "), true);
         }
+        IrInstr::MapNew(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapValue(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapSet(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapInsert(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapHas(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapRemove(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapLen(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapKeys(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
     }
 }
 

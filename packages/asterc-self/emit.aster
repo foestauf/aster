@@ -399,6 +399,14 @@ fn emit_instr(f: IrFunction, enums: [IrEnum], i: IrInstr): string {
         IrInstr::EnumField(dst, value, _, variant, _, index) => c_set(f, dst, c_operand(f, value) + "->u." + c_mangle_variant(variant) + ".p" + int_to_string(index)),
         IrInstr::ReadFile(ok, text, path) => c_mangle_local(f.locals[text]) + " = aster_rt_read_file(" + c_operand(f, path) + ", &" + c_mangle_local(f.locals[ok]) + ");",
         IrInstr::Sys(name, ok, value, err, args) => c_mangle_local(f.locals[ok]) + " = aster_rt_" + name + "(" + c_sys_args(f, args, value, err) + ");",
+        IrInstr::MapNew(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapValue(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapSet(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapInsert(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapHas(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapRemove(_, _, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapLen(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
+        IrInstr::MapKeys(_, _) => panic("unimplemented: maps (v0.8 task 5)"),
     };
 }
 
