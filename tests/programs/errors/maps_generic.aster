@@ -1,0 +1,18 @@
+// expect-error: 8:23 map key must be int or string, found bool
+// expect-error: 11:12 map key must be int or string, found bool
+// expect-error: 14:12 map key must be int or string, found [int]
+// expect-error: 15:5 map key must be int or string, found bool
+enum Wrap[T] { A(Map[T, int]), B }
+enum Keys[T] { K(Set[T]) }
+enum Outer[T] { O(Keys[T]) }
+enum Fixed[T] { F(Map[bool, T]) }
+enum Pair[T] { P(T, Set[T]) }
+fn main(): int {
+    let w: Wrap[bool] = Wrap::A({});
+    let w2: Wrap[bool] = Wrap::A(5);
+    let ok: Wrap[string] = Wrap::B;
+    let o: Outer[[int]] = Outer::O(Keys::K({}));
+    Pair::P(true, {});
+    let f: Fixed[int] = Fixed::F({});
+    return 0;
+}

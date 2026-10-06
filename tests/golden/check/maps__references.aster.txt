@@ -1,0 +1,28 @@
+== exit 0
+== stdout
+struct Registry
+  field names Map[int, string]
+  field ids Set[int]
+enum Option[int]
+  variant Some(int)
+  variant None
+fn add_two(Map[string, int]): void
+  param 0 m Map[string, int]
+fn make(): Map[string, int]
+  let 0 m Map[string, int]
+fn tag(Set[int], int): Set[int]
+  param 0 s Set[int]
+  param 1 k int
+fn register(Registry, int, string): void
+  param 0 r Registry
+  param 1 id int
+  param 2 name string
+fn main(): int
+  let 0 m Map[string, int]
+  let 1 alias Map[string, int]
+  let 2 z int
+  let 3 s Set[int]
+  let 4 same Set[int]
+  let 5 r Registry
+  let 6 names Map[int, string]
+== stderr

@@ -1,0 +1,52 @@
+// Sets: set_add reports whether the element was new, set_remove whether it was present.
+// expect-stdout:
+// true
+// true
+// false
+// 2
+// true
+// false
+// true
+// false
+// 1
+// go
+// true
+// 2
+// go rust
+// 0
+// 3
+fn joined(xs: [string]): string {
+    var out: string = "";
+    for i in 0..len(xs) {
+        if i > 0 {
+            out += " ";
+        }
+        out += xs[i];
+    }
+    return out;
+}
+
+fn main(): int {
+    let s: Set[string] = {};
+    print(set_add(s, "aster"));
+    print(set_add(s, "go"));
+    print(set_add(s, "aster"));
+    print(len(s));
+    print(set_has(s, "aster"));
+    print(set_has(s, "c"));
+    print(set_remove(s, "aster"));
+    print(set_remove(s, "aster"));
+    print(len(s));
+    print(joined(set_items(s)));
+    print(set_add(s, "rust"));
+    print(len(s));
+    print(joined(set_items(s)));
+
+    let seen: Set[int] = {};
+    print(len(set_items(seen)));
+    for x in [4, 1, 4, 4, 1, 0] {
+        set_add(seen, x);
+    }
+    print(len(seen));
+    return 0;
+}

@@ -9,7 +9,7 @@ error tests/programs/programs/fixtures/check_unwrap.txt 634 658 cannot infer typ
 error tests/programs/programs/fixtures/check_unwrap.txt 772 788 operator '+=' cannot be applied to int and never
 error tests/programs/programs/fixtures/check_unwrap.txt 796 806 condition must be bool, found never
 error tests/programs/programs/fixtures/check_unwrap.txt 843 851 condition must be bool, found never
-error tests/programs/programs/fixtures/check_unwrap.txt 899 909 function 'len' expects a string or array, found never
+error tests/programs/programs/fixtures/check_unwrap.txt 899 909 function 'len' expects a string, array, map or set, found never
 error tests/programs/programs/fixtures/check_unwrap.txt 931 942 operator '-' cannot be applied to never
 error tests/programs/programs/fixtures/check_unwrap.txt 965 989 operator '==' cannot be applied to never and never
 error tests/programs/programs/fixtures/check_unwrap.txt 1015 1025 array index must be int, found never

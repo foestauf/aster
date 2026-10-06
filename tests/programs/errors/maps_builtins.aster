@@ -1,0 +1,33 @@
+// expect-error: 10:4 'map_get' is a builtin function and cannot be redefined
+// expect-error: 15:5 function 'map_set' expects 3 arguments, found 2
+// expect-error: 16:5 function 'set_has' expects 2 arguments, found 1
+// expect-error: 17:5 function 'map_keys' expects 1 argument, found 2
+// expect-error: 18:13 function 'map_get' expects a map, found [int]
+// expect-error: 19:16 type mismatch: expected string, found int
+// expect-error: 20:21 type mismatch: expected int, found bool
+// expect-error: 21:13 function 'set_add' expects a set, found Map[string, int]
+// expect-error: 22:15 function 'len' expects a string, array, map or set, found int
+fn map_get(): int { return 0; }
+fn main(): int {
+    let m: Map[string, int] = {};
+    let s: Set[int] = {};
+    let xs: [int] = [1];
+    map_set(m, "a");
+    set_has(s);
+    map_keys(m, 1);
+    map_get(xs, 1);
+    map_set(m, 1, 2);
+    map_set(m, "a", true);
+    set_add(m, 1);
+    print(len(5));
+    let o: Option[int] = map_get(m, "a");
+    let ks: [string] = map_keys(m);
+    let items: [int] = set_items(s);
+    let n: int = len(m) + len(s) + len(ks) + len(items);
+    let found: bool = set_add(s, 1) && set_has(s, 2) && set_remove(s, 3) && map_has(m, "b") && map_remove(m, "c");
+    let nested: Map[string, [int]] = {};
+    map_set(nested, "k", []);
+    let deep: Map[int, Map[int, int]] = {};
+    map_set(deep, 1, {});
+    return n;
+}

@@ -1,18 +1,18 @@
 == exit 1
 == stdout
 == stderr
-error tests/programs/errors/array_errors.aster 993 997 array element type cannot be void
-error tests/programs/errors/array_errors.aster 1019 1021 cannot infer type of empty array
-error tests/programs/errors/array_errors.aster 1048 1053 type mismatch: expected int, found string
-error tests/programs/errors/array_errors.aster 1064 1068 type mismatch: expected int, found bool
-error tests/programs/errors/array_errors.aster 1081 1087 cannot compare '[int]' values
-error tests/programs/errors/array_errors.aster 1094 1099 cannot index a value of type string
-error tests/programs/errors/array_errors.aster 1110 1114 array index must be int, found bool
-error tests/programs/errors/array_errors.aster 1126 1127 function 'push' expects an array, found int
-error tests/programs/errors/array_errors.aster 1145 1148 type mismatch: expected int, found string
-error tests/programs/errors/array_errors.aster 1155 1160 function 'pop' expects 1 argument, found 0
-error tests/programs/errors/array_errors.aster 1170 1174 function 'len' expects a string or array, found bool
-error tests/programs/errors/array_errors.aster 1182 1185 array element cannot have type void
-error tests/programs/errors/array_errors.aster 1198 1199 cannot print a value of type [int]
-error tests/programs/errors/array_errors.aster 1219 1222 type mismatch: expected int, found [int]
-error tests/programs/errors/array_errors.aster 1232 1233 function 'pop' expects an array, found int
+error tests/programs/errors/array_errors.aster 1003 1007 array element type cannot be void
+error tests/programs/errors/array_errors.aster 1029 1031 cannot infer type of empty array
+error tests/programs/errors/array_errors.aster 1058 1063 type mismatch: expected int, found string
+error tests/programs/errors/array_errors.aster 1074 1078 type mismatch: expected int, found bool
+error tests/programs/errors/array_errors.aster 1091 1097 cannot compare '[int]' values
+error tests/programs/errors/array_errors.aster 1104 1109 cannot index a value of type string
+error tests/programs/errors/array_errors.aster 1120 1124 array index must be int, found bool
+error tests/programs/errors/array_errors.aster 1136 1137 function 'push' expects an array, found int
+error tests/programs/errors/array_errors.aster 1155 1158 type mismatch: expected int, found string
+error tests/programs/errors/array_errors.aster 1165 1170 function 'pop' expects 1 argument, found 0
+error tests/programs/errors/array_errors.aster 1180 1184 function 'len' expects a string, array, map or set, found bool
+error tests/programs/errors/array_errors.aster 1192 1195 array element cannot have type void
+error tests/programs/errors/array_errors.aster 1208 1209 cannot print a value of type [int]
+error tests/programs/errors/array_errors.aster 1229 1232 type mismatch: expected int, found [int]
+error tests/programs/errors/array_errors.aster 1242 1243 function 'pop' expects an array, found int

@@ -1,0 +1,19 @@
+// expect-error: 10:8 'Map' is a builtin type and cannot be redefined
+// expect-error: 11:6 'Set' is a builtin type and cannot be redefined
+// expect-error: 12:13 map key must be int or string, found bool
+// expect-error: 12:32 map key must be int or string, found [int]
+// expect-error: 12:55 map value cannot be void
+// expect-error: 13:9 'Map' expects 2 type arguments, got 1
+// expect-error: 13:25 'Set' expects 1 type argument, got 2
+// expect-error: 16:11 cannot compare 'Map[string, int]' values
+// expect-error: 17:11 cannot print a value of type Map[string, int]
+struct Map { x: int }
+enum Set { A }
+fn f(a: Map[bool, int], b: Set[[int]], c: Map[string, void]) { }
+fn g(d: Map[string], e: Set[int, int]) { }
+fn main(): int {
+    let m: Map[string, int] = {};
+    print(m == m);
+    print(m);
+    return 0;
+}

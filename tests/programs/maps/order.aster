@@ -1,0 +1,58 @@
+// Iteration follows insertion order: overwriting keeps a key's place, removing and re-adding moves it to the end.
+// expect-stdout:
+// c b a
+// c b a
+// c a
+// c a b
+// a b
+// 3 1 2
+// 1 2 3
+fn line(ks: [string]): string {
+    var out: string = "";
+    for i in 0..len(ks) {
+        if i > 0 {
+            out += " ";
+        }
+        out += ks[i];
+    }
+    return out;
+}
+
+fn ints(ks: [int]): string {
+    var out: string = "";
+    for i in 0..len(ks) {
+        if i > 0 {
+            out += " ";
+        }
+        out += int_to_string(ks[i]);
+    }
+    return out;
+}
+
+fn main(): int {
+    let m: Map[string, int] = {};
+    map_set(m, "c", 1);
+    map_set(m, "b", 2);
+    map_set(m, "a", 3);
+    print(line(map_keys(m)));
+    map_set(m, "b", 99);
+    map_set(m, "c", 98);
+    print(line(map_keys(m)));
+    map_remove(m, "b");
+    print(line(map_keys(m)));
+    map_set(m, "b", 5);
+    print(line(map_keys(m)));
+    map_remove(m, "c");
+    print(line(map_keys(m)));
+
+    let s: Set[int] = {};
+    set_add(s, 3);
+    set_add(s, 1);
+    set_add(s, 2);
+    set_add(s, 3);
+    print(ints(set_items(s)));
+    set_remove(s, 3);
+    set_add(s, 3);
+    print(ints(set_items(s)));
+    return 0;
+}

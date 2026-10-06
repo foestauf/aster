@@ -8,7 +8,7 @@
 // expect-error: 26:10 function 'push' expects an array, found int
 // expect-error: 27:13 type mismatch: expected int, found string
 // expect-error: 28:5 function 'pop' expects 1 argument, found 0
-// expect-error: 29:9 function 'len' expects a string or array, found bool
+// expect-error: 29:9 function 'len' expects a string, array, map or set, found bool
 // expect-error: 30:6 array element cannot have type void
 // expect-error: 31:11 cannot print a value of type [int]
 // expect-error: 32:18 type mismatch: expected int, found [int]

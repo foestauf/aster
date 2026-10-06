@@ -1,0 +1,15 @@
+== exit 0
+== stdout
+enum Option[int]
+  variant Some(int)
+  variant None
+fn main(): int
+  let 0 m Map[int, int]
+  let 1 k int
+  let 2 k int
+  let 3 ks [int]
+  var 4 sum int
+  let 5 k int
+  let 6 v int
+  let 7 again [int]
+== stderr

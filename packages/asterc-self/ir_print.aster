@@ -105,6 +105,14 @@ fn ir_instr_text(i: IrInstr): string {
         IrInstr::EnumField(dst, value, name, variant, _, index) => "%" + int_to_string(dst) + " = enum_field " + ir_operand(value) + ", " + name + "::" + variant + "." + int_to_string(index),
         IrInstr::ReadFile(ok, text, path) => "%" + int_to_string(ok) + ", %" + int_to_string(text) + " = read_file " + ir_operand(path),
         IrInstr::Sys(name, ok, value, err, args) => "%" + int_to_string(ok) + ", %" + int_to_string(value) + ", %" + int_to_string(err) + " = " + name + " " + ir_operands(args),
+        IrInstr::MapNew(dst, key, value) => "%" + int_to_string(dst) + " = map_new " + type_to_string(key) + ", " + type_to_string(value),
+        IrInstr::MapValue(dst, map, key) => "%" + int_to_string(dst) + " = map_value " + ir_operand(map) + ", " + ir_operand(key),
+        IrInstr::MapSet(map, key, value) => "map_set " + ir_operand(map) + ", " + ir_operand(key) + ", " + ir_operand(value),
+        IrInstr::MapInsert(dst, map, key) => "%" + int_to_string(dst) + " = map_insert " + ir_operand(map) + ", " + ir_operand(key),
+        IrInstr::MapHas(dst, map, key) => "%" + int_to_string(dst) + " = map_has " + ir_operand(map) + ", " + ir_operand(key),
+        IrInstr::MapRemove(dst, map, key) => "%" + int_to_string(dst) + " = map_remove " + ir_operand(map) + ", " + ir_operand(key),
+        IrInstr::MapLen(dst, map) => "%" + int_to_string(dst) + " = map_len " + ir_operand(map),
+        IrInstr::MapKeys(dst, map) => "%" + int_to_string(dst) + " = map_keys " + ir_operand(map),
     };
 }
 

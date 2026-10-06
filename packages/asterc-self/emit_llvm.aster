@@ -22,6 +22,8 @@ fn llvm_type(p: IrProgram, t: Type): string {
         Type::Str => "{ ptr, i64 }",
         Type::Struct(_) => "ptr",
         Type::Array(_) => "ptr",
+        Type::Map(_, _) => "ptr",
+        Type::Set(_) => "ptr",
         Type::Enum(name) => if llvm_enum(p, name).payload_free { "i64" } else { "ptr" },
         Type::Void => "void",
         _ => panic("internal: invalid LLVM value type"),
@@ -40,6 +42,8 @@ fn llvm_size(t: Type): int {
         Type::Int => 8,
         Type::Struct(_) => 8,
         Type::Array(_) => 8,
+        Type::Map(_, _) => 8,
+        Type::Set(_) => 8,
         Type::Enum(_) => 8,
         _ => panic("internal: invalid LLVM storage type"),
     };
@@ -196,6 +200,27 @@ fn llvm_array_at(st: LlvmState, array: IrOperand, index: IrOperand): string {
     let object: string = llvm_operand(st, array);
     let at: string = llvm_operand(st, index);
     return llvm_temp(st, "call ptr @aster_rt_array_at(ptr " + object + ", i64 " + at + ")");
+}
+
+// A map call's leading arguments: the map, then the runtime's (ikey, skey) pair with the unused half zero. An
+// aster_string argument flattens to `ptr, i64`, as in llvm_runtime_args.
+fn llvm_map_args(st: LlvmState, map: IrOperand, key: IrOperand): string {
+    let object: string = llvm_operand(st, map);
+    if kind_of_type(map_key_type(llvm_operand_type(st, map))) == "string" {
+        return "ptr " + object + ", i64 0, " + c_join(llvm_runtime_args(st, [key]), ", ");
+    }
+    return "ptr " + object + ", i64 " + llvm_operand(st, key) + ", ptr null, i64 0";
+}
+
+// A slot pointer is valid only until the next insertion, so callers load or store through it immediately.
+fn llvm_map_slot(st: LlvmState, map: IrOperand, key: IrOperand, create: string): string {
+    return llvm_temp(st, "call ptr @aster_rt_map_slot(" + llvm_map_args(st, map, key) + ", i64 " + create + ")");
+}
+
+// map_insert and map_remove return an int64 1 or 0; the IR wants a bool.
+fn llvm_map_flag(st: LlvmState, dst: int, name: string, map: IrOperand, key: IrOperand) {
+    let result: string = llvm_temp(st, "call i64 @" + name + "(" + llvm_map_args(st, map, key) + ")");
+    llvm_set(st, dst, llvm_temp(st, "icmp ne i64 " + result + ", 0"));
 }
 
 // The LLVM-native ABI is private to generated Aster functions. Every call/definition agrees, including aggregates.
@@ -364,6 +389,31 @@ fn llvm_instr(st: LlvmState, ins: IrInstr) {
             push(args, "ptr " + llvm_local(err));
             llvm_call(st, Option::Some(ok), "aster_rt_" + name, c_join(args, ", "), true);
         }
+        IrInstr::MapNew(dst, key, value) => {
+            var size: int = 0;
+            if kind_of_type(value) != "void" { size = llvm_size(value); }
+            var kind: string = "0"; // ASTER_KEY_INT; "1" is ASTER_KEY_STRING (runtime/aster_rt.h)
+            if kind_of_type(key) == "string" { kind = "1"; }
+            llvm_set(st, dst, llvm_temp(st, "call ptr @aster_rt_map_new(i64 " + kind + ", i64 " + int_to_string(size) + ")"));
+        }
+        IrInstr::MapValue(dst, map, key) => {
+            let address: string = llvm_map_slot(st, map, key, "0");
+            llvm_set(st, dst, llvm_load(st, st.function.locals[dst].ty, address));
+        }
+        IrInstr::MapSet(map, key, value) => {
+            // The value is loaded first, so the slot pointer is stored through straight after the call that returns it.
+            let stored: string = llvm_operand(st, value);
+            let address: string = llvm_map_slot(st, map, key, "1");
+            llvm_store(st, map_value_type(llvm_operand_type(st, map)), stored, address);
+        }
+        IrInstr::MapInsert(dst, map, key) => llvm_map_flag(st, dst, "aster_rt_map_insert", map, key),
+        IrInstr::MapHas(dst, map, key) => {
+            let address: string = llvm_map_slot(st, map, key, "0");
+            llvm_set(st, dst, llvm_temp(st, "icmp ne ptr " + address + ", null"));
+        }
+        IrInstr::MapRemove(dst, map, key) => llvm_map_flag(st, dst, "aster_rt_map_remove", map, key),
+        IrInstr::MapLen(dst, map) => llvm_set(st, dst, llvm_temp(st, "call i64 @aster_rt_map_len(ptr " + llvm_operand(st, map) + ")")),
+        IrInstr::MapKeys(dst, map) => llvm_set(st, dst, llvm_temp(st, "call ptr @aster_rt_map_keys(ptr " + llvm_operand(st, map) + ")")),
     }
 }
 
@@ -459,6 +509,12 @@ fn llvm_runtime_declarations(out: [string]) {
         "declare ptr @aster_rt_array_at(ptr, i64)",
         "declare ptr @aster_rt_array_push_slot(ptr)",
         "declare ptr @aster_rt_array_pop_slot(ptr)",
+        "declare ptr @aster_rt_map_new(i64, i64)",
+        "declare ptr @aster_rt_map_slot(ptr, i64, ptr, i64, i64)",
+        "declare i64 @aster_rt_map_insert(ptr, i64, ptr, i64)",
+        "declare i64 @aster_rt_map_remove(ptr, i64, ptr, i64)",
+        "declare i64 @aster_rt_map_len(ptr)",
+        "declare ptr @aster_rt_map_keys(ptr)",
         "declare void @aster_rt_print_int(i64)",
         "declare void @aster_rt_print_bool(i1 zeroext)",
         "declare void @aster_rt_print_string(ptr, i64)",

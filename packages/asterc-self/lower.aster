@@ -3,8 +3,9 @@
 // the checked program into the IR. It allocates temps, labels and interned strings in a fixed order,
 // because the self-host fixed point compares the emitted C byte for byte.
 //
-// Aster has no closures or maps. The original callbacks become data: `lower_match`'s `into`, `lower_for`'s `IrForKind`
-// and `IrPlaceRef`. Its maps become linear scans: `intern_ir_string`, `ir_find_struct` and `ir_block_index`.
+// Aster has no closures, and the compiler does not use its own maps (v0.8). The original callbacks become data:
+// `lower_match`'s `into`, `lower_for`'s `IrForKind` and `IrPlaceRef`. Its maps become linear scans: `intern_ir_string`,
+// `ir_find_struct` and `ir_block_index`.
 
 import "ir.aster";
 
@@ -518,6 +519,7 @@ fn lower_expr(st: IrState, e: TExpr): Option[IrOperand] {
         TExprNode::Variant(enum_name, variant, tag, args) => Option::Some(lower_variant(st, e.ty, enum_name, variant, tag, args)),
         TExprNode::EnumCompare(op, left, right) => Option::Some(lower_enum_compare(st, op, left, right)),
         TExprNode::If(cond, then, otherwise) => Option::Some(lower_if_expr(st, e.ty, cond, then, otherwise)),
+        TExprNode::EmptyMap => Option::Some(lower_empty_map(st, e.ty)),
         TExprNode::Error => panic("internal: error expression reached lowering"),
         TExprNode::Match(scrutinee, arms) => Option::Some(lower_match_expr(st, e.ty, scrutinee, arms)),
         TExprNode::Try(x) => Option::Some(lower_try(st, e.ty, x)),
@@ -636,6 +638,9 @@ fn ir_builtin_name(name: string, args: [TExpr]): string {
 
 fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
     let a: [IrOperand] = lower_args(st, args);
+    if is_map_builtin(name) || is_set_builtin(name) {
+        return lower_map_builtin(st, ty, name, args[0].ty, a);
+    }
     if name == "read_file" {
         return Option::Some(lower_read_file(st, a[0], ty));
     }
@@ -654,6 +659,11 @@ fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrO
     if name == "len" && kind_of_type(args[0].ty) == "array" {
         let dst: int = ir_new_temp(st, ir_type(ty));
         ir_emit(st, IrInstr::ArrayLen(dst, a[0]));
+        return Option::Some(ir_ref(dst));
+    }
+    if name == "len" && (kind_of_type(args[0].ty) == "map" || kind_of_type(args[0].ty) == "set") {
+        let dst: int = ir_new_temp(st, ir_type(ty));
+        ir_emit(st, IrInstr::MapLen(dst, a[0]));
         return Option::Some(ir_ref(dst));
     }
     let k: string = kind_of_type(ty);
@@ -908,6 +918,73 @@ fn lower_read_file(st: IrState, path: IrOperand, ty: Type): IrOperand {
     ir_terminate(st, IrTerm::Jmp(end_label));
     ir_start_block(st, err_label);
     ir_emit(st, IrInstr::EnumNew(dst, result_enum, "Err", 1, [ir_ref(text)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, end_label);
+    return ir_ref(dst);
+}
+
+// `{}`: an empty map or set of the context type. A set's value type is `void`.
+fn lower_empty_map(st: IrState, ty: Type): IrOperand {
+    let t: Type = ir_type(ty);
+    let dst: int = ir_new_temp(st, t);
+    match t {
+        Type::Map(k, v) => ir_emit(st, IrInstr::MapNew(dst, k, v)),
+        Type::Set(k) => ir_emit(st, IrInstr::MapNew(dst, k, Type::Void)),
+        _ => panic("internal: {} without a map or set type"),
+    }
+    return ir_ref(dst);
+}
+
+// The map and set builtins. `container` is the first argument's type, and `a` the lowered arguments. Each is one
+// instruction except `map_get`.
+fn lower_map_builtin(st: IrState, ty: Type, name: string, container: Type, a: [IrOperand]): Option[IrOperand] {
+    if name == "map_set" {
+        ir_emit(st, IrInstr::MapSet(a[0], a[1], a[2]));
+        return Option::None;
+    }
+    if name == "map_get" {
+        return Option::Some(lower_map_get(st, ty, container, a[0], a[1]));
+    }
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    if name == "set_add" {
+        ir_emit(st, IrInstr::MapInsert(dst, a[0], a[1]));
+    } else if name == "map_has" || name == "set_has" {
+        ir_emit(st, IrInstr::MapHas(dst, a[0], a[1]));
+    } else if name == "map_remove" || name == "set_remove" {
+        ir_emit(st, IrInstr::MapRemove(dst, a[0], a[1]));
+    } else if name == "map_keys" || name == "set_items" {
+        ir_emit(st, IrInstr::MapKeys(dst, a[0]));
+    } else {
+        panic("internal: unknown map builtin " + name);
+    }
+    return Option::Some(ir_ref(dst));
+}
+
+// `map_get(m, k)`: test for the key, then each outcome builds its Option variant, as `read_file` builds its Result.
+// Only the present branch reads the value, so `None` never touches a missing slot.
+fn lower_map_get(st: IrState, ty: Type, container: Type, map: IrOperand, key: IrOperand): IrOperand {
+    let option_enum: string = match ty {
+        Type::Enum(n) => n,
+        _ => panic("internal: map_get without an Option type"),
+    };
+    let value_ty: Type = match container {
+        Type::Map(_, v) => v,
+        _ => panic("internal: map_get without a map"),
+    };
+    let has: int = ir_new_temp(st, Type::Bool);
+    let value: int = ir_new_temp(st, ir_type(value_ty));
+    let dst: int = ir_new_temp(st, ir_type(ty));
+    ir_emit(st, IrInstr::MapHas(has, map, key));
+    let some_label: string = ir_new_label(st, "get_some");
+    let none_label: string = ir_new_label(st, "get_none");
+    let end_label: string = ir_new_label(st, "get_end");
+    ir_terminate(st, IrTerm::Br(ir_ref(has), some_label, none_label));
+    ir_start_block(st, some_label);
+    ir_emit(st, IrInstr::MapValue(value, map, key));
+    ir_emit(st, IrInstr::EnumNew(dst, option_enum, "Some", 0, [ir_ref(value)]));
+    ir_terminate(st, IrTerm::Jmp(end_label));
+    ir_start_block(st, none_label);
+    ir_emit(st, IrInstr::EnumNew(dst, option_enum, "None", 1, []));
     ir_terminate(st, IrTerm::Jmp(end_label));
     ir_start_block(st, end_label);
     return ir_ref(dst);

@@ -1,0 +1,12 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/maps_builtins.aster 653 660 'map_get' is a builtin function and cannot be redefined
+error tests/programs/errors/maps_builtins.aster 788 803 function 'map_set' expects 3 arguments, found 2
+error tests/programs/errors/maps_builtins.aster 809 819 function 'set_has' expects 2 arguments, found 1
+error tests/programs/errors/maps_builtins.aster 825 839 function 'map_keys' expects 1 argument, found 2
+error tests/programs/errors/maps_builtins.aster 853 855 function 'map_get' expects a map, found [int]
+error tests/programs/errors/maps_builtins.aster 876 877 type mismatch: expected string, found int
+error tests/programs/errors/maps_builtins.aster 903 907 type mismatch: expected int, found bool
+error tests/programs/errors/maps_builtins.aster 922 923 function 'set_add' expects a set, found Map[string, int]
+error tests/programs/errors/maps_builtins.aster 943 944 function 'len' expects a string, array, map or set, found int

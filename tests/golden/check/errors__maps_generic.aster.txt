@@ -1,0 +1,7 @@
+== exit 1
+== stdout
+== stderr
+error tests/programs/errors/maps_generic.aster 372 376 map key must be int or string, found bool
+error tests/programs/errors/maps_generic.aster 442 452 map key must be int or string, found bool
+error tests/programs/errors/maps_generic.aster 552 564 map key must be int or string, found [int]
+error tests/programs/errors/maps_generic.aster 594 611 map key must be int or string, found bool

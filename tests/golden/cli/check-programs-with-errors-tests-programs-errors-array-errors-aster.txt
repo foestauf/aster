@@ -31,7 +31,7 @@ tests/programs/errors/array_errors.aster:27:13: error: type mismatch: expected i
 tests/programs/errors/array_errors.aster:28:5: error: function 'pop' expects 1 argument, found 0
       pop();
       ^^^^^
-tests/programs/errors/array_errors.aster:29:9: error: function 'len' expects a string or array, found bool
+tests/programs/errors/array_errors.aster:29:9: error: function 'len' expects a string, array, map or set, found bool
       len(true);
           ^^^^
 tests/programs/errors/array_errors.aster:30:6: error: array element cannot have type void

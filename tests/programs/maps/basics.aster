@@ -1,0 +1,50 @@
+// Map basics: set, get, overwrite, has, remove and len.
+// expect-stdout:
+// 0
+// 2
+// 10
+// missing
+// 20
+// 30
+// 2
+// true
+// false
+// true
+// false
+// 1
+// false
+// none
+fn show(o: Option[int]) {
+    match o {
+        Option::Some(v) => print(v),
+        Option::None => print("missing"),
+    }
+}
+
+fn main(): int {
+    let m: Map[string, int] = {};
+    print(len(m));
+    map_set(m, "a", 10);
+    map_set(m, "b", 20);
+    print(len(m));
+    show(map_get(m, "a"));
+    show(map_get(m, "zzz"));
+    if let Option::Some(v) = map_get(m, "b") {
+        print(v);
+    }
+    map_set(m, "a", 30);
+    show(map_get(m, "a"));
+    print(len(m));
+    print(map_has(m, "b"));
+    print(map_has(m, "c"));
+    print(map_remove(m, "b"));
+    print(map_remove(m, "b"));
+    print(len(m));
+    print(map_has(m, "b"));
+    if let Option::Some(v) = map_get(m, "b") {
+        print(v);
+    } else {
+        print("none");
+    }
+    return 0;
+}

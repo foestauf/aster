@@ -176,6 +176,7 @@ struct Env
   field structs [TStruct]
   field enums [TEnum]
   field templates [Template]
+  field pending [string]
 struct Loop
   field has_break bool
 struct Ctx
@@ -314,6 +315,7 @@ enum ExprNode
   variant ArrayLit([Expr])
   variant Variant(Ident, Ident, [Expr])
   variant Match(Ident, Expr, [Arm])
+  variant EmptyMap
 enum PatternNode
   variant Wildcard
   variant Variant(Ident, Ident, [Binder])
@@ -337,6 +339,8 @@ enum Type
   variant Struct(string)
   variant Enum(string)
   variant Array(Type)
+  variant Map(Type, Type)
+  variant Set(Type)
   variant Error
 enum TArmBody
   variant Block(TBlock)
@@ -368,6 +372,7 @@ enum TExprNode
   variant EnumCompare(string, TExpr, TExpr)
   variant Match(TExpr, [TArm])
   variant Try(TTry)
+  variant EmptyMap
   variant Error
 enum TStmt
   variant Let(Local, TExpr)
@@ -417,6 +422,14 @@ enum IrInstr
   variant EnumField(int, IrOperand, string, string, int, int)
   variant ReadFile(int, int, IrOperand)
   variant Sys(string, int, int, int, [IrOperand])
+  variant MapNew(int, Type, Type)
+  variant MapValue(int, IrOperand, IrOperand)
+  variant MapSet(IrOperand, IrOperand, IrOperand)
+  variant MapInsert(int, IrOperand, IrOperand)
+  variant MapHas(int, IrOperand, IrOperand)
+  variant MapRemove(int, IrOperand, IrOperand)
+  variant MapLen(int, IrOperand)
+  variant MapKeys(int, IrOperand)
 enum IrTerm
   variant Jmp(string)
   variant Br(IrOperand, string, string)
@@ -850,7 +863,8 @@ fn parse_primary(Parser): Option[Expr]
   let 3 digits string
   let 4 elements [Expr]
   let 5 close Token
-  let 6 inner Expr
+  let 6 close Token
+  let 7 inner Expr
 fn parse_struct_lit(Parser, Token): Option[Expr]
   param 0 p Parser
   param 1 name Token
@@ -974,17 +988,30 @@ fn type_equals(Type, Type): bool
   let 5 y string
   let 6 x Type
   let 7 y Type
+  let 8 xk Type
+  let 9 xv Type
+  let 10 yk Type
+  let 11 yv Type
+  let 12 x Type
+  let 13 y Type
 fn type_to_string(Type): string
   param 0 t Type
   let 1 name string
   let 2 name string
   let 3 elem Type
+  let 4 k Type
+  let 5 v Type
+  let 6 k Type
 fn instance_name(string, [Type]): string
   param 0 base string
   param 1 args [Type]
   var 2 s string
   let 3 i int
 fn special_builtins(): [string]
+fn is_map_builtin(string): bool
+  param 0 name string
+fn is_set_builtin(string): bool
+  param 0 name string
 fn prelude_source(): string
 fn builtin_signatures(): [Signature]
 fn find_signature([Signature], string): Option[int]
@@ -1123,8 +1150,42 @@ fn resolve_type_with(Env, TypeExpr, [Binding], bool, bool, bool): Type
   var 16 any_error bool
   let 17 arg TypeExpr
   var 18 t Type
-  var 19 found Option[Type]
-  let 20 t Type
+  let 19 instance Type
+  var 20 found Option[Type]
+  let 21 t Type
+fn resolve_map_type(Env, TypeExpr, string, [TypeExpr], [Binding], bool, bool): Type
+  param 0 env Env
+  param 1 ref TypeExpr
+  param 2 name string
+  param 3 args [TypeExpr]
+  param 4 bindings [Binding]
+  param 5 quiet bool
+  param 6 instantiates bool
+  let 7 expected int
+  let 8 noun string
+  let 9 key Type
+  var 10 ok bool
+  let 11 value Type
+fn is_map_key(Type): bool
+  param 0 t Type
+  let 1 kind string
+fn map_violations(Env, TypeExpr, [Binding], [Binding]): void
+  param 0 env Env
+  param 1 ref TypeExpr
+  param 2 bindings [Binding]
+  param 3 placeholders [Binding]
+  let 4 elem TypeExpr
+  let 5 name string
+  let 6 args [TypeExpr]
+  let 7 arg TypeExpr
+  let 8 is_map bool
+  let 9 key Type
+  let 10 value Type
+fn flush_pending(Env, int, int): void
+  param 0 env Env
+  param 1 start int
+  param 2 end int
+  let 3 message string
 fn say(Env, bool, string, int, int): void
   param 0 env Env
   param 1 quiet bool
@@ -1139,11 +1200,12 @@ fn instantiate(Env, Template, [Type]): Type
   let 4 name string
   let 5 enum_type TEnum
   let 6 bindings [Binding]
-  let 7 i int
-  let 8 variant VariantDecl
-  let 9 payload [Type]
-  let 10 ref TypeExpr
-  let 11 t Type
+  let 7 placeholders [Binding]
+  let 8 i int
+  let 9 variant VariantDecl
+  let 10 payload [Type]
+  let 11 ref TypeExpr
+  let 12 t Type
 fn find_tfield([TField], string): Option[int]
   param 0 fields [TField]
   param 1 name string
@@ -1575,10 +1637,13 @@ fn unify(Env, [string], TypeExpr, Type, [Binding]): void
   let 6 actual_elem Type
   let 7 name string
   let 8 slot_args [TypeExpr]
-  let 9 actual_name string
-  let 10 ei int
-  let 11 en TEnum
-  let 12 i int
+  let 9 k Type
+  let 10 v Type
+  let 11 k Type
+  let 12 actual_name string
+  let 13 ei int
+  let 14 en TEnum
+  let 15 i int
 fn enum_base_name(Env, Type): string
   param 0 env Env
   param 1 t Type
@@ -1802,6 +1867,17 @@ fn check_array_lit(Ctx, Expr, [Expr], Option[Type]): TExpr
   let 11 value TExpr
   let 12 x Type
   let 13 x Type
+fn expr_arm_body(ArmBody, bool, Option[Type]): ArmBody
+  param 0 body ArmBody
+  param 1 as_expr bool
+  param 2 expected Option[Type]
+  let 3 b Block
+  let 4 t Type
+fn check_empty_map(Ctx, Expr, Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 expected Option[Type]
+  let 3 t Type
 fn check_place(Ctx, Expr): Option[TPlace]
   param 0 ctx Ctx
   param 1 target Expr
@@ -1899,6 +1975,30 @@ fn check_collection_builtin(Ctx, string, Expr, [Expr]): TExpr
   let 12 arity int
   let 13 k string
   let 14 x Type
+fn map_builtin_arity(string): int
+  param 0 name string
+fn check_map_builtin(Ctx, string, Expr, [Expr]): TExpr
+  param 0 ctx Ctx
+  param 1 name string
+  param 2 e Expr
+  param 3 args [Expr]
+  let 4 is_map bool
+  let 5 values [TExpr]
+  var 6 t Type
+  let 7 first TExpr
+  var 8 key Option[Type]
+  var 9 value Type
+  let 10 k Type
+  let 11 v Type
+  let 12 k Type
+  let 13 wanted string
+  let 14 i int
+  var 15 expected Type
+  let 16 k Type
+  let 17 arity int
+  let 18 k Type
+  let 19 ti int
+  let 20 ret Type
 fn sort_diags([Diag]): [Diag]
   param 0 diags [Diag]
   let 1 sorted [Diag]
@@ -2225,8 +2325,9 @@ fn lower_builtin(IrState, Type, string, [TExpr]): Option[IrOperand]
   let 4 a [IrOperand]
   let 5 dst int
   let 6 dst int
-  let 7 k string
-  let 8 dst int
+  let 7 dst int
+  let 8 k string
+  let 9 dst int
 fn lower_field(IrState, Type, TExpr, string): IrOperand
   param 0 st IrState
   param 1 ty Type
@@ -2361,6 +2462,37 @@ fn lower_read_file(IrState, IrOperand, Type): IrOperand
   let 8 ok_label string
   let 9 err_label string
   let 10 end_label string
+fn lower_empty_map(IrState, Type): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  let 2 t Type
+  let 3 dst int
+  let 4 k Type
+  let 5 v Type
+  let 6 k Type
+fn lower_map_builtin(IrState, Type, string, Type, [IrOperand]): Option[IrOperand]
+  param 0 st IrState
+  param 1 ty Type
+  param 2 name string
+  param 3 container Type
+  param 4 a [IrOperand]
+  let 5 dst int
+fn lower_map_get(IrState, Type, Type, IrOperand, IrOperand): IrOperand
+  param 0 st IrState
+  param 1 ty Type
+  param 2 container Type
+  param 3 map IrOperand
+  param 4 key IrOperand
+  let 5 n string
+  let 6 option_enum string
+  let 7 v Type
+  let 8 value_ty Type
+  let 9 has int
+  let 10 value int
+  let 11 dst int
+  let 12 some_label string
+  let 13 none_label string
+  let 14 end_label string
 fn lower_sys(IrState, string, [IrOperand], Type): IrOperand
   param 0 st IrState
   param 1 name string
@@ -2466,6 +2598,28 @@ fn ir_instr_text(IrInstr): string
   let 56 value int
   let 57 err int
   let 58 args [IrOperand]
+  let 59 dst int
+  let 60 key Type
+  let 61 value Type
+  let 62 dst int
+  let 63 map IrOperand
+  let 64 key IrOperand
+  let 65 map IrOperand
+  let 66 key IrOperand
+  let 67 value IrOperand
+  let 68 dst int
+  let 69 map IrOperand
+  let 70 key IrOperand
+  let 71 dst int
+  let 72 map IrOperand
+  let 73 key IrOperand
+  let 74 dst int
+  let 75 map IrOperand
+  let 76 key IrOperand
+  let 77 dst int
+  let 78 map IrOperand
+  let 79 dst int
+  let 80 map IrOperand
 fn ir_field_values([IrFieldValue]): [string]
   param 0 fields [IrFieldValue]
   let 1 parts [string]

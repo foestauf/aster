@@ -36,6 +36,25 @@ void *aster_rt_array_push_slot(aster_array a);
 void *aster_rt_array_pop_slot(aster_array a);
 
 /*
+ * An insertion-ordered hash table. Keys are int64 (ASTER_KEY_INT, passed in ikey) or strings
+ * (ASTER_KEY_STRING, passed in skey, compared by content); the unused key argument is ignored.
+ * Values are value_size bytes (0 for sets). Never freed.
+ */
+#define ASTER_KEY_INT 0
+#define ASTER_KEY_STRING 1
+typedef struct aster_map_obj *aster_map;
+aster_map aster_rt_map_new(int64_t key_kind, int64_t value_size);
+/* Pointer to the key's value bytes, or NULL if absent and !create. A created slot is zeroed and appended to the key order. */
+void *aster_rt_map_slot(aster_map m, int64_t ikey, aster_string skey, int64_t create);
+/* Adds the key if absent; returns 1 if it was added, 0 if already present. */
+int64_t aster_rt_map_insert(aster_map m, int64_t ikey, aster_string skey);
+/* Removes the key; returns 1 if it was present, 0 otherwise. */
+int64_t aster_rt_map_remove(aster_map m, int64_t ikey, aster_string skey);
+int64_t aster_rt_map_len(aster_map m);
+/* A fresh array of the live keys in insertion order (int64 or aster_string elements). */
+aster_array aster_rt_map_keys(aster_map m);
+
+/*
  * Integer arithmetic wraps: compute in uint64_t (where overflow is defined) and
  * convert back. The conversion is implementation-defined in C11; gcc and clang
  * define it as two's-complement wraparound.

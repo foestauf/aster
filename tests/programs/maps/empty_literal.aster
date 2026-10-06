@@ -1,0 +1,105 @@
+// The empty literal {} takes its type from every context an empty [] does, if-expression and match-expression arms
+// included: `if c { {} } else { {} }` and `X => {}` are empty maps or sets when the expected type is one. ({}) is valid
+// syntax too. The one place {} is not the literal: at the start of a statement, `{` opens a block.
+// expect-stdout:
+// 0
+// 0
+// 1
+// 0
+// 0
+// 0
+// 0
+// 0
+// 0
+// 2
+// 0
+// 0
+// 0
+// 0
+// 0
+// 3
+// 0
+// 0
+// 0
+// 0
+struct Holder { m: Map[string, int], s: Set[int] }
+
+enum Slot {
+    Full(Map[int, string]),
+    Empty,
+}
+
+fn count(m: Map[string, int]): int {
+    return len(m);
+}
+
+fn fresh(): Set[string] {
+    return {};
+}
+
+fn slot_len(s: Slot): int {
+    return match s {
+        Slot::Full(m) => len(m),
+        Slot::Empty => -1,
+    };
+}
+
+// Both arms are plain {}; the callers below take each branch.
+fn pick(n: int): Map[string, int] {
+    return if n > 0 { {} } else { {} };
+}
+
+// A match-expression arm that is plain {}.
+fn reset_unless_small(s: Set[int]): Set[int] {
+    return match len(s) > 2 {
+        true => {},
+        false => s,
+    };
+}
+
+fn main(): int {
+    var a: Map[string, int] = {};
+    print(len(a));
+    var b: Set[int] = {};
+    print(len(b));
+    set_add(b, 1);
+    print(len(b));
+    b = {};
+    print(len(b));
+    print(count({}));
+    print(len(fresh()));
+    let h: Holder = Holder { m: {}, s: {} };
+    print(len(h.m) + len(h.s));
+    print(slot_len(Slot::Full({})));
+    let maps: [Map[string, int]] = [];
+    push(maps, {});
+    print(len(maps[0]));
+    let more: [Set[int]] = [{}, {}];
+    print(len(more));
+    print(len(more[1]));
+    print(len(pick(1)));
+    let chosen: Set[int] = match len(b) {
+        0 => {},
+        _ => b,
+    };
+    print(len(chosen));
+    {}
+    let paren: Map[int, int] = ({});
+    print(len(paren));
+    a = {};
+    print(len(a));
+    var three: Set[int] = {};
+    set_add(three, 1);
+    set_add(three, 2);
+    set_add(three, 3);
+    let few: Set[int] = {};
+    set_add(few, 7);
+    print(len(three));
+    print(len(reset_unless_small(three)));
+    print(len(pick(0)));
+    let kept: Set[int] = reset_unless_small(few);
+    print(len(kept) - 1);
+    let local: Map[int, int] = if len(a) == 0 { {} } else { ({}) };
+    print(len(local));
+    return 0;
+}
