@@ -333,7 +333,7 @@ shipped, and `checker.aster` was rewritten with them. From `e8b38e8` to `bf6fa19
 higher than the ones quoted above (2,558 lines, 26 empty arms), because `checker.aster` kept growing between that
 measurement and `e8b38e8`.
 
-### 11. No maps or sets (costly)
+### 11. No maps or sets (resolved in v0.8)
 
 The TS checker leans on `Map` and `Set`: 38 lines of `checker.ts`, `generics.ts` and `load.ts` name one. Aster only has
 arrays, so every lookup is a linear-search helper:
@@ -349,11 +349,12 @@ fn find_struct(env: Env, name: string): Option[int] {
 }
 ```
 
-`checker.aster` has 12 `find_*` lookups. Seven are this exact loop over a different array (`find_signature`,
+`checker.aster` at v0.8a (`22e693d`) had 12 `find_*` helpers: 11 name lookups plus the SCC entry point
+`find_expanding_enums`. Seven are this exact loop over a different array (`find_signature`,
 `find_struct`, `find_enum`, `find_template_in`, `find_tfield`, `find_tvariant`, `find_node`), and `find_template` just calls
 `find_template_in` on `env.templates`. Two search
-backwards, so that a later entry wins as `Map.set` overwrites (`find_local`, `find_binding`), and two are built from the
-others (`find_field`, `find_signature_of`). Sets became `[string]` plus `contains`, with 13 calls (12 in `checker.aster`, 1 in `loader.aster`: covered
+backwards, so that a later entry wins as `Map.set` overwrites (`find_local`, `find_binding`), and `find_field` is built from the
+others. The original log also named `find_signature_of`, but no such helper exists in that baseline. Sets became `[string]` plus `contains`, with 13 calls (12 in `checker.aster`, 1 in `loader.aster`: covered
 pattern keys, seen params, fields and variant names, expanding enums, the loader's seen files). Tarjan's SCC in `generics.ts` keeps its state in five Maps and
 Sets. The port turned them into parallel arrays (`nodes`, `successors`, `index`, `low`, `on_stack`, `component`) in an
 `ExpansionGraph` struct, with `intern_node`, `find_node` and a string `node_key`. Scopes are `[[Local]]` in place of
@@ -362,7 +363,26 @@ easy-to-miss last-wins search direction.
 
 **Workaround:** one hand-written search per array type, and `contains` for sets.
 
-**Status:** v0.8a ships maps and sets (`Map[K, V]`, `Set[K]`, `{}` and nine builtins; see the language reference). The compiler's own sources don't use them yet: v0.8b, after v0.8a's release, rewrites the compiler onto them (the two-step rule), and until then `tests/two_step_guard.test.ts` keeps `packages/asterc-self/` free of the map surface.
+**Resolved in v0.8.** v0.8a shipped maps and sets; v0.8b bootstraps from its published release and uses them in the
+compiler. Name-to-index maps sit beside declaration arrays, scopes and type bindings overwrite by name, sets replace
+all 13 checker/loader `contains` calls, and the SCC graph maps node keys to stable indices and tracks its stack in a
+set. Arrays still determine declaration, local-id, traversal and diagnostic order. The small field and variant
+searches stay as arrays for readability; the parser still uses `contains` for its short operator lists. Builtin
+signature/name tables are constructed once per program check. The temporary v0.8a two-step source guard is removed;
+release-bootstrap CI remains the contract.
+
+Line counts against v0.8a (`22e693d`): `checker.aster` 3,006 → 2,983 (23 fewer), `loader.aster` 287 → 288 (one more for
+seeding the seen-file set). These counts include comments and blank lines; indexes and ordered arrays coexist where
+both are needed.
+
+Informational own-source self-check on 2026-10-06: `build/asterc check packages/asterc-self/asterc.aster` took a
+95.730 ms median in v0.8a and 91.944 ms in v0.8b; median peak RSS was 196,544 and 193,862 KiB respectively. Each
+used the default C-O2 compiler, one checked warmup and ten checked samples, pinned to CPU 0 on the same Debian 13
+cloud machine (AMD EPYC 9V74, GCC 13.3.0-16). The full C/LLVM self-host proof passed before each measurement.
+These are different source trees measured at different times, not a matched-input speedup claim: relative sample
+spread was 2.59% for v0.8a and 18.57% for v0.8b. The source simplification is the result; stable
+performance needs the separate paired, same-input comparison.
+
 
 ### 12. No closures (annoying)
 
@@ -532,10 +552,10 @@ literals in v0.4 (entries 4, 5 and 6, and `match` on ints from entry 8), and unw
 (entry 10, previously item 1 here: `let … else`, `if let`, `never` and diverging match arms).
 
 This is the shortlist for what comes after v0.7, ranked by what made the checker port longer, buggier or harder to read.
-Maps and sets (item 1) are next. Open items from earlier milestones are ranked on the same terms.
+Maps and sets (item 1) are now resolved in v0.8. Open items from earlier milestones remain ranked on the same terms.
 
-1. **Maps and sets**: entry 11. A built-in map keyed by `string` or `int` (that covers every use here), and a set or an
-   idiom for one. The evidence is 12 `find_*` lookups (7 of them the same loop), 13 `contains` calls standing in for
+1. **Maps and sets (resolved in v0.8)**: entry 11. A built-in map keyed by `string` or `int` (that covers every use here), and a set or an
+   idiom for one. The evidence was 11 name-lookup `find_*` helpers (7 of them the same loop), 13 `contains` calls standing in for
    sets, Tarjan's five Maps and Sets as six parallel arrays, and two last-wins backwards searches that copy `Map.set`
    semantics by hand. TS names a `Map` or `Set` on 38 lines.
 2. **Closures**: entry 12. Five closures were lifted. One callback (`checkArm`) turned into an `as_expr` flag and a

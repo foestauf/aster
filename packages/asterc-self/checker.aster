@@ -5,8 +5,8 @@
 // their locals and typed bodies. tests/check_aster.test.ts checks its diagnostics and summary, through check.aster,
 // against the goldens in tests/golden/check/. The functions keep the original checker's order, in snake_case.
 //
-// Aster has no maps, so each of the checker's name tables is an array searched linearly by a `find_*` helper that
-// returns the index of the entry, if any.
+// Name maps index the ordered declaration arrays; sets track membership without changing traversal or diagnostic
+// order. Scopes and type-parameter bindings overwrite by name, so the latest declaration still wins.
 //
 // The typed program has a field for each thing the checker records: `check_expr` returns an expression's typed node, and
 // `check_stmt` and `check_block` a statement's or block's typed node with whether it diverges. That covers `?`,
@@ -119,8 +119,12 @@ struct Signature {
 
 // Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string, array, map or set),
 // `push`/`pop` (any array), and the map and set builtins.
-fn special_builtins(): [string] {
-    return ["print", "eprint", "len", "push", "pop", "map_set", "map_get", "map_has", "map_remove", "map_keys", "set_add", "set_has", "set_remove", "set_items"];
+fn special_builtins(): Set[string] {
+    let names: Set[string] = {};
+    for name in ["print", "eprint", "len", "push", "pop", "map_set", "map_get", "map_has", "map_remove", "map_keys", "set_add", "set_has", "set_remove", "set_items"] {
+        set_add(names, name);
+    }
+    return names;
 }
 
 fn is_map_builtin(name: string): bool {
@@ -135,8 +139,22 @@ fn prelude_source(): string {
     return "enum Option[T] { Some(T), None }\nenum Result[T, E] { Ok(T), Err(E) }\n";
 }
 
-fn builtin_signatures(): [Signature] {
-    return [
+// Signatures in declaration order, with a name index. Only accepted declarations enter the table.
+struct Signatures {
+    items: [Signature],
+    by_name: Map[string, int],
+}
+
+fn signature_table(items: [Signature]): Signatures {
+    let by_name: Map[string, int] = {};
+    for i in 0..len(items) {
+        map_set(by_name, items[i].name, i);
+    }
+    return Signatures { items: items, by_name: by_name };
+}
+
+fn builtin_signatures(): Signatures {
+    return signature_table([
         Signature { name: "byte_at", params: [Type::Str, Type::Int], ret: Type::Int },
         Signature { name: "substring", params: [Type::Str, Type::Int, Type::Int], ret: Type::Str },
         Signature { name: "int_to_string", params: [Type::Int], ret: Type::Str },
@@ -150,23 +168,15 @@ fn builtin_signatures(): [Signature] {
         Signature { name: "make_temp_dir", params: [Type::Str], ret: Type::Void },
         Signature { name: "remove_path", params: [Type::Str], ret: Type::Void },
         Signature { name: "run_process", params: [Type::Array(Type::Str)], ret: Type::Void },
-    ];
+    ]);
 }
 
-fn find_signature(sigs: [Signature], name: string): Option[int] {
-    for i in 0..len(sigs) {
-        if sigs[i].name == name {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
+fn find_signature(sigs: Signatures, name: string): Option[int] {
+    return map_get(sigs.by_name, name);
 }
 
-fn is_builtin(name: string): bool {
-    if let Option::Some(_) = find_signature(builtin_signatures(), name) {
-        return true;
-    }
-    return contains(special_builtins(), name);
+fn is_builtin(env: Env, name: string): bool {
+    return map_has(env.builtins.by_name, name) || set_has(env.special_builtins, name);
 }
 
 // ---- the typed program (check/types.ts)
@@ -270,8 +280,19 @@ enum TStmt {
 struct Template {
     decl: EnumDecl,
     params: [string],
+    param_names: Set[string],
     broken: bool,
     has_errors: bool,
+}
+
+fn new_template(decl: EnumDecl): Template {
+    let params: [string] = [];
+    let names: Set[string] = {};
+    for param in decl.params {
+        push(params, param.name);
+        set_add(names, param.name);
+    }
+    return Template { decl: decl, params: params, param_names: names, broken: false, has_errors: false };
 }
 
 // ---- generic enums (check/generics.ts)
@@ -303,17 +324,17 @@ struct Edge {
     expanding: bool,
 }
 
-// The graph find_expanding_enums builds. Each node is an (enum, parameter) pair, kept as its key (`node_key`), in the
-// order TS's `successors` Map first sees it; `successors` is parallel to `nodes`. The rest is Tarjan's state:
+// The graph find_expanding_enums builds. `nodes` maps each (enum, parameter) key to its first-seen index;
+// `successors` and the algorithm arrays keep that index order. The rest is Tarjan's state:
 // `index` and `low` are -1 until a node is visited, and `component` -1 until it is assigned one.
 struct ExpansionGraph {
     edges: [Edge],
-    nodes: [string],
+    nodes: Map[string, int],
     successors: [[int]],
     index: [int],
     low: [int],
     stack: [int],
-    on_stack: [bool],
+    on_stack: Set[int],
     component: [int],
     visited: int,
     components: int,
@@ -325,12 +346,7 @@ fn node_key(enum_name: string, param: string): string {
 }
 
 fn find_node(g: ExpansionGraph, key: string): Option[int] {
-    for i in 0..len(g.nodes) {
-        if g.nodes[i] == key {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
+    return map_get(g.nodes, key);
 }
 
 // The index of the node `key`, adding it (with no successors) if it is new.
@@ -338,13 +354,13 @@ fn intern_node(g: ExpansionGraph, key: string): int {
     if let Option::Some(i) = find_node(g, key) {
         return i;
     }
-    push(g.nodes, key);
+    let index: int = len(g.nodes);
+    map_set(g.nodes, key, index);
     push(g.successors, []);
     push(g.index, -1);
     push(g.low, -1);
-    push(g.on_stack, false);
     push(g.component, -1);
-    return len(g.nodes) - 1;
+    return index;
 }
 
 fn add_edge(g: ExpansionGraph, from: string, to: string, expanding: bool) {
@@ -354,27 +370,18 @@ fn add_edge(g: ExpansionGraph, from: string, to: string, expanding: bool) {
     push(g.edges, Edge { from: f, to: t, expanding: expanding });
 }
 
-fn find_template_in(templates: [Template], name: string): Option[int] {
-    for i in 0..len(templates) {
-        if templates[i].decl.name.name == name {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
-}
-
 // findExpandingEnums' `walk` for `template`: adds an edge for every argument of a template reference in `ref` that
 // mentions one of `template`'s parameters.
-fn walk_expansion(g: ExpansionGraph, templates: [Template], template: Template, ref: TypeExpr) {
+fn walk_expansion(g: ExpansionGraph, env: Env, template: Template, ref: TypeExpr) {
     match ref.node {
         TypeNode::Array(elem) => {
-            walk_expansion(g, templates, template, elem);
+            walk_expansion(g, env, template, elem);
         }
         TypeNode::Named(name, args) => {
             // A type parameter that shadows a template's name is a parameter here, not a reference to the template.
-            if !contains(template.params, name) {
-                if let Option::Some(ti) = find_template_in(templates, name) {
-                    let target: Template = templates[ti];
+            if !set_has(template.param_names, name) {
+                if let Option::Some(ti) = map_get(env.template_ids, name) {
+                    let target: Template = env.templates[ti];
                     if len(target.params) == len(args) {
                         for i in 0..len(args) {
                             let arg: TypeExpr = args[i];
@@ -393,7 +400,7 @@ fn walk_expansion(g: ExpansionGraph, templates: [Template], template: Template, 
                 }
             }
             for arg in args {
-                walk_expansion(g, templates, template, arg);
+                walk_expansion(g, env, template, arg);
             }
         }
     }
@@ -403,15 +410,16 @@ fn walk_expansion(g: ExpansionGraph, templates: [Template], template: Template, 
 // (enum, parameter) pairs; passing an argument that mentions parameter P of E to parameter Q of F adds the edge
 // (E, P) -> (F, Q), which is expanding unless the argument is exactly P. An enum expands infinitely when one of its
 // nodes lies on a cycle through an expanding edge, which is when its strongly connected component contains one.
-fn find_expanding_enums(templates: [Template]): [string] {
+fn find_expanding_enums(env: Env): Set[string] {
+    let templates: [Template] = env.templates;
     let g: ExpansionGraph = ExpansionGraph {
         edges: [],
-        nodes: [],
+        nodes: {},
         successors: [],
         index: [],
         low: [],
         stack: [],
-        on_stack: [],
+        on_stack: {},
         component: [],
         visited: 0,
         components: 0,
@@ -419,7 +427,7 @@ fn find_expanding_enums(templates: [Template]): [string] {
     for template in templates {
         for variant in template.decl.variants {
             for ref in variant.payload {
-                walk_expansion(g, templates, template, ref);
+                walk_expansion(g, env, template, ref);
             }
         }
     }
@@ -435,7 +443,7 @@ fn find_expanding_enums(templates: [Template]): [string] {
             expanding_components[c] = true;
         }
     }
-    let expanding: [string] = [];
+    let expanding: Set[string] = {};
     for template in templates {
         var on_cycle: bool = false;
         for param in template.params {
@@ -447,7 +455,7 @@ fn find_expanding_enums(templates: [Template]): [string] {
             }
         }
         if on_cycle {
-            push(expanding, template.decl.name.name);
+            set_add(expanding, template.decl.name.name);
         }
     }
     return expanding;
@@ -467,14 +475,14 @@ fn scc_visit(g: ExpansionGraph, node: int) {
     g.low[node] = g.visited;
     g.visited += 1;
     push(g.stack, node);
-    g.on_stack[node] = true;
+    set_add(g.on_stack, node);
     for next in g.successors[node] {
         if g.index[next] < 0 {
             scc_visit(g, next);
             if g.low[next] < g.low[node] {
                 g.low[node] = g.low[next];
             }
-        } else if g.on_stack[next] {
+        } else if set_has(g.on_stack, next) {
             if g.index[next] < g.low[node] {
                 g.low[node] = g.index[next];
             }
@@ -486,7 +494,7 @@ fn scc_visit(g: ExpansionGraph, node: int) {
     var member: int = -1;
     while member != node {
         member = pop(g.stack);
-        g.on_stack[member] = false;
+        set_remove(g.on_stack, member);
         g.component[member] = g.components;
     }
     g.components += 1;
@@ -506,6 +514,11 @@ struct Env {
     enums: [TEnum],
     templates: [Template],
     pending: [string],
+    struct_ids: Map[string, int],
+    enum_ids: Map[string, int],
+    template_ids: Map[string, int],
+    builtins: Signatures,
+    special_builtins: Set[string],
 }
 
 // An enclosing loop, and whether a `break` leaves it.
@@ -513,14 +526,14 @@ struct Loop {
     has_break: bool,
 }
 
-// Per-function checking state. `scopes` is a stack of scopes, each holding its locals in declaration order, and
+// Per-function checking state. `scopes` is a stack of name maps; `locals` keeps every allocated local in id order, and
 // `loops` the stack of loops around the statement being checked.
 struct Ctx {
     env: Env,
-    signatures: [Signature],
+    signatures: Signatures,
     ret: Type,
     locals: [Local],
-    scopes: [[Local]],
+    scopes: [Map[string, Local]],
     loops: [Loop],
 }
 
@@ -572,25 +585,15 @@ fn is_builtin_type(name: string): bool {
 }
 
 fn find_struct(env: Env, name: string): Option[int] {
-    for i in 0..len(env.structs) {
-        if env.structs[i].name == name {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
+    return map_get(env.struct_ids, name);
 }
 
 fn find_enum(env: Env, name: string): Option[int] {
-    for i in 0..len(env.enums) {
-        if env.enums[i].name == name {
-            return Option::Some(i);
-        }
-    }
-    return Option::None;
+    return map_get(env.enum_ids, name);
 }
 
 fn find_template(env: Env, name: string): Option[int] {
-    return find_template_in(env.templates, name);
+    return map_get(env.template_ids, name);
 }
 
 // "struct" / "enum" when `name` is already taken in the type namespace, else "". Templates count as enums.
@@ -628,28 +631,10 @@ fn is_never(t: Type): bool {
     };
 }
 
-// A type parameter bound to a type. A `[Binding]` stands in for TS's `Map<string, Type>`: `find_binding` searches it
-// from the end, so a later binding of the same name wins, as `Map.set` overwrites.
-struct Binding {
-    name: string,
-    ty: Type,
-}
-
-fn find_binding(bindings: [Binding], name: string): Option[Type] {
-    var i: int = len(bindings) - 1;
-    while i >= 0 {
-        if bindings[i].name == name {
-            return Option::Some(bindings[i].ty);
-        }
-        i -= 1;
-    }
-    return Option::None;
-}
-
 // Resolves a written type with no type parameters in scope, reporting its errors and instantiating what it names:
 // TS's `resolveType(env, ref)` with its defaults.
 fn resolve_type(env: Env, ref: TypeExpr): Type {
-    return resolve_type_with(env, ref, [], false, true, false);
+    return resolve_type_with(env, ref, {}, false, true, false);
 }
 
 // Resolves a written type. `bindings` maps the type parameters in scope to their types, and `quiet` suppresses
@@ -657,7 +642,7 @@ fn resolve_type(env: Env, ref: TypeExpr): Type {
 // off, a valid instantiation resolves to the error type instead of being created, so validating a template's
 // payloads registers nothing. `allow_never` is set only for a function's declared return type, the one place `never`
 // may be written.
-fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, instantiates: bool, allow_never: bool): Type {
+fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet: bool, instantiates: bool, allow_never: bool): Type {
     match ref.node {
         TypeNode::Array(elem_ref) => {
             let elem: Type = resolve_type_with(env, elem_ref, bindings, quiet, instantiates, false);
@@ -671,7 +656,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
             return Type::Array(elem);
         }
         TypeNode::Named(name, args) => {
-            if let Option::Some(bound) = find_binding(bindings, name) {
+            if let Option::Some(bound) = map_get(bindings, name) {
                 if len(args) > 0 {
                     say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
                     return Type::Error;
@@ -736,7 +721,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: [Binding], quiet: bool, 
 }
 
 // `Map[K, V]` or `Set[K]`: the arity, then a key of int or string, then a value other than void.
-fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bindings: [Binding], quiet: bool, instantiates: bool): Type {
+fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bindings: Map[string, Type], quiet: bool, instantiates: bool): Type {
     let expected: int = if name == "Map" { 2 } else { 1 };
     if len(args) != expected {
         let noun: string = if expected == 1 { "argument" } else { "arguments" };
@@ -773,7 +758,7 @@ fn is_map_key(t: Type): bool {
 
 // Adds to `env.pending` each map or set rule that a template payload `ref` breaks only once its parameters are bound
 // to `bindings`: validating the template (every parameter bound to the error type, `placeholders`) reported the rest.
-fn map_violations(env: Env, ref: TypeExpr, bindings: [Binding], placeholders: [Binding]) {
+fn map_violations(env: Env, ref: TypeExpr, bindings: Map[string, Type], placeholders: Map[string, Type]) {
     match ref.node {
         TypeNode::Array(elem) => {
             map_violations(env, elem, bindings, placeholders);
@@ -782,7 +767,7 @@ fn map_violations(env: Env, ref: TypeExpr, bindings: [Binding], placeholders: [B
             for arg in args {
                 map_violations(env, arg, bindings, placeholders);
             }
-            if let Option::Some(_) = find_binding(bindings, name) {
+            if let Option::Some(_) = map_get(bindings, name) {
                 return;
             }
             let is_map: bool = name == "Map" && len(args) == 2;
@@ -829,12 +814,13 @@ fn instantiate(env: Env, template: Template, args: [Type]): Type {
         return Type::Enum(name);
     }
     let enum_type: TEnum = TEnum { name: name, payload_free: false, variants: [], base: base, args: args };
+    map_set(env.enum_ids, name, len(env.enums));
     push(env.enums, enum_type);
-    let bindings: [Binding] = [];
-    let placeholders: [Binding] = [];
+    let bindings: Map[string, Type] = {};
+    let placeholders: Map[string, Type] = {};
     for i in 0..len(template.params) {
-        push(bindings, Binding { name: template.params[i], ty: args[i] });
-        push(placeholders, Binding { name: template.params[i], ty: Type::Error });
+        map_set(bindings, template.params[i], args[i]);
+        map_set(placeholders, template.params[i], Type::Error);
     }
     for variant in template.decl.variants {
         // Validating the template already reported the duplicate.
@@ -911,7 +897,7 @@ fn collect_types(env: Env, items: [Item]) {
             report(env, "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
         } else if is_builtin_type(name.name) {
             report(env, builtin_type_message(name.name), name.start, name.end);
-        } else if is_builtin(name.name) {
+        } else if is_builtin(env, name.name) {
             report(env, "'" + name.name + "' is a builtin function and cannot be redefined", name.start, name.end);
         } else if previous == kind {
             report(env, "duplicate " + kind + " '" + name.name + "'", name.start, name.end);
@@ -920,16 +906,14 @@ fn collect_types(env: Env, items: [Item]) {
         } else {
             match item {
                 Item::Struct(d) => {
+                    map_set(env.struct_ids, d.name.name, len(env.structs));
                     push(env.structs, TStruct { name: d.name.name, fields: [] });
                     push(struct_decls, d);
                 }
                 Item::Enum(d) => {
                     if len(d.params) > 0 {
-                        let params: [string] = [];
-                        for p in d.params {
-                            push(params, p.name);
-                        }
-                        let template: Template = Template { decl: d, params: params, broken: false, has_errors: false };
+                        let template: Template = new_template(d);
+                        map_set(env.template_ids, d.name.name, len(env.templates));
                         push(env.templates, template);
                         push(templates, template);
                     } else {
@@ -939,6 +923,7 @@ fn collect_types(env: Env, items: [Item]) {
                                 payload_free = false;
                             }
                         }
+                        map_set(env.enum_ids, d.name.name, len(env.enums));
                         push(env.enums, TEnum { name: d.name.name, payload_free: payload_free, variants: [], base: "", args: [] });
                         push(enum_decls, d);
                     }
@@ -950,15 +935,15 @@ fn collect_types(env: Env, items: [Item]) {
     for template in templates {
         let decl: EnumDecl = template.decl;
         let before: int = len(env.diags);
-        let seen: [string] = [];
+        let seen: Set[string] = {};
         for param in decl.params {
-            if contains(seen, param.name) {
+            if set_has(seen, param.name) {
                 report(env, "duplicate type parameter '" + param.name + "'", param.start, param.end);
                 continue;
             }
-            push(seen, param.name);
+            set_add(seen, param.name);
             // A conflicting parameter stays bound, so the payloads that use it report nothing more.
-            if is_primitive(param.name) || type_kind_of(env, param.name) != "" || is_builtin(param.name) {
+            if is_primitive(param.name) || type_kind_of(env, param.name) != "" || is_builtin(env, param.name) {
                 report(env, "type parameter '" + param.name + "' conflicts with a type of the same name", param.start, param.end);
             }
             var used: bool = false;
@@ -977,9 +962,9 @@ fn collect_types(env: Env, items: [Item]) {
             template.has_errors = true;
         }
     }
-    let expanding: [string] = find_expanding_enums(env.templates);
+    let expanding: Set[string] = find_expanding_enums(env);
     for template in templates {
-        if !contains(expanding, template.decl.name.name) {
+        if !set_has(expanding, template.decl.name.name) {
             continue;
         }
         let name: Ident = template.decl.name;
@@ -1026,17 +1011,17 @@ fn collect_types(env: Env, items: [Item]) {
     for template in templates {
         let decl: EnumDecl = template.decl;
         let before: int = len(env.diags);
-        let placeholders: [Binding] = [];
+        let placeholders: Map[string, Type] = {};
         for param in template.params {
-            push(placeholders, Binding { name: param, ty: Type::Error });
+            map_set(placeholders, param, Type::Error);
         }
-        let names: [string] = [];
+        let names: Set[string] = {};
         for variant in decl.variants {
-            if contains(names, variant.name.name) {
+            if set_has(names, variant.name.name) {
                 report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
                 continue;
             }
-            push(names, variant.name.name);
+            set_add(names, variant.name.name);
             for ref in variant.payload {
                 let t: Type = resolve_type_with(env, ref, placeholders, false, false, false);
                 if is_void(t) {
@@ -1073,11 +1058,7 @@ fn prelude_templates(): [Template] {
     let templates: [Template] = [];
     for item in parse_program(p) {
         if let Item::Enum(d) = item {
-            let params: [string] = [];
-            for tp in d.params {
-                push(params, tp.name);
-            }
-            push(templates, Template { decl: d, params: params, broken: false, has_errors: false });
+            push(templates, new_template(d));
         }
     }
     return templates;
@@ -1086,7 +1067,7 @@ fn prelude_templates(): [Template] {
 // Collects a function's signature, unless its name is taken; returns whether it was accepted. `main` declared at or
 // past `root_end` comes from an imported file and is ignored as if not declared, so the root's own main (or its
 // absence) is judged alone.
-fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): bool {
+fn collect_signature(env: Env, sigs: Signatures, decl: FnDecl, root_end: int): bool {
     let name: string = decl.name.name;
     if name == "main" && decl.name.start >= root_end {
         report(env, "'main' must be declared in the root file", decl.name.start, decl.name.end);
@@ -1096,7 +1077,7 @@ fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): 
         report(env, builtin_type_message(name), decl.name.start, decl.name.end);
         return false;
     }
-    if is_builtin(name) {
+    if is_builtin(env, name) {
         report(env, "'" + name + "' is a builtin function and cannot be redefined", decl.name.start, decl.name.end);
         return false;
     }
@@ -1120,21 +1101,28 @@ fn collect_signature(env: Env, sigs: [Signature], decl: FnDecl, root_end: int): 
         }
     }
     let ret: Type = match decl.ret {
-        Option::Some(r) => resolve_type_with(env, r, [], false, true, true),
+        Option::Some(r) => resolve_type_with(env, r, {}, false, true, true),
         Option::None => Type::Void,
     };
-    push(sigs, Signature { name: name, params: params, ret: ret });
+    map_set(sigs.by_name, name, len(sigs.items));
+    push(sigs.items, Signature { name: name, params: params, ret: ret });
     return true;
 }
 
 // Checks a whole program. `root_end` is the end of the root file: declarations at or past it come from imports.
 fn check_program(items: [Item], root_end: int): Checked {
-    let env: Env = Env { diags: [], structs: [], enums: [], templates: prelude_templates(), pending: [] };
+    let env: Env = Env {
+        diags: [], structs: [], enums: [], templates: prelude_templates(), pending: [],
+        struct_ids: {}, enum_ids: {}, template_ids: {}, builtins: builtin_signatures(), special_builtins: special_builtins(),
+    };
+    for i in 0..len(env.templates) {
+        map_set(env.template_ids, env.templates[i].decl.name.name, i);
+    }
     collect_types(env, items);
 
     // Pass 1: collect signatures so functions can be called before their declaration. `declared` is parallel to
     // `sigs`.
-    let sigs: [Signature] = [];
+    let sigs: Signatures = signature_table([]);
     let declared: [FnDecl] = [];
     for item in items {
         if let Item::Fn(decl) = item {
@@ -1145,7 +1133,7 @@ fn check_program(items: [Item], root_end: int): Checked {
     }
 
     if let Option::Some(i) = find_signature(sigs, "main") {
-        if !is_main_signature(sigs[i]) {
+        if !is_main_signature(sigs.items[i]) {
             let name: Ident = declared[i].name;
             report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
         }
@@ -1156,13 +1144,13 @@ fn check_program(items: [Item], root_end: int): Checked {
     // Pass 2: check bodies.
     let functions: [TFunction] = [];
     for i in 0..len(declared) {
-        push(functions, check_function(env, sigs, declared[i], sigs[i]));
+        push(functions, check_function(env, sigs, declared[i], sigs.items[i]));
     }
     return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions };
 }
 
-fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TFunction {
-    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [[]], loops: [] };
+fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFunction {
+    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [{}], loops: [] };
     for i in 0..len(decl.params) {
         let p: Typed = decl.params[i];
         declare(ctx, p.name, sig.params[i], false);
@@ -1178,34 +1166,23 @@ fn check_function(env: Env, sigs: [Signature], decl: FnDecl, sig: Signature): TF
     return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret, body: body.node };
 }
 
-fn find_local(scope: [Local], name: string): Option[int] {
-    var i: int = len(scope) - 1;
-    while i >= 0 {
-        if scope[i].name == name {
-            return Option::Some(i);
-        }
-        i -= 1;
-    }
-    return Option::None;
-}
-
 fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
-    let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
-    if let Option::Some(_) = find_local(scope, name.name) {
+    let scope: Map[string, Local] = ctx.scopes[len(ctx.scopes) - 1];
+    if let Option::Some(_) = map_get(scope, name.name) {
         report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
     push(ctx.locals, local);
-    push(scope, local);
+    map_set(scope, local.name, local);
     return local;
 }
 
 fn lookup(ctx: Ctx, name: string): Option[Local] {
     var i: int = len(ctx.scopes) - 1;
     while i >= 0 {
-        let scope: [Local] = ctx.scopes[i];
-        if let Option::Some(j) = find_local(scope, name) {
-            return Option::Some(scope[j]);
+        let scope: Map[string, Local] = ctx.scopes[i];
+        if let Option::Some(local) = map_get(scope, name) {
+            return Option::Some(local);
         }
         i -= 1;
     }
@@ -1216,7 +1193,7 @@ fn is_function_name(ctx: Ctx, name: string): bool {
     if let Option::Some(_) = find_signature(ctx.signatures, name) {
         return true;
     }
-    return is_builtin(name);
+    return is_builtin(ctx.env, name);
 }
 
 // A `never` value fits any expected type.
@@ -1248,7 +1225,7 @@ struct CheckedBlock {
 }
 
 fn check_block(ctx: Ctx, b: Block): CheckedBlock {
-    push(ctx.scopes, []);
+    push(ctx.scopes, {});
     let stmts: [TStmt] = [];
     var diverges: bool = false;
     for s in b.stmts {
@@ -1432,11 +1409,11 @@ fn check_else(ctx: Ctx, other: Else): CheckedBlock {
 
 // Puts an already-allocated local into the current scope, reporting a clash like `declare` does.
 fn declare_existing(ctx: Ctx, name: Ident, local: Local) {
-    let scope: [Local] = ctx.scopes[len(ctx.scopes) - 1];
-    if let Option::Some(_) = find_local(scope, name.name) {
+    let scope: Map[string, Local] = ctx.scopes[len(ctx.scopes) - 1];
+    if let Option::Some(_) = map_get(scope, name.name) {
         report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
-    push(scope, local);
+    map_set(scope, local.name, local);
 }
 
 // The arms let-else and if-let check as a match: the pattern with `body`, then a synthetic wildcard at the pattern's
@@ -1461,17 +1438,17 @@ fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, o
     // so walk the pattern again for each binder's name. `declared` skips a name the pattern repeats (already reported
     // as a duplicate binding), and only a variant pattern binds names.
     if let PatternNode::Variant(_, _, binders) = pattern.node {
-        let declared: [string] = [];
+        let declared: Set[string] = {};
         for b in binders {
             let Binder::Named(id) = b else {
                 continue;
             };
-            if contains(declared, id.name) {
+            if set_has(declared, id.name) {
                 continue;
             }
-            if let Option::Some(j) = find_local(m.binders, id.name) {
-                push(declared, id.name);
-                declare_existing(ctx, id, m.binders[j]);
+            if let Option::Some(local) = map_get(m.binders, id.name) {
+                set_add(declared, id.name);
+                declare_existing(ctx, id, local);
             }
         }
     }
@@ -1517,7 +1494,7 @@ struct ForBody {
 
 // Checks a for-loop body with the immutable loop variable declared in a scope of its own.
 fn check_for_body(ctx: Ctx, name: Ident, ty: Type, b: Block): ForBody {
-    push(ctx.scopes, []);
+    push(ctx.scopes, {});
     let local: Local = declare(ctx, name, ty, false);
     push(ctx.loops, Loop { has_break: false });
     let body: CheckedBlock = check_block(ctx, b);
@@ -1800,7 +1777,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         }
         return error_expr();
     }
-    let bindings: [Binding] = [];
+    let bindings: Map[string, Type] = {};
     var expected_error: bool = false;
     if let Option::Some(t) = expected {
         expected_error = is_error(t);
@@ -1809,7 +1786,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
                 let en: TEnum = ctx.env.enums[ei];
                 if en.base == base {
                     for i in 0..len(en.args) {
-                        push(bindings, Binding { name: template.params[i], ty: en.args[i] });
+                        map_set(bindings, template.params[i], en.args[i]);
                     }
                 }
             }
@@ -1825,7 +1802,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         let slot: TypeExpr = slots[i];
         var known: bool = true;
         for p in template.params {
-            if let Option::Some(_) = find_binding(bindings, p) {
+            if let Option::Some(_) = map_get(bindings, p) {
                 continue;
             }
             if mentions_param(slot, p) {
@@ -1834,7 +1811,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         }
         let context: Option[Type] = if known { Option::Some(resolve_type_with(ctx.env, slot, bindings, true, true, false)) } else { Option::None };
         let value: TExpr = check_expr(ctx, args[i], context);
-        unify(ctx.env, template.params, slot, value.ty, bindings);
+        unify(ctx.env, template.param_names, slot, value.ty, bindings);
         push(values, value);
     }
     if len(values) != len(slots) {
@@ -1843,7 +1820,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
     }
     let type_args: [Type] = [];
     for p in template.params {
-        let Option::Some(t) = find_binding(bindings, p) else {
+        let Option::Some(t) = map_get(bindings, p) else {
             // An unknown parameter that an error-typed value or context would have fixed was already reported.
             var reported: bool = expected_error;
             for v in values {
@@ -1878,7 +1855,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
 // bare parameter takes the whole type, and arrays, maps, sets and instantiations of the same template are matched part
 // by part.
 // Error and void types bind nothing. `env` is only read, to find an instantiation's generic origin.
-fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Binding]) {
+fn unify(env: Env, params: Set[string], slot: TypeExpr, actual: Type, bindings: Map[string, Type]) {
     if is_error(actual) || is_void(actual) || is_never(actual) {
         return;
     }
@@ -1889,10 +1866,10 @@ fn unify(env: Env, params: [string], slot: TypeExpr, actual: Type, bindings: [Bi
             }
         }
         TypeNode::Named(name, slot_args) => {
-            if contains(params, name) {
+            if set_has(params, name) {
                 if len(slot_args) == 0 {
-                    if let Option::None = find_binding(bindings, name) {
-                        push(bindings, Binding { name: name, ty: actual });
+                    if let Option::None = map_get(bindings, name) {
+                        map_set(bindings, name, actual);
                     }
                 }
                 return;
@@ -1977,7 +1954,7 @@ struct MatchArms {
     bodies: [TArmBody],
     types: [Type],
     diverges: [bool],
-    binders: [Local],
+    binders: Map[string, Local],
 }
 
 // A match statement. An expression arm's body becomes a block holding that expression statement.
@@ -2031,10 +2008,10 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         Option::None => false,
     };
 
-    let covered: [string] = [];
+    let covered: Set[string] = {};
     var wildcard_seen: bool = false;
     var all_resolved: bool = true;
-    let result: MatchArms = MatchArms { scrutinee: scrutinee_expr, patterns: [], bodies: [], types: [], diverges: [], binders: [] };
+    let result: MatchArms = MatchArms { scrutinee: scrutinee_expr, patterns: [], bodies: [], types: [], diverges: [], binders: {} };
     var index: int = 0;
     for arm in arms {
         let pattern: Pattern = arm.pattern;
@@ -2074,7 +2051,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             } else {
                 fresh = check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen);
                 for r in fresh {
-                    push(covered, r.key);
+                    set_add(covered, r.key);
                 }
                 if is_refutable && index == 0 && pattern_resolved {
                     if let Option::Some(missing) = missing_values(ctx.env, category, st, variants, covered) {
@@ -2092,7 +2069,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
             wildcard_seen = true;
         }
 
-        push(ctx.scopes, []);
+        push(ctx.scopes, {});
         let binders: [Option[Local]] = declare_binders(ctx, pattern, variants, single);
         if irrefutable && len(ctx.env.diags) == diags_before {
             report(ctx.env, "pattern always matches", pattern.start, pattern.end);
@@ -2295,16 +2272,16 @@ fn string_literal_value(text: string): string {
 
 // Reports an arm whose every resolved alternative is already covered (or that follows `_`) as unreachable, and
 // otherwise each covered alternative as a duplicate. Returns the alternatives that cover something new.
-fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: [string], wildcard_seen: bool): [ResolvedAlt] {
+fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resolved: [Option[ResolvedAlt]], covered: Set[string], wildcard_seen: bool): [ResolvedAlt] {
     let fresh: [ResolvedAlt] = [];
     let stale: [Pattern] = [];
-    let arm_keys: [string] = [];
+    let arm_keys: Set[string] = {};
     for i in 0..len(resolved) {
         if let Option::Some(r) = resolved[i] {
-            if contains(covered, r.key) || contains(arm_keys, r.key) {
+            if set_has(covered, r.key) || set_has(arm_keys, r.key) {
                 push(stale, alternatives[i]);
             } else {
-                push(arm_keys, r.key);
+                set_add(arm_keys, r.key);
                 push(fresh, r);
             }
         }
@@ -2324,11 +2301,11 @@ fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resol
 
 // The values a match on `category` has not yet covered, in the form the non-exhaustive message lists them; None for
 // int and string, whose values can never all be covered.
-fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], covered: [string]): Option[[string]] {
+fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], covered: Set[string]): Option[[string]] {
     let missing: [string] = [];
     if category == "enum" {
         for i in 0..len(variants) {
-            if !contains(covered, "tag:" + int_to_string(i)) {
+            if !set_has(covered, "tag:" + int_to_string(i)) {
                 push(missing, "'" + enum_base_name(env, st) + "::" + variants[i].name + "'");
             }
         }
@@ -2336,7 +2313,7 @@ fn missing_values(env: Env, category: string, st: Type, variants: [TVariant], co
     }
     if category == "bool" {
         for b in ["true", "false"] {
-            if !contains(covered, "bool:" + b) {
+            if !set_has(covered, "bool:" + b) {
                 push(missing, "'" + b + "'");
             }
         }
@@ -2369,17 +2346,17 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int): [
                 slots = variants[vi].payload;
                 has_slots = true;
             }
-            let seen: [string] = [];
+            let seen: Set[string] = {};
             for i in 0..len(binders) {
                 let Binder::Named(id) = binders[i] else {
                     push(locals, Option::None);
                     continue;
                 };
-                if contains(seen, id.name) {
+                if set_has(seen, id.name) {
                     report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
                     push(locals, Option::None);
                 } else {
-                    push(seen, id.name);
+                    set_add(seen, id.name);
                     let ty: Type = if has_slots { slots[i] } else { Type::Error };
                     push(locals, Option::Some(declare(ctx, id, ty, false)));
                 }
@@ -2807,8 +2784,8 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
     }
 
     // A builtin's signature, else the user function's.
-    let builtins: [Signature] = builtin_signatures();
-    var sigs: [Signature] = ctx.signatures;
+    let builtins: Signatures = ctx.env.builtins;
+    var sigs: Signatures = ctx.signatures;
     var builtin: bool = false;
     if let Option::Some(_) = find_signature(builtins, name) {
         sigs = builtins;
@@ -2819,7 +2796,7 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
         report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
         return error_expr();
     };
-    let sg: Signature = sigs[si];
+    let sg: Signature = sigs.items[si];
     let values: [TExpr] = check_args(ctx, args, Option::Some(sg.params));
     if len(values) != len(sg.params) {
         report(ctx.env, arity_message(name, len(sg.params), len(values)), e.start, e.end);

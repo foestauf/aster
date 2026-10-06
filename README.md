@@ -1,6 +1,20 @@
 # Aster
 
-A small, statically typed, compiled language, and a place to learn how compilers work. The compiler is written in Aster and compiles itself through C, using your system C compiler to build a native executable. Builds bootstrap from a published release; the original TypeScript compiler is archived at the `seed-final` git tag. An LLVM backend is the next goal.
+Aster is a small, statically typed language that compiles to native executables, built for fun and to learn how compilers work.
+
+The compiler is written in Aster and compiles itself. C is the default backend; an experimental LLVM backend is also available. Builds bootstrap from a published release, and the original TypeScript compiler is archived at the `seed-final` git tag.
+
+## Vision
+
+The aim is to make Aster unusually easy for humans and coding agents to understand, modify, verify and operate safely. That means making the language regular and giving tools reliable information from the compiler:
+
+- Regular syntax and strong static semantics, with predictable effects that make a change's consequences easier to reason about.
+- Clear human diagnostics alongside structured, machine-readable diagnostics.
+- Canonical formatting and explicit project metadata, so people and tools share the same conventions and build context.
+- Stable AST and IR contracts, plus compiler-backed queries for symbols, types, references and dependencies.
+- Safe refactoring primitives that use that information, and incremental compilation for quick feedback.
+
+The longer-term design is one compiler core shared by the CLI, a language server (LSP) and an Agent API. These are design goals, not current guarantees. The CLI described below is available today; the formatter, tooling APIs, effect system, incremental compiler and language server are planned work.
 
 ## Quick start
 
@@ -69,15 +83,17 @@ fn main(): int {
 }
 ```
 
-The operations are `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove`, `set_items` and `len`. Plain `{}` works in `if` and `match` expression arms too (`if c { {} } else { m }`, `_ => {}` where a map is expected); only at the start of a statement does `{` open a block. v0.8a ships the feature, and the compiler's own sources don't use it yet (v0.8b rewrites them).
+The operations are `map_set`, `map_get`, `map_has`, `map_remove`, `map_keys`, `set_add`, `set_has`, `set_remove`, `set_items` and `len`. Plain `{}` works in `if` and `match` expression arms too (`if c { {} } else { m }`, `_ => {}` where a map is expected); only at the start of a statement does `{` open a block. v0.8a ships the feature; v0.8b uses it for the compiler's name tables, scopes, membership checks and import tracking, bootstrapped from v0.8a's release.
 
 ## CLI
 
 ```
 aster check <file.aster>                                   # type-check only (follows imports)
-aster build <file.aster> [-o <out>] [--emit=c|llvm]
-aster run   <file.aster> [-- <args>...]                     # build to a temp dir and run
+aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]
+aster run   <file.aster> [--backend=c|llvm] [-- <args>...]    # build to a temp dir and run
 ```
+
+C is the default. `--backend=llvm` builds or runs through the experimental LLVM backend and needs clang 18 as `clang` and lld 18 as `ld.lld`. `--emit=llvm` prints LLVM IR without invoking clang. See [the backend setup](docs/self-host/building.md#experimental-llvm-surface).
 
 A program can span several files: `import "other.aster";` is a top-level item, and every loaded file joins one flat namespace (no qualified names yet). Paths resolve against the importing file's directory, each file loads once (cycles are fine), and `main` must live in the file you pass to the compiler. `--emit=c` and `--emit=llvm` show the whole program.
 
@@ -99,42 +115,42 @@ Failures are `Err("<subject>: <reason>")`. The subject is the path; for `make_te
 
 ## Self-hosted compiler
 
-`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C emitter and a driver that calls `cc`. `pnpm bootstrap` builds it once with the nearest published release and after that it needs only `cc`. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
+`packages/asterc-self/asterc.aster` is the compiler written in Aster: lexer, parser, loader, type checker, IR, C and LLVM emitters, and a native build driver. `pnpm bootstrap` builds it from the nearest published release; the default C build path needs only `cc` after that. `pnpm build` rebuilds it with itself. See [docs/self-host/building.md](docs/self-host/building.md).
 
 ```
 pnpm bootstrap
 build/asterc check   <file.aster>
-build/asterc build   <file.aster> [-o <out>] [--emit=c]
-build/asterc run     <file.aster> [-- <args>...]
+build/asterc build   <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]
+build/asterc run     <file.aster> [--backend=c|llvm] [-- <args>...]
 build/asterc build packages/asterc-self/asterc.aster -o asterc2   # rebuilds itself
 ```
 
 The commands, output, diagnostics and exit codes are pinned byte for byte as goldens (`tests/asterc_self.test.ts`). S2's `--emit=c` of its own source equals stage 0's (the installed compiler's). It was tested on Linux x86_64 (WSL2, kernel 6.6) with gcc 13.3 as `cc`. It uses `-std=c11 -O2 -Wall`, with a private directory under `$TMPDIR` for the intermediate files.
 
-On that machine S1 builds itself (`asterc build packages/asterc-self/asterc.aster -o s2`) in 2.98 s wall clock with 239,360 kB peak RSS, which includes `cc` on about 1 MB of C. S1's `--emit=c` of the same file takes 0.16 s and 238,208 kB. The runtime never frees memory, and that is fine at this size.
+On that machine S1 builds itself (`asterc build packages/asterc-self/asterc.aster -o s2`) in 2.98 s wall clock with 239,360 kB peak RSS, which includes `cc` on about 1 MB of C. S1's `--emit=c` of the same file takes 0.16 s and 238,208 kB. The runtime has no general heap reclamation, and that is fine at this size.
 
 Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-10-04-aster-self-hosting-contract-design.md):
 
-- `ASTER_CC` is ignored: it always runs `cc`.
+- `ASTER_CC` is ignored: the C backend always runs `cc`.
 - `cc`'s stderr streams to yours, so its warnings show even on success, and a failing `cc` prints its output and then `internal compiler error: C compiler 'cc' failed` (exit 3).
 - A panic inside the compiler is `panic: <message>` with exit 101, not an internal-compiler-error exit 3.
 - Imports are identified by their normalised path, not their real path, so two symlinks to one file load twice.
 
 ## Self-hosting
 
-`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (the installed compiler, `build/asterc`; in CI, bootstrapped from the base's release and rebuilt from this tree) builds S1, S1 builds S2, S2 builds S3, and the C each stage emits for the compiler must be byte-identical to stage 0's. It then runs the conformance suites against S1, S2 and S3, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. It needs Linux x86_64, gcc 13 as `cc`, and Node 24 or later.
+`packages/asterc-self/asterc.aster` is the Aster compiler written in Aster, and it compiles itself. `pnpm selfhost` proves it: stage 0 (the installed compiler, `build/asterc`; in CI, bootstrapped from the base's release and rebuilt from this tree) builds S1, S1 builds S2, S2 builds S3, and S3 builds S4. The C each stage emits for the compiler must be byte-identical to stage 0's. It also builds LLVM stages SL1 and SL2 and checks their fixed point and C output. It runs the conformance suites against S1, S2, S3 and SL1, and writes a report to `.selfhost/`. The last recorded run is in [docs/self-host/proof.md](docs/self-host/proof.md). CI runs the proof on every pull request. The full proof needs Linux x86_64, gcc 13 as `cc`, clang 18, lld 18, and Node 24 or later.
 
 The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The original TypeScript compiler is archived at the `seed-final` git tag; the last-resort recovery path that uses it is in [docs/self-host/building.md](docs/self-host/building.md#recovery).
 
 ## Remaining work
 
-These are not part of self-hosting:
+Alongside the longer-term vision above, current limitations include:
 
 - `--emit=tokens|ast|ir` and `ASTER_CC` in the self-hosted CLI.
 - Import identity through symlinks.
-- The runtime never frees memory.
+- The runtime has no general heap reclamation (map rebuilds reclaim their replaced internal buffers).
 - Compile-time performance.
-- An LLVM backend. Planning is next.
+- The LLVM backend is experimental.
 
 ## How it works
 
@@ -142,7 +158,7 @@ These are not part of self-hosting:
 source → lexer → parser → checker → IR (basic blocks) → C → cc → executable
 ```
 
-`--emit=c` and `--emit=llvm` print the generated code. The compiler lives in `packages/asterc-self/`, one file per stage, and the C runtime is in `runtime/`.
+This is the default C path. The experimental path emits LLVM IR and uses clang/lld with the same C runtime. `--emit=c` and `--emit=llvm` print the generated code. The compiler lives in `packages/asterc-self/`, one file per stage, and the C runtime is in `runtime/`.
 
 ## Docs
 
