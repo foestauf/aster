@@ -901,6 +901,10 @@ fn instance_name(string, [Type]): string
   var 2 s string
   let 3 i int
 fn special_builtins(): [string]
+fn is_map_builtin(string): bool
+  param 0 name string
+fn is_set_builtin(string): bool
+  param 0 name string
 fn prelude_source(): string
 fn builtin_signatures(): [Signature]
 fn find_signature([Signature], string): Option[int]
@@ -1858,6 +1862,30 @@ fn check_collection_builtin(Ctx, string, Expr, [Expr]): TExpr
   let 12 arity int
   let 13 k string
   let 14 x Type
+fn map_builtin_arity(string): int
+  param 0 name string
+fn check_map_builtin(Ctx, string, Expr, [Expr]): TExpr
+  param 0 ctx Ctx
+  param 1 name string
+  param 2 e Expr
+  param 3 args [Expr]
+  let 4 is_map bool
+  let 5 values [TExpr]
+  var 6 t Type
+  let 7 first TExpr
+  var 8 key Option[Type]
+  var 9 value Type
+  let 10 k Type
+  let 11 v Type
+  let 12 k Type
+  let 13 wanted string
+  let 14 i int
+  var 15 expected Type
+  let 16 k Type
+  let 17 arity int
+  let 18 k Type
+  let 19 ti int
+  let 20 ret Type
 fn sort_diags([Diag]): [Diag]
   param 0 diags [Diag]
   let 1 sorted [Diag]

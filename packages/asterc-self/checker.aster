@@ -117,10 +117,18 @@ struct Signature {
     ret: Type,
 }
 
-// Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string or array), `push`/`pop`
-// (any array).
+// Builtins the checker types by hand: `print`/`eprint` (int, bool or string), `len` (string, array, map or set),
+// `push`/`pop` (any array), and the map and set builtins.
 fn special_builtins(): [string] {
-    return ["print", "eprint", "len", "push", "pop"];
+    return ["print", "eprint", "len", "push", "pop", "map_set", "map_get", "map_has", "map_remove", "map_keys", "set_add", "set_has", "set_remove", "set_items"];
+}
+
+fn is_map_builtin(name: string): bool {
+    return name == "map_set" || name == "map_get" || name == "map_has" || name == "map_remove" || name == "map_keys";
+}
+
+fn is_set_builtin(name: string): bool {
+    return name == "set_add" || name == "set_has" || name == "set_remove" || name == "set_items";
 }
 
 fn prelude_source(): string {
@@ -2775,6 +2783,9 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
     if name == "len" || name == "push" || name == "pop" {
         return check_collection_builtin(ctx, name, e, args);
     }
+    if is_map_builtin(name) || is_set_builtin(name) {
+        return check_map_builtin(ctx, name, e, args);
+    }
 
     // A builtin's signature, else the user function's.
     let builtins: [Signature] = builtin_signatures();
@@ -2837,7 +2848,7 @@ fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], values: [TExpr]): 
     return TExpr { ty: Type::Void, node: TExprNode::Builtin(name, values) };
 }
 
-// `len` (string or array), `push` and `pop` (any array). Typed by hand because they work on any array.
+// `len` (string, array, map or set), `push` and `pop` (any array). Typed by hand because they work on any array.
 fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExpr {
     let values: [TExpr] = [];
     var t: Type = Type::Error;
@@ -2865,8 +2876,8 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExp
     }
     if name == "len" {
         let k: string = kind_of_type(t);
-        if !is_error(t) && k != "string" && k != "array" {
-            report(ctx.env, "function 'len' expects a string or array, found " + type_to_string(t), args[0].start, args[0].end);
+        if !is_error(t) && k != "string" && k != "array" && k != "map" && k != "set" {
+            report(ctx.env, "function 'len' expects a string, array, map or set, found " + type_to_string(t), args[0].start, args[0].end);
         }
         // len is an int whatever its argument, so a bad argument doesn't cascade.
         return TExpr { ty: Type::Int, node: TExprNode::Builtin("len", values) };
@@ -2882,4 +2893,95 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExp
         return TExpr { ty: Type::Void, node: TExprNode::Builtin("push", values) };
     }
     return TExpr { ty: x, node: TExprNode::Builtin("pop", values) };
+}
+
+fn map_builtin_arity(name: string): int {
+    if name == "map_set" {
+        return 3;
+    }
+    if name == "map_keys" || name == "set_items" {
+        return 1;
+    }
+    return 2;
+}
+
+// The map and set builtins (spec §2 Builtins). The first argument is checked with no expected type and must be a
+// `Map[K, V]` (map_*) or `Set[K]` (set_*); the key is checked against K and map_set's value against V, as expected
+// types, so `{}` and `[]` arguments infer.
+fn check_map_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExpr {
+    let is_map: bool = is_map_builtin(name);
+    let values: [TExpr] = [];
+    var t: Type = Type::Error;
+    if len(args) > 0 {
+        let first: TExpr = check_expr(ctx, args[0], Option::None);
+        push(values, first);
+        t = first.ty;
+    }
+    var key: Option[Type] = Option::None;
+    var value: Type = Type::Error;
+    match t {
+        Type::Map(k, v) => {
+            if is_map {
+                key = Option::Some(k);
+                value = v;
+            }
+        }
+        Type::Set(k) => {
+            if !is_map {
+                key = Option::Some(k);
+            }
+        }
+        _ => {}
+    }
+    let wanted: string = if is_map { "a map" } else { "a set" };
+    if len(args) > 0 && !is_error(t) {
+        if let Option::None = key {
+            report(ctx.env, "function '" + name + "' expects " + wanted + ", found " + type_to_string(t), args[0].start, args[0].end);
+        }
+    }
+    // Without a map or set the key and value types are unknown: the `error` type keeps the rest from cascading.
+    for i in 1..len(args) {
+        var expected: Type = Type::Error;
+        if let Option::Some(k) = key {
+            if i == 1 {
+                expected = k;
+            } else if i == 2 && name == "map_set" {
+                expected = value;
+            }
+        }
+        push(values, check_expr(ctx, args[i], Option::Some(expected)));
+    }
+    let arity: int = map_builtin_arity(name);
+    if len(args) != arity {
+        report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
+        return error_expr();
+    }
+    let Option::Some(k) = key else {
+        // The first argument was reported (or already was): bool and void results are still known.
+        if name == "map_set" {
+            return TExpr { ty: Type::Void, node: TExprNode::Builtin(name, values) };
+        }
+        if name == "map_get" || name == "map_keys" || name == "set_items" {
+            return error_expr();
+        }
+        return TExpr { ty: Type::Bool, node: TExprNode::Builtin(name, values) };
+    };
+    if arity > 1 {
+        expect_type(ctx, k, values[1].ty, args[1].start, args[1].end);
+    }
+    if name == "map_set" {
+        expect_type(ctx, value, values[2].ty, args[2].start, args[2].end);
+        return TExpr { ty: Type::Void, node: TExprNode::Builtin(name, values) };
+    }
+    if name == "map_get" {
+        let Option::Some(ti) = find_template(ctx.env, "Option") else {
+            panic("internal: no Option template");
+        };
+        let ret: Type = instantiate(ctx.env, ctx.env.templates[ti], [value]);
+        return TExpr { ty: ret, node: TExprNode::Builtin(name, values) };
+    }
+    if name == "map_keys" || name == "set_items" {
+        return TExpr { ty: Type::Array(k), node: TExprNode::Builtin(name, values) };
+    }
+    return TExpr { ty: Type::Bool, node: TExprNode::Builtin(name, values) };
 }

@@ -1,0 +1,30 @@
+== exit 1
+== stdout
+== stderr
+tests/programs/errors/maps_builtins.aster:10:4: error: 'map_get' is a builtin function and cannot be redefined
+  fn map_get(): int { return 0; }
+     ^^^^^^^
+tests/programs/errors/maps_builtins.aster:15:5: error: function 'map_set' expects 3 arguments, found 2
+      map_set(m, "a");
+      ^^^^^^^^^^^^^^^
+tests/programs/errors/maps_builtins.aster:16:5: error: function 'set_has' expects 2 arguments, found 1
+      set_has(s);
+      ^^^^^^^^^^
+tests/programs/errors/maps_builtins.aster:17:5: error: function 'map_keys' expects 1 argument, found 2
+      map_keys(m, 1);
+      ^^^^^^^^^^^^^^
+tests/programs/errors/maps_builtins.aster:18:13: error: function 'map_get' expects a map, found [int]
+      map_get(xs, 1);
+              ^^
+tests/programs/errors/maps_builtins.aster:19:16: error: type mismatch: expected string, found int
+      map_set(m, 1, 2);
+                 ^
+tests/programs/errors/maps_builtins.aster:20:21: error: type mismatch: expected int, found bool
+      map_set(m, "a", true);
+                      ^^^^
+tests/programs/errors/maps_builtins.aster:21:13: error: function 'set_add' expects a set, found Map[string, int]
+      set_add(m, 1);
+              ^
+tests/programs/errors/maps_builtins.aster:22:15: error: function 'len' expects a string, array, map or set, found int
+      print(len(5));
+                ^

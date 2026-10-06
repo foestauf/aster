@@ -636,6 +636,15 @@ fn ir_builtin_name(name: string, args: [TExpr]): string {
 }
 
 fn lower_builtin(st: IrState, ty: Type, name: string, args: [TExpr]): Option[IrOperand] {
+    if is_map_builtin(name) || is_set_builtin(name) {
+        panic("unimplemented: maps (v0.8 task 4)");
+    }
+    if name == "len" {
+        let lk: string = kind_of_type(args[0].ty);
+        if lk == "map" || lk == "set" {
+            panic("unimplemented: maps (v0.8 task 4)");
+        }
+    }
     let a: [IrOperand] = lower_args(st, args);
     if name == "read_file" {
         return Option::Some(lower_read_file(st, a[0], ty));
