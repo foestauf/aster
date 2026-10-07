@@ -206,12 +206,14 @@ Import cycles and diamonds are not errors (each file loads once) and produce no 
 
 ## Compatibility
 
-- May change within `aster/1`: new keys anywhere (consumers must ignore unknown keys), new codes, new `related`
-  roles, message text.
-- Never changes within `aster/1`: an existing key's type or meaning, an existing code's meaning, range units. Such a
+- May change within `aster/1`: new keys anywhere, new codes, new declaration kinds, new type kinds, new `related` roles,
+  new `semantics.reason` values, and message text. Consumers must ignore unknown keys and tolerate unknown kinds and
+  reasons.
+- Never changes within `aster/1`: an existing key's type or meaning, an existing code's meaning, and range units. Such a
   change is `aster/2`.
 - There is no request version; an unsupported `--format` is a usage error.
-- File ids are deterministic for the same source snapshot and entry path. Nothing is stable across edits.
+- File and declaration ids are deterministic for the same source snapshot, entry path and schema, and are not stable
+  across edits.
 
 ## Validation
 
