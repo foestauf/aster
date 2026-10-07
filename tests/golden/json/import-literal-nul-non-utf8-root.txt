@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"�/main.aster","bom":false,"path_exact":false}],"diagnostics":[{"code":"import.invalid-path","severity":"error","message":"cannot import 'a\u0000b.aster': invalid path","primary":{"file":0,"path":"�/main.aster","range":{"start":7,"end":18,"start_line":1,"start_col_utf16":8,"end_line":1,"end_col_utf16":19},"path_exact":false},"related":[]}]}
+== stderr

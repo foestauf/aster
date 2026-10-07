@@ -133,13 +133,16 @@ fn decode_literal(body: string): Option[string] {
     var i: int = 0;
     var run: int = 0;
     while i < len(body) {
+        if byte_at(body, i) == 0 {
+            return Option::None;
+        }
         if byte_at(body, i) != '\\' || i + 1 >= len(body) {
             i += 1;
             continue;
         }
         out += substring(body, run, i);
         let c: int = byte_at(body, i + 1);
-        if c == '0' {
+        if c == '0' || c == 0 {
             return Option::None;
         }
         out += match c {

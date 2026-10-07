@@ -44,6 +44,21 @@ const fixtures: Fixture[] = [
   { name: 'root-non-utf8-path', files: {}, rawFiles: [[Buffer.from([0xfe, 0x2e, 0x61, 0x73, 0x74, 0x65, 0x72]), b(MAIN_OK)]], entryPrintf: '\\376.aster', status: 0, inexact: true },
   { name: 'lex-error', files: { 'main.aster': b('fn main(): int {\n    let s: string = "abc;\n    return 0;\n}\n') }, status: 1 },
   { name: 'import-invalid-path', files: { 'main.aster': b('import "a\\0b.aster";\n' + MAIN_OK) }, status: 1 },
+  { name: 'import-literal-nul', files: { 'main.aster': b('import "a\0b.aster";\n' + MAIN_OK) }, status: 1 },
+  { name: 'import-backslash-literal-nul', files: { 'main.aster': b('import "a\\\0b.aster";\n' + MAIN_OK) }, status: 1 },
+  {
+    name: 'import-literal-nul-non-utf8-root',
+    files: {},
+    rawFiles: [[Buffer.concat([Buffer.from([0xff]), b('/main.aster')]), b('import "a\0b.aster";\n' + MAIN_OK)]],
+    entryPrintf: '\\377/main.aster',
+    status: 1,
+    inexact: true,
+  },
+  {
+    name: 'import-escaped-backslash-zero',
+    files: { 'main.aster': b('import "a\\\\0b.aster";\n' + MAIN_OK), 'a\\0b.aster': b('fn helper(): int { return 1; }\n') },
+    status: 0,
+  },
   { name: 'root-missing', files: {}, entry: 'nope.aster', status: 2 },
   { name: 'import-missing', files: { 'main.aster': b('import "lib/gone.aster";\n' + MAIN_OK) }, status: 1 },
   { name: 'import-malformed', files: { 'main.aster': b('import "bad.aster";\n' + MAIN_OK), 'bad.aster': Buffer.concat([b('fn f(): int {\n    return 1; // '), Buffer.from([0xc3]), b('\n}\n')]) }, status: 1 },
@@ -91,7 +106,11 @@ describe('check --format=json', () => {
     const dir = join(root, f.name);
     mkdirSync(dir);
     for (const [name, bytes] of Object.entries(f.files)) writeFileSync(join(dir, name), bytes);
-    for (const [name, bytes] of f.rawFiles ?? []) writeFileSync(Buffer.concat([Buffer.from(dir + '/'), name]), bytes);
+    for (const [name, bytes] of f.rawFiles ?? []) {
+      const path = Buffer.concat([Buffer.from(dir + '/'), name]);
+      mkdirSync(path.subarray(0, path.lastIndexOf(0x2f)), { recursive: true });
+      writeFileSync(path, bytes);
+    }
     f.setup?.(dir);
     const argv = ['check', f.entry ?? 'main.aster', '--format=json'];
     const first = run(dir, argv, f.entryPrintf);
@@ -107,7 +126,11 @@ describe('check --format=json', () => {
     expect(doc.ok).toBe(doc.diagnostics.length === 0);
     expect(doc.ok).toBe(f.status === 0);
     // Every range slices the file's bytes on disk.
-    const onDisk = (path: string) => f.files[path.replace(/^\.\//, '')]!.length;
+    const files = new Map([
+      ...Object.entries(f.files),
+      ...(f.rawFiles ?? []).map(([name, bytes]) => [name.toString('utf8'), bytes] as const),
+    ]);
+    const onDisk = (path: string) => files.get(path.replace(/^\.\//, ''))!.length;
     const located = doc.diagnostics.filter((d: any) => d.primary.range !== null && d.primary.file !== null);
     for (const d of located) {
       const r = d.primary.range;
