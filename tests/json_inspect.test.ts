@@ -65,6 +65,29 @@ fn main(): int {
     'main.aster': b('import "lib.aster";\nfn main(): int {\n    return twice(2);\n}\n'),
     'lib.aster': b('fn twice(n: int): int {\n    return n * 2;\n}\n'),
   } },
+  { name: 'binders', status: 0, files: { 'main.aster': b(
+`fn pick(o: Option[int]): int {
+    let Option::Some(v) = o else {
+        return 0;
+    };
+    var total: int = v;
+    if let Option::Some(w) = o {
+        total = total + w;
+    }
+    for i in 0..3 {
+        total = total + i;
+    }
+    let a: int = match Option::Some(1) {
+        Option::Some(b) => b,
+        Option::None => 0,
+    };
+    return total + a;
+}
+
+fn main(): int {
+    return pick(Option::Some(1));
+}
+`) } },
   { name: 'errors', status: 1, files: { 'main.aster': b('fn main(): int {\n    return "x";\n}\n') } },
   { name: 'missing', status: 2, files: {}, entry: 'nope.aster' },
 ];
@@ -93,15 +116,29 @@ function inspect(dir: string, argv: string[], status: number) {
   return { text, doc };
 }
 
-/** The ids a declaration refers to through `scope`, `shadows`, `parent` and `of`. */
-const refs = (d: any): number[] => [d.scope, d.shadows, d.parent, d.of].filter((x) => x !== undefined && x !== null);
+const REF_KEYS = new Set(['scope', 'shadows', 'parent', 'of', 'decl']);
+
+/**
+ * Every id `value` refers to: `scope`, `shadows`, `parent`, `of` and `type_params`, and each non-null `decl`, at any
+ * depth (types, signature params, payloads, args, element, key, value).
+ */
+function refs(value: any): number[] {
+  if (Array.isArray(value)) return value.flatMap(refs);
+  if (value === null || typeof value !== 'object') return [];
+  return Object.entries(value).flatMap(([k, v]): number[] => {
+    if (REF_KEYS.has(k)) return v === null ? [] : [v as number];
+    if (k === 'type_params') return v as number[];
+    return refs(v);
+  });
+}
 
 /** The structural rules every declaration list obeys. `sources` maps a `files` path, without `./`, to its bytes. */
 function checkDecls(doc: any, sources: Record<string, Buffer>) {
   const decls = doc.semantics.declarations;
   expect(doc.semantics.available).toBe(true);
   decls.forEach((d: any, i: number) => expect(d.id).toBe(i));
-  for (const ref of decls.flatMap(refs)) {
+  for (const ref of refs(decls)) {
+    expect(Number.isInteger(ref)).toBe(true);
     expect(ref).toBeGreaterThanOrEqual(0);
     expect(ref).toBeLessThan(decls.length);
   }
@@ -114,6 +151,12 @@ function checkDecls(doc: any, sources: Record<string, Buffer>) {
     expect(d.decl_range.end).toBeGreaterThanOrEqual(r.end);
   }
   for (const d of decls.filter((x: any) => x.origin !== 'source')) expect([d.location, d.decl_range]).toEqual([null, null]);
+  // Source facts are ordered by file id, then by name start (spec §6.3).
+  const keys = decls.filter((x: any) => x.origin === 'source').map((d: any) => [d.location.file, d.location.range.start]);
+  for (let i = 1; i < keys.length; i++) {
+    const [[f0, s0], [f1, s1]] = [keys[i - 1], keys[i]];
+    expect(f1 > f0 || (f1 === f0 && s1 > s0), `source order at ${i}`).toBe(true);
+  }
   // Source first (by start within load order), then prelude, instantiations, builtins.
   const rank = { source: 0, prelude: 1, instantiation: 2, builtin: 3 } as Record<string, number>;
   for (let i = 1; i < decls.length; i++) expect(rank[decls[i].origin]).toBeGreaterThanOrEqual(rank[decls[i - 1].origin]);
@@ -179,6 +222,18 @@ const targeted: Record<string, (doc: any, files: Record<string, Buffer>) => void
     checkDecls(doc, files);
     expect(one(doc, 'twice', 'fn').location.file).toBe(1);
   },
+  binders: (doc, files) => {
+    checkDecls(doc, files);
+    const total = one(doc, 'total', 'local');
+    expect(total.mutable).toBe(true);
+    for (const name of ['v', 'w', 'i', 'b']) {
+      const d = one(doc, name, 'local');
+      expect(d.mutable, `${name} mutable`).toBe(false);
+      expect(d.decl_range, `${name} decl_range`).toEqual(d.location.range);
+    }
+    // `b` is allocated before `a` (the initializer is checked first) but declared after it.
+    expect(one(doc, 'a', 'local').id).toBeLessThan(one(doc, 'b', 'local').id);
+  },
   errors: (doc) => {
     expect(doc.semantics).toEqual({ available: false, reason: 'diagnostics' });
     expect('declarations' in doc.semantics).toBe(false);
@@ -197,6 +252,46 @@ describe('inspect', () => {
     targeted[f.name]!(doc, f.files);
     await expect(renderOutcome({ status: f.status, stdout: text, stderr: '' })).toMatchFileSnapshot(goldenPath('json', 'inspect-' + f.name));
   });
+
+  it('lists exactly the checker\'s builtin functions', () => {
+    const checker = readFileSync(join(REPO_ROOT, 'packages/asterc-self/checker.aster'), 'utf8');
+    const body = (name: string) => {
+      const start = checker.indexOf(`fn ${name}(`);
+      expect(start, `fn ${name}`).toBeGreaterThanOrEqual(0);
+      return checker.slice(start, checker.indexOf('\n}\n', start));
+    };
+    const signatures = [...body('builtin_signatures').matchAll(/Signature \{ name: "([^"]+)"/g)].map((m) => m[1]!);
+    const special = [...body('special_builtins').match(/for name in \[([^\]]*)\]/)![1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+    expect(signatures.length).toBeGreaterThan(0);
+    expect(special.length).toBeGreaterThan(0);
+    const dir = join(root, 'builtins');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'main.aster'), 'fn main(): int {\n    return 0;\n}\n');
+    const { doc } = inspect(dir, ['inspect', 'main.aster'], 0);
+    const listed = doc.semantics.declarations.filter((d: any) => d.kind === 'builtin-fn').map((d: any) => d.name);
+    expect(listed.toSorted()).toEqual([...new Set([...signatures, ...special])].toSorted());
+  });
+
+  it('inspects a large file in near-linear time', () => {
+    const dir = join(root, 'large');
+    mkdirSync(dir);
+    const parts: string[] = [];
+    let size = 0;
+    for (let i = 0; size < 500_000; i++) {
+      const part = `fn f${i}(a: int, b: string): int {\n    let c: int = a + len(b);\n    var d: int = c * 2;\n    return d;\n}\n\n`;
+      parts.push(part);
+      size += part.length;
+    }
+    parts.push('fn main(): int {\n    return 0;\n}\n');
+    writeFileSync(join(dir, 'main.aster'), parts.join(''));
+    const started = performance.now();
+    const r = run(dir, ['inspect', 'main.aster']);
+    const elapsed = performance.now() - started;
+    expect(r.status).toBe(0);
+    expect(JSON.parse(strict.decode(r.stdout)).semantics.available).toBe(true);
+    // A rescan per position took about 39 s here; the line tables take well under a second.
+    expect(elapsed).toBeLessThan(10_000);
+  }, 60_000);
 
   it('inspects the compiler itself', () => {
     const { doc } = inspect(REPO_ROOT, ['inspect', 'packages/asterc-self/asterc.aster'], 0);

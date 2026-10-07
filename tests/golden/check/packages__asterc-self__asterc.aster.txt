@@ -325,8 +325,6 @@ struct LlvmField
   field offset int
 struct Ids
   field types Map[string, int]
-  field fns Map[string, int]
-  field builtins Map[string, int]
   field enum_index Map[string, int]
   field struct_index Map[string, int]
   field next int
@@ -339,6 +337,7 @@ struct Walk
   field prelude [Template]
   field builtins Signatures
   field fn_index Map[string, int]
+  field lines [[int]]
 enum TypeNode
   variant Named(string, [TypeExpr])
   variant Array(TypeExpr)
@@ -3561,6 +3560,28 @@ fn json_type_expr(Ids, TypeExpr, [string]): string
   let 5 args [TypeExpr]
   let 6 converted [string]
   let 7 a TypeExpr
+fn line_starts(string): [int]
+  param 0 src string
+  let 1 starts [int]
+  let 2 i int
+fn indexed_pos(string, [int], int): Pos
+  param 0 src string
+  param 1 starts [int]
+  param 2 at int
+  var 3 lo int
+  var 4 hi int
+  let 5 mid int
+fn indexed_range(Walk, int, int, int): Range
+  param 0 w Walk
+  param 1 fi int
+  param 2 start int
+  param 3 end int
+  let 4 f SourceFile
+  let 5 starts [int]
+  let 6 e int
+  let 7 s int
+  let 8 a Pos
+  let 9 b Pos
 fn claim(Walk): int
   param 0 w Walk
   let 1 id int
@@ -3701,6 +3722,7 @@ fn json_semantics(Loaded, Checked): string
   let 5 fn_index Map[string, int]
   let 6 i int
   let 7 w Walk
+  let 8 f SourceFile
 fn json_hex_digit(int): string
   param 0 n int
 fn json_str(string): string

@@ -129,8 +129,8 @@ fn inspect_response(command: string, path: string, fe: FrontEnd): string {
 
 // ---- declarations (`inspect`, docs/inspect/README.md)
 
-// Builtin types and functions as `inspect` lists them: sorted by byte order, types first among equals (no name is
-// both). `inspect` checks the list is sorted.
+// Builtin types and functions as `inspect` lists them, sorted by byte order (no name is both a type and a function).
+// tests/json_inspect.test.ts checks the order, and that the functions are exactly the checker's builtins.
 fn builtin_names(): [string] {
     return ["Map", "Set", "bool", "byte_at", "eprint", "exit", "int", "int_to_string", "len", "make_temp_dir", "map_get",
         "map_has", "map_keys", "map_remove", "map_set", "never", "panic", "pop", "print", "push", "read_file", "read_stdin",
@@ -152,8 +152,6 @@ fn hand_typed(name: string): bool {
 // `struct_index` a struct's in `checked.structs`.
 struct Ids {
     types: Map[string, int],
-    fns: Map[string, int],
-    builtins: Map[string, int],
     enum_index: Map[string, int],
     struct_index: Map[string, int],
     next: int,
@@ -161,7 +159,8 @@ struct Ids {
 
 // One walk over the declarations. The counting pass (`render` false) only assigns ids and fills `ids`; the rendering
 // pass repeats it exactly, with every id known, and pushes each declaration's JSON to `out`, whose length is the id
-// rendered next. `fn_index` maps a function's name to its index in `checked.functions` and `checked.local_sites`.
+// rendered next. `fn_index` maps a function's name to its index in `checked.functions` and `checked.local_sites`;
+// `lines` holds each loaded file's line starts.
 struct Walk {
     ids: Ids,
     render: bool,
@@ -171,6 +170,7 @@ struct Walk {
     prelude: [Template],
     builtins: Signatures,
     fn_index: Map[string, int],
+    lines: [[int]],
 }
 
 fn json_prim(kind: string): string {
@@ -294,6 +294,44 @@ fn json_type_expr(ids: Ids, te: TypeExpr, params: [string]): string {
     }
 }
 
+// The offsets at which `src`'s lines start: 0, then one past each `\n`.
+fn line_starts(src: string): [int] {
+    let starts: [int] = [0];
+    for i in 0..len(src) {
+        if byte_at(src, i) == '\n' {
+            push(starts, i + 1);
+        }
+    }
+    return starts;
+}
+
+// file_pos (loader.aster) by binary search over the line starts of `src`: the last start at or before `at`.
+fn indexed_pos(src: string, starts: [int], at: int): Pos {
+    var lo: int = 0;
+    var hi: int = len(starts) - 1;
+    while lo < hi {
+        let mid: int = (lo + hi + 1) / 2;
+        if starts[mid] <= at {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return Pos { line: lo + 1, col: 1 + utf16_units(src, starts[lo], at) };
+}
+
+// global_range for file `fi`, with its line table: the same clamping and result as file_range, without rescanning
+// the file from its start.
+fn indexed_range(w: Walk, fi: int, start: int, end: int): Range {
+    let f: SourceFile = w.loaded.files[fi];
+    let starts: [int] = w.lines[fi];
+    let e: int = min(end - f.base, len(f.src));
+    let s: int = min(start - f.base, e);
+    let a: Pos = indexed_pos(f.src, starts, s);
+    let b: Pos = indexed_pos(f.src, starts, e);
+    return Range { start: s + f.bom, end: e + f.bom, start_line: a.line, start_col: a.col, end_line: b.line, end_col: b.col };
+}
+
 // The next id.
 fn claim(w: Walk): int {
     let id: int = w.ids.next;
@@ -323,7 +361,7 @@ fn located(w: Walk, source: bool, name: Ident): string {
     }
     let files: [SourceFile] = w.loaded.files;
     let fi: int = file_index(files, name.start);
-    return json_location(fi, files[fi].path, Option::Some(global_range(files, name.start, name.end)));
+    return json_location(fi, files[fi].path, Option::Some(indexed_range(w, fi, name.start, name.end)));
 }
 
 // A declaration's whole range [start, end) in its file, or null outside the loaded source.
@@ -331,7 +369,7 @@ fn decl_range(w: Walk, source: bool, start: int, end: int): string {
     if !source {
         return "null";
     }
-    return json_range(global_range(w.loaded.files, start, end));
+    return json_range(indexed_range(w, file_index(w.loaded.files, start), start, end));
 }
 
 // Local ids ordered by where their names are declared (insertion sort: locals mostly arrive in source order).
@@ -353,7 +391,6 @@ fn site_order(sites: [LocalSite]): [int] {
 // position in that order.
 fn walk_fn(w: Walk, d: FnDecl) {
     let id: int = claim(w);
-    map_set(w.ids.fns, d.name.name, id);
     let Option::Some(fi) = map_get(w.fn_index, d.name.name) else {
         panic("internal: inspect has no function '" + d.name.name + "'");
     };
@@ -534,7 +571,6 @@ fn walk_instance(w: Walk, en: TEnum) {
 
 fn walk_builtin(w: Walk, name: string) {
     let id: int = claim(w);
-    map_set(w.ids.builtins, name, id);
     if !w.render {
         return;
     }
@@ -592,7 +628,7 @@ fn walk(w: Walk) {
 
 // The `semantics` of a program that checked: every declaration, linked to its source.
 fn json_semantics(loaded: Loaded, checked: Checked): string {
-    let ids: Ids = Ids { types: {}, fns: {}, builtins: {}, enum_index: {}, struct_index: {}, next: 0 };
+    let ids: Ids = Ids { types: {}, enum_index: {}, struct_index: {}, next: 0 };
     for i in 0..len(checked.enums) {
         map_set(ids.enum_index, checked.enums[i].name, i);
     }
@@ -605,8 +641,11 @@ fn json_semantics(loaded: Loaded, checked: Checked): string {
     }
     let w: Walk = Walk {
         ids: ids, render: false, out: [], loaded: loaded, checked: checked, prelude: prelude_templates(),
-        builtins: builtin_signatures(), fn_index: fn_index,
+        builtins: builtin_signatures(), fn_index: fn_index, lines: [],
     };
+    for f in loaded.files {
+        push(w.lines, line_starts(f.src));
+    }
     walk(w);
     w.render = true;
     walk(w);
