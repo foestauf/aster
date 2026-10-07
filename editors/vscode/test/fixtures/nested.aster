@@ -1,0 +1,18 @@
+// Nested syntax, including built-in names used as fields.
+import "nested/library.aster";
+enum Tree[T] { Node(Tree[T], T, Tree[T]), Leaf }
+struct Fields { int: int, bool: bool, string: string, Map: Map[string, Option[[int]]] }
+fn choose(xs: [Result[Option[[int]], string]]): Option[int] {
+    let fields: Fields = Fields { int: 12, bool: true, string: "// text", Map: {} };
+    var sum: int = -1;
+    for i in 0..len(xs) {
+        if let Option::Some(items) = xs[i]? {
+            sum += match items[0] {
+                'a' | '\n' => fields.int,
+                _ => (items[0] + 2) * 3,
+            };
+        } else { continue; }
+    }
+    while sum < 0 { sum += 1; if sum == 0 { break; } }
+    return Option::Some(sum);
+}

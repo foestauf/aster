@@ -142,6 +142,10 @@ Limits, all listed in [the contract's section 4.5](docs/superpowers/specs/2026-1
 
 The self-hosted compiler is the normal build path: `pnpm bootstrap` installs it as `build/asterc`, and `pnpm build` and `pnpm aster` use it. `pnpm bootstrap` takes a published release as its seed. The original TypeScript compiler is archived at the `seed-final` git tag; the last-resort recovery path that uses it is in [docs/self-host/building.md](docs/self-host/building.md#recovery).
 
+## Editor support
+
+A small [VS Code extension](editors/vscode/README.md) provides `.aster` syntax highlighting, bracket/quote pairing and `//` comment toggling. Build a local VSIX with `cd editors/vscode && npm ci && npm run package`, then install it with **Extensions: Install from VSIX…**. It does not require the compiler.
+
 ## Remaining work
 
 Alongside the longer-term vision above, current limitations include:
