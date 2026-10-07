@@ -90,6 +90,9 @@ describe('usage errors', () => {
     ['build', 'a', '--', 'x'],
     ['check', 'a.aster', '--format=xml'],
     ['build', 'a.aster', '--format=json'],
+    ['inspect', 'a.aster', '--format=json'],
+    ['inspect', 'a.aster', '-o', 'x'],
+    ['inspect'],
   ] as string[][])
     .map((argv) => ({ argv, label: argv.join(' ') || '(no arguments)' }))
     .map((c) => ({ ...c, file: cliGolden('usage errors', c.label) })))('$label', async ({ argv, file }) => {

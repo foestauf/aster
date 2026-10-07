@@ -151,6 +151,14 @@ struct TFunction
   field locals [Local]
   field ret Type
   field body TBlock
+struct LocalSite
+  field name Ident
+  field start int
+  field end int
+  field shadows int
+struct FnSites
+  field name Ident
+  field sites [LocalSite]
 struct TBlock
   field stmts [TStmt]
 struct TArm
@@ -214,6 +222,7 @@ struct Env
   field template_ids Map[string, int]
   field builtins Signatures
   field special_builtins Set[string]
+  field local_sites [FnSites]
 struct Loop
   field has_break bool
 struct Ctx
@@ -221,6 +230,7 @@ struct Ctx
   field signatures Signatures
   field ret Type
   field locals [Local]
+  field sites [LocalSite]
   field scopes [Map[string, Local]]
   field loops [Loop]
 struct Checked
@@ -228,6 +238,7 @@ struct Checked
   field structs [TStruct]
   field enums [TEnum]
   field functions [TFunction]
+  field local_sites [FnSites]
 struct CheckedStmt
   field node TStmt
   field diverges bool
@@ -312,6 +323,21 @@ struct LlvmState
 struct LlvmField
   field ty Type
   field offset int
+struct Ids
+  field types Map[string, int]
+  field enum_index Map[string, int]
+  field struct_index Map[string, int]
+  field next int
+struct Walk
+  field ids Ids
+  field render bool
+  field out [string]
+  field loaded Loaded
+  field checked Checked
+  field prelude [Template]
+  field builtins Signatures
+  field fn_index Map[string, int]
+  field lines [[int]]
 enum TypeNode
   variant Named(string, [TypeExpr])
   variant Array(TypeExpr)
@@ -1459,8 +1485,17 @@ fn declare(Ctx, Ident, Type, bool): Local
   param 1 name Ident
   param 2 ty Type
   param 3 mutable bool
-  let 4 scope Map[string, Local]
-  let 5 local Local
+fn declare_at(Ctx, Ident, Type, bool, int, int): Local
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 ty Type
+  param 3 mutable bool
+  param 4 start int
+  param 5 end int
+  var 6 shadows int
+  let 7 outer Local
+  let 8 scope Map[string, Local]
+  let 9 local Local
 fn lookup(Ctx, string): Option[Local]
   param 0 ctx Ctx
   param 1 name string
@@ -3467,6 +3502,227 @@ fn inspect_response(string, string, FrontEnd): string
   let 9 d Diag
   let 10 loaded Loaded
   let 11 fields [string]
+  let 12 loaded Loaded
+  let 13 checked Checked
+  let 14 semantics string
+fn builtin_names(): [string]
+fn is_builtin_type_name(string): bool
+  param 0 name string
+fn hand_typed(string): bool
+  param 0 name string
+fn json_prim(string): string
+  param 0 kind string
+fn type_id(Ids, string): int
+  param 0 ids Ids
+  param 1 name string
+  let 2 id int
+fn json_named(string, string, Ids, [string]): string
+  param 0 kind string
+  param 1 name string
+  param 2 ids Ids
+  param 3 args [string]
+  let 4 fields [string]
+fn json_enum_type(Ids, Checked, string): string
+  param 0 ids Ids
+  param 1 checked Checked
+  param 2 name string
+  let 3 i int
+  let 4 en TEnum
+  let 5 args [string]
+  let 6 a Type
+fn json_type(Ids, Checked, Type): string
+  param 0 ids Ids
+  param 1 checked Checked
+  param 2 t Type
+  let 3 e Type
+  let 4 k Type
+  let 5 v Type
+  let 6 e Type
+  let 7 n string
+  let 8 n string
+fn type_expr_text(TypeExpr): string
+  param 0 te TypeExpr
+  let 1 e TypeExpr
+  let 2 name string
+  let 3 args [TypeExpr]
+  var 4 s string
+  let 5 i int
+fn has_name([string], string): bool
+  param 0 names [string]
+  param 1 name string
+  let 2 n string
+fn json_type_expr(Ids, TypeExpr, [string]): string
+  param 0 ids Ids
+  param 1 te TypeExpr
+  param 2 params [string]
+  let 3 e TypeExpr
+  let 4 name string
+  let 5 args [TypeExpr]
+  let 6 converted [string]
+  let 7 a TypeExpr
+fn line_starts(string): [int]
+  param 0 src string
+  let 1 starts [int]
+  let 2 i int
+fn indexed_pos(string, [int], int): Pos
+  param 0 src string
+  param 1 starts [int]
+  param 2 at int
+  var 3 lo int
+  var 4 hi int
+  let 5 mid int
+fn indexed_range(Walk, int, int, int): Range
+  param 0 w Walk
+  param 1 fi int
+  param 2 start int
+  param 3 end int
+  let 4 f SourceFile
+  let 5 starts [int]
+  let 6 e int
+  let 7 s int
+  let 8 a Pos
+  let 9 b Pos
+fn claim(Walk): int
+  param 0 w Walk
+  let 1 id int
+fn emit(Walk, int, [string]): void
+  param 0 w Walk
+  param 1 id int
+  param 2 fields [string]
+fn head(int, string, string, string, string, string): [string]
+  param 0 id int
+  param 1 kind string
+  param 2 name string
+  param 3 origin string
+  param 4 location string
+  param 5 decl_range string
+fn located(Walk, bool, Ident): string
+  param 0 w Walk
+  param 1 source bool
+  param 2 name Ident
+  let 3 files [SourceFile]
+  let 4 fi int
+fn decl_range(Walk, bool, int, int): string
+  param 0 w Walk
+  param 1 source bool
+  param 2 start int
+  param 3 end int
+fn site_order([LocalSite]): [int]
+  param 0 sites [LocalSite]
+  let 1 order [int]
+  let 2 k int
+  var 3 j int
+fn walk_fn(Walk, FnDecl): void
+  param 0 w Walk
+  param 1 d FnDecl
+  let 2 id int
+  let 3 fi int
+  let 4 f TFunction
+  let 5 sites [LocalSite]
+  let 6 order [int]
+  let 7 fact [int]
+  let 8 k int
+  let 9 p int
+  let 10 params [string]
+  let 11 k int
+  let 12 fields [string]
+  let 13 k int
+  let 14 lid int
+  let 15 site LocalSite
+  let 16 local Local
+  let 17 kind string
+  let 18 fields [string]
+fn walk_struct(Walk, StructDecl): void
+  param 0 w Walk
+  param 1 d StructDecl
+  let 2 id int
+  let 3 field Typed
+  let 4 fid int
+  let 5 si int
+  let 6 st TStruct
+  let 7 i int
+  let 8 fields [string]
+fn variant_end(VariantDecl): int
+  param 0 v VariantDecl
+fn variant_fields(Walk, int, VariantDecl, string, [string], int): [string]
+  param 0 w Walk
+  param 1 id int
+  param 2 v VariantDecl
+  param 3 origin string
+  param 4 payload [string]
+  param 5 parent int
+  let 6 source bool
+  let 7 fields [string]
+fn walk_enum(Walk, EnumDecl): void
+  param 0 w Walk
+  param 1 d EnumDecl
+  let 2 id int
+  let 3 v VariantDecl
+  let 4 vid int
+  let 5 ei int
+  let 6 en TEnum
+  let 7 i int
+  let 8 payload [string]
+  let 9 t Type
+fn walk_generic(Walk, EnumDecl, string): void
+  param 0 w Walk
+  param 1 d EnumDecl
+  param 2 origin string
+  let 3 source bool
+  let 4 id int
+  let 5 params [string]
+  let 6 p Ident
+  let 7 type_params [string]
+  let 8 i int
+  let 9 fields [string]
+  let 10 p Ident
+  let 11 pid int
+  let 12 fields [string]
+  let 13 v VariantDecl
+  let 14 vid int
+  let 15 payload [string]
+  let 16 te TypeExpr
+fn walk_instance(Walk, TEnum): void
+  param 0 w Walk
+  param 1 en TEnum
+  let 2 id int
+  let 3 args [string]
+  let 4 a Type
+  let 5 fields [string]
+  let 6 v TVariant
+  let 7 vid int
+  let 8 payload [string]
+  let 9 t Type
+  let 10 fields [string]
+fn walk_builtin(Walk, string): void
+  param 0 w Walk
+  param 1 name string
+  let 2 id int
+  var 3 signature string
+  let 4 i int
+  let 5 sig Signature
+  let 6 params [string]
+  let 7 t Type
+  let 8 fields [string]
+fn walk(Walk): void
+  param 0 w Walk
+  let 1 item Item
+  let 2 d FnDecl
+  let 3 d StructDecl
+  let 4 d EnumDecl
+  let 5 t Template
+  let 6 en TEnum
+  let 7 name string
+fn json_semantics(Loaded, Checked): string
+  param 0 loaded Loaded
+  param 1 checked Checked
+  let 2 ids Ids
+  let 3 i int
+  let 4 i int
+  let 5 fn_index Map[string, int]
+  let 6 i int
+  let 7 w Walk
+  let 8 f SourceFile
 fn json_hex_digit(int): string
   param 0 n int
 fn json_str(string): string
