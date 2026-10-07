@@ -217,9 +217,7 @@ Import cycles and diamonds are not errors (each file loads once) and produce no 
 
 Commands: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm selfhost` (the full proof: S0-S4 plus SL1/SL2; needs clang 18 and lld).
 
-Last run at b46a85d (2026-10-06): pnpm test 1209/1209; pnpm selfhost PASS (S1-S3 and SL1 1037/1037 each; C fixed point e82e9635120e96e9; LLVM fixed point 3c74ad3b99e231bf).
-
-v0.9b adds `inspect`; this section is refreshed then.
+Last run at 1d191de (2026-10-06): pnpm lint and pnpm typecheck clean; pnpm test 1228/1228; pnpm selfhost PASS (S1-S3 and SL1 1056/1056 each; C fixed point c6022866bfc003bb; LLVM fixed point 76b77f44eb1955fe).
 
 ## Diagnostic codes
 
