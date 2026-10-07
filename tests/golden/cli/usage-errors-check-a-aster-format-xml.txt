@@ -1,7 +1,7 @@
 == exit 2
 == stdout
 == stderr
-error: missing command
+error: unknown format 'xml'
 usage:
   aster check <file.aster> [--format=human|json]
   aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]

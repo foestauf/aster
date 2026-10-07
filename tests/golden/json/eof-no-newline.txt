@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"syntax.expected","severity":"error","message":"expected '}', found end of file","primary":{"file":0,"path":"main.aster","range":{"start":30,"end":30,"start_line":2,"start_col_utf16":14,"end_line":2,"end_col_utf16":14}},"related":[]}]}
+== stderr

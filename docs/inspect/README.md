@@ -1,5 +1,120 @@
 # Compiler inspection
 
+`aster check --format=json` reports what the compiler found as one line of JSON, so that tools and agents can read
+diagnostics without scraping the human format. Every diagnostic carries a stable code and a file-local range. The
+schema is `aster/1`; later releases add `aster inspect` on top of the same response.
+
+## Commands
+
+```
+aster check <file.aster> [--format=human|json]
+```
+
+- `--format=human` is the default; `aster check` without `--format` is unchanged.
+- `--format` is valid only with `check`. Any other value, or `--format` with another command, is a usage error
+  (exit 2, human usage text on stderr).
+
+## The response
+
+One response per handled run: a single line of compact JSON followed by `\n` on stdout. Stderr is empty. Keys
+appear in the order shown; optional keys are omitted rather than `null` unless stated here.
+
+| Key | Meaning |
+| --- | --- |
+| `schema` | Always `"aster/1"`. |
+| `command` | `"check"` (or `"inspect"` later). |
+| `ok` | `true` exactly when `diagnostics` is empty. |
+| `files` | Every loaded file, in load order. `id` is the load index (root = 0). `path` is spelled as human diagnostics spell it (the root as given; an import as `dirname(importer) + "/" + literal`). `bom` says whether a UTF-8 byte order mark was stripped. A file that failed to load is not listed. |
+| `diagnostics` | In human order: stable by start offset, dropping a diagnostic whose start and message equal an earlier one's. |
+
+A diagnostic is `{"code", "severity", "message", "primary", "related"}`. `code` is the contract (see the catalogue
+below). `severity` is always `"error"` for now; consumers must accept other values later. `message` is the human
+message verbatim and is not part of the contract. `related` is a list of `{"role", <location fields>}`; the only role
+is `"import-target"`.
+
+A worked example, an error in an imported file (the real output is a single line):
+
+```json
+{
+  "schema": "aster/1",
+  "command": "check",
+  "ok": false,
+  "files": [
+    {
+      "id": 0,
+      "path": "main.aster",
+      "bom": false
+    },
+    {
+      "id": 1,
+      "path": "./lib.aster",
+      "bom": false
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "type.mismatch",
+      "severity": "error",
+      "message": "type mismatch: expected int, found bool",
+      "primary": {
+        "file": 1,
+        "path": "./lib.aster",
+        "range": {
+          "start": 25,
+          "end": 29,
+          "start_line": 2,
+          "start_col_utf16": 12,
+          "end_line": 2,
+          "end_col_utf16": 16
+        }
+      },
+      "related": []
+    }
+  ]
+}
+```
+
+## Locations
+
+A location is `{"file", "path", "range"}`, plus `"path_exact": false` when the path is not UTF-8 and was written
+with U+FFFD for each ill-formed sequence.
+
+- `file` is a `files` id, or `null` for a file that never loaded (a missing root, a failed import's target, a
+  malformed file).
+- `range` is `null` when no source position exists; otherwise
+  `{"start", "end", "start_line", "start_col_utf16", "end_line", "end_col_utf16"}`.
+- `start` and `end` are half-open, zero-based byte offsets into the file as stored on disk, a leading BOM included.
+  `start <= end`; zero-width ranges are legal, including at end of file. `end` is clamped to the file's length.
+- Lines are 1-based and only `\n` ends one (a `\r` is an ordinary character). Columns are 1-based and count UTF-16
+  code units: one per UTF-8 lead byte, two for a 4-byte sequence, one for a tab. The BOM is not counted.
+- A range into a malformed file is `[B, B+1)` at the first ill-formed byte.
+
+## Failure matrix
+
+| Case | stdout | stderr | exit |
+| --- | --- | --- | --- |
+| Success | response, `ok:true` | empty | 0 |
+| Lexical, syntax or import errors (any file) | response; checking does not run | empty | 1 |
+| Type errors | response | empty | 1 |
+| Root not well-formed UTF-8 | response, `files:[]`, one `source.invalid-utf8` with `primary` = `{file:null, path:<root>, range:[B,B+1)}` | empty | 1 |
+| Root unreadable or missing | response, `files:[]`, one `io.root-unreadable` with `primary` = `{file:null, path:<root>, range:null}` | empty | 2 |
+| Import unreadable or missing | `import.unreadable` at the path literal; `related` = `[{role:"import-target", file:null, path:<target>, range:null}]` | empty | 1 |
+| Imported file not well-formed UTF-8 | `import.invalid-utf8` at the path literal; `related` = `[{role:"import-target", file:null, path:<target>, range:[B,B+1)}]` | empty | 1 |
+| Import path invalid (NUL) | `import.invalid-path` at the literal; `related:[]` | empty | 1 |
+| Usage error | nothing | human usage | 2 |
+| Internal compiler panic | not guaranteed | not guaranteed | 101 |
+
+Import cycles and diamonds are not errors (each file loads once) and produce no diagnostics.
+
+## Compatibility
+
+- May change within `aster/1`: new keys anywhere (consumers must ignore unknown keys), new codes, new `related`
+  roles, message text.
+- Never changes within `aster/1`: an existing key's type or meaning, an existing code's meaning, range units. Such a
+  change is `aster/2`.
+- There is no request version; an unsupported `--format` is a usage error.
+- File ids are deterministic for the same source snapshot and entry path. Nothing is stable across edits.
+
 ## Diagnostic codes
 
 Every diagnostic the compiler emits carries a stable code. The message column is the human message, with placeholders in angle brackets.
@@ -23,8 +138,8 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `import.invalid-utf8` | cannot import '<literal>': invalid UTF-8 at line <L>, byte <B> |
 | `decl.builtin-type-redefined` | '<name>' is a built-in type and cannot be redefined |
 | `decl.builtin-fn-redefined` | '<name>' is a builtin function and cannot be redefined |
-| `decl.duplicate` | duplicate <struct|enum|function> '<name>' |
-| `decl.kind-conflict` | '<name>' is already declared as <a struct|an enum> |
+| `decl.duplicate` | duplicate <struct\|enum\|function> '<name>' |
+| `decl.kind-conflict` | '<name>' is already declared as <a struct\|an enum> |
 | `decl.duplicate-field` | duplicate field '<name>' |
 | `decl.duplicate-variant` | duplicate variant '<v>' in '<enum>' |
 | `decl.void-field` | field cannot have type void |
@@ -38,7 +153,7 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `generic.cannot-infer` | cannot infer type arguments for '<name>' |
 | `typeref.unknown` | unknown type '<name>' |
 | `typeref.not-generic` | '<name>' is not generic |
-| `typeref.arity` | '<name>' expects <n> type <argument|arguments>, got <m> |
+| `typeref.arity` | '<name>' expects <n> type <argument\|arguments>, got <m> |
 | `typeref.void-argument` | type argument cannot be void |
 | `typeref.void-element` | array element type cannot be void |
 | `typeref.never-position` | 'never' is only allowed as a return type |
@@ -52,7 +167,7 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `flow.return-in-never` | cannot return from a function that returns 'never' |
 | `flow.missing-return-value` | missing return value: expected <type> |
 | `flow.void-return-value` | void function cannot return a value |
-| `flow.outside-loop` | '<break|continue>' outside of loop |
+| `flow.outside-loop` | '<break\|continue>' outside of loop |
 | `flow.let-else-not-diverging` | 'else' block of 'let' must diverge |
 | `flow.arm-not-diverging` | match arm block must diverge |
 | `name.duplicate-local` | '<name>' is already declared in this scope |
@@ -80,7 +195,7 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `type.void-element` | array element cannot have type void |
 | `type.empty-map` | cannot infer type of empty map or set |
 | `type.empty-map-mismatch` | type mismatch: expected <type>, found empty map or set |
-| `type.variant-arity` | variant '<enum>::<v>' expects <n> <value|values>, got <m> |
+| `type.variant-arity` | variant '<enum>::<v>' expects <n> <value\|values>, got <m> |
 | `try.operand` | '?' applies to Option or Result, not '<type>' |
 | `try.return-type` | '?' needs the function to return <kind>, but it returns '<type>' |
 | `try.error-type` | '?' error type '<a>' does not match the function's error type '<b>' |
@@ -100,6 +215,6 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `call.not-named` | only named functions can be called |
 | `call.not-function` | '<name>' is not a function |
 | `call.undefined` | undefined function '<name>' |
-| `call.arity` | function '<name>' expects <n> <argument|arguments>, found <m> |
+| `call.arity` | function '<name>' expects <n> <argument\|arguments>, found <m> |
 | `call.print-type` | cannot print a value of type <type> |
 | `call.argument-type` | function '<name>' expects <what>, found <type> |

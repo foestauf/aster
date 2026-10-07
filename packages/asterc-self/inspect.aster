@@ -1,0 +1,117 @@
+// expect-library
+// The JSON response of `check --format=json` and `inspect` (docs/inspect/README.md, schema `aster/1`): files,
+// diagnostics with file-local ranges, and, for `inspect`, the program's declarations.
+
+import "frontend.aster";
+import "report.aster";
+import "json.aster";
+
+// The index of the file a global offset falls in: the last one whose base is at or before it.
+fn file_index(files: [SourceFile], start: int): int {
+    var found: int = 0;
+    for i in 0..len(files) {
+        if files[i].base <= start {
+            found = i;
+        }
+    }
+    return found;
+}
+
+fn json_range(r: Range): string {
+    return json_object([
+        json_kv("start", json_int(r.start)), json_kv("end", json_int(r.end)),
+        json_kv("start_line", json_int(r.start_line)), json_kv("start_col_utf16", json_int(r.start_col)),
+        json_kv("end_line", json_int(r.end_line)), json_kv("end_col_utf16", json_int(r.end_col)),
+    ]);
+}
+
+// The location fields `file`, `path`, `range` and, for a path that is not UTF-8, `path_exact`. `file` is a files
+// index, or -1 for a file that never loaded.
+fn location_fields(file: int, path: string, range: Option[Range]): [string] {
+    let shown: string = utf8_lossy(path);
+    let range_json: string = match range {
+        Option::Some(r) => json_range(r),
+        Option::None => "null",
+    };
+    let fields: [string] = [
+        json_kv("file", if file < 0 { "null" } else { json_int(file) }),
+        json_kv("path", json_str(shown)),
+        json_kv("range", range_json),
+    ];
+    if shown != path {
+        push(fields, json_kv("path_exact", "false"));
+    }
+    return fields;
+}
+
+fn json_location(file: int, path: string, range: Option[Range]): string {
+    return json_object(location_fields(file, path, range));
+}
+
+// The range of global span [start, end) in the file it starts in.
+fn global_range(files: [SourceFile], start: int, end: int): Range {
+    let f: SourceFile = files[file_index(files, start)];
+    return file_range(f.src, f.bom, start - f.base, end - f.base);
+}
+
+fn json_diagnostic(code: string, message: string, primary: string, related: [string]): string {
+    return json_object([
+        json_kv("code", json_str(code)), json_kv("severity", json_str("error")), json_kv("message", json_str(message)),
+        json_kv("primary", primary), json_kv("related", json_array(related)),
+    ]);
+}
+
+fn json_diag(files: [SourceFile], d: Diag): string {
+    let fi: int = file_index(files, d.start);
+    let primary: string = json_location(fi, files[fi].path, Option::Some(global_range(files, d.start, d.end)));
+    let related: [string] = [];
+    for r in d.related {
+        let fields: [string] = [json_kv("role", json_str(r.role))];
+        for f in location_fields(-1, r.path, r.range) {
+            push(fields, f);
+        }
+        push(related, json_object(fields));
+    }
+    return json_diagnostic(d.code, d.message, primary, related);
+}
+
+fn json_files(files: [SourceFile]): string {
+    let out: [string] = [];
+    for i in 0..len(files) {
+        let shown: string = utf8_lossy(files[i].path);
+        let fields: [string] = [json_kv("id", json_int(i)), json_kv("path", json_str(shown)), json_kv("bom", json_bool(files[i].bom > 0))];
+        if shown != files[i].path {
+            push(fields, json_kv("path_exact", "false"));
+        }
+        push(out, json_object(fields));
+    }
+    return json_array(out);
+}
+
+// The whole response for `command` (`check` or `inspect`) on the root `path`, without a final newline.
+fn inspect_response(command: string, path: string, fe: FrontEnd): string {
+    var files: string = "[]";
+    let diags: [string] = [];
+    match fe {
+        FrontEnd::Unreadable => {
+            push(diags, json_diagnostic("io.root-unreadable", "cannot read '" + path + "'", json_location(-1, path, Option::None), []));
+        }
+        FrontEnd::Malformed(raw, bad) => {
+            push(diags, json_diagnostic("source.invalid-utf8", utf8_reason(raw, bad), json_location(-1, path, Option::Some(invalid_range(raw, bad))), []));
+        }
+        FrontEnd::Failed(loaded, ds) => {
+            files = json_files(loaded.files);
+            for d in sort_diags(ds) {
+                push(diags, json_diag(loaded.files, d));
+            }
+        }
+        FrontEnd::Passed(loaded, _) => {
+            files = json_files(loaded.files);
+        }
+    }
+    let fields: [string] = [
+        json_kv("schema", json_str("aster/1")), json_kv("command", json_str(command)), json_kv("ok", json_bool(len(diags) == 0)),
+        json_kv("files", files), json_kv("diagnostics", json_array(diags)),
+    ];
+    return json_object(fields);
+}

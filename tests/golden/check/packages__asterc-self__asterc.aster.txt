@@ -7,6 +7,7 @@ struct CliArgs
   field emit_stage string
   field backend string
   field program_args [string]
+  field format string
 struct SourceFile
   field path string
   field src string
@@ -477,6 +478,11 @@ enum IrTerm
   variant Switch(IrOperand, [IrCase], Option[string])
   variant Ret(Option[IrOperand])
   variant Unreachable
+enum FrontEnd
+  variant Unreadable
+  variant Malformed(string, int)
+  variant Failed(Loaded, [Diag])
+  variant Passed(Loaded, Checked)
 enum Option[string]
   variant Some(string)
   variant None
@@ -575,13 +581,14 @@ fn parse_cli([string]): Result[CliArgs, string]
   var 3 out Option[string]
   var 4 emit_stage string
   var 5 backend string
-  let 6 program_args [string]
-  var 7 i int
-  let 8 arg string
-  let 9 first int
-  let 10 k int
-  let 11 stage string
-  let 12 path string
+  var 6 format string
+  let 7 program_args [string]
+  var 8 i int
+  let 9 arg string
+  let 10 first int
+  let 11 k int
+  let 12 stage string
+  let 13 path string
 fn default_output(string): string
   param 0 file string
   var 1 end int
@@ -609,17 +616,20 @@ fn main([string]): int
   let 1 a CliArgs
   let 2 reason string
   let 3 parsed CliArgs
-  let 4 src string
-  let 5 bad int
-  let 6 loaded Loaded
-  let 7 checked Checked
-  let 8 llvm bool
-  let 9 c string
-  var 10 result Result[int, string]
-  let 11 o string
-  let 12 out string
-  let 13 msg string
-  let 14 status int
+  let 4 fe FrontEnd
+  let 5 loaded Loaded
+  let 6 checked Checked
+  let 7 raw string
+  let 8 bad int
+  let 9 loaded Loaded
+  let 10 diags [Diag]
+  let 11 llvm bool
+  let 12 c string
+  var 13 result Result[int, string]
+  let 14 o string
+  let 15 out string
+  let 16 msg string
+  let 17 status int
 fn dirname(string): string
   param 0 path string
   let 1 has_root bool
@@ -3389,4 +3399,112 @@ fn run_backend(string, [string], bool): Result[int, string]
   let 11 status Result[int, string]
 fn runtime_h(): string
 fn runtime_c(): string
+fn front_end(string): FrontEnd
+  param 0 path string
+  let 1 src string
+  let 2 bad int
+  let 3 loaded Loaded
+  let 4 checked Checked
+fn front_end_status(FrontEnd): int
+  param 0 fe FrontEnd
+fn file_index([SourceFile], int): int
+  param 0 files [SourceFile]
+  param 1 start int
+  var 2 found int
+  let 3 i int
+fn json_range(Range): string
+  param 0 r Range
+fn location_fields(int, string, Option[Range]): [string]
+  param 0 file int
+  param 1 path string
+  param 2 range Option[Range]
+  let 3 shown string
+  let 4 r Range
+  let 5 range_json string
+  let 6 fields [string]
+fn json_location(int, string, Option[Range]): string
+  param 0 file int
+  param 1 path string
+  param 2 range Option[Range]
+fn global_range([SourceFile], int, int): Range
+  param 0 files [SourceFile]
+  param 1 start int
+  param 2 end int
+  let 3 f SourceFile
+fn json_diagnostic(string, string, string, [string]): string
+  param 0 code string
+  param 1 message string
+  param 2 primary string
+  param 3 related [string]
+fn json_diag([SourceFile], Diag): string
+  param 0 files [SourceFile]
+  param 1 d Diag
+  let 2 fi int
+  let 3 primary string
+  let 4 related [string]
+  let 5 r Related
+  let 6 fields [string]
+  let 7 f string
+fn json_files([SourceFile]): string
+  param 0 files [SourceFile]
+  let 1 out [string]
+  let 2 i int
+  let 3 shown string
+  let 4 fields [string]
+fn inspect_response(string, string, FrontEnd): string
+  param 0 command string
+  param 1 path string
+  param 2 fe FrontEnd
+  var 3 files string
+  let 4 diags [string]
+  let 5 raw string
+  let 6 bad int
+  let 7 loaded Loaded
+  let 8 ds [Diag]
+  let 9 d Diag
+  let 10 loaded Loaded
+  let 11 fields [string]
+fn json_hex_digit(int): string
+  param 0 n int
+fn json_str(string): string
+  param 0 s string
+  var 1 out string
+  var 2 run int
+  let 3 i int
+  let 4 b int
+  var 5 esc string
+fn utf8_subpart_len(string, int): int
+  param 0 s string
+  param 1 at int
+  let 2 b int
+  var 3 n int
+  var 4 lo int
+  var 5 hi int
+  var 6 k int
+  let 7 c int
+  let 8 min_c int
+  let 9 max_c int
+fn utf8_lossy(string): string
+  param 0 s string
+  var 1 out string
+  var 2 run int
+  var 3 i int
+  let 4 bad int
+  let 5 at int
+fn json_join([string], int, int): string
+  param 0 parts [string]
+  param 1 from int
+  param 2 to int
+  let 3 mid int
+fn json_array([string]): string
+  param 0 parts [string]
+fn json_object([string]): string
+  param 0 fields [string]
+fn json_kv(string, string): string
+  param 0 key string
+  param 1 value string
+fn json_bool(bool): string
+  param 0 b bool
+fn json_int(int): string
+  param 0 n int
 == stderr

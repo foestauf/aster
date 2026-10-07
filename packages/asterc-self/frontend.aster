@@ -1,0 +1,46 @@
+// expect-library
+// The front end of a `check`, `build`, `run` or `inspect`: read the root, check it is UTF-8, load its closure, check
+// it. Both the human reporter (asterc.aster) and the JSON one (inspect.aster) render its result, so they cannot
+// disagree about what went wrong.
+
+import "loader.aster";
+import "checker.aster";
+
+// `Unreadable`: the root file cannot be read. `Malformed`: its raw bytes, and the offset of the first ill-formed one.
+// `Failed`: the loaded files and the load or check errors, unsorted; a program with load errors is not checked.
+// `Passed`: the loaded files and the checked program.
+enum FrontEnd {
+    Unreadable,
+    Malformed(string, int),
+    Failed(Loaded, [Diag]),
+    Passed(Loaded, Checked),
+}
+
+fn front_end(path: string): FrontEnd {
+    let Result::Ok(src) = read_file(path) else {
+        return FrontEnd::Unreadable;
+    };
+    let bad: int = utf8_invalid_at(src);
+    if bad != -1 {
+        return FrontEnd::Malformed(src, bad);
+    }
+    let loaded: Loaded = load_program(path, src);
+    if len(loaded.diags) > 0 {
+        return FrontEnd::Failed(loaded, loaded.diags);
+    }
+    let checked: Checked = check_program(loaded.items, loaded.root_end);
+    if len(checked.diags) > 0 {
+        return FrontEnd::Failed(loaded, checked.diags);
+    }
+    return FrontEnd::Passed(loaded, checked);
+}
+
+// The exit status of a run that stops after the front end: 2 for an unreadable root, 1 for any error, else 0.
+fn front_end_status(fe: FrontEnd): int {
+    return match fe {
+        FrontEnd::Unreadable => 2,
+        FrontEnd::Malformed(_, _) => 1,
+        FrontEnd::Failed(_, _) => 1,
+        FrontEnd::Passed(_, _) => 0,
+    };
+}

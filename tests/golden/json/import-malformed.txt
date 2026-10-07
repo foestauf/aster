@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"import.invalid-utf8","severity":"error","message":"cannot import 'bad.aster': invalid UTF-8 at line 2, byte 31","primary":{"file":0,"path":"main.aster","range":{"start":7,"end":18,"start_line":1,"start_col_utf16":8,"end_line":1,"end_col_utf16":19}},"related":[{"role":"import-target","file":null,"path":"./bad.aster","range":{"start":31,"end":32,"start_line":2,"start_col_utf16":18,"end_line":2,"end_col_utf16":19}}]}]}
+== stderr

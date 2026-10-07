@@ -9,7 +9,6 @@ import { REPO_ROOT } from './golden.js';
 
 const PHASES = ['io', 'source', 'lex', 'syntax', 'import', 'decl', 'generic', 'typeref', 'main', 'flow', 'name', 'type', 'try', 'match', 'pattern', 'assign', 'call'];
 const CODE = new RegExp(`"((?:${PHASES.join('|')})\\.[a-z0-9-]+)"`, 'g');
-const PENDING_ROOT_CODES = ['io.root-unreadable', 'source.invalid-utf8']; // produced from Task 3 (inspect.aster); delete this allowance then
 
 function sourceCodes(): Set<string> {
   const dir = join(REPO_ROOT, 'packages', 'asterc-self');
@@ -35,7 +34,7 @@ describe('diagnostic codes', () => {
   });
 
   it('match the catalogue exactly', () => {
-    const expected = [...new Set([...sourceCodes(), ...PENDING_ROOT_CODES])].toSorted();
+    const expected = [...sourceCodes()].toSorted();
     expect(expected).toEqual(catalogue().toSorted());
   });
 
