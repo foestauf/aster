@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { stage } from './stage.js';
 
 // The acceptance test of issue #53: a consumer that knows only the public JSON contract (docs/inspect/README.md). It
@@ -28,8 +28,12 @@ const BROKEN = '// Shapes 📐\nstruct Point {\n    x: int,\n    y: int,\n}\n\nf
 const FIXED = BROKEN.replace('p.z', 'p.x');
 
 describe('an external consumer', () => {
-  it('finds a broken field access by code and exact range, without human text', () => {
+  beforeAll(() => {
     writeFileSync(join(dir, 'main.aster'), MAIN);
+    writeFileSync(join(dir, 'geometry.aster'), BROKEN);
+  });
+
+  it('finds a broken field access by code and exact range, without human text', () => {
     writeFileSync(join(dir, 'geometry.aster'), BROKEN);
     const { status, doc } = aster(['check', 'main.aster', '--format=json']);
     expect(status).toBe(1);
@@ -40,9 +44,14 @@ describe('an external consumer', () => {
     expect(file.path.endsWith('geometry.aster')).toBe(true);
     expect(slice(file.path, d.primary.range)).toBe('z');
     expect(d.primary.range.start_line).toBe(12);
+    const inspected = aster(['inspect', 'main.aster']);
+    expect(inspected.status).toBe(1);
+    expect(inspected.doc.semantics.available).toBe(false);
+    expect(inspected.doc.semantics.reason).toBe('diagnostics');
   });
 
   it('reads the fixed program\'s declaration, signature and location', () => {
+    writeFileSync(join(dir, 'main.aster'), MAIN);
     writeFileSync(join(dir, 'geometry.aster'), FIXED);
     const { status, doc } = aster(['inspect', 'main.aster']);
     expect(status).toBe(0);

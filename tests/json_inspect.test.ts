@@ -88,6 +88,10 @@ fn main(): int {
     return pick(Option::Some(1));
 }
 `) } },
+  { name: 'unicode', status: 0, files: { 'main.aster': Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf]),
+    b('// astral 😀 comment\r\nfn helper(): int {\r\n\tlet s: string = "😀"; var u: int = len(s);\r\n\treturn u;\r\n}\r\n\r\nfn main(): int {\r\n    return helper();\r\n}'),
+  ]) } },
   { name: 'errors', status: 1, files: { 'main.aster': b('fn main(): int {\n    return "x";\n}\n') } },
   { name: 'missing', status: 2, files: {}, entry: 'nope.aster' },
 ];
@@ -234,6 +238,18 @@ const targeted: Record<string, (doc: any, files: Record<string, Buffer>) => void
     // `b` is allocated before `a` (the initializer is checked first) but declared after it.
     expect(one(doc, 'a', 'local').id).toBeLessThan(one(doc, 'b', 'local').id);
   },
+  unicode: (doc, files) => {
+    checkDecls(doc, files);
+    // Line 3 is `<tab>let s: string = "<U+1F600>"; var u: int = len(s);`. Before `u` there are 1 tab, 17 units up to and
+    // including the opening quote, the astral character as 2 units, and `"; var ` as 7: 27 units, so column 28 (1-based).
+    // The BOM is not a column, and the `\r` of the CRLF line endings only ends lines.
+    const u = one(doc, 'u', 'local');
+    expect(u.location.range.start_line).toBe(3);
+    expect(u.location.range.start_col_utf16).toBe(28);
+    const helper = one(doc, 'helper', 'fn');
+    expect([helper.location.range.start_line, helper.location.range.start_col_utf16]).toEqual([2, 4]);
+    expect(one(doc, 'main', 'fn').location.range.start_line).toBe(7);
+  },
   errors: (doc) => {
     expect(doc.semantics).toEqual({ available: false, reason: 'diagnostics' });
     expect('declarations' in doc.semantics).toBe(false);
@@ -253,6 +269,28 @@ describe('inspect', () => {
     await expect(renderOutcome({ status: f.status, stdout: text, stderr: '' })).toMatchFileSnapshot(goldenPath('json', 'inspect-' + f.name));
   });
 
+  describe('unavailable semantics', () => {
+    const bad = Buffer.from([0x66, 0x6e, 0x20, 0xff, 0x0a]);
+    const ok = 'fn main(): int {\n    return 0;\n}\n';
+    const cases: { name: string; files: Record<string, Buffer>; status: number; reason: string }[] = [
+      { name: 'root-bad-utf8', files: { 'main.aster': bad }, status: 1, reason: 'diagnostics' },
+      { name: 'lex-error', files: { 'main.aster': b('fn main(): int {\n    let s: string = "abc;\n    return 0;\n}\n') }, status: 1, reason: 'diagnostics' },
+      { name: 'syntax-error', files: { 'main.aster': b('fn main(: int {\n    return 0;\n}\n') }, status: 1, reason: 'diagnostics' },
+      { name: 'missing-import', files: { 'main.aster': b('import "gone.aster";\n' + ok) }, status: 1, reason: 'diagnostics' },
+      { name: 'import-bad-utf8', files: { 'main.aster': b('import "lib.aster";\n' + ok), 'lib.aster': bad }, status: 1, reason: 'diagnostics' },
+      { name: 'import-error', files: { 'main.aster': b('import "lib.aster";\n' + ok), 'lib.aster': b('fn f(): int {\n    return "x";\n}\n') }, status: 1, reason: 'diagnostics' },
+      { name: 'missing-root', files: {}, status: 2, reason: 'io' },
+    ];
+    it.for(cases)('$name', (c) => {
+      const dir = join(root, 'unavail-' + c.name);
+      mkdirSync(dir);
+      for (const [name, bytes] of Object.entries(c.files)) writeFileSync(join(dir, name), bytes);
+      const { doc } = inspect(dir, ['inspect', 'main.aster'], c.status);
+      expect(doc.semantics).toEqual({ available: false, reason: c.reason });
+      expect('declarations' in doc.semantics).toBe(false);
+    });
+  });
+
   it('lists exactly the checker\'s builtin functions', () => {
     const checker = readFileSync(join(REPO_ROOT, 'packages/asterc-self/checker.aster'), 'utf8');
     const body = (name: string) => {
@@ -270,6 +308,12 @@ describe('inspect', () => {
     const { doc } = inspect(dir, ['inspect', 'main.aster'], 0);
     const listed = doc.semantics.declarations.filter((d: any) => d.kind === 'builtin-fn').map((d: any) => d.name);
     expect(listed.toSorted()).toEqual([...new Set([...signatures, ...special])].toSorted());
+    // Builtins whose checker signature returns `Type::Void` are the Result-returning ones; they have no signature to
+    // report, and neither do the specially checked builtins.
+    const voidRet = [...body('builtin_signatures').matchAll(/Signature \{ name: "([^"]+)"[^\n]*ret: Type::Void \}/g)].map((m) => m[1]!);
+    expect(voidRet.toSorted()).toEqual(['make_temp_dir', 'read_file', 'remove_path', 'run_process', 'write_file']);
+    const sigOf = (name: string) => doc.semantics.declarations.find((d: any) => d.kind === 'builtin-fn' && d.name === name).signature;
+    for (const name of [...voidRet, ...special]) expect(sigOf(name), `${name} signature`).toBeNull();
   });
 
   it('inspects a large file in near-linear time', () => {
