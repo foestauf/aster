@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"type.mismatch","severity":"error","message":"type mismatch: expected int, found string","primary":{"file":0,"path":"main.aster","range":{"start":34,"end":37,"start_line":2,"start_col_utf16":18,"end_line":2,"end_col_utf16":21}},"related":[]},{"code":"type.mismatch","severity":"error","message":"type mismatch: expected bool, found int","primary":{"file":0,"path":"main.aster","range":{"start":57,"end":58,"start_line":3,"start_col_utf16":19,"end_line":3,"end_col_utf16":20}},"related":[]},{"code":"name.undefined","severity":"error","message":"undefined name 'q'","primary":{"file":0,"path":"main.aster","range":{"start":71,"end":72,"start_line":4,"start_col_utf16":12,"end_line":4,"end_col_utf16":13}},"related":[]}]}
+== stderr

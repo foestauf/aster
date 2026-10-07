@@ -508,12 +508,17 @@ fn scc_visit(g: ExpansionGraph, node: int) {
 // template names share the type namespace.
 // `pending` holds the map and set rules that instantiations broke since the last user-written type or variant that
 // instantiated a template, which reports them at its own span (`flush_pending`).
+struct PendingDiag {
+    code: string,
+    message: string,
+}
+
 struct Env {
     diags: [Diag],
     structs: [TStruct],
     enums: [TEnum],
     templates: [Template],
-    pending: [string],
+    pending: [PendingDiag],
     struct_ids: Map[string, int],
     enum_ids: Map[string, int],
     template_ids: Map[string, int],
@@ -571,8 +576,8 @@ fn is_primitive(name: string): bool {
     };
 }
 
-fn report(env: Env, message: string, start: int, end: int) {
-    push(env.diags, Diag { start: start, end: end, message: message });
+fn report(env: Env, code: string, message: string, start: int, end: int) {
+    push(env.diags, Diag { code: code, start: start, end: end, message: message, related: [] });
 }
 
 fn builtin_type_message(name: string): string {
@@ -647,7 +652,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
         TypeNode::Array(elem_ref) => {
             let elem: Type = resolve_type_with(env, elem_ref, bindings, quiet, instantiates, false);
             if is_void(elem) {
-                say(env, quiet, "array element type cannot be void", elem_ref.start, elem_ref.end);
+                say(env, quiet, "typeref.void-element", "array element type cannot be void", elem_ref.start, elem_ref.end);
                 return Type::Error;
             }
             if is_error(elem) {
@@ -658,7 +663,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
         TypeNode::Named(name, args) => {
             if let Option::Some(bound) = map_get(bindings, name) {
                 if len(args) > 0 {
-                    say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                    say(env, quiet, "typeref.not-generic", "'" + name + "' is not generic", ref.start, ref.end);
                     return Type::Error;
                 }
                 return bound;
@@ -671,7 +676,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
                 let expected: int = len(template.params);
                 if len(args) != expected {
                     let noun: string = if expected == 1 { "argument" } else { "arguments" };
-                    say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+                    say(env, quiet, "typeref.arity", "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
                     return Type::Error;
                 }
                 let types: [Type] = [];
@@ -679,7 +684,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
                 for arg in args {
                     var t: Type = resolve_type_with(env, arg, bindings, quiet, instantiates, false);
                     if is_void(t) {
-                        say(env, quiet, "type argument cannot be void", arg.start, arg.end);
+                        say(env, quiet, "typeref.void-argument", "type argument cannot be void", arg.start, arg.end);
                         t = Type::Error;
                     }
                     if is_error(t) {
@@ -698,7 +703,7 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
             }
             var found: Option[Type] = primitive_type(name);
             if name == "never" && !allow_never {
-                say(env, quiet, "'never' is only allowed as a return type", ref.start, ref.end);
+                say(env, quiet, "typeref.never-position", "'never' is only allowed as a return type", ref.start, ref.end);
                 return Type::Error;
             }
             if let Option::Some(_) = find_struct(env, name) {
@@ -708,11 +713,11 @@ fn resolve_type_with(env: Env, ref: TypeExpr, bindings: Map[string, Type], quiet
                 found = Option::Some(Type::Enum(name));
             }
             let Option::Some(t) = found else {
-                say(env, quiet, "unknown type '" + name + "'", ref.start, ref.end);
+                say(env, quiet, "typeref.unknown", "unknown type '" + name + "'", ref.start, ref.end);
                 return Type::Error;
             };
             if len(args) > 0 {
-                say(env, quiet, "'" + name + "' is not generic", ref.start, ref.end);
+                say(env, quiet, "typeref.not-generic", "'" + name + "' is not generic", ref.start, ref.end);
                 return Type::Error;
             }
             return t;
@@ -725,13 +730,13 @@ fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bin
     let expected: int = if name == "Map" { 2 } else { 1 };
     if len(args) != expected {
         let noun: string = if expected == 1 { "argument" } else { "arguments" };
-        say(env, quiet, "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
+        say(env, quiet, "typeref.arity", "'" + name + "' expects " + int_to_string(expected) + " type " + noun + ", got " + int_to_string(len(args)), ref.start, ref.end);
         return Type::Error;
     }
     let key: Type = resolve_type_with(env, args[0], bindings, quiet, instantiates, false);
     var ok: bool = !is_error(key);
     if !is_map_key(key) {
-        say(env, quiet, "map key must be int or string, found " + type_to_string(key), args[0].start, args[0].end);
+        say(env, quiet, "typeref.map-key", "map key must be int or string, found " + type_to_string(key), args[0].start, args[0].end);
         ok = false;
     }
     if name == "Set" {
@@ -742,7 +747,7 @@ fn resolve_map_type(env: Env, ref: TypeExpr, name: string, args: [TypeExpr], bin
     }
     let value: Type = resolve_type_with(env, args[1], bindings, quiet, instantiates, false);
     if is_void(value) {
-        say(env, quiet, "map value cannot be void", args[1].start, args[1].end);
+        say(env, quiet, "typeref.map-void-value", "map value cannot be void", args[1].start, args[1].end);
         return Type::Error;
     }
     if !ok || is_error(value) {
@@ -776,12 +781,12 @@ fn map_violations(env: Env, ref: TypeExpr, bindings: Map[string, Type], placehol
             }
             let key: Type = resolve_type_with(env, args[0], bindings, true, true, false);
             if !is_map_key(key) && is_map_key(resolve_type_with(env, args[0], placeholders, true, false, false)) {
-                push(env.pending, "map key must be int or string, found " + type_to_string(key));
+                push(env.pending, PendingDiag { code: "typeref.map-key", message: "map key must be int or string, found " + type_to_string(key) });
             }
             if is_map {
                 let value: Type = resolve_type_with(env, args[1], bindings, true, true, false);
                 if is_void(value) && !is_void(resolve_type_with(env, args[1], placeholders, true, false, false)) {
-                    push(env.pending, "map value cannot be void");
+                    push(env.pending, PendingDiag { code: "typeref.map-void-value", message: "map value cannot be void" });
                 }
             }
         }
@@ -790,8 +795,8 @@ fn map_violations(env: Env, ref: TypeExpr, bindings: Map[string, Type], placehol
 
 // Reports the pending map and set rules at a user-written instantiation's span.
 fn flush_pending(env: Env, start: int, end: int) {
-    for message in env.pending {
-        report(env, message, start, end);
+    for p in env.pending {
+        report(env, p.code, p.message, start, end);
     }
     while len(env.pending) > 0 {
         pop(env.pending);
@@ -799,9 +804,9 @@ fn flush_pending(env: Env, start: int, end: int) {
 }
 
 // resolveType's `say`: reports unless `quiet`.
-fn say(env: Env, quiet: bool, message: string, start: int, end: int) {
+fn say(env: Env, quiet: bool, code: string, message: string, start: int, end: int) {
     if !quiet {
-        report(env, message, start, end);
+        report(env, code, message, start, end);
     }
 }
 
@@ -894,15 +899,15 @@ fn collect_types(env: Env, items: [Item]) {
         }
         let previous: string = type_kind_of(env, name.name);
         if let Option::Some(_) = primitive_type(name.name) {
-            report(env, "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
+            report(env, "decl.builtin-type-redefined", "'" + name.name + "' is a built-in type and cannot be redefined", name.start, name.end);
         } else if is_builtin_type(name.name) {
-            report(env, builtin_type_message(name.name), name.start, name.end);
+            report(env, "decl.builtin-type-redefined", builtin_type_message(name.name), name.start, name.end);
         } else if is_builtin(env, name.name) {
-            report(env, "'" + name.name + "' is a builtin function and cannot be redefined", name.start, name.end);
+            report(env, "decl.builtin-fn-redefined", "'" + name.name + "' is a builtin function and cannot be redefined", name.start, name.end);
         } else if previous == kind {
-            report(env, "duplicate " + kind + " '" + name.name + "'", name.start, name.end);
+            report(env, "decl.duplicate", "duplicate " + kind + " '" + name.name + "'", name.start, name.end);
         } else if previous != "" {
-            report(env, "'" + name.name + "' is already declared as " + article(previous), name.start, name.end);
+            report(env, "decl.kind-conflict", "'" + name.name + "' is already declared as " + article(previous), name.start, name.end);
         } else {
             match item {
                 Item::Struct(d) => {
@@ -938,13 +943,13 @@ fn collect_types(env: Env, items: [Item]) {
         let seen: Set[string] = {};
         for param in decl.params {
             if set_has(seen, param.name) {
-                report(env, "duplicate type parameter '" + param.name + "'", param.start, param.end);
+                report(env, "generic.duplicate-param", "duplicate type parameter '" + param.name + "'", param.start, param.end);
                 continue;
             }
             set_add(seen, param.name);
             // A conflicting parameter stays bound, so the payloads that use it report nothing more.
             if is_primitive(param.name) || type_kind_of(env, param.name) != "" || is_builtin(env, param.name) {
-                report(env, "type parameter '" + param.name + "' conflicts with a type of the same name", param.start, param.end);
+                report(env, "generic.param-conflict", "type parameter '" + param.name + "' conflicts with a type of the same name", param.start, param.end);
             }
             var used: bool = false;
             for v in decl.variants {
@@ -955,7 +960,7 @@ fn collect_types(env: Env, items: [Item]) {
                 }
             }
             if !used {
-                report(env, "type parameter '" + param.name + "' is never used", param.start, param.end);
+                report(env, "generic.unused-param", "type parameter '" + param.name + "' is never used", param.start, param.end);
             }
         }
         if len(env.diags) > before {
@@ -968,7 +973,7 @@ fn collect_types(env: Env, items: [Item]) {
             continue;
         }
         let name: Ident = template.decl.name;
-        report(env, "generic enum '" + name.name + "' expands infinitely", name.start, name.end);
+        report(env, "generic.infinite-expansion", "generic enum '" + name.name + "' expands infinitely", name.start, name.end);
         template.broken = true;
         template.has_errors = true;
     }
@@ -976,12 +981,12 @@ fn collect_types(env: Env, items: [Item]) {
         let st: TStruct = env.structs[i];
         for field in struct_decls[i].fields {
             if let Option::Some(_) = find_tfield(st.fields, field.name.name) {
-                report(env, "duplicate field '" + field.name.name + "'", field.name.start, field.name.end);
+                report(env, "decl.duplicate-field", "duplicate field '" + field.name.name + "'", field.name.start, field.name.end);
                 continue;
             }
             var t: Type = resolve_type(env, field.ty);
             if is_void(t) {
-                report(env, "field cannot have type void", field.ty.start, field.ty.end);
+                report(env, "decl.void-field", "field cannot have type void", field.ty.start, field.ty.end);
                 t = Type::Error;
             }
             push(st.fields, TField { name: field.name.name, ty: t });
@@ -992,14 +997,14 @@ fn collect_types(env: Env, items: [Item]) {
         let decl: EnumDecl = enum_decls[i];
         for variant in decl.variants {
             if let Option::Some(_) = find_tvariant(en.variants, variant.name.name) {
-                report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
+                report(env, "decl.duplicate-variant", "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
                 continue;
             }
             let payload: [Type] = [];
             for ref in variant.payload {
                 let t: Type = resolve_type(env, ref);
                 if is_void(t) {
-                    report(env, "payload cannot have type void", ref.start, ref.end);
+                    report(env, "decl.void-payload", "payload cannot have type void", ref.start, ref.end);
                     push(payload, Type::Error);
                 } else {
                     push(payload, t);
@@ -1018,14 +1023,14 @@ fn collect_types(env: Env, items: [Item]) {
         let names: Set[string] = {};
         for variant in decl.variants {
             if set_has(names, variant.name.name) {
-                report(env, "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
+                report(env, "decl.duplicate-variant", "duplicate variant '" + variant.name.name + "' in '" + decl.name.name + "'", variant.name.start, variant.name.end);
                 continue;
             }
             set_add(names, variant.name.name);
             for ref in variant.payload {
                 let t: Type = resolve_type_with(env, ref, placeholders, false, false, false);
                 if is_void(t) {
-                    report(env, "payload cannot have type void", ref.start, ref.end);
+                    report(env, "decl.void-payload", "payload cannot have type void", ref.start, ref.end);
                 }
             }
         }
@@ -1070,31 +1075,31 @@ fn prelude_templates(): [Template] {
 fn collect_signature(env: Env, sigs: Signatures, decl: FnDecl, root_end: int): bool {
     let name: string = decl.name.name;
     if name == "main" && decl.name.start >= root_end {
-        report(env, "'main' must be declared in the root file", decl.name.start, decl.name.end);
+        report(env, "main.not-in-root", "'main' must be declared in the root file", decl.name.start, decl.name.end);
         return false;
     }
     if is_builtin_type(name) {
-        report(env, builtin_type_message(name), decl.name.start, decl.name.end);
+        report(env, "decl.builtin-type-redefined", builtin_type_message(name), decl.name.start, decl.name.end);
         return false;
     }
     if is_builtin(env, name) {
-        report(env, "'" + name + "' is a builtin function and cannot be redefined", decl.name.start, decl.name.end);
+        report(env, "decl.builtin-fn-redefined", "'" + name + "' is a builtin function and cannot be redefined", decl.name.start, decl.name.end);
         return false;
     }
     let type_kind: string = type_kind_of(env, name);
     if type_kind != "" {
-        report(env, "'" + name + "' is already declared as " + article(type_kind), decl.name.start, decl.name.end);
+        report(env, "decl.kind-conflict", "'" + name + "' is already declared as " + article(type_kind), decl.name.start, decl.name.end);
         return false;
     }
     if let Option::Some(_) = find_signature(sigs, name) {
-        report(env, "duplicate function '" + name + "'", decl.name.start, decl.name.end);
+        report(env, "decl.duplicate", "duplicate function '" + name + "'", decl.name.start, decl.name.end);
         return false;
     }
     let params: [Type] = [];
     for p in decl.params {
         let t: Type = resolve_type(env, p.ty);
         if is_void(t) {
-            report(env, "parameter cannot have type void", p.ty.start, p.ty.end);
+            report(env, "decl.void-param", "parameter cannot have type void", p.ty.start, p.ty.end);
             push(params, Type::Error);
         } else {
             push(params, t);
@@ -1135,10 +1140,10 @@ fn check_program(items: [Item], root_end: int): Checked {
     if let Option::Some(i) = find_signature(sigs, "main") {
         if !is_main_signature(sigs.items[i]) {
             let name: Ident = declared[i].name;
-            report(env, "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
+            report(env, "main.bad-signature", "'main' must have signature 'fn main(): int' or 'fn main(args: [string]): int'", name.start, name.end);
         }
     } else {
-        report(env, "missing 'fn main(): int'", 0, 0);
+        report(env, "main.missing", "missing 'fn main(): int'", 0, 0);
     }
 
     // Pass 2: check bodies.
@@ -1158,10 +1163,10 @@ fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFu
     let body: CheckedBlock = check_block(ctx, decl.body);
     if is_never(sig.ret) {
         if !body.diverges {
-            report(ctx.env, "function '" + decl.name.name + "' returns 'never' but can reach its end", decl.name.start, decl.name.end);
+            report(ctx.env, "flow.never-reaches-end", "function '" + decl.name.name + "' returns 'never' but can reach its end", decl.name.start, decl.name.end);
         }
     } else if !body.diverges && !is_void(sig.ret) && !is_error(sig.ret) {
-        report(ctx.env, "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
+        report(ctx.env, "flow.missing-return", "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
     return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret, body: body.node };
 }
@@ -1169,7 +1174,7 @@ fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFu
 fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
     let scope: Map[string, Local] = ctx.scopes[len(ctx.scopes) - 1];
     if let Option::Some(_) = map_get(scope, name.name) {
-        report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
+        report(ctx.env, "name.duplicate-local", "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
     push(ctx.locals, local);
@@ -1201,13 +1206,13 @@ fn expect_type(ctx: Ctx, expected: Type, actual: Type, start: int, end: int) {
     if is_error(expected) || is_error(actual) || is_never(actual) || type_equals(expected, actual) {
         return;
     }
-    report(ctx.env, "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
+    report(ctx.env, "type.mismatch", "type mismatch: expected " + type_to_string(expected) + ", found " + type_to_string(actual), start, end);
 }
 
 fn check_condition(ctx: Ctx, e: Expr): TExpr {
     let cond: TExpr = check_expr(ctx, e, Option::None);
     if kind_of_type(cond.ty) != "bool" && !is_error(cond.ty) {
-        report(ctx.env, "condition must be bool, found " + type_to_string(cond.ty), e.start, e.end);
+        report(ctx.env, "type.condition", "condition must be bool, found " + type_to_string(cond.ty), e.start, e.end);
     }
     return cond;
 }
@@ -1244,7 +1249,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
         StmtNode::Let(mutable, name, ty, init) => {
             var t: Type = resolve_type(ctx.env, ty);
             if is_void(t) {
-                report(ctx.env, "variable cannot have type void", ty.start, ty.end);
+                report(ctx.env, "decl.void-variable", "variable cannot have type void", ty.start, ty.end);
                 t = Type::Error;
             }
             let value: TExpr = check_expr(ctx, init, Option::Some(t));
@@ -1307,7 +1312,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
                 }
                 _ => {
                     if !is_error(array.ty) {
-                        report(ctx.env, "cannot iterate over a value of type " + type_to_string(array.ty), iterable.start, iterable.end);
+                        report(ctx.env, "type.not-iterable", "cannot iterate over a value of type " + type_to_string(array.ty), iterable.start, iterable.end);
                     }
                 }
             }
@@ -1324,7 +1329,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
         }
         StmtNode::Return(value) => {
             if is_never(ctx.ret) {
-                report(ctx.env, "cannot return from a function that returns 'never'", s.start, s.end);
+                report(ctx.env, "flow.return-in-never", "cannot return from a function that returns 'never'", s.start, s.end);
                 var checked: Option[TExpr] = Option::None;
                 if let Option::Some(v) = value {
                     checked = Option::Some(check_expr(ctx, v, Option::None));
@@ -1333,7 +1338,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
             }
             let Option::Some(v) = value else {
                 if !is_void(ctx.ret) && !is_error(ctx.ret) {
-                    report(ctx.env, "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
+                    report(ctx.env, "flow.missing-return-value", "missing return value: expected " + type_to_string(ctx.ret), s.start, s.end);
                 }
                 return CheckedStmt { node: TStmt::Return(Option::None), diverges: true };
             };
@@ -1341,7 +1346,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
             let expected: Type = if is_void(ctx.ret) { Type::Error } else { ctx.ret };
             let checked: TExpr = check_expr(ctx, v, Option::Some(expected));
             if is_void(ctx.ret) {
-                report(ctx.env, "void function cannot return a value", v.start, v.end);
+                report(ctx.env, "flow.void-return-value", "void function cannot return a value", v.start, v.end);
             } else {
                 expect_type(ctx, ctx.ret, checked.ty, v.start, v.end);
             }
@@ -1364,7 +1369,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
 // `break` or `continue` (`kind`): reported outside a loop; a `break` marks its loop as left.
 fn check_loop_exit(ctx: Ctx, s: Stmt, kind: string) {
     if len(ctx.loops) == 0 {
-        report(ctx.env, "'" + kind + "' outside of loop", s.start, s.end);
+        report(ctx.env, "flow.outside-loop", "'" + kind + "' outside of loop", s.start, s.end);
     } else if kind == "break" {
         ctx.loops[len(ctx.loops) - 1].has_break = true;
     }
@@ -1411,7 +1416,7 @@ fn check_else(ctx: Ctx, other: Else): CheckedBlock {
 fn declare_existing(ctx: Ctx, name: Ident, local: Local) {
     let scope: Map[string, Local] = ctx.scopes[len(ctx.scopes) - 1];
     if let Option::Some(_) = map_get(scope, name.name) {
-        report(ctx.env, "'" + name.name + "' is already declared in this scope", name.start, name.end);
+        report(ctx.env, "name.duplicate-local", "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     map_set(scope, local.name, local);
 }
@@ -1432,7 +1437,7 @@ fn check_let_else(ctx: Ctx, pattern: Pattern, init: Expr, else_keyword: Ident, o
     let keyword: Ident = Ident { name: "let", start: pattern.start, end: pattern.end };
     let m: MatchArms = check_arms(ctx, keyword, init, refutable_arms(pattern, Block { start: pattern.start, end: pattern.end, stmts: [] }), false, Option::None, Option::Some(Else::Block(other)));
     if !m.diverges[1] {
-        report(ctx.env, "'else' block of 'let' must diverge", else_keyword.start, else_keyword.end);
+        report(ctx.env, "flow.let-else-not-diverging", "'else' block of 'let' must diverge", else_keyword.start, else_keyword.end);
     }
     // `m.binders` holds the binders' locals but not their spans, which a clash in the enclosing scope is reported at,
     // so walk the pattern again for each binder's name. `declared` skips a name the pattern repeats (already reported
@@ -1481,7 +1486,7 @@ fn check_if_let(ctx: Ctx, pattern: Pattern, scrutinee: Expr, then: Block, other:
 fn check_range_bound(ctx: Ctx, e: Expr): TExpr {
     let bound: TExpr = check_expr(ctx, e, Option::None);
     if !is_error(bound.ty) && kind_of_type(bound.ty) != "int" {
-        report(ctx.env, "range bound must be int, found " + type_to_string(bound.ty), e.start, e.end);
+        report(ctx.env, "type.range-bound", "range bound must be int, found " + type_to_string(bound.ty), e.start, e.end);
     }
     return bound;
 }
@@ -1529,8 +1534,11 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             if let Option::Some(local) = lookup(ctx, name) {
                 return TExpr { ty: local.ty, node: TExprNode::Local(local) };
             }
-            let message: string = if is_function_name(ctx, name) { "'" + name + "' is a function, not a value" } else { "undefined name '" + name + "'" };
-            report(ctx.env, message, e.start, e.end);
+            if is_function_name(ctx, name) {
+                report(ctx.env, "name.function-as-value", "'" + name + "' is a function, not a value", e.start, e.end);
+            } else {
+                report(ctx.env, "name.undefined", "undefined name '" + name + "'", e.start, e.end);
+            }
             return error_expr();
         }
         ExprNode::Unary(op, operand_expr) => {
@@ -1540,7 +1548,7 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             }
             let want: Type = if op == "-" { Type::Int } else { Type::Bool };
             if !type_equals(operand.ty, want) {
-                report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(operand.ty), e.start, e.end);
+                report(ctx.env, "type.unary-operand", "operator '" + op + "' cannot be applied to " + type_to_string(operand.ty), e.start, e.end);
                 return error_expr();
             }
             return TExpr { ty: want, node: TExprNode::Unary(op, operand) };
@@ -1564,11 +1572,11 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             // A branch of type never doesn't take part in the "same type" rule.
             let ty: Type = if is_never(then.ty) { other.ty } else { then.ty };
             if !is_never(then.ty) && !is_never(other.ty) && !type_equals(then.ty, other.ty) {
-                report(ctx.env, "if branches have different types: " + type_to_string(then.ty) + " and " + type_to_string(other.ty), e.start, e.end);
+                report(ctx.env, "type.if-branches", "if branches have different types: " + type_to_string(then.ty) + " and " + type_to_string(other.ty), e.start, e.end);
                 return error_expr();
             }
             if is_void(ty) {
-                report(ctx.env, "if expression cannot have type void", e.start, e.end);
+                report(ctx.env, "type.void-if", "if expression cannot have type void", e.start, e.end);
                 return error_expr();
             }
             return TExpr { ty: ty, node: TExprNode::If(cond, then, other) };
@@ -1583,7 +1591,7 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
                     return TExpr { ty: f.ty, node: TExprNode::Field(object, field.name) };
                 }
             }
-            report(ctx.env, "unknown field '" + field.name + "' on '" + type_to_string(object.ty) + "'", field.start, field.end);
+            report(ctx.env, "name.unknown-field", "unknown field '" + field.name + "' on '" + type_to_string(object.ty) + "'", field.start, field.end);
             return error_expr();
         }
         ExprNode::StructLit(name, fields) => {
@@ -1596,13 +1604,13 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             let array: TExpr = check_expr(ctx, array_expr, Option::None);
             let index: TExpr = check_expr(ctx, index_expr, Option::None);
             if !is_error(index.ty) && kind_of_type(index.ty) != "int" {
-                report(ctx.env, "array index must be int, found " + type_to_string(index.ty), index_expr.start, index_expr.end);
+                report(ctx.env, "type.index", "array index must be int, found " + type_to_string(index.ty), index_expr.start, index_expr.end);
             }
             if is_error(array.ty) {
                 return error_expr();
             }
             let Type::Array(elem) = array.ty else {
-                report(ctx.env, "cannot index a value of type " + type_to_string(array.ty), array_expr.start, array_expr.end);
+                report(ctx.env, "type.not-indexable", "cannot index a value of type " + type_to_string(array.ty), array_expr.start, array_expr.end);
                 return error_expr();
             };
             if kind_of_type(index.ty) != "int" {
@@ -1644,7 +1652,7 @@ fn check_try(ctx: Ctx, e: Expr, operand_expr: Expr): TExpr {
         return error_expr();
     }
     let Option::Some(oi) = tryable(ctx.env, t) else {
-        report(ctx.env, "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
+        report(ctx.env, "try.operand", "'?' applies to Option or Result, not '" + type_to_string(t) + "'", e.start, e.end);
         return error_expr();
     };
     let op: TEnum = ctx.env.enums[oi];
@@ -1668,18 +1676,18 @@ fn check_try(ctx: Ctx, e: Expr, operand_expr: Expr): TExpr {
     let kind: string = if is_result { "a Result" } else { "an Option" };
     let wrong_return: string = "'?' needs the function to return " + kind + ", but it returns '" + type_to_string(ctx.ret) + "'";
     let Option::Some(ri) = tryable(ctx.env, ctx.ret) else {
-        report(ctx.env, wrong_return, e.start, e.end);
+        report(ctx.env, "try.return-type", wrong_return, e.start, e.end);
         return error_expr();
     };
     let ret: TEnum = ctx.env.enums[ri];
     if ret.base != op.base {
-        report(ctx.env, wrong_return, e.start, e.end);
+        report(ctx.env, "try.return-type", wrong_return, e.start, e.end);
         return error_expr();
     }
     if is_result && !type_equals(op.args[1], ret.args[1]) {
         let mine: string = type_to_string(op.args[1]);
         let theirs: string = type_to_string(ret.args[1]);
-        report(ctx.env, "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
+        report(ctx.env, "try.error-type", "'?' error type '" + mine + "' does not match the function's error type '" + theirs + "'", e.start, e.end);
         return error_expr();
     }
     let node: TTry = TTry {
@@ -1712,19 +1720,22 @@ fn resolve_variant(env: Env, enum_name: Ident, variant_name: Ident): FoundVarian
                 return FoundVariant::Generic(template, v);
             }
         }
-        report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+        report(env, "name.unknown-variant", "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
         return FoundVariant::Missing;
     }
     let Option::Some(ei) = find_enum(env, enum_name.name) else {
         // Not an enum or a template, so type_kind_of finds a struct or nothing.
         let is_type: bool = type_kind_of(env, enum_name.name) == "struct" || is_primitive(enum_name.name);
-        let message: string = if is_type { "'" + enum_name.name + "' is not an enum" } else { "unknown enum '" + enum_name.name + "'" };
-        report(env, message, enum_name.start, enum_name.end);
+        if is_type {
+            report(env, "name.not-an-enum", "'" + enum_name.name + "' is not an enum", enum_name.start, enum_name.end);
+        } else {
+            report(env, "name.unknown-enum", "unknown enum '" + enum_name.name + "'", enum_name.start, enum_name.end);
+        }
         return FoundVariant::Missing;
     };
     let enum_type: TEnum = env.enums[ei];
     let Option::Some(vi) = find_tvariant(enum_type.variants, variant_name.name) else {
-        report(env, "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
+        report(env, "name.unknown-variant", "unknown variant '" + variant_name.name + "' on '" + enum_name.name + "'", variant_name.start, variant_name.end);
         return FoundVariant::Missing;
     };
     return FoundVariant::Plain(enum_type, enum_type.variants[vi]);
@@ -1751,7 +1762,7 @@ fn check_variant_expr(ctx: Ctx, e: Expr, enum_name: Ident, variant_name: Ident, 
                 push(values, check_expr(ctx, args[i], Option::Some(slot)));
             }
             if len(values) != len(variant.payload) {
-                report(ctx.env, variant_arity_message(enum_type.name, variant.name, len(variant.payload), len(values)), e.start, e.end);
+                report(ctx.env, "type.variant-arity", variant_arity_message(enum_type.name, variant.name, len(variant.payload), len(values)), e.start, e.end);
                 return error_expr();
             }
             for i in 0..len(values) {
@@ -1815,7 +1826,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
         push(values, value);
     }
     if len(values) != len(slots) {
-        report(ctx.env, variant_arity_message(base, variant_decl.name.name, len(slots), len(values)), e.start, e.end);
+        report(ctx.env, "type.variant-arity", variant_arity_message(base, variant_decl.name.name, len(slots), len(values)), e.start, e.end);
         return error_expr();
     }
     let type_args: [Type] = [];
@@ -1829,7 +1840,7 @@ fn check_generic_variant_expr(ctx: Ctx, e: Expr, args: [Expr], template: Templat
                 }
             }
             if !reported {
-                report(ctx.env, "cannot infer type arguments for '" + base + "'", e.start, e.end);
+                report(ctx.env, "generic.cannot-infer", "cannot infer type arguments for '" + base + "'", e.start, e.end);
             }
             return error_expr();
         };
@@ -2000,7 +2011,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         }
     }
     if match_category(st) == "" && !is_error(st) {
-        report(ctx.env, "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
+        report(ctx.env, "match.scrutinee", "cannot match on '" + type_to_string(st) + "' values", scrutinee.start, scrutinee.end);
     }
     let category: string = if kind_of_type(st) == "enum" && !has_decl { "" } else { match_category(st) };
     let is_refutable: bool = match refutable {
@@ -2046,7 +2057,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                     none_missing = len(missing) == 0;
                 }
                 if !is_refutable && (wildcard_seen || none_missing) {
-                    report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+                    report(ctx.env, "match.unreachable-arm", "unreachable match arm", pattern.start, pattern.end);
                 }
             } else {
                 fresh = check_reachability(ctx, pattern, alternatives, resolved, covered, wildcard_seen);
@@ -2072,7 +2083,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
         push(ctx.scopes, {});
         let binders: [Option[Local]] = declare_binders(ctx, pattern, variants, single);
         if irrefutable && len(ctx.env.diags) == diags_before {
-            report(ctx.env, "pattern always matches", pattern.start, pattern.end);
+            report(ctx.env, "match.irrefutable", "pattern always matches", pattern.start, pattern.end);
         }
         if index == 0 {
             result.binders = ctx.scopes[len(ctx.scopes) - 1];
@@ -2092,7 +2103,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                 if as_expr {
                     // A match expression's block arm must diverge, and so contributes the type never.
                     if !diverges {
-                        report(ctx.env, "match arm block must diverge", pattern.start, pattern.end);
+                        report(ctx.env, "flow.arm-not-diverging", "match arm block must diverge", pattern.start, pattern.end);
                     }
                     push(result.types, Type::Never);
                 } else {
@@ -2118,7 +2129,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
 
     if category != "" && all_resolved && !wildcard_seen {
         match missing_values(ctx.env, category, st, variants, covered) {
-            Option::None => report(ctx.env, "non-exhaustive match: add a '_' arm", keyword.start, keyword.end),
+            Option::None => report(ctx.env, "match.non-exhaustive", "non-exhaustive match: add a '_' arm", keyword.start, keyword.end),
             Option::Some(missing) => {
                 if len(missing) > 0 {
                     var list: string = "";
@@ -2128,7 +2139,7 @@ fn check_arms(ctx: Ctx, keyword: Ident, scrutinee: Expr, arms: [Arm], as_expr: b
                         }
                         list += missing[i];
                     }
-                    report(ctx.env, "non-exhaustive match: missing " + list, keyword.start, keyword.end);
+                    report(ctx.env, "match.non-exhaustive", "non-exhaustive match: missing " + list, keyword.start, keyword.end);
                 }
             }
         }
@@ -2147,7 +2158,7 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
         // Only the enum name matters here: any variant of it is the wrong type. Templates count as enums, and the type
         // namespace holds each name at most once.
         if type_kind_of(ctx.env, enum_name.name) == "enum" {
-            report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
+            report(ctx.env, "pattern.type", "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end);
         } else {
             resolve_variant(ctx.env, enum_name, variant_name);
         }
@@ -2159,7 +2170,7 @@ fn resolve_alternative(ctx: Ctx, st: Type, has_decl: bool, variants: [TVariant],
         _ => Type::Int,
     };
     if !type_equals(pattern_type, st) {
-        report(ctx.env, "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
+        report(ctx.env, "pattern.type", "pattern type '" + type_to_string(pattern_type) + "' does not match '" + type_to_string(st) + "'", alt.start, alt.end);
         return Option::None;
     }
     if let PatternNode::StringPat(text) = alt.node {
@@ -2290,10 +2301,10 @@ fn check_reachability(ctx: Ctx, pattern: Pattern, alternatives: [Pattern], resol
         return fresh;
     }
     if wildcard_seen || len(fresh) == 0 {
-        report(ctx.env, "unreachable match arm", pattern.start, pattern.end);
+        report(ctx.env, "match.unreachable-arm", "unreachable match arm", pattern.start, pattern.end);
     } else {
         for alt in stale {
-            report(ctx.env, "duplicate pattern alternative", alt.start, alt.end);
+            report(ctx.env, "pattern.duplicate-alternative", "duplicate pattern alternative", alt.start, alt.end);
         }
     }
     return fresh;
@@ -2333,7 +2344,7 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int): [
                 if let PatternNode::Variant(_, _, binders) = alt.node {
                     for binder in binders {
                         if let Binder::Named(id) = binder {
-                            report(ctx.env, "or-pattern alternatives cannot bind names", id.start, id.end);
+                            report(ctx.env, "pattern.or-binding", "or-pattern alternatives cannot bind names", id.start, id.end);
                         }
                     }
                 }
@@ -2353,7 +2364,7 @@ fn declare_binders(ctx: Ctx, pattern: Pattern, variants: [TVariant], vi: int): [
                     continue;
                 };
                 if set_has(seen, id.name) {
-                    report(ctx.env, "duplicate binding '" + id.name + "'", id.start, id.end);
+                    report(ctx.env, "pattern.duplicate-binding", "duplicate binding '" + id.name + "'", id.start, id.end);
                     push(locals, Option::None);
                 } else {
                     set_add(seen, id.name);
@@ -2406,17 +2417,17 @@ fn resolve_pattern_variant(ctx: Ctx, st: Type, variants: [TVariant], alt: Patter
     if enum_name.name != base {
         match resolve_variant(ctx.env, enum_name, variant_name) {
             FoundVariant::Missing => {}
-            _ => report(ctx.env, "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end),
+            _ => report(ctx.env, "pattern.type", "pattern type '" + enum_name.name + "' does not match '" + type_to_string(st) + "'", enum_name.start, enum_name.end),
         }
         return Option::None;
     }
     let Option::Some(vi) = find_tvariant(variants, variant_name.name) else {
-        report(ctx.env, "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
+        report(ctx.env, "name.unknown-variant", "unknown variant '" + variant_name.name + "' on '" + base + "'", variant_name.start, variant_name.end);
         return Option::None;
     };
     let payload: [Type] = variants[vi].payload;
     if len(binders) != len(payload) {
-        report(ctx.env, variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
+        report(ctx.env, "type.variant-arity", variant_arity_message(base, variants[vi].name, len(payload), len(binders)), alt.start, alt.end);
     }
     return Option::Some(vi);
 }
@@ -2440,12 +2451,12 @@ fn check_match_expr(ctx: Ctx, e: Expr, keyword: Ident, scrutinee: Expr, arms: [A
     }
     for t in m.types {
         if !is_never(t) && !type_equals(t, ty) {
-            report(ctx.env, "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
+            report(ctx.env, "match.arm-types", "match arms have different types: " + type_to_string(ty) + " and " + type_to_string(t), e.start, e.end);
             return error_expr();
         }
     }
     if is_void(ty) {
-        report(ctx.env, "match expression cannot have type void", e.start, e.end);
+        report(ctx.env, "match.void", "match expression cannot have type void", e.start, e.end);
         return error_expr();
     }
     if match_category(m.scrutinee.ty) == "" {
@@ -2476,7 +2487,7 @@ fn is_reference(t: Type): bool {
 
 fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): TExpr {
     let Option::Some(si) = find_struct(ctx.env, name.name) else {
-        report(ctx.env, "unknown struct '" + name.name + "'", name.start, name.end);
+        report(ctx.env, "name.unknown-struct", "unknown struct '" + name.name + "'", name.start, name.end);
         // Still check the values so their own errors surface; the `error` type keeps an `[]` value from being
         // reported as uninferable.
         for init in inits {
@@ -2496,11 +2507,11 @@ fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): TExpr {
         let value: TExpr = check_expr(ctx, init.value, Option::Some(field_type));
         match decl {
             Option::None => {
-                report(ctx.env, "unknown field '" + init.name.name + "' on '" + name.name + "'", init.name.start, init.name.end);
+                report(ctx.env, "name.unknown-field", "unknown field '" + init.name.name + "' on '" + name.name + "'", init.name.start, init.name.end);
             }
             Option::Some(f) => {
                 if has_field_init(fields, init.name.name) {
-                    report(ctx.env, "duplicate field '" + init.name.name + "'", init.name.start, init.name.end);
+                    report(ctx.env, "type.duplicate-field-init", "duplicate field '" + init.name.name + "'", init.name.start, init.name.end);
                 } else {
                     expect_type(ctx, f.ty, value.ty, init.value.start, init.value.end);
                     push(fields, TFieldInit { field: init.name.name, value: value });
@@ -2510,7 +2521,7 @@ fn check_struct_lit(ctx: Ctx, name: Ident, inits: [FieldInit]): TExpr {
     }
     for f in st.fields {
         if !has_field_init(fields, f.name) {
-            report(ctx.env, "missing field '" + f.name + "' in '" + name.name + "'", name.start, name.end);
+            report(ctx.env, "type.missing-field", "missing field '" + f.name + "' in '" + name.name + "'", name.start, name.end);
         }
     }
     return TExpr { ty: Type::Struct(st.name), node: TExprNode::StructLit(st.name, fields) };
@@ -2541,7 +2552,7 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
     }
     if len(elements) == 0 {
         let Option::Some(x) = elem else {
-            report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+            report(ctx.env, "type.empty-array", "cannot infer type of empty array", e.start, e.end);
             return error_expr();
         };
         return TExpr { ty: Type::Array(x), node: TExprNode::ArrayLit([]) };
@@ -2557,7 +2568,7 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
                     continue;
                 }
                 if is_void(value.ty) {
-                    report(ctx.env, "array element cannot have type void", el.start, el.end);
+                    report(ctx.env, "type.void-element", "array element cannot have type void", el.start, el.end);
                     return error_expr();
                 }
                 elem = Option::Some(value.ty);
@@ -2569,7 +2580,7 @@ fn check_array_lit(ctx: Ctx, e: Expr, elements: [Expr], expected: Option[Type]):
         push(values, value);
     }
     let Option::Some(x) = elem else {
-        report(ctx.env, "cannot infer type of empty array", e.start, e.end);
+        report(ctx.env, "type.empty-array", "cannot infer type of empty array", e.start, e.end);
         return error_expr();
     };
     if is_error(x) {
@@ -2600,7 +2611,7 @@ fn expr_arm_body(body: ArmBody, as_expr: bool, expected: Option[Type]): ArmBody 
 // `{}` takes its type from `expected`, which must be a map or a set.
 fn check_empty_map(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
     let Option::Some(t) = expected else {
-        report(ctx.env, "cannot infer type of empty map or set", e.start, e.end);
+        report(ctx.env, "type.empty-map", "cannot infer type of empty map or set", e.start, e.end);
         return error_expr();
     };
     match t {
@@ -2614,7 +2625,7 @@ fn check_empty_map(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             return error_expr();
         }
         _ => {
-            report(ctx.env, "type mismatch: expected " + type_to_string(t) + ", found empty map or set", e.start, e.end);
+            report(ctx.env, "type.empty-map-mismatch", "type mismatch: expected " + type_to_string(t) + ", found empty map or set", e.start, e.end);
             return error_expr();
         }
     }
@@ -2626,12 +2637,15 @@ fn check_place(ctx: Ctx, target: Expr): Option[TPlace] {
     match target.node {
         ExprNode::Name(name) => {
             let Option::Some(local) = lookup(ctx, name) else {
-                let message: string = if is_function_name(ctx, name) { "cannot assign to function '" + name + "'" } else { "undefined name '" + name + "'" };
-                report(ctx.env, message, target.start, target.end);
+                if is_function_name(ctx, name) {
+                    report(ctx.env, "assign.function", "cannot assign to function '" + name + "'", target.start, target.end);
+                } else {
+                    report(ctx.env, "name.undefined", "undefined name '" + name + "'", target.start, target.end);
+                }
                 return Option::None;
             };
             if !local.mutable {
-                report(ctx.env, "cannot assign to immutable variable '" + name + "'", target.start, target.end);
+                report(ctx.env, "assign.immutable", "cannot assign to immutable variable '" + name + "'", target.start, target.end);
             }
             return Option::Some(TPlace { ty: local.ty, node: TPlaceNode::Local(local) });
         }
@@ -2645,7 +2659,7 @@ fn check_place(ctx: Ctx, target: Expr): Option[TPlace] {
             };
         }
         _ => {
-            report(ctx.env, "invalid assignment target", target.start, target.end);
+            report(ctx.env, "assign.invalid-target", "invalid assignment target", target.start, target.end);
             return Option::None;
         }
     }
@@ -2661,7 +2675,7 @@ fn check_compound(ctx: Ctx, s: Stmt, op: string, target: Type, value: Type) {
         Option::None => false,
     };
     if !applies {
-        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(target) + " and " + type_to_string(value), s.start, s.end);
+        report(ctx.env, "type.binary-operands", "operator '" + op + "' cannot be applied to " + type_to_string(target) + " and " + type_to_string(value), s.start, s.end);
     }
 }
 
@@ -2707,7 +2721,7 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
         return error_expr();
     }
     if is_never(left.ty) || is_never(right.ty) {
-        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
+        report(ctx.env, "type.binary-operands", "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
         return error_expr();
     }
     if (op == "==" || op == "!=") && type_equals(left.ty, right.ty) {
@@ -2720,7 +2734,7 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
             }
         }
         if is_reference(left.ty) || (is_enum && !payload_free_enum) {
-            report(ctx.env, "cannot compare '" + type_to_string(left.ty) + "' values", e.start, e.end);
+            report(ctx.env, "type.not-comparable", "cannot compare '" + type_to_string(left.ty) + "' values", e.start, e.end);
             return error_expr();
         }
         if payload_free_enum {
@@ -2728,7 +2742,7 @@ fn check_binary(ctx: Ctx, e: Expr, op: string, left_expr: Expr, right_expr: Expr
         }
     }
     let Option::Some(t) = binary_result_type(op, left.ty, right.ty) else {
-        report(ctx.env, "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
+        report(ctx.env, "type.binary-operands", "operator '" + op + "' cannot be applied to " + type_to_string(left.ty) + " and " + type_to_string(right.ty), e.start, e.end);
         return error_expr();
     };
     return TExpr { ty: t, node: TExprNode::Binary(op, left, right) };
@@ -2759,12 +2773,12 @@ fn check_args(ctx: Ctx, args: [Expr], params: Option[[Type]]): [TExpr] {
 fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
     let ExprNode::Name(name) = callee.node else {
         check_args(ctx, args, Option::None);
-        report(ctx.env, "only named functions can be called", callee.start, callee.end);
+        report(ctx.env, "call.not-named", "only named functions can be called", callee.start, callee.end);
         return error_expr();
     };
     if let Option::Some(_) = lookup(ctx, name) {
         check_args(ctx, args, Option::None);
-        report(ctx.env, "'" + name + "' is not a function", callee.start, callee.end);
+        report(ctx.env, "call.not-function", "'" + name + "' is not a function", callee.start, callee.end);
         return error_expr();
     }
     if name == "print" || name == "eprint" {
@@ -2793,13 +2807,13 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
     }
     let Option::Some(si) = find_signature(sigs, name) else {
         check_args(ctx, args, Option::None);
-        report(ctx.env, "undefined function '" + name + "'", callee.start, callee.end);
+        report(ctx.env, "call.undefined", "undefined function '" + name + "'", callee.start, callee.end);
         return error_expr();
     };
     let sg: Signature = sigs.items[si];
     let values: [TExpr] = check_args(ctx, args, Option::Some(sg.params));
     if len(values) != len(sg.params) {
-        report(ctx.env, arity_message(name, len(sg.params), len(values)), e.start, e.end);
+        report(ctx.env, "call.arity", arity_message(name, len(sg.params), len(values)), e.start, e.end);
     } else {
         for i in 0..len(values) {
             expect_type(ctx, sg.params[i], values[i].ty, args[i].start, args[i].end);
@@ -2833,13 +2847,13 @@ fn builtin_result_ok(name: string): Option[Type] {
 // `name` is print or eprint; `values` are the checked `args`.
 fn check_print(ctx: Ctx, e: Expr, name: string, args: [Expr], values: [TExpr]): TExpr {
     if len(values) != 1 {
-        report(ctx.env, arity_message(name, 1, len(values)), e.start, e.end);
+        report(ctx.env, "call.arity", arity_message(name, 1, len(values)), e.start, e.end);
         return error_expr();
     }
     let t: Type = values[0].ty;
     let k: string = kind_of_type(t);
     if !is_error(t) && k != "int" && k != "bool" && k != "string" {
-        report(ctx.env, "cannot print a value of type " + type_to_string(t), args[0].start, args[0].end);
+        report(ctx.env, "call.print-type", "cannot print a value of type " + type_to_string(t), args[0].start, args[0].end);
     }
     return TExpr { ty: Type::Void, node: TExprNode::Builtin(name, values) };
 }
@@ -2867,20 +2881,20 @@ fn check_collection_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExp
     }
     let arity: int = if name == "push" { 2 } else { 1 };
     if len(args) == 0 || len(args) != arity {
-        report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
+        report(ctx.env, "call.arity", arity_message(name, arity, len(args)), e.start, e.end);
         return error_expr();
     }
     if name == "len" {
         let k: string = kind_of_type(t);
         if !is_error(t) && k != "string" && k != "array" && k != "map" && k != "set" {
-            report(ctx.env, "function 'len' expects a string, array, map or set, found " + type_to_string(t), args[0].start, args[0].end);
+            report(ctx.env, "call.argument-type", "function 'len' expects a string, array, map or set, found " + type_to_string(t), args[0].start, args[0].end);
         }
         // len is an int whatever its argument, so a bad argument doesn't cascade.
         return TExpr { ty: Type::Int, node: TExprNode::Builtin("len", values) };
     }
     let Option::Some(x) = elem else {
         if !is_error(t) {
-            report(ctx.env, "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
+            report(ctx.env, "call.argument-type", "function '" + name + "' expects an array, found " + type_to_string(t), args[0].start, args[0].end);
         }
         return error_expr();
     };
@@ -2932,7 +2946,7 @@ fn check_map_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExpr {
     let wanted: string = if is_map { "a map" } else { "a set" };
     if len(args) > 0 && !is_error(t) {
         if let Option::None = key {
-            report(ctx.env, "function '" + name + "' expects " + wanted + ", found " + type_to_string(t), args[0].start, args[0].end);
+            report(ctx.env, "call.argument-type", "function '" + name + "' expects " + wanted + ", found " + type_to_string(t), args[0].start, args[0].end);
         }
     }
     // Without a map or set the key and value types are unknown: the `error` type keeps the rest from cascading.
@@ -2949,7 +2963,7 @@ fn check_map_builtin(ctx: Ctx, name: string, e: Expr, args: [Expr]): TExpr {
     }
     let arity: int = map_builtin_arity(name);
     if len(args) != arity {
-        report(ctx.env, arity_message(name, arity, len(args)), e.start, e.end);
+        report(ctx.env, "call.arity", arity_message(name, arity, len(args)), e.start, e.end);
         return error_expr();
     }
     let Option::Some(k) = key else {

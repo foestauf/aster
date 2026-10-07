@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"main.missing","severity":"error","message":"missing 'fn main(): int'","primary":{"file":0,"path":"main.aster","range":{"start":0,"end":0,"start_line":1,"start_col_utf16":1,"end_line":1,"end_col_utf16":1}},"related":[]}]}
+== stderr

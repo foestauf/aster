@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"import.unreadable","severity":"error","message":"cannot import 'lib/gone.aster': No such file or directory","primary":{"file":0,"path":"main.aster","range":{"start":7,"end":23,"start_line":1,"start_col_utf16":8,"end_line":1,"end_col_utf16":24}},"related":[{"role":"import-target","file":null,"path":"./lib/gone.aster","range":null}]}]}
+== stderr

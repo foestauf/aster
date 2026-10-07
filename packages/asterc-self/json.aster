@@ -1,0 +1,130 @@
+// expect-library
+// The JSON writer behind `check --format=json` and `inspect` (docs/inspect/README.md): compact and deterministic, with
+// no parser. Values are built as strings; `json_join` joins by halves, so long arrays stay O(n log n).
+
+import "loader.aster";
+
+fn json_hex_digit(n: int): string {
+    return substring("0123456789abcdef", n, n + 1);
+}
+
+// `s` as a JSON string: `"` and `\` escaped, LF, CR and TAB as `\n`, `\r`, `\t`, other bytes below 0x20 and 0x7f as
+// `\u00XX`, everything else (UTF-8 included) as is.
+fn json_str(s: string): string {
+    var out: string = "\"";
+    var run: int = 0;
+    for i in 0..len(s) {
+        let b: int = byte_at(s, i);
+        var esc: string = "";
+        if b == '"' {
+            esc = "\\\"";
+        } else if b == '\\' {
+            esc = "\\\\";
+        } else if b == '\n' {
+            esc = "\\n";
+        } else if b == '\r' {
+            esc = "\\r";
+        } else if b == '\t' {
+            esc = "\\t";
+        } else if b < 32 || b == 127 {
+            esc = "\\u00" + json_hex_digit(b / 16) + json_hex_digit(b % 16);
+        } else {
+            continue;
+        }
+        out += substring(s, run, i) + esc;
+        run = i + 1;
+    }
+    return out + substring(s, run, len(s)) + "\"";
+}
+
+// The length of the maximal subpart of an ill-formed sequence at `at` (Unicode §3.9): a lead byte and the continuation
+// bytes it allows, up to the first that does not fit; 1 for a byte that cannot start a sequence.
+fn utf8_subpart_len(s: string, at: int): int {
+    let b: int = byte_at(s, at);
+    var n: int = 0;
+    var lo: int = 128;
+    var hi: int = 191;
+    if b >= 194 && b <= 223 {
+        n = 2;
+    } else if b >= 224 && b <= 239 {
+        n = 3;
+        if b == 224 {
+            lo = 160;
+        }
+        if b == 237 {
+            hi = 159;
+        }
+    } else if b >= 240 && b <= 244 {
+        n = 4;
+        if b == 240 {
+            lo = 144;
+        }
+        if b == 244 {
+            hi = 143;
+        }
+    } else {
+        return 1;
+    }
+    var k: int = 1;
+    while k < n && at + k < len(s) {
+        let c: int = byte_at(s, at + k);
+        let min_c: int = if k == 1 { lo } else { 128 };
+        let max_c: int = if k == 1 { hi } else { 191 };
+        if c < min_c || c > max_c {
+            break;
+        }
+        k += 1;
+    }
+    return k;
+}
+
+// `s` with each maximal ill-formed UTF-8 subpart replaced by U+FFFD: a path from argv need not be UTF-8, JSON text must.
+fn utf8_lossy(s: string): string {
+    var out: string = "";
+    var run: int = 0;
+    var i: int = 0;
+    while i < len(s) {
+        let bad: int = utf8_invalid_at(substring(s, i, len(s)));
+        if bad == -1 {
+            break;
+        }
+        let at: int = i + bad;
+        out += substring(s, run, at) + "�";
+        i = at + utf8_subpart_len(s, at);
+        run = i;
+    }
+    return out + substring(s, run, len(s));
+}
+
+// parts[from..to) joined with commas, by halves.
+fn json_join(parts: [string], from: int, to: int): string {
+    if to - from == 0 {
+        return "";
+    }
+    if to - from == 1 {
+        return parts[from];
+    }
+    let mid: int = from + (to - from) / 2;
+    return json_join(parts, from, mid) + "," + json_join(parts, mid, to);
+}
+
+fn json_array(parts: [string]): string {
+    return "[" + json_join(parts, 0, len(parts)) + "]";
+}
+
+// `fields` are `json_kv` pairs, in output order.
+fn json_object(fields: [string]): string {
+    return "{" + json_join(fields, 0, len(fields)) + "}";
+}
+
+fn json_kv(key: string, value: string): string {
+    return json_str(key) + ":" + value;
+}
+
+fn json_bool(b: bool): string {
+    return if b { "true" } else { "false" };
+}
+
+fn json_int(n: int): string {
+    return int_to_string(n);
+}

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[],"diagnostics":[{"code":"source.invalid-utf8","severity":"error","message":"invalid UTF-8 at line 2, byte 24","primary":{"file":null,"path":"main.aster","range":{"start":24,"end":25,"start_line":2,"start_col_utf16":8,"end_line":2,"end_col_utf16":9}},"related":[]}]}
+== stderr

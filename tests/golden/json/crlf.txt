@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"type.mismatch","severity":"error","message":"type mismatch: expected int, found bool","primary":{"file":0,"path":"main.aster","range":{"start":32,"end":36,"start_line":2,"start_col_utf16":15,"end_line":2,"end_col_utf16":19}},"related":[]}]}
+== stderr

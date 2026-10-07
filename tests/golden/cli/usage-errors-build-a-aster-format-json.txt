@@ -1,0 +1,8 @@
+== exit 2
+== stdout
+== stderr
+error: '--format' is only valid with 'check'
+usage:
+  aster check <file.aster> [--format=human|json]
+  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]
+  aster run <file.aster> [--backend=c|llvm] [-- <args>...]

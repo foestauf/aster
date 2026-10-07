@@ -1,0 +1,4 @@
+== exit 2
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[],"diagnostics":[{"code":"io.root-unreadable","severity":"error","message":"cannot read 'nope.aster'","primary":{"file":null,"path":"nope.aster","range":null},"related":[]}]}
+== stderr
