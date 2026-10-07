@@ -1,4 +1,4 @@
-// The Aster compiler, written in Aster: `check`, `build` and `run`,
+// The Aster compiler, written in Aster: `check`, `inspect`, `build` and `run`,
 // minus the debug emit stages (self-hosting contract §4.1). Its stdout, stderr and exit status are pinned byte for
 // byte by goldens, with the documented divergences (contract §4.5). tests/asterc_self.test.ts checks it.
 
@@ -26,7 +26,7 @@ struct CliArgs {
 
 // cli.ts's USAGE with the emit stages narrowed to c, without its final newline (eprint adds it).
 fn usage_text(): string {
-    return "usage:\n  aster check <file.aster> [--format=human|json]\n  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]\n  aster run <file.aster> [--backend=c|llvm] [-- <args>...]";
+    return "usage:\n  aster check <file.aster> [--format=human|json]\n  aster inspect <file.aster>\n  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]\n  aster run <file.aster> [--backend=c|llvm] [-- <args>...]";
 }
 
 // Whether `s` begins with `prefix`.
@@ -41,7 +41,7 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
         return Result::Err("missing command");
     }
     let command: string = args[0];
-    if command != "check" && command != "build" && command != "run" {
+    if command != "check" && command != "inspect" && command != "build" && command != "run" {
         return Result::Err("unknown command '" + command + "'");
     }
     var file: Option[string] = Option::None;
@@ -63,7 +63,7 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
             }
             break;
         } else if cli_starts_with(arg, "--backend=") {
-            if command == "check" {
+            if command == "check" || command == "inspect" {
                 return Result::Err("'--backend' is only valid with 'build' or 'run'");
             }
             backend = substring(arg, len("--backend="), len(arg));
@@ -174,7 +174,7 @@ fn main(args: [string]): int {
         }
     };
     let fe: FrontEnd = front_end(parsed.file);
-    if parsed.format == "json" {
+    if parsed.format == "json" || parsed.command == "inspect" {
         print(inspect_response(parsed.command, parsed.file, fe));
         return front_end_status(fe);
     }

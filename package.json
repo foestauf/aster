@@ -21,7 +21,7 @@
     "gen:runtime": "node scripts/gen-runtime.ts",
     "selfhost": "node scripts/selfhost.ts",
     "prepare": "husky",
-    "golden": "vitest run tests/check_aster.test.ts tests/asterc_self.test.ts tests/json_check.test.ts -u",
+    "golden": "vitest run tests/check_aster.test.ts tests/asterc_self.test.ts tests/json_check.test.ts tests/json_inspect.test.ts -u",
     "bench": "node scripts/bench.ts"
   },
   "devDependencies": {

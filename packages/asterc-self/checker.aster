@@ -228,6 +228,21 @@ struct TFunction {
     body: TBlock,
 }
 
+// Where a param or local was declared, for `inspect` (docs/inspect/README.md): its name, its whole declaration (global
+// offsets) and the local it hides, as a local id of the same function, or -1.
+struct LocalSite {
+    name: Ident,
+    start: int,
+    end: int,
+    shadows: int,
+}
+
+// One function's local sites, parallel to its TFunction's `locals`, under the function's name.
+struct FnSites {
+    name: Ident,
+    sites: [LocalSite],
+}
+
 // ---- the typed tree (check/types.ts)
 
 struct TBlock { stmts: [TStmt] }
@@ -524,6 +539,7 @@ struct Env {
     template_ids: Map[string, int],
     builtins: Signatures,
     special_builtins: Set[string],
+    local_sites: [FnSites],
 }
 
 // An enclosing loop, and whether a `break` leaves it.
@@ -532,12 +548,13 @@ struct Loop {
 }
 
 // Per-function checking state. `scopes` is a stack of name maps; `locals` keeps every allocated local in id order, and
-// `loops` the stack of loops around the statement being checked.
+// `loops` the stack of loops around the statement being checked. `sites` is parallel to `locals`.
 struct Ctx {
     env: Env,
     signatures: Signatures,
     ret: Type,
     locals: [Local],
+    sites: [LocalSite],
     scopes: [Map[string, Local]],
     loops: [Loop],
 }
@@ -548,6 +565,7 @@ struct Checked {
     structs: [TStruct],
     enums: [TEnum],
     functions: [TFunction],
+    local_sites: [FnSites],
 }
 
 fn primitive_type(name: string): Option[Type] {
@@ -1119,6 +1137,7 @@ fn check_program(items: [Item], root_end: int): Checked {
     let env: Env = Env {
         diags: [], structs: [], enums: [], templates: prelude_templates(), pending: [],
         struct_ids: {}, enum_ids: {}, template_ids: {}, builtins: builtin_signatures(), special_builtins: special_builtins(),
+        local_sites: [],
     };
     for i in 0..len(env.templates) {
         map_set(env.template_ids, env.templates[i].decl.name.name, i);
@@ -1151,14 +1170,14 @@ fn check_program(items: [Item], root_end: int): Checked {
     for i in 0..len(declared) {
         push(functions, check_function(env, sigs, declared[i], sigs.items[i]));
     }
-    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions };
+    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions, local_sites: env.local_sites };
 }
 
 fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFunction {
-    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], scopes: [{}], loops: [] };
+    let ctx: Ctx = Ctx { env: env, signatures: sigs, ret: sig.ret, locals: [], sites: [], scopes: [{}], loops: [] };
     for i in 0..len(decl.params) {
         let p: Typed = decl.params[i];
-        declare(ctx, p.name, sig.params[i], false);
+        declare_at(ctx, p.name, sig.params[i], false, p.name.start, p.ty.end);
     }
     let body: CheckedBlock = check_block(ctx, decl.body);
     if is_never(sig.ret) {
@@ -1168,16 +1187,27 @@ fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFu
     } else if !body.diverges && !is_void(sig.ret) && !is_error(sig.ret) {
         report(ctx.env, "flow.missing-return", "function '" + decl.name.name + "' is missing a return on some paths", decl.name.start, decl.name.end);
     }
+    push(env.local_sites, FnSites { name: decl.name, sites: ctx.sites });
     return TFunction { name: decl.name.name, params: len(decl.params), locals: ctx.locals, ret: sig.ret, body: body.node };
 }
 
 fn declare(ctx: Ctx, name: Ident, ty: Type, mutable: bool): Local {
+    return declare_at(ctx, name, ty, mutable, name.start, name.end);
+}
+
+// Declares `name` in the innermost scope; [start, end) is the whole declaration, for `inspect`.
+fn declare_at(ctx: Ctx, name: Ident, ty: Type, mutable: bool, start: int, end: int): Local {
+    var shadows: int = -1;
+    if let Option::Some(outer) = lookup(ctx, name.name) {
+        shadows = outer.id;
+    }
     let scope: Map[string, Local] = ctx.scopes[len(ctx.scopes) - 1];
     if let Option::Some(_) = map_get(scope, name.name) {
         report(ctx.env, "name.duplicate-local", "'" + name.name + "' is already declared in this scope", name.start, name.end);
     }
     let local: Local = Local { id: len(ctx.locals), name: name.name, ty: ty, mutable: mutable };
     push(ctx.locals, local);
+    push(ctx.sites, LocalSite { name: name, start: start, end: end, shadows: shadows });
     map_set(scope, local.name, local);
     return local;
 }
@@ -1254,7 +1284,7 @@ fn check_stmt(ctx: Ctx, s: Stmt): CheckedStmt {
             }
             let value: TExpr = check_expr(ctx, init, Option::Some(t));
             expect_type(ctx, t, value.ty, init.start, init.end);
-            let local: Local = declare(ctx, name, t, mutable);
+            let local: Local = declare_at(ctx, name, t, mutable, s.start, s.end);
             return CheckedStmt { node: TStmt::Let(local, value), diverges: is_never(value.ty) };
         }
         StmtNode::LetElse(pattern, init, else_keyword, other) => {

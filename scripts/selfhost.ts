@@ -29,6 +29,7 @@ export const STAGE_SUITES = [
   'tests/runtime_aster.test.ts',
   'tests/json_writer.test.ts',
   'tests/json_check.test.ts',
+  'tests/json_inspect.test.ts',
 ] as const;
 
 /** The test runs, in the order a full proof runs them: the full suite, then the stage-aware suites once per stage. */

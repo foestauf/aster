@@ -143,6 +143,14 @@ struct TFunction
   field locals [Local]
   field ret Type
   field body TBlock
+struct LocalSite
+  field name Ident
+  field start int
+  field end int
+  field shadows int
+struct FnSites
+  field name Ident
+  field sites [LocalSite]
 struct TBlock
   field stmts [TStmt]
 struct TArm
@@ -206,6 +214,7 @@ struct Env
   field template_ids Map[string, int]
   field builtins Signatures
   field special_builtins Set[string]
+  field local_sites [FnSites]
 struct Loop
   field has_break bool
 struct Ctx
@@ -213,6 +222,7 @@ struct Ctx
   field signatures Signatures
   field ret Type
   field locals [Local]
+  field sites [LocalSite]
   field scopes [Map[string, Local]]
   field loops [Loop]
 struct Checked
@@ -220,6 +230,7 @@ struct Checked
   field structs [TStruct]
   field enums [TEnum]
   field functions [TFunction]
+  field local_sites [FnSites]
 struct CheckedStmt
   field node TStmt
   field diverges bool
@@ -1271,8 +1282,17 @@ fn declare(Ctx, Ident, Type, bool): Local
   param 1 name Ident
   param 2 ty Type
   param 3 mutable bool
-  let 4 scope Map[string, Local]
-  let 5 local Local
+fn declare_at(Ctx, Ident, Type, bool, int, int): Local
+  param 0 ctx Ctx
+  param 1 name Ident
+  param 2 ty Type
+  param 3 mutable bool
+  param 4 start int
+  param 5 end int
+  var 6 shadows int
+  let 7 outer Local
+  let 8 scope Map[string, Local]
+  let 9 local Local
 fn lookup(Ctx, string): Option[Local]
   param 0 ctx Ctx
   param 1 name string

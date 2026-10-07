@@ -116,5 +116,499 @@ fn inspect_response(command: string, path: string, fe: FrontEnd): string {
         json_kv("schema", json_str("aster/1")), json_kv("command", json_str(command)), json_kv("ok", json_bool(len(diags) == 0)),
         json_kv("files", files), json_kv("diagnostics", json_array(diags)),
     ];
+    if command == "inspect" {
+        let semantics: string = match fe {
+            FrontEnd::Passed(loaded, checked) => json_semantics(loaded, checked),
+            FrontEnd::Unreadable => json_object([json_kv("available", "false"), json_kv("reason", json_str("io"))]),
+            _ => json_object([json_kv("available", "false"), json_kv("reason", json_str("diagnostics"))]),
+        };
+        push(fields, json_kv("semantics", semantics));
+    }
     return json_object(fields);
+}
+
+// ---- declarations (`inspect`, docs/inspect/README.md)
+
+// Builtin types and functions as `inspect` lists them: sorted by byte order, types first among equals (no name is
+// both). `inspect` checks the list is sorted.
+fn builtin_names(): [string] {
+    return ["Map", "Set", "bool", "byte_at", "eprint", "exit", "int", "int_to_string", "len", "make_temp_dir", "map_get",
+        "map_has", "map_keys", "map_remove", "map_set", "never", "panic", "pop", "print", "push", "read_file", "read_stdin",
+        "remove_path", "run_process", "set_add", "set_has", "set_items", "set_remove", "string", "substring", "void",
+        "write_file"];
+}
+
+fn is_builtin_type_name(name: string): bool {
+    return name == "Map" || name == "Set" || name == "bool" || name == "int" || name == "never" || name == "string" || name == "void";
+}
+
+// Builtins whose calls the checker types by hand: their signature is not a plain parameter list.
+fn hand_typed(name: string): bool {
+    return set_has(special_builtins(), name) || name == "read_file" || name == "write_file" || name == "make_temp_dir" || name == "remove_path" || name == "run_process";
+}
+
+// Declaration ids by name. `types` holds structs, enums, generic enums and instantiations (one type namespace; an
+// instantiation's name is its full spelling, `Option[int]`); `enum_index` an enum's index in `checked.enums` and
+// `struct_index` a struct's in `checked.structs`.
+struct Ids {
+    types: Map[string, int],
+    fns: Map[string, int],
+    builtins: Map[string, int],
+    enum_index: Map[string, int],
+    struct_index: Map[string, int],
+    next: int,
+}
+
+// One walk over the declarations. The counting pass (`render` false) only assigns ids and fills `ids`; the rendering
+// pass repeats it exactly, with every id known, and pushes each declaration's JSON to `out`, whose length is the id
+// rendered next. `fn_index` maps a function's name to its index in `checked.functions` and `checked.local_sites`.
+struct Walk {
+    ids: Ids,
+    render: bool,
+    out: [string],
+    loaded: Loaded,
+    checked: Checked,
+    prelude: [Template],
+    builtins: Signatures,
+    fn_index: Map[string, int],
+}
+
+fn json_prim(kind: string): string {
+    return json_object([json_kv("kind", json_str(kind))]);
+}
+
+fn type_id(ids: Ids, name: string): int {
+    let Option::Some(id) = map_get(ids.types, name) else {
+        panic("internal: inspect has no id for type '" + name + "'");
+    };
+    return id;
+}
+
+// A struct or enum type: `{"kind", "name", "decl"}`, plus `args` when there are any.
+fn json_named(kind: string, name: string, ids: Ids, args: [string]): string {
+    let fields: [string] = [json_kv("kind", json_str(kind)), json_kv("name", json_str(name)), json_kv("decl", json_int(type_id(ids, name)))];
+    if len(args) > 0 {
+        push(fields, json_kv("args", json_array(args)));
+    }
+    return json_object(fields);
+}
+
+// An enum type: an instantiation carries its type arguments.
+fn json_enum_type(ids: Ids, checked: Checked, name: string): string {
+    let Option::Some(i) = map_get(ids.enum_index, name) else {
+        panic("internal: inspect has no enum '" + name + "'");
+    };
+    let en: TEnum = checked.enums[i];
+    let args: [string] = [];
+    if en.base != "" {
+        for a in en.args {
+            push(args, json_type(ids, checked, a));
+        }
+    }
+    return json_named("enum", name, ids, args);
+}
+
+// A checked type. A program that checked has no error type.
+fn json_type(ids: Ids, checked: Checked, t: Type): string {
+    return match t {
+        Type::Int => json_prim("int"),
+        Type::Bool => json_prim("bool"),
+        Type::Str => json_prim("string"),
+        Type::Void => json_prim("void"),
+        Type::Never => json_prim("never"),
+        Type::Array(e) => json_object([json_kv("kind", json_str("array")), json_kv("element", json_type(ids, checked, e))]),
+        Type::Map(k, v) => json_object([json_kv("kind", json_str("map")), json_kv("key", json_type(ids, checked, k)), json_kv("value", json_type(ids, checked, v))]),
+        Type::Set(e) => json_object([json_kv("kind", json_str("set")), json_kv("element", json_type(ids, checked, e))]),
+        Type::Struct(n) => json_named("struct", n, ids, []),
+        Type::Enum(n) => json_enum_type(ids, checked, n),
+        Type::Error => panic("internal: error type in a checked program"),
+    };
+}
+
+// A written type as source spells it, `Name[A, B]` or `[T]`.
+fn type_expr_text(te: TypeExpr): string {
+    match te.node {
+        TypeNode::Array(e) => {
+            return "[" + type_expr_text(e) + "]";
+        }
+        TypeNode::Named(name, args) => {
+            if len(args) == 0 {
+                return name;
+            }
+            var s: string = name + "[";
+            for i in 0..len(args) {
+                if i > 0 {
+                    s = s + ", ";
+                }
+                s = s + type_expr_text(args[i]);
+            }
+            return s + "]";
+        }
+    }
+}
+
+fn has_name(names: [string], name: string): bool {
+    for n in names {
+        if n == name {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A type written in a generic enum's variant, where `params` are the enum's type parameters. A generic enum named
+// with arguments is the generic enum itself (`decl`), not an instantiation.
+fn json_type_expr(ids: Ids, te: TypeExpr, params: [string]): string {
+    match te.node {
+        TypeNode::Array(e) => {
+            return json_object([json_kv("kind", json_str("array")), json_kv("element", json_type_expr(ids, e, params))]);
+        }
+        TypeNode::Named(name, args) => {
+            if len(args) == 0 && has_name(params, name) {
+                return json_object([json_kv("kind", json_str("param")), json_kv("name", json_str(name))]);
+            }
+            if name == "int" || name == "bool" || name == "string" || name == "void" || name == "never" {
+                return json_prim(name);
+            }
+            if name == "Map" {
+                return json_object([json_kv("kind", json_str("map")), json_kv("key", json_type_expr(ids, args[0], params)), json_kv("value", json_type_expr(ids, args[1], params))]);
+            }
+            if name == "Set" {
+                return json_object([json_kv("kind", json_str("set")), json_kv("element", json_type_expr(ids, args[0], params))]);
+            }
+            if map_has(ids.struct_index, name) {
+                return json_named("struct", name, ids, []);
+            }
+            if len(args) == 0 {
+                return json_named("enum", name, ids, []);
+            }
+            let converted: [string] = [];
+            for a in args {
+                push(converted, json_type_expr(ids, a, params));
+            }
+            return json_object([
+                json_kv("kind", json_str("enum")), json_kv("name", json_str(type_expr_text(te))),
+                json_kv("decl", json_int(type_id(ids, name))), json_kv("args", json_array(converted)),
+            ]);
+        }
+    }
+}
+
+// The next id.
+fn claim(w: Walk): int {
+    let id: int = w.ids.next;
+    w.ids.next += 1;
+    return id;
+}
+
+fn emit(w: Walk, id: int, fields: [string]) {
+    if len(w.out) != id {
+        panic("internal: inspect ids out of step");
+    }
+    push(w.out, json_object(fields));
+}
+
+// The common keys of a declaration.
+fn head(id: int, kind: string, name: string, origin: string, location: string, decl_range: string): [string] {
+    return [
+        json_kv("id", json_int(id)), json_kv("kind", json_str(kind)), json_kv("name", json_str(name)),
+        json_kv("origin", json_str(origin)), json_kv("location", location), json_kv("decl_range", decl_range),
+    ];
+}
+
+// The location of a declared name, or null outside the loaded source (the prelude).
+fn located(w: Walk, source: bool, name: Ident): string {
+    if !source {
+        return "null";
+    }
+    let files: [SourceFile] = w.loaded.files;
+    let fi: int = file_index(files, name.start);
+    return json_location(fi, files[fi].path, Option::Some(global_range(files, name.start, name.end)));
+}
+
+// A declaration's whole range [start, end) in its file, or null outside the loaded source.
+fn decl_range(w: Walk, source: bool, start: int, end: int): string {
+    if !source {
+        return "null";
+    }
+    return json_range(global_range(w.loaded.files, start, end));
+}
+
+// Local ids ordered by where their names are declared (insertion sort: locals mostly arrive in source order).
+fn site_order(sites: [LocalSite]): [int] {
+    let order: [int] = [];
+    for k in 0..len(sites) {
+        push(order, k);
+        var j: int = len(order) - 1;
+        while j > 0 && sites[order[j - 1]].name.start > sites[k].name.start {
+            order[j] = order[j - 1];
+            j -= 1;
+        }
+        order[j] = k;
+    }
+    return order;
+}
+
+// A function, then its params and locals by position. The fact id of local `k` is the function's id + 1 + its
+// position in that order.
+fn walk_fn(w: Walk, d: FnDecl) {
+    let id: int = claim(w);
+    map_set(w.ids.fns, d.name.name, id);
+    let Option::Some(fi) = map_get(w.fn_index, d.name.name) else {
+        panic("internal: inspect has no function '" + d.name.name + "'");
+    };
+    let f: TFunction = w.checked.functions[fi];
+    let sites: [LocalSite] = w.checked.local_sites[fi].sites;
+    let order: [int] = site_order(sites);
+    let fact: [int] = [];
+    for k in 0..len(order) {
+        push(fact, 0);
+    }
+    for p in 0..len(order) {
+        fact[order[p]] = id + 1 + p;
+    }
+    if w.render {
+        let params: [string] = [];
+        for k in 0..f.params {
+            push(params, json_object([
+                json_kv("name", json_str(f.locals[k].name)), json_kv("type", json_type(w.ids, w.checked, f.locals[k].ty)),
+                json_kv("decl", json_int(fact[k])),
+            ]));
+        }
+        let fields: [string] = head(id, "fn", d.name.name, "source", located(w, true, d.name), decl_range(w, true, d.start, d.end));
+        push(fields, json_kv("signature", json_object([json_kv("params", json_array(params)), json_kv("ret", json_type(w.ids, w.checked, f.ret))])));
+        emit(w, id, fields);
+    }
+    for k in order {
+        let lid: int = claim(w);
+        if w.render {
+            let site: LocalSite = sites[k];
+            let local: Local = f.locals[k];
+            let kind: string = if k < f.params { "param" } else { "local" };
+            let fields: [string] = head(lid, kind, local.name, "source", located(w, true, site.name), decl_range(w, true, site.start, site.end));
+            push(fields, json_kv("type", json_type(w.ids, w.checked, local.ty)));
+            if k >= f.params {
+                push(fields, json_kv("mutable", json_bool(local.mutable)));
+            }
+            push(fields, json_kv("scope", json_int(id)));
+            if k >= f.params {
+                push(fields, json_kv("shadows", if site.shadows < 0 { "null" } else { json_int(fact[site.shadows]) }));
+            }
+            emit(w, lid, fields);
+        }
+    }
+}
+
+fn walk_struct(w: Walk, d: StructDecl) {
+    let id: int = claim(w);
+    map_set(w.ids.types, d.name.name, id);
+    if w.render {
+        emit(w, id, head(id, "struct", d.name.name, "source", located(w, true, d.name), decl_range(w, true, d.start, d.end)));
+    }
+    for field in d.fields {
+        let fid: int = claim(w);
+        if w.render {
+            let Option::Some(si) = map_get(w.ids.struct_index, d.name.name) else {
+                panic("internal: inspect has no struct '" + d.name.name + "'");
+            };
+            let st: TStruct = w.checked.structs[si];
+            let Option::Some(i) = find_tfield(st.fields, field.name.name) else {
+                panic("internal: inspect has no field '" + field.name.name + "'");
+            };
+            let fields: [string] = head(fid, "field", field.name.name, "source", located(w, true, field.name), decl_range(w, true, field.name.start, field.ty.end));
+            push(fields, json_kv("type", json_type(w.ids, w.checked, st.fields[i].ty)));
+            push(fields, json_kv("parent", json_int(id)));
+            emit(w, fid, fields);
+        }
+    }
+}
+
+// A variant's whole declaration ends with its last payload type, or its name.
+fn variant_end(v: VariantDecl): int {
+    if len(v.payload) == 0 {
+        return v.name.end;
+    }
+    return v.payload[len(v.payload) - 1].end;
+}
+
+fn variant_fields(w: Walk, id: int, v: VariantDecl, origin: string, payload: [string], parent: int): [string] {
+    let source: bool = origin == "source";
+    let fields: [string] = head(id, "variant", v.name.name, origin, located(w, source, v.name), decl_range(w, source, v.name.start, variant_end(v)));
+    push(fields, json_kv("payload", json_array(payload)));
+    push(fields, json_kv("parent", json_int(parent)));
+    return fields;
+}
+
+// A non-generic enum and its variants, with the checker's payload types.
+fn walk_enum(w: Walk, d: EnumDecl) {
+    let id: int = claim(w);
+    map_set(w.ids.types, d.name.name, id);
+    if w.render {
+        emit(w, id, head(id, "enum", d.name.name, "source", located(w, true, d.name), decl_range(w, true, d.start, d.end)));
+    }
+    for v in d.variants {
+        let vid: int = claim(w);
+        if w.render {
+            let Option::Some(ei) = map_get(w.ids.enum_index, d.name.name) else {
+                panic("internal: inspect has no enum '" + d.name.name + "'");
+            };
+            let en: TEnum = w.checked.enums[ei];
+            let Option::Some(i) = find_tvariant(en.variants, v.name.name) else {
+                panic("internal: inspect has no variant '" + v.name.name + "'");
+            };
+            let payload: [string] = [];
+            for t in en.variants[i].payload {
+                push(payload, json_type(w.ids, w.checked, t));
+            }
+            emit(w, vid, variant_fields(w, vid, v, "source", payload, id));
+        }
+    }
+}
+
+// A generic enum (`origin` "source" or "prelude"), its type parameters, then its variants as written.
+fn walk_generic(w: Walk, d: EnumDecl, origin: string) {
+    let source: bool = origin == "source";
+    let id: int = claim(w);
+    map_set(w.ids.types, d.name.name, id);
+    let params: [string] = [];
+    for p in d.params {
+        push(params, p.name);
+    }
+    if w.render {
+        let type_params: [string] = [];
+        for i in 0..len(d.params) {
+            push(type_params, json_int(id + 1 + i));
+        }
+        let fields: [string] = head(id, "enum", d.name.name, origin, located(w, source, d.name), decl_range(w, source, d.start, d.end));
+        push(fields, json_kv("type_params", json_array(type_params)));
+        emit(w, id, fields);
+    }
+    for p in d.params {
+        let pid: int = claim(w);
+        if w.render {
+            let fields: [string] = head(pid, "type-param", p.name, origin, located(w, source, p), decl_range(w, source, p.start, p.end));
+            push(fields, json_kv("parent", json_int(id)));
+            emit(w, pid, fields);
+        }
+    }
+    for v in d.variants {
+        let vid: int = claim(w);
+        if w.render {
+            let payload: [string] = [];
+            for te in v.payload {
+                push(payload, json_type_expr(w.ids, te, params));
+            }
+            emit(w, vid, variant_fields(w, vid, v, origin, payload, id));
+        }
+    }
+}
+
+// An instantiation and its variants, with resolved payloads. It has no source.
+fn walk_instance(w: Walk, en: TEnum) {
+    let id: int = claim(w);
+    map_set(w.ids.types, en.name, id);
+    if w.render {
+        let args: [string] = [];
+        for a in en.args {
+            push(args, json_type(w.ids, w.checked, a));
+        }
+        let fields: [string] = head(id, "enum", en.name, "instantiation", "null", "null");
+        push(fields, json_kv("of", json_int(type_id(w.ids, en.base))));
+        push(fields, json_kv("args", json_array(args)));
+        emit(w, id, fields);
+    }
+    for v in en.variants {
+        let vid: int = claim(w);
+        if w.render {
+            let payload: [string] = [];
+            for t in v.payload {
+                push(payload, json_type(w.ids, w.checked, t));
+            }
+            let fields: [string] = head(vid, "variant", v.name, "instantiation", "null", "null");
+            push(fields, json_kv("payload", json_array(payload)));
+            push(fields, json_kv("parent", json_int(id)));
+            emit(w, vid, fields);
+        }
+    }
+}
+
+fn walk_builtin(w: Walk, name: string) {
+    let id: int = claim(w);
+    map_set(w.ids.builtins, name, id);
+    if !w.render {
+        return;
+    }
+    if is_builtin_type_name(name) {
+        emit(w, id, head(id, "builtin-type", name, "builtin", "null", "null"));
+        return;
+    }
+    var signature: string = "null";
+    if !hand_typed(name) {
+        let Option::Some(i) = find_signature(w.builtins, name) else {
+            panic("internal: inspect has no builtin '" + name + "'");
+        };
+        let sig: Signature = w.builtins.items[i];
+        let params: [string] = [];
+        for t in sig.params {
+            push(params, json_object([json_kv("name", "null"), json_kv("type", json_type(w.ids, w.checked, t)), json_kv("decl", "null")]));
+        }
+        signature = json_object([json_kv("params", json_array(params)), json_kv("ret", json_type(w.ids, w.checked, sig.ret))]);
+    }
+    let fields: [string] = head(id, "builtin-fn", name, "builtin", "null", "null");
+    push(fields, json_kv("signature", signature));
+    emit(w, id, fields);
+}
+
+// Every declaration, in id order (spec §6.3): the source by position, the prelude, the instantiations in first-use
+// order, the builtins by name.
+fn walk(w: Walk) {
+    w.ids.next = 0;
+    for item in w.loaded.items {
+        match item {
+            Item::Fn(d) => walk_fn(w, d),
+            Item::Struct(d) => walk_struct(w, d),
+            Item::Enum(d) => {
+                if len(d.params) > 0 {
+                    walk_generic(w, d, "source");
+                } else {
+                    walk_enum(w, d);
+                }
+            }
+            Item::Import(_) => {}
+        }
+    }
+    for t in w.prelude {
+        walk_generic(w, t.decl, "prelude");
+    }
+    for en in w.checked.enums {
+        if en.base != "" {
+            walk_instance(w, en);
+        }
+    }
+    for name in builtin_names() {
+        walk_builtin(w, name);
+    }
+}
+
+// The `semantics` of a program that checked: every declaration, linked to its source.
+fn json_semantics(loaded: Loaded, checked: Checked): string {
+    let ids: Ids = Ids { types: {}, fns: {}, builtins: {}, enum_index: {}, struct_index: {}, next: 0 };
+    for i in 0..len(checked.enums) {
+        map_set(ids.enum_index, checked.enums[i].name, i);
+    }
+    for i in 0..len(checked.structs) {
+        map_set(ids.struct_index, checked.structs[i].name, i);
+    }
+    let fn_index: Map[string, int] = {};
+    for i in 0..len(checked.functions) {
+        map_set(fn_index, checked.functions[i].name, i);
+    }
+    let w: Walk = Walk {
+        ids: ids, render: false, out: [], loaded: loaded, checked: checked, prelude: prelude_templates(),
+        builtins: builtin_signatures(), fn_index: fn_index,
+    };
+    walk(w);
+    w.render = true;
+    walk(w);
+    return json_object([json_kv("available", "true"), json_kv("declarations", json_array(w.out))]);
 }
