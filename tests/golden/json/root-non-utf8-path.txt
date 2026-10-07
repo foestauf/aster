@@ -1,0 +1,4 @@
+== exit 0
+== stdout
+{"schema":"aster/1","command":"check","ok":true,"files":[{"id":0,"path":"�.aster","bom":false,"path_exact":false}],"diagnostics":[]}
+== stderr

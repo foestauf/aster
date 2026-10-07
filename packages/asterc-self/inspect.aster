@@ -25,6 +25,13 @@ fn json_range(r: Range): string {
     ]);
 }
 
+// Adds `"path_exact": false` to `fields` when `path` is not UTF-8, so that its lossy rendering is flagged.
+fn push_path_exact(fields: [string], path: string) {
+    if utf8_lossy(path) != path {
+        push(fields, json_kv("path_exact", "false"));
+    }
+}
+
 // The location fields `file`, `path`, `range` and, for a path that is not UTF-8, `path_exact`. `file` is a files
 // index, or -1 for a file that never loaded.
 fn location_fields(file: int, path: string, range: Option[Range]): [string] {
@@ -38,9 +45,7 @@ fn location_fields(file: int, path: string, range: Option[Range]): [string] {
         json_kv("path", json_str(shown)),
         json_kv("range", range_json),
     ];
-    if shown != path {
-        push(fields, json_kv("path_exact", "false"));
-    }
+    push_path_exact(fields, path);
     return fields;
 }
 
@@ -80,9 +85,7 @@ fn json_files(files: [SourceFile]): string {
     for i in 0..len(files) {
         let shown: string = utf8_lossy(files[i].path);
         let fields: [string] = [json_kv("id", json_int(i)), json_kv("path", json_str(shown)), json_kv("bom", json_bool(files[i].bom > 0))];
-        if shown != files[i].path {
-            push(fields, json_kv("path_exact", "false"));
-        }
+        push_path_exact(fields, files[i].path);
         push(out, json_object(fields));
     }
     return json_array(out);
@@ -94,7 +97,7 @@ fn inspect_response(command: string, path: string, fe: FrontEnd): string {
     let diags: [string] = [];
     match fe {
         FrontEnd::Unreadable => {
-            push(diags, json_diagnostic("io.root-unreadable", "cannot read '" + path + "'", json_location(-1, path, Option::None), []));
+            push(diags, json_diagnostic("io.root-unreadable", "cannot read '" + utf8_lossy(path) + "'", json_location(-1, path, Option::None), []));
         }
         FrontEnd::Malformed(raw, bad) => {
             push(diags, json_diagnostic("source.invalid-utf8", utf8_reason(raw, bad), json_location(-1, path, Option::Some(invalid_range(raw, bad))), []));

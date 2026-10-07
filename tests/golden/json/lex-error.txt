@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"check","ok":false,"files":[{"id":0,"path":"main.aster","bom":false}],"diagnostics":[{"code":"lex.unterminated-string","severity":"error","message":"unterminated string literal","primary":{"file":0,"path":"main.aster","range":{"start":37,"end":42,"start_line":2,"start_col_utf16":21,"end_line":2,"end_col_utf16":26}},"related":[]},{"code":"syntax.expected","severity":"error","message":"expected ';', found 'return'","primary":{"file":0,"path":"main.aster","range":{"start":47,"end":53,"start_line":3,"start_col_utf16":5,"end_line":3,"end_col_utf16":11}},"related":[]}]}
+== stderr

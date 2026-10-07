@@ -20,7 +20,13 @@ interface Fixture {
   name: string;
   files: Record<string, Buffer>;
   entry?: string;
+  /** A printf-escaped entry path, run through `sh -c` so that argv can carry raw bytes. */
+  entryPrintf?: string;
+  /** Files whose names are raw bytes. */
+  rawFiles?: [Buffer, Buffer][];
   status: number;
+  /** Whether some `files` entry is flagged `path_exact: false`. */
+  inexact?: boolean;
   setup?: (dir: string) => void;
   skip?: boolean;
 }
@@ -34,6 +40,10 @@ const fixtures: Fixture[] = [
   { name: 'missing-main', files: { 'main.aster': b('fn f(): int {\n    return 1;\n}\n') }, status: 1 },
   { name: 'several-errors', files: { 'main.aster': b('fn main(): int {\n    let a: int = "x";\n    let b: bool = 1;\n    return q;\n}\n') }, status: 1 },
   { name: 'root-malformed', files: { 'main.aster': Buffer.concat([b('fn main(): int {\n    // '), Buffer.from([0xff]), b('\n    return 0;\n}\n')]) }, status: 1 },
+  { name: 'root-missing-non-utf8', files: {}, entryPrintf: '\\377.aster', status: 2 },
+  { name: 'root-non-utf8-path', files: {}, rawFiles: [[Buffer.from([0xfe, 0x2e, 0x61, 0x73, 0x74, 0x65, 0x72]), b(MAIN_OK)]], entryPrintf: '\\376.aster', status: 0, inexact: true },
+  { name: 'lex-error', files: { 'main.aster': b('fn main(): int {\n    let s: string = "abc;\n    return 0;\n}\n') }, status: 1 },
+  { name: 'import-invalid-path', files: { 'main.aster': b('import "a\\0b.aster";\n' + MAIN_OK) }, status: 1 },
   { name: 'root-missing', files: {}, entry: 'nope.aster', status: 2 },
   { name: 'import-missing', files: { 'main.aster': b('import "lib/gone.aster";\n' + MAIN_OK) }, status: 1 },
   { name: 'import-malformed', files: { 'main.aster': b('import "bad.aster";\n' + MAIN_OK), 'bad.aster': Buffer.concat([b('fn f(): int {\n    return 1; // '), Buffer.from([0xc3]), b('\n}\n')]) }, status: 1 },
@@ -59,7 +69,17 @@ const fixtures: Fixture[] = [
   },
 ];
 
-function run(dir: string, argv: string[]) {
+const strict = new TextDecoder('utf-8', { fatal: true });
+
+function run(dir: string, argv: string[], printfEntry?: string) {
+  const r = printfEntry === undefined
+    ? spawnSync(stage().bin, argv, { cwd: dir, env: { ...process.env, LC_ALL: 'C' }, timeout: 60_000 })
+    : spawnSync('sh', ['-c', `"$0" check "$(printf '${printfEntry}')" --format=json`, stage().bin], { cwd: dir, env: { ...process.env, LC_ALL: 'C' }, timeout: 60_000 });
+  if (r.error) throw r.error;
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+}
+
+function runPlain(dir: string, argv: string[]) {
   const r = spawnSync(stage().bin, argv, { cwd: dir, env: { ...process.env, LC_ALL: 'C' }, timeout: 60_000 });
   if (r.error) throw r.error;
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
@@ -71,28 +91,35 @@ describe('check --format=json', () => {
     const dir = join(root, f.name);
     mkdirSync(dir);
     for (const [name, bytes] of Object.entries(f.files)) writeFileSync(join(dir, name), bytes);
+    for (const [name, bytes] of f.rawFiles ?? []) writeFileSync(Buffer.concat([Buffer.from(dir + '/'), name]), bytes);
     f.setup?.(dir);
     const argv = ['check', f.entry ?? 'main.aster', '--format=json'];
-    const first = run(dir, argv);
-    const second = run(dir, argv);
+    const first = run(dir, argv, f.entryPrintf);
+    const second = run(dir, argv, f.entryPrintf);
     expect(Buffer.compare(first.stdout, second.stdout), 'deterministic').toBe(0);
     expect(first.stderr.toString('latin1')).toBe('');
     expect(first.status).toBe(f.status);
-    const text = first.stdout.toString('utf8');
+    const text = strict.decode(first.stdout);
     expect(text.endsWith('\n') && !text.slice(0, -1).includes('\n'), 'one line').toBe(true);
     const doc = JSON.parse(text);
     expect(doc.schema).toBe('aster/1');
     expect(doc.command).toBe('check');
     expect(doc.ok).toBe(doc.diagnostics.length === 0);
     expect(doc.ok).toBe(f.status === 0);
-    // The range slices the file's bytes on disk.
+    // Every range slices the file's bytes on disk.
+    const onDisk = (path: string) => f.files[path.replace(/^\.\//, '')]!.length;
     const located = doc.diagnostics.filter((d: any) => d.primary.range !== null && d.primary.file !== null);
     for (const d of located) {
       const r = d.primary.range;
-      const path = doc.files[d.primary.file].path;
       expect(r.start).toBeLessThanOrEqual(r.end);
-      expect(r.end).toBeLessThanOrEqual(f.files[path.replace(/^\.\//, '')]!.length);
+      expect(r.end).toBeLessThanOrEqual(onDisk(doc.files[d.primary.file].path));
     }
+    const relatedRanges = doc.diagnostics.flatMap((d: any) => d.related).filter((r: any) => r.range !== null);
+    for (const r of relatedRanges) {
+      expect(r.range.start).toBeLessThanOrEqual(r.range.end);
+      expect(r.range.end).toBeLessThanOrEqual(onDisk(r.path));
+    }
+    expect(doc.files.some((x: any) => x.path_exact === false), 'path_exact').toBe(f.inexact === true);
     await expect(renderOutcome({ status: first.status, stdout: text, stderr: '' })).toMatchFileSnapshot(goldenPath('json', f.name));
   });
 
@@ -100,7 +127,7 @@ describe('check --format=json', () => {
     const dir = join(root, 'human');
     mkdirSync(dir);
     writeFileSync(join(dir, 'main.aster'), 'fn main(): int {\n    return "x";\n}\n');
-    const r = run(dir, ['check', 'main.aster']);
+    const r = runPlain(dir, ['check', 'main.aster']);
     expect(r.status).toBe(1);
     expect(r.stdout.toString()).toBe('');
     expect(r.stderr.toString()).toBe("main.aster:2:12: error: type mismatch: expected int, found string\n      return \"x\";\n             ^^^\n");
@@ -110,7 +137,7 @@ describe('check --format=json', () => {
     const dir = join(root, 'human-explicit');
     mkdirSync(dir);
     writeFileSync(join(dir, 'main.aster'), MAIN_OK);
-    const r = run(dir, ['check', 'main.aster', '--format=human']);
+    const r = runPlain(dir, ['check', 'main.aster', '--format=human']);
     expect([r.status, r.stdout.toString(), r.stderr.toString()]).toEqual([0, '', '']);
   });
 });
