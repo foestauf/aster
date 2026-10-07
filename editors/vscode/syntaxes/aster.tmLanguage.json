@@ -1,0 +1,171 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Aster",
+  "scopeName": "source.aster",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#characters"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.double-slash.aster",
+      "begin": "//",
+      "end": "$",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.comment.aster"
+        }
+      }
+    },
+    "strings": {
+      "name": "string.quoted.double.aster",
+      "begin": "\"",
+      "end": "\"|$",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.aster"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.aster"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#escapes"
+        }
+      ]
+    },
+    "characters": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.aster",
+          "match": "(')(?:[\\x20-\\x26\\x28-\\x5b\\x5d-\\x7e]|(\\\\[ntr\\\\\"'0]))(')",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.string.begin.aster"
+            },
+            "2": {
+              "name": "constant.character.escape.aster"
+            },
+            "3": {
+              "name": "punctuation.definition.string.end.aster"
+            }
+          }
+        },
+        {
+          "name": "string.quoted.single.aster",
+          "contentName": "invalid.illegal.character.aster",
+          "begin": "'",
+          "end": "'|$",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.aster"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.aster"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#escapes"
+            }
+          ]
+        }
+      ]
+    },
+    "escapes": {
+      "patterns": [
+        {
+          "name": "constant.character.escape.aster",
+          "match": "\\\\[ntr\\\\\"'0]"
+        },
+        {
+          "name": "invalid.illegal.escape.aster",
+          "match": "\\\\(?:[^\\n]|$)"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "storage.type.aster",
+          "match": "(?:fn|struct|enum)(?![A-Za-z0-9_])"
+        },
+        {
+          "name": "storage.modifier.aster",
+          "match": "(?:let|var)(?![A-Za-z0-9_])"
+        },
+        {
+          "name": "keyword.control.aster",
+          "match": "(?:if|else|while|for|in|break|continue|return|match|import)(?![A-Za-z0-9_])"
+        },
+        {
+          "name": "constant.language.boolean.aster",
+          "match": "(?:true|false)(?![A-Za-z0-9_])"
+        },
+        {
+          "name": "constant.language.wildcard.aster",
+          "match": "_(?![A-Za-z0-9_])"
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.integer.aster",
+      "match": "[0-9]+"
+    },
+    "operators": {
+      "name": "keyword.operator.aster",
+      "match": "::|=>|\\.\\.|==|!=|<=|>=|&&|\\|\\||[+*/%\\-]=|[=+*/%!<>?|\\-]"
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.braces.aster",
+          "match": "[{}]"
+        },
+        {
+          "name": "punctuation.section.brackets.aster",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.section.parens.aster",
+          "match": "[()]"
+        },
+        {
+          "name": "punctuation.separator.aster",
+          "match": "[,:;.]"
+        }
+      ]
+    },
+    "identifiers": {
+      "name": "variable.other.aster",
+      "match": "[A-Za-z_][A-Za-z0-9_]*"
+    }
+  }
+}

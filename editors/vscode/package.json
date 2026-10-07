@@ -1,0 +1,57 @@
+{
+  "name": "aster-syntax",
+  "displayName": "Aster",
+  "description": "Lexical syntax highlighting and editing basics for Aster.",
+  "version": "0.1.0",
+  "publisher": "aster-local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=24"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "aster",
+    "syntax",
+    "highlighting"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/foestauf/aster.git",
+    "directory": "editors/vscode"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "aster",
+        "aliases": [
+          "Aster",
+          "aster"
+        ],
+        "extensions": [
+          ".aster"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "aster",
+        "scopeName": "source.aster",
+        "path": "./syntaxes/aster.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "package": "npm test && vsce package --no-dependencies --skip-license --out aster-syntax-0.1.0.vsix"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "4.0.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.2.0"
+  }
+}
