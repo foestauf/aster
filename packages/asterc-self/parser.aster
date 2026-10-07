@@ -257,12 +257,12 @@ fn describe(p: Parser, t: Token): string {
     };
 }
 
-fn error_at(p: Parser, message: string, start: int, end: int) {
-    push(p.errors, LexError { start: start, end: end, message: message });
+fn error_at(p: Parser, code: string, message: string, start: int, end: int) {
+    push(p.errors, LexError { code: code, start: start, end: end, message: message });
 }
 
-fn fail(p: Parser, message: string, t: Token) {
-    error_at(p, message, t.start, t.end);
+fn fail(p: Parser, code: string, message: string, t: Token) {
+    error_at(p, code, message, t.start, t.end);
 }
 
 // Consumes a token of `kind`, or fails.
@@ -277,7 +277,7 @@ fn expect(p: Parser, kind: string): Option[Token] {
         what = "string literal";
     }
     let t: Token = peek(p);
-    fail(p, "expected " + what + ", found " + describe(p, t), t);
+    fail(p, "syntax.expected", "expected " + what + ", found " + describe(p, t), t);
     return Option::None;
 }
 
@@ -317,7 +317,7 @@ fn parse_program(p: Parser): [Item] {
     while !at(p, "eof") {
         if !at_item(p) {
             let t: Token = peek(p);
-            error_at(p, "expected 'fn', 'struct', 'enum' or 'import', found " + describe(p, t), t.start, t.end);
+            error_at(p, "syntax.expected", "expected 'fn', 'struct', 'enum' or 'import', found " + describe(p, t), t.start, t.end);
             sync_to_item(p);
             continue;
         }
@@ -682,7 +682,7 @@ fn parse_alternative(p: Parser): Option[Pattern] {
         "int" => {
             advance(p);
             if !fits(canonical_digits(text(p, t)), false) {
-                error_at(p, "integer literal out of range", t.start, t.end);
+                error_at(p, "syntax.int-out-of-range", "integer literal out of range", t.start, t.end);
             }
             return Option::Some(Pattern { start: t.start, end: t.end, node: PatternNode::IntPat(text(p, t)) });
         }
@@ -690,7 +690,7 @@ fn parse_alternative(p: Parser): Option[Pattern] {
             advance(p);
             let literal: Token = expect(p, "int")?;
             if !fits(canonical_digits(text(p, literal)), true) {
-                error_at(p, "integer literal out of range", t.start, literal.end);
+                error_at(p, "syntax.int-out-of-range", "integer literal out of range", t.start, literal.end);
             }
             return Option::Some(Pattern { start: t.start, end: literal.end, node: PatternNode::IntPat("-" + text(p, literal)) });
         }
@@ -710,7 +710,7 @@ fn parse_alternative(p: Parser): Option[Pattern] {
             return parse_variant_pattern(p);
         }
         _ => {
-            fail(p, "expected pattern, found " + describe(p, t), t);
+            fail(p, "syntax.expected", "expected pattern, found " + describe(p, t), t);
             return Option::None;
         }
     }
@@ -803,7 +803,7 @@ fn parse_binary(p: Parser, level: int): Option[Expr] {
         let right: Expr = parse_binary(p, level + 1)?;
         left = Expr { start: left.start, end: right.end, node: ExprNode::Binary(op, left, right) };
         if !level_chainable(level) && contains(ops, peek(p).kind) {
-            fail(p, "comparison operators cannot be chained", peek(p));
+            fail(p, "syntax.chained-comparison", "comparison operators cannot be chained", peek(p));
             return Option::None;
         }
     }
@@ -821,7 +821,7 @@ fn parse_unary(p: Parser): Option[Expr] {
         let literal: Token = advance(p);
         let digits: string = canonical_digits(text(p, literal));
         if !fits(digits, true) {
-            error_at(p, "integer literal out of range", t.start, literal.end);
+            error_at(p, "syntax.int-out-of-range", "integer literal out of range", t.start, literal.end);
         }
         var value: string = digits;
         if digits != "0" {
@@ -890,7 +890,7 @@ fn parse_primary(p: Parser): Option[Expr] {
             advance(p);
             let digits: string = canonical_digits(text(p, t));
             if !fits(digits, false) {
-                error_at(p, "integer literal out of range", t.start, t.end);
+                error_at(p, "syntax.int-out-of-range", "integer literal out of range", t.start, t.end);
             }
             return Option::Some(Expr { start: t.start, end: t.end, node: ExprNode::Int(digits) });
         }
@@ -942,7 +942,7 @@ fn parse_primary(p: Parser): Option[Expr] {
             return parse_match_expr(p);
         }
         _ => {
-            fail(p, "expected expression, found " + describe(p, t), t);
+            fail(p, "syntax.expected", "expected expression, found " + describe(p, t), t);
             return Option::None;
         }
     }
@@ -992,7 +992,7 @@ fn parse_if_expr(p: Parser): Option[Expr] {
     let cond: Expr = parse_header_expr(p)?;
     let then: Expr = parse_expr_block(p)?;
     if !at(p, "else") {
-        fail(p, "if expression requires an else branch", peek(p));
+        fail(p, "syntax.if-without-else", "if expression requires an else branch", peek(p));
         return Option::None;
     }
     advance(p);

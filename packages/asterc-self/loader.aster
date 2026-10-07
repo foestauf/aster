@@ -16,11 +16,32 @@ struct SourceFile {
     bom: int,
 }
 
-// A diagnostic, with global byte offsets.
+// A file-local source range (docs/inspect/README.md): byte offsets into the file as stored, BOM included, and 1-based
+// lines and UTF-16 columns, the BOM not counted.
+struct Range {
+    start: int,
+    end: int,
+    start_line: int,
+    start_col: int,
+    end_line: int,
+    end_col: int,
+}
+
+// A secondary location of a diagnostic: `role` says what it is (`import-target`: the file an import failed to load).
+// `range` is None when there is no position in it.
+struct Related {
+    role: string,
+    path: string,
+    range: Option[Range],
+}
+
+// A diagnostic, with global byte offsets, its stable code (docs/inspect/README.md) and any related locations.
 struct Diag {
+    code: string,
     start: int,
     end: int,
     message: string,
+    related: [Related],
 }
 
 // Every loaded file (root first, in load order), the items of all of them (in load order), the end offset of the
@@ -202,6 +223,59 @@ fn utf8_reason(raw: string, at: int): string {
     return "invalid UTF-8 at line " + int_to_string(line) + ", byte " + int_to_string(at);
 }
 
+// A line and a UTF-16 column, both 1-based.
+struct Pos {
+    line: int,
+    col: int,
+}
+
+// UTF-16 code units in src[from..to): one per UTF-8 lead byte, two for a 4-byte sequence's lead, none for a
+// continuation byte.
+fn utf16_units(src: string, from: int, to: int): int {
+    var n: int = 0;
+    for i in from..to {
+        let b: int = byte_at(src, i);
+        if b < 128 || b >= 192 {
+            n += 1;
+            if b >= 240 {
+                n += 1;
+            }
+        }
+    }
+    return n;
+}
+
+// The line and column of offset `at` in `src` (BOM-stripped). Only `\n` ends a line.
+fn file_pos(src: string, at: int): Pos {
+    var line: int = 1;
+    var line_start: int = 0;
+    for i in 0..at {
+        if byte_at(src, i) == '\n' {
+            line += 1;
+            line_start = i + 1;
+        }
+    }
+    return Pos { line: line, col: 1 + utf16_units(src, line_start, at) };
+}
+
+// The range of src[start..end) (offsets into the BOM-stripped `src`; `bom` bytes were stripped), the end clamped to
+// the file and the start to the end.
+fn file_range(src: string, bom: int, start: int, end: int): Range {
+    let e: int = min(end, len(src));
+    let s: int = min(start, e);
+    let a: Pos = file_pos(src, s);
+    let b: Pos = file_pos(src, e);
+    return Range { start: s + bom, end: e + bom, start_line: a.line, start_col: a.col, end_line: b.line, end_col: b.col };
+}
+
+// The one-byte range of the first ill-formed byte, at offset `at` of the raw (BOM-included) file `raw`: line and column
+// count the well-formed bytes before it, and the byte itself is one column wide.
+fn invalid_range(raw: string, at: int): Range {
+    let bom: int = bom_len(raw);
+    let p: Pos = file_pos(substring(raw, bom, len(raw)), at - bom);
+    return Range { start: at, end: at + 1, start_line: p.line, start_col: p.col, end_line: p.line, end_col: p.col + 1 };
+}
+
 // ---- loading
 
 // Lexes and parses one file at the next base, then loads its imports that are not in `seen` yet.
@@ -216,12 +290,12 @@ fn visit(ld: Loaded, seen: Set[string], path: string, raw: string) {
     push(ld.files, SourceFile { path: path, src: src, base: base, bom: bom });
     let lx: Lexer = lex_from(src, 0);
     for e in lx.errors {
-        push(ld.diags, Diag { start: e.start + base, end: e.end + base, message: e.message });
+        push(ld.diags, Diag { code: e.code, start: e.start + base, end: e.end + base, message: e.message, related: [] });
     }
     let p: Parser = new_parser_at(lx, base);
     let items: [Item] = parse_program(p);
     for e in p.errors {
-        push(ld.diags, Diag { start: e.start, end: e.end, message: e.message });
+        push(ld.diags, Diag { code: e.code, start: e.start, end: e.end, message: e.message, related: [] });
     }
     for item in items {
         push(ld.items, item);
@@ -239,7 +313,7 @@ fn load_import(ld: Loaded, seen: Set[string], from: string, src: string, base: i
     // The literal as written, escapes intact, for the message.
     let literal: string = substring(src, imp.path_start - base + 1, imp.path_end - base - 1);
     let Option::Some(decoded) = decode_literal(literal) else {
-        import_error(ld, imp, literal, "invalid path");
+        import_error(ld, imp, literal, "import.invalid-path", "invalid path", []);
         return;
     };
     var target: string = decoded;
@@ -254,7 +328,8 @@ fn load_import(ld: Loaded, seen: Set[string], from: string, src: string, base: i
         Result::Ok(text) => {
             let bad: int = utf8_invalid_at(text);
             if bad != -1 {
-                import_error(ld, imp, literal, utf8_reason(text, bad));
+                let related: [Related] = [Related { role: "import-target", path: target, range: Option::Some(invalid_range(text, bad)) }];
+                import_error(ld, imp, literal, "import.invalid-utf8", utf8_reason(text, bad), related);
                 return;
             }
             set_add(seen, id);
@@ -267,14 +342,15 @@ fn load_import(ld: Loaded, seen: Set[string], from: string, src: string, base: i
             if len(msg) >= len(prefix) && substring(msg, 0, len(prefix)) == prefix {
                 reason = substring(msg, len(prefix), len(msg));
             }
-            import_error(ld, imp, literal, reason);
+            let related: [Related] = [Related { role: "import-target", path: target, range: Option::None }];
+            import_error(ld, imp, literal, "import.unreadable", reason, related);
         }
     }
 }
 
 // Reports an import that can't be loaded, at its path literal (`literal` as written).
-fn import_error(ld: Loaded, imp: ImportDecl, literal: string, reason: string) {
-    push(ld.diags, Diag { start: imp.path_start, end: imp.path_end, message: "cannot import '" + literal + "': " + reason });
+fn import_error(ld: Loaded, imp: ImportDecl, literal: string, code: string, reason: string, related: [Related]) {
+    push(ld.diags, Diag { code: code, start: imp.path_start, end: imp.path_end, message: "cannot import '" + literal + "': " + reason, related: related });
 }
 
 // Loads the program rooted at `path`, whose contents are `src`.

@@ -13,20 +13,9 @@ fn diag_max(a: int, b: int): int {
     return b;
 }
 
-// UTF-16 code units in src[from..to): one per UTF-8 lead byte, two for a 4-byte sequence's lead, none for a
-// continuation byte.
+// UTF-16 code units in src[from..to), as `utf16_units` counts them.
 fn diag_utf16_len(src: string, from: int, to: int): int {
-    var n: int = 0;
-    for i in from..to {
-        let b: int = byte_at(src, i);
-        if b < 128 || b >= 192 {
-            n += 1;
-            if b >= 240 {
-                n += 1;
-            }
-        }
-    }
-    return n;
+    return utf16_units(src, from, to);
 }
 
 // `<path>:<line>:<col>: error: <message>`, the line's text and a caret line under the span, against the file the

@@ -12,6 +12,7 @@ struct Token {
 }
 
 struct LexError {
+    code: string,
     start: int,
     end: int,
     message: string,
@@ -96,8 +97,8 @@ fn push_token(lx: Lexer, kind: string, start: int) {
     push(lx.tokens, Token { kind: kind, start: start, end: lx.pos });
 }
 
-fn add_error(lx: Lexer, start: int, end: int, message: string) {
-    push(lx.errors, LexError { start: start, end: end, message: message });
+fn add_error(lx: Lexer, code: string, start: int, end: int, message: string) {
+    push(lx.errors, LexError { code: code, start: start, end: end, message: message });
 }
 
 // Lexes a string literal starting at the opening quote. A literal ends at the closing quote, a newline or the end of
@@ -128,11 +129,11 @@ fn lex_string(lx: Lexer) {
             width = 1 + utf8_len(next);
         }
         let end: int = min(lx.pos + width, len(src));
-        add_error(lx, lx.pos, end, "invalid escape sequence '" + substring(src, lx.pos, end) + "'");
+        add_error(lx, "lex.invalid-escape", lx.pos, end, "invalid escape sequence '" + substring(src, lx.pos, end) + "'");
         lx.pos = end;
     }
     if !terminated {
-        add_error(lx, start, lx.pos, "unterminated string literal");
+        add_error(lx, "lex.unterminated-string", start, lx.pos, "unterminated string literal");
     }
     push_token(lx, "string", start);
 }
@@ -164,9 +165,9 @@ fn lex_char(lx: Lexer) {
     }
     let single: string = "character literal must be a single ASCII character";
     if !terminated {
-        add_error(lx, start, lx.pos, "unterminated character literal");
+        add_error(lx, "lex.unterminated-char", start, lx.pos, "unterminated character literal");
     } else if body_len == 0 {
-        add_error(lx, start, lx.pos, "empty character literal");
+        add_error(lx, "lex.empty-char", start, lx.pos, "empty character literal");
     } else if byte_at(src, start + 1) == '\\' {
         // A backslash and one more character: a valid escape, or an invalid one quoted whole. A character outside the
         // Basic Multilingual Plane (4 bytes) is two UTF-16 units, so the compiler sees a longer body.
@@ -174,12 +175,12 @@ fn lex_char(lx: Lexer) {
         let width: int = utf8_len(next);
         let valid: bool = body_len == 2 && is_escape(next);
         if !valid && width < 4 && body_len == 1 + width {
-            add_error(lx, start + 1, start + 2 + width, "invalid escape sequence '" + substring(src, start + 1, start + 2 + width) + "'");
+            add_error(lx, "lex.invalid-escape", start + 1, start + 2 + width, "invalid escape sequence '" + substring(src, start + 1, start + 2 + width) + "'");
         } else if !valid {
-            add_error(lx, start, lx.pos, single);
+            add_error(lx, "lex.invalid-char", start, lx.pos, single);
         }
     } else if body_len != 1 || byte_at(src, start + 1) < ' ' || byte_at(src, start + 1) > '~' {
-        add_error(lx, start, lx.pos, single);
+        add_error(lx, "lex.invalid-char", start, lx.pos, single);
     }
     push_token(lx, "char", start);
 }
@@ -236,7 +237,7 @@ fn lex_from(src: string, pos: int): Lexer {
             push_token(lx, substring(src, start, lx.pos), start);
         } else {
             lx.pos = min(start + utf8_len(c), len(src));
-            add_error(lx, start, lx.pos, "unexpected character '" + substring(src, start, lx.pos) + "'");
+            add_error(lx, "lex.unexpected-character", start, lx.pos, "unexpected character '" + substring(src, start, lx.pos) + "'");
         }
     }
     push_token(lx, "eof", lx.pos);

@@ -71,6 +71,7 @@ struct Token
   field start int
   field end int
 struct LexError
+  field code string
   field start int
   field end int
   field message string
@@ -361,15 +362,17 @@ fn ident_of(Parser, Token): Ident
 fn describe(Parser, Token): string
   param 0 p Parser
   param 1 t Token
-fn error_at(Parser, string, int, int): void
+fn error_at(Parser, string, string, int, int): void
   param 0 p Parser
-  param 1 message string
-  param 2 start int
-  param 3 end int
-fn fail(Parser, string, Token): void
+  param 1 code string
+  param 2 message string
+  param 3 start int
+  param 4 end int
+fn fail(Parser, string, string, Token): void
   param 0 p Parser
-  param 1 message string
-  param 2 t Token
+  param 1 code string
+  param 2 message string
+  param 3 t Token
 fn expect(Parser, string): Option[Token]
   param 0 p Parser
   param 1 kind string
@@ -676,11 +679,12 @@ fn push_token(Lexer, string, int): void
   param 0 lx Lexer
   param 1 kind string
   param 2 start int
-fn add_error(Lexer, int, int, string): void
+fn add_error(Lexer, string, int, int, string): void
   param 0 lx Lexer
-  param 1 start int
-  param 2 end int
-  param 3 message string
+  param 1 code string
+  param 2 start int
+  param 3 end int
+  param 4 message string
 fn lex_string(Lexer): void
   param 0 lx Lexer
   let 1 src string

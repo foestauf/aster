@@ -12,15 +12,31 @@ struct SourceFile
   field src string
   field base int
   field bom int
+struct Range
+  field start int
+  field end int
+  field start_line int
+  field start_col int
+  field end_line int
+  field end_col int
+struct Related
+  field role string
+  field path string
+  field range Option[Range]
 struct Diag
+  field code string
   field start int
   field end int
   field message string
+  field related [Related]
 struct Loaded
   field files [SourceFile]
   field items [Item]
   field root_end int
   field diags [Diag]
+struct Pos
+  field line int
+  field col int
 struct Ident
   field name string
   field start int
@@ -92,6 +108,7 @@ struct Token
   field start int
   field end int
 struct LexError
+  field code string
   field start int
   field end int
   field message string
@@ -182,12 +199,15 @@ struct ExpansionGraph
   field component [int]
   field visited int
   field components int
+struct PendingDiag
+  field code string
+  field message string
 struct Env
   field diags [Diag]
   field structs [TStruct]
   field enums [TEnum]
   field templates [Template]
-  field pending [string]
+  field pending [PendingDiag]
   field struct_ids Map[string, int]
   field enum_ids Map[string, int]
   field template_ids Map[string, int]
@@ -460,6 +480,9 @@ enum IrTerm
 enum Option[string]
   variant Some(string)
   variant None
+enum Option[Range]
+  variant Some(Range)
+  variant None
 enum Option[TypeExpr]
   variant Some(TypeExpr)
   variant None
@@ -633,6 +656,33 @@ fn utf8_reason(string, int): string
   param 1 at int
   var 2 line int
   let 3 i int
+fn utf16_units(string, int, int): int
+  param 0 src string
+  param 1 from int
+  param 2 to int
+  var 3 n int
+  let 4 i int
+  let 5 b int
+fn file_pos(string, int): Pos
+  param 0 src string
+  param 1 at int
+  var 2 line int
+  var 3 line_start int
+  let 4 i int
+fn file_range(string, int, int, int): Range
+  param 0 src string
+  param 1 bom int
+  param 2 start int
+  param 3 end int
+  let 4 e int
+  let 5 s int
+  let 6 a Pos
+  let 7 b Pos
+fn invalid_range(string, int): Range
+  param 0 raw string
+  param 1 at int
+  let 2 bom int
+  let 3 p Pos
 fn visit(Loaded, Set[string], string, string): void
   param 0 ld Loaded
   param 1 seen Set[string]
@@ -663,14 +713,18 @@ fn load_import(Loaded, Set[string], string, string, int, ImportDecl): void
   let 9 id string
   let 10 text string
   let 11 bad int
-  let 12 msg string
-  let 13 prefix string
-  var 14 reason string
-fn import_error(Loaded, ImportDecl, string, string): void
+  let 12 related [Related]
+  let 13 msg string
+  let 14 prefix string
+  var 15 reason string
+  let 16 related [Related]
+fn import_error(Loaded, ImportDecl, string, string, string, [Related]): void
   param 0 ld Loaded
   param 1 imp ImportDecl
   param 2 literal string
-  param 3 reason string
+  param 3 code string
+  param 4 reason string
+  param 5 related [Related]
 fn load_program(string, string): Loaded
   param 0 path string
   param 1 src string
@@ -703,15 +757,17 @@ fn ident_of(Parser, Token): Ident
 fn describe(Parser, Token): string
   param 0 p Parser
   param 1 t Token
-fn error_at(Parser, string, int, int): void
+fn error_at(Parser, string, string, int, int): void
   param 0 p Parser
-  param 1 message string
-  param 2 start int
-  param 3 end int
-fn fail(Parser, string, Token): void
+  param 1 code string
+  param 2 message string
+  param 3 start int
+  param 4 end int
+fn fail(Parser, string, string, Token): void
   param 0 p Parser
-  param 1 message string
-  param 2 t Token
+  param 1 code string
+  param 2 message string
+  param 3 t Token
 fn expect(Parser, string): Option[Token]
   param 0 p Parser
   param 1 kind string
@@ -1018,11 +1074,12 @@ fn push_token(Lexer, string, int): void
   param 0 lx Lexer
   param 1 kind string
   param 2 start int
-fn add_error(Lexer, int, int, string): void
+fn add_error(Lexer, string, int, int, string): void
   param 0 lx Lexer
-  param 1 start int
-  param 2 end int
-  param 3 message string
+  param 1 code string
+  param 2 start int
+  param 3 end int
+  param 4 message string
 fn lex_string(Lexer): void
   param 0 lx Lexer
   let 1 src string
@@ -1179,11 +1236,12 @@ fn primitive_type(string): Option[Type]
   param 0 name string
 fn is_primitive(string): bool
   param 0 name string
-fn report(Env, string, int, int): void
+fn report(Env, string, string, int, int): void
   param 0 env Env
-  param 1 message string
-  param 2 start int
-  param 3 end int
+  param 1 code string
+  param 2 message string
+  param 3 start int
+  param 4 end int
 fn builtin_type_message(string): string
   param 0 name string
 fn is_builtin_type(string): bool
@@ -1264,13 +1322,14 @@ fn flush_pending(Env, int, int): void
   param 0 env Env
   param 1 start int
   param 2 end int
-  let 3 message string
-fn say(Env, bool, string, int, int): void
+  let 3 p PendingDiag
+fn say(Env, bool, string, string, int, int): void
   param 0 env Env
   param 1 quiet bool
-  param 2 message string
-  param 3 start int
-  param 4 end int
+  param 2 code string
+  param 3 message string
+  param 4 start int
+  param 5 end int
 fn instantiate(Env, Template, [Type]): Type
   param 0 env Env
   param 1 template Template
@@ -1565,43 +1624,42 @@ fn check_expr(Ctx, Expr, Option[Type]): TExpr
   let 6 value bool
   let 7 name string
   let 8 local Local
-  let 9 message string
-  let 10 op string
-  let 11 operand_expr Expr
-  let 12 operand TExpr
-  let 13 want Type
-  let 14 op string
-  let 15 left Expr
-  let 16 right Expr
-  let 17 callee Expr
-  let 18 args [Expr]
-  let 19 keyword Ident
-  let 20 scrutinee Expr
-  let 21 arms [Arm]
-  let 22 cond_expr Expr
-  let 23 then_expr Expr
-  let 24 other_expr Expr
-  let 25 cond TExpr
-  let 26 then TExpr
-  let 27 other TExpr
-  let 28 ty Type
-  let 29 object_expr Expr
-  let 30 field Ident
-  let 31 object TExpr
-  let 32 name string
-  let 33 f TField
-  let 34 name Ident
-  let 35 fields [FieldInit]
-  let 36 operand Expr
-  let 37 array_expr Expr
-  let 38 index_expr Expr
-  let 39 array TExpr
-  let 40 index TExpr
-  let 41 elem Type
-  let 42 elements [Expr]
-  let 43 enum_name Ident
-  let 44 variant Ident
-  let 45 args [Expr]
+  let 9 op string
+  let 10 operand_expr Expr
+  let 11 operand TExpr
+  let 12 want Type
+  let 13 op string
+  let 14 left Expr
+  let 15 right Expr
+  let 16 callee Expr
+  let 17 args [Expr]
+  let 18 keyword Ident
+  let 19 scrutinee Expr
+  let 20 arms [Arm]
+  let 21 cond_expr Expr
+  let 22 then_expr Expr
+  let 23 other_expr Expr
+  let 24 cond TExpr
+  let 25 then TExpr
+  let 26 other TExpr
+  let 27 ty Type
+  let 28 object_expr Expr
+  let 29 field Ident
+  let 30 object TExpr
+  let 31 name string
+  let 32 f TField
+  let 33 name Ident
+  let 34 fields [FieldInit]
+  let 35 operand Expr
+  let 36 array_expr Expr
+  let 37 index_expr Expr
+  let 38 array TExpr
+  let 39 index TExpr
+  let 40 elem Type
+  let 41 elements [Expr]
+  let 42 enum_name Ident
+  let 43 variant Ident
+  let 44 args [Expr]
 fn tryable(Env, Type): Option[int]
   param 0 env Env
   param 1 t Type
@@ -1644,9 +1702,8 @@ fn resolve_variant(Env, Ident, Ident): FoundVariant
   let 5 v VariantDecl
   let 6 ei int
   let 7 is_type bool
-  let 8 message string
-  let 9 enum_type TEnum
-  let 10 vi int
+  let 8 enum_type TEnum
+  let 9 vi int
 fn check_variant_expr(Ctx, Expr, Ident, Ident, [Expr], Option[Type]): TExpr
   param 0 ctx Ctx
   param 1 e Expr
@@ -1955,12 +2012,11 @@ fn check_place(Ctx, Expr): Option[TPlace]
   param 1 target Expr
   let 2 name string
   let 3 local Local
-  let 4 message string
-  let 5 checked TExpr
-  let 6 object TExpr
-  let 7 field string
-  let 8 array TExpr
-  let 9 index TExpr
+  let 4 checked TExpr
+  let 5 object TExpr
+  let 6 field string
+  let 7 array TExpr
+  let 8 index TExpr
 fn check_compound(Ctx, Stmt, string, Type, Type): void
   param 0 ctx Ctx
   param 1 s Stmt
@@ -2096,9 +2152,6 @@ fn diag_utf16_len(string, int, int): int
   param 0 src string
   param 1 from int
   param 2 to int
-  var 3 n int
-  let 4 i int
-  let 5 b int
 fn format_diag([SourceFile], Diag): string
   param 0 files [SourceFile]
   param 1 d Diag
