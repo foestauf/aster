@@ -62,6 +62,18 @@ describe('utf8_lossy', () => {
     const input = Buffer.from([0x61, 0xe1, 0x80, 0x62, 0xff, 0x80, 0x63, 0xf0, 0x9f, 0x98, 0x80]);
     expect(JSON.parse(run('lossy', input).toString('utf8'))).toBe('a�b��c\u{1F600}');
   });
+  it.for([
+    ['E0 80', [0xe0, 0x80], 2],
+    ['ED A0 80', [0xed, 0xa0, 0x80], 3],
+    ['F4 90 80 80', [0xf4, 0x90, 0x80, 0x80], 4],
+    ['C0', [0xc0], 1],
+    ['F0 9F 98 (truncated)', [0xf0, 0x9f, 0x98], 1],
+  ] as [string, number[], number][])('matches the WHATWG maximal-subpart rule for %s', ([, bytes, n]) => {
+    const input = Buffer.from([0x61, ...bytes, 0x62]);
+    const expected = 'a' + '\u{FFFD}'.repeat(n) + 'b';
+    expect(new TextDecoder('utf-8').decode(input)).toBe(expected);
+    expect(JSON.parse(run('lossy', input).toString('utf8'))).toBe(expected);
+  });
   it('leaves well-formed text alone', () => {
     expect(JSON.parse(run('lossy', Buffer.from('dir/ü.aster')).toString('utf8'))).toBe('dir/ü.aster');
   });

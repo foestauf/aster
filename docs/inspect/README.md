@@ -24,7 +24,7 @@ appear in the order shown; optional keys are omitted rather than `null` unless s
 | `schema` | Always `"aster/1"`. |
 | `command` | `"check"` (or `"inspect"` later). |
 | `ok` | `true` exactly when `diagnostics` is empty. |
-| `files` | Every loaded file, in load order. `id` is the load index (root = 0). `path` is spelled as human diagnostics spell it (the root as given; an import as `dirname(importer) + "/" + literal`). `bom` says whether a UTF-8 byte order mark was stripped. A file that failed to load is not listed. |
+| `files` | Every loaded file, in load order. `id` is the load index (root = 0). `path` is spelled as human diagnostics spell it (the root as given; an import's decoded literal when it is absolute, otherwise `dirname(importer) + "/" + <decoded literal>`). `bom` says whether a UTF-8 byte order mark was stripped. A file that failed to load is not listed. |
 | `diagnostics` | In human order: stable by start offset, dropping a diagnostic whose start and message equal an earlier one's. |
 
 A diagnostic is `{"code", "severity", "message", "primary", "related"}`. `code` is the contract (see the catalogue
@@ -115,6 +115,14 @@ Import cycles and diamonds are not errors (each file loads once) and produce no 
 - There is no request version; an unsupported `--format` is a usage error.
 - File ids are deterministic for the same source snapshot and entry path. Nothing is stable across edits.
 
+## Validation
+
+Commands: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm selfhost` (the full proof: S0-S4 plus SL1/SL2; needs clang 18 and lld).
+
+Last run at b46a85d (2026-10-06): pnpm test 1209/1209; pnpm selfhost PASS (S1-S3 and SL1 1037/1037 each; C fixed point e82e9635120e96e9; LLVM fixed point 3c74ad3b99e231bf).
+
+v0.9b adds `inspect`; this section is refreshed then.
+
 ## Diagnostic codes
 
 Every diagnostic the compiler emits carries a stable code. The message column is the human message, with placeholders in angle brackets.
@@ -136,7 +144,7 @@ Every diagnostic the compiler emits carries a stable code. The message column is
 | `import.invalid-path` | cannot import '<literal>': invalid path |
 | `import.unreadable` | cannot import '<literal>': <reason> |
 | `import.invalid-utf8` | cannot import '<literal>': invalid UTF-8 at line <L>, byte <B> |
-| `decl.builtin-type-redefined` | '<name>' is a built-in type and cannot be redefined |
+| `decl.builtin-type-redefined` | '<name>' is a built-in type and cannot be redefined, or '<name>' is a builtin type and cannot be redefined |
 | `decl.builtin-fn-redefined` | '<name>' is a builtin function and cannot be redefined |
 | `decl.duplicate` | duplicate <struct\|enum\|function> '<name>' |
 | `decl.kind-conflict` | '<name>' is already declared as <a struct\|an enum> |
