@@ -30,6 +30,12 @@ fn local_offset(files: [SourceFile], at: int): string {
     let f: SourceFile = files[file_of(files, at)];
     return int_to_string(at - f.base + f.bom);
 }
+fn dash(s: string): string {
+    if s == "" {
+        return "-";
+    }
+    return s;
+}
 fn main(args: [string]): int {
     let FrontEnd::Passed(loaded, checked) = front_end(args[0]) else {
         print("unavailable");
@@ -37,7 +43,7 @@ fn main(args: [string]): int {
     };
     let files: [SourceFile] = loaded.files;
     for f in checked.facts {
-        print("fact " + f.kind + " " + int_to_string(file_of(files, f.start)) + " " + local_offset(files, f.start) + " " + local_offset(files, f.end) + " " + type_to_string(f.ty) + " " + int_to_string(f.func) + " " + int_to_string(f.local) + " " + f.name + " " + f.owner);
+        print("fact " + f.kind + " " + int_to_string(file_of(files, f.start)) + " " + local_offset(files, f.start) + " " + local_offset(files, f.end) + " " + type_to_string(f.ty) + " " + int_to_string(f.func) + " " + int_to_string(f.local) + " " + dash(f.name) + " " + dash(f.owner));
     }
     for fi in 0..len(checked.local_sites) {
         let sites: [LocalSite] = checked.local_sites[fi].sites;
@@ -54,6 +60,9 @@ fn main(args: [string]): int {
   buildDriver(driver, exe);
 });
 
+/** A driver field: `-` stands for an empty name or owner. */
+const undash = (v: string | undefined) => (v === '-' ? '' : v!);
+
 interface Fact { kind: string; file: number; start: number; end: number; type: string; func: number; local: number; name: string; owner: string }
 
 function dump(files: Record<string, string | Buffer>, entry = 'main.aster') {
@@ -65,10 +74,11 @@ function dump(files: Record<string, string | Buffer>, entry = 'main.aster') {
   const r = spawnSync(exe, [join(d, entry)], { encoding: 'utf8' });
   const lines = r.stdout.trim().split('\n');
   const facts: Fact[] = lines.filter((l) => l.startsWith('fact ')).map((l) => {
-    const [, kind, file, start, end, ...rest] = l.split(' ');
-    const [owner = '', name = '', local, func, ...ty] = rest.reverse();
-    const type = ty.reverse().join(' ');
-    return { kind: kind!, file: +file!, start: +start!, end: +end!, type: type!, func: +func!, local: +local!, name, owner };
+    // The type may contain spaces; the four fixed fields after it never do, and `-` stands for an empty name or owner.
+    const w = l.split(' ');
+    const [, kind, file, start, end] = w;
+    const [func, local, name, owner] = w.slice(-4);
+    return { kind: kind!, file: +file!, start: +start!, end: +end!, type: w.slice(5, -4).join(' '), func: +func!, local: +local!, name: undash(name), owner: undash(owner) };
   });
   const sites = lines.filter((l) => l.startsWith('site ')).map((l) => l.split(' ').slice(1).map(Number));
   const parens = lines.filter((l) => l.startsWith('paren ')).map((l) => l.split(' ').slice(1).map(Number));
@@ -146,15 +156,22 @@ fn main(): int {
     expect(use(i[6]!)).toBe(i[0]);
   });
 
-  it('records imported callees and fields in the imported file', () => {
+  it('records callee and field facts in the root and local facts in the imported file', () => {
     const main = 'import "lib.aster";\nfn main(): int {\n    let p: Point = Point { x: 1 };\n    return twice(p.x);\n}\n';
     const lib = 'struct Point { x: int }\nfn twice(n: int): int {\n    return n * 2;\n}\n';
-    const { status, facts } = dump({ 'main.aster': main, 'lib.aster': lib });
+    const { status, facts, sites } = dump({ 'main.aster': main, 'lib.aster': lib });
     expect(status).toBe(0);
     expect(factAt(facts, 'callee', spanAt(main, 'twice(', 'twice')).name).toBe('twice');
     const x = factAt(facts, 'field', spanAt(main, 'p.x', 'x'));
     expect([x.owner, x.name, x.type]).toEqual(['Point', 'x', 'int']);
     expect(factAt(facts, 'local', spanAt(lib, 'n * 2', 'n'), 1).type).toBe('int');
+    // Each use resolves to a declaration in its own function (and file): `func` indexes the right function.
+    const p = factAt(facts, 'local', spanAt(main, 'p.x', 'p'));
+    const n = factAt(facts, 'local', spanAt(lib, 'n * 2', 'n'), 1);
+    expect(p.func).not.toBe(n.func);
+    const siteOf = (fact: Fact) => sites.find(([func, local]) => func === fact.func && local === fact.local)!;
+    expect(siteOf(p)).toEqual([p.func, p.local, 0, spanAt(main, 'let p', 'p')[0]]);
+    expect(siteOf(n)).toEqual([n.func, n.local, 1, spanAt(lib, 'n: int', 'n')[0]]);
   });
 
   it('types every expression form', () => {
@@ -210,8 +227,8 @@ fn main(): int {
     for (const name of ['push', 'len', 'pick']) {
       const at = words(src, name).at(-1)!;
       const end = at + name.length;
-      expect(facts.filter((f) => f.kind === 'callee' && f.start === at && f.end === end), name).toHaveLength(1);
-      expect(facts.filter((f) => f.kind !== 'callee' && f.start === at && f.end === end), name).toHaveLength(0);
+      const here = facts.filter((f) => f.start === at && f.end === end).map((f) => `${name}:${f.kind}`);
+      expect(here).toEqual([`${name}:callee`]);
     }
   });
 
