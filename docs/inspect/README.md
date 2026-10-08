@@ -29,7 +29,7 @@ appear in the order shown; optional keys are omitted rather than `null` unless s
 | Key | Meaning |
 | --- | --- |
 | `schema` | Always `"aster/1"`. |
-| `command` | `"check"` or `"inspect"`. |
+| `command` | `"check"`, `"inspect"` or `"query"` (see [Position queries](#position-queries)). |
 | `ok` | `true` exactly when `diagnostics` is empty. |
 | `files` | Every loaded file, in load order. `id` is the load index (root = 0). `path` is spelled as human diagnostics spell it (the root as given; an import's decoded literal when it is absolute, otherwise `dirname(importer) + "/" + <decoded literal>`). `bom` says whether a UTF-8 byte order mark was stripped. A file that failed to load is not listed. |
 | `diagnostics` | In human order: stable by start offset, dropping a diagnostic whose start and message equal an earlier one's. |
@@ -428,19 +428,18 @@ Import cycles and diamonds are not errors (each file loads once) and produce no 
 
 Commands: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm selfhost` (the full proof: S0-S4 plus SL1/SL2; needs clang 18 and lld).
 
-Last run at 71dba8c plus the uncommitted Task 5 changes (2026-10-07), without clang or lld on the machine:
+Last run on the tree committed as dbee066 (2026-10-07; docs and test changes on top of 71dba8c, so the same compiler source), on a machine without clang or lld:
 
 - `pnpm lint` and `pnpm typecheck`: clean.
-- `pnpm test`: 1220 passed, 139 failed of 1359. All 139 failures are `tests/llvm_backend.test.ts`, which spawns
-  `clang` (`spawnSync clang ENOENT`). Every other file passes (30 of 31), including `json_query` (102) and
-  `query_consumer` (5).
+- `pnpm test`: 1220 of 1359 tests pass; the 139 failures are all `tests/llvm_backend.test.ts` (`spawnSync clang ENOENT`).
+  `json_query` (102 of 102) and `query_consumer` (5 of 5) pass.
 - `pnpm selfhost --suite=S1 --suite=S2 --suite=S3`: did not run. The environment check needs clang and lld and stopped
   with `spawnSync clang ENOENT`. The stage-aware suites ran against S1 inside `pnpm test`. The S2/S3 fixed points, the
   SL1 suites and the full proof are left to CI's `proof` jobs.
 
 ## Measurements
 
-Median of three runs of `build/asterc` (built from 71dba8c with `pnpm build`), `/usr/bin/time -f '%e s %M KB'`,
+Median of three runs of `build/asterc` (built with `pnpm build` from 71dba8c, which has the same compiler source as dbee066), `/usr/bin/time -f '%e s %M KB'`,
 Linux x86_64. The `query` line asks for one position in the same program.
 
 | Program | `inspect` | `query` |
