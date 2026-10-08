@@ -347,6 +347,10 @@ struct Ids
   field enum_index Map[string, int]
   field struct_index Map[string, int]
   field next int
+struct DeclSite
+  field start int
+  field end int
+  field id int
 struct Walk
   field ids Ids
   field render bool
@@ -357,6 +361,19 @@ struct Walk
   field builtins Signatures
   field fn_index Map[string, int]
   field lines [[int]]
+  field decl_sites [DeclSite]
+  field decl_type Map[int, string]
+  field decl_signature Map[int, string]
+  field local_ids [[int]]
+  field fn_ids Map[string, int]
+  field builtin_ids Map[string, int]
+  field field_ids Map[string, int]
+struct Sha256
+  field xor8 [int]
+  field and8 [int]
+  field pow2 [int]
+  field k [int]
+  field w [int]
 enum TypeNode
   variant Named(string, [TypeExpr])
   variant Array(TypeExpr)
@@ -612,6 +629,9 @@ enum Option[IrEnum]
 enum Result[int, string]
   variant Ok(int)
   variant Err(string)
+enum Option[Sha256]
+  variant Some(Sha256)
+  variant None
 enum Result[string, string]
   variant Ok(string)
   variant Err(string)
@@ -3524,28 +3544,41 @@ fn json_diag([SourceFile], Diag): string
   let 5 r Related
   let 6 fields [string]
   let 7 f string
-fn json_files([SourceFile]): string
+fn json_files([SourceFile], Option[Sha256]): string
   param 0 files [SourceFile]
-  let 1 out [string]
-  let 2 i int
-  let 3 shown string
-  let 4 fields [string]
+  param 1 digests Option[Sha256]
+  let 2 out [string]
+  let 3 i int
+  let 4 shown string
+  let 5 fields [string]
+  let 6 sha Sha256
+fn file_sha256(Sha256, SourceFile): string
+  param 0 sha Sha256
+  param 1 f SourceFile
+  let 2 prefix [int]
+fn response_fields(string, string, FrontEnd, Option[Sha256]): [string]
+  param 0 command string
+  param 1 path string
+  param 2 fe FrontEnd
+  param 3 digests Option[Sha256]
+  var 4 files string
+  let 5 diags [string]
+  let 6 raw string
+  let 7 bad int
+  let 8 loaded Loaded
+  let 9 ds [Diag]
+  let 10 d Diag
+  let 11 loaded Loaded
+fn json_unavailable(string): string
+  param 0 reason string
 fn inspect_response(string, string, FrontEnd): string
   param 0 command string
   param 1 path string
   param 2 fe FrontEnd
-  var 3 files string
-  let 4 diags [string]
-  let 5 raw string
-  let 6 bad int
-  let 7 loaded Loaded
-  let 8 ds [Diag]
-  let 9 d Diag
-  let 10 loaded Loaded
-  let 11 fields [string]
-  let 12 loaded Loaded
-  let 13 checked Checked
-  let 14 semantics string
+  let 3 fields [string]
+  let 4 loaded Loaded
+  let 5 checked Checked
+  let 6 semantics string
 fn builtin_names(): [string]
 fn is_builtin_type_name(string): bool
   param 0 name string
@@ -3630,6 +3663,13 @@ fn emit(Walk, int, [string]): void
   param 0 w Walk
   param 1 id int
   param 2 fields [string]
+  let 3 f string
+  let 4 v string
+  let 5 v string
+fn json_field_value(string, string): Option[string]
+  param 0 field string
+  param 1 key string
+  let 2 prefix string
 fn head(int, string, string, string, string, string): [string]
   param 0 id int
   param 1 kind string
@@ -3754,16 +3794,22 @@ fn walk(Walk): void
   let 5 t Template
   let 6 en TEnum
   let 7 name string
-fn json_semantics(Loaded, Checked): string
+fn semantics_walk(Loaded, Checked): Walk
   param 0 loaded Loaded
   param 1 checked Checked
   let 2 ids Ids
   let 3 i int
   let 4 i int
   let 5 fn_index Map[string, int]
-  let 6 i int
-  let 7 w Walk
-  let 8 f SourceFile
+  let 6 local_ids [[int]]
+  let 7 i int
+  let 8 w Walk
+  let 9 f SourceFile
+fn json_semantics_of(Walk): string
+  param 0 w Walk
+fn json_semantics(Loaded, Checked): string
+  param 0 loaded Loaded
+  param 1 checked Checked
 fn json_hex_digit(int): string
   param 0 n int
 fn json_str(string): string
@@ -3807,4 +3853,106 @@ fn json_bool(bool): string
   param 0 b bool
 fn json_int(int): string
   param 0 n int
+fn sha256_new(): Sha256
+  let 0 xor8 [int]
+  let 1 and8 [int]
+  let 2 a int
+  let 3 b int
+  var 4 x int
+  var 5 n int
+  var 6 bit int
+  var 7 ra int
+  var 8 rb int
+  let 9 step int
+  let 10 abit int
+  let 11 bbit int
+  let 12 pow2 [int]
+  var 13 p int
+  let 14 i int
+  let 15 w [int]
+  let 16 i int
+  let 17 k [int]
+fn bytewise32([int], int, int): int
+  param 0 table [int]
+  param 1 a int
+  param 2 b int
+  var 3 out int
+  var 4 x int
+  var 5 y int
+  var 6 scale int
+  let 7 step int
+fn xor32(Sha256, int, int): int
+  param 0 s Sha256
+  param 1 a int
+  param 2 b int
+fn and32(Sha256, int, int): int
+  param 0 s Sha256
+  param 1 a int
+  param 2 b int
+fn not32(int): int
+  param 0 a int
+fn add32(int, int): int
+  param 0 a int
+  param 1 b int
+fn rotr32(Sha256, int, int): int
+  param 0 s Sha256
+  param 1 x int
+  param 2 n int
+fn shr32(Sha256, int, int): int
+  param 0 s Sha256
+  param 1 x int
+  param 2 n int
+fn padded_byte([int], string, int, int, int): int
+  param 0 prefix [int]
+  param 1 text string
+  param 2 size int
+  param 3 total int
+  param 4 i int
+  var 5 bits int
+  let 6 step int
+fn sha256_block(Sha256, [int], [int], string, int, int, int): void
+  param 0 s Sha256
+  param 1 h [int]
+  param 2 prefix [int]
+  param 3 text string
+  param 4 size int
+  param 5 total int
+  param 6 at int
+  let 7 w [int]
+  let 8 t int
+  let 9 i int
+  let 10 t int
+  let 11 x int
+  let 12 y int
+  let 13 s0 int
+  let 14 s1 int
+  var 15 a int
+  var 16 b int
+  var 17 c int
+  var 18 d int
+  var 19 e int
+  var 20 f int
+  var 21 g int
+  var 22 hh int
+  let 23 t int
+  let 24 big1 int
+  let 25 choose int
+  let 26 t1 int
+  let 27 big0 int
+  let 28 majority int
+  let 29 t2 int
+fn sha256_hex(Sha256, [int], string): string
+  param 0 s Sha256
+  param 1 prefix [int]
+  param 2 text string
+  let 3 h [int]
+  let 4 size int
+  var 5 total int
+  var 6 at int
+  let 7 digits string
+  var 8 out string
+  let 9 word int
+  var 10 scale int
+  let 11 step int
+  let 12 d int
 == stderr
