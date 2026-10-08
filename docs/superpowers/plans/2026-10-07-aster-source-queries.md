@@ -2205,6 +2205,10 @@ In `docs/inspect/README.md`:
   - Freshness.
   - One worked example: contract example 1.
   - A link to the spec, for the full selection tables.
+  - #58's **coverage matrix**: one row per `ExprNode` form (`Int`, `Char`, `Str`, `Bool`, `Name`, `Unary`, `Binary`,
+    `Call`, `If`, `Field`, `StructLit`, `Index`, `Try`, `ArrayLit`, `Variant`, `Match`, `EmptyMap`), plus assignment
+    places. Each row gives the site and fact it yields, its result type and its `target`. The type-name, variant-name,
+    pattern and import positions are listed as `unsupported`, so no navigation target is invented for them.
 - Add the query rows to the **Failure matrix**.
 - Extend **Compatibility** with the additive keys.
 - Replace the **Validation** line with this run's revision, commands and results, and add a **Measurements** table
