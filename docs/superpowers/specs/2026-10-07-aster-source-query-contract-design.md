@@ -15,11 +15,11 @@ the bytes the answer describes.
 
 | Question | Decision |
 | --- | --- |
-| Spelling | A new command, `aster query <entry.aster> --file=<path> --offset=<byte>`. `inspect` is unchanged. |
+| Spelling | A new command, `aster query <entry.aster> --file=<path> (--offset=<byte> \| --caret=<byte>)`. `inspect` is unchanged. |
 | Schema | Additive within `aster/1`: `command:"query"`, a `sha256` key on each `files` entry in query responses, and a trailing `query` key. No existing key changes type or meaning. |
 | Declarations | The response embeds the full `inspect` `semantics`. Every id a query result mentions is an index into that same `declarations` list. |
 | File identity | The loader's own key: `--file` and each loaded file's `path` are compared after lexical normalisation. |
-| Position | One file-local byte offset into the file as stored on disk, with a leading BOM counted, as in v0.9 ranges. No line/column input. |
+| Position | One file-local byte offset into the file as stored on disk, with a leading BOM counted, as in v0.9 ranges. No line/column input. `--offset` names the character at that byte (pointer, for hover); `--caret` names the gap before it and falls back to a name just left of the gap (caret, for go-to-definition). |
 | Freshness | `files[].sha256` holds the SHA-256 of the exact bytes the compiler read. The client re-hashes and discards on any mismatch. The digest is implemented in Aster, with no new builtin or operator. |
 | Scope | One entry point's saved import closure, one request per process, successfully checked programs only. |
 
@@ -29,18 +29,22 @@ Approaches considered and rejected:
 - `inspect --at=` would give an option-free command options and needs a path separator.
 - A runtime `sha256` builtin would be new language surface.
 - A 64-bit polynomial hash has known structured collisions and needs a custom implementation in every consumer.
+- Leaving caret handling to the client would cost a second compiler run per lookup, and the client would have to guess
+  name boundaries from text. Making every query caret-shaped would break hover, where pointing at `(` must give the call.
 
 ## The command
 
 ```
 aster query <entry.aster> --file=<path> --offset=<byte>
+aster query <entry.aster> --file=<path> --caret=<byte>
 ```
 
-- `--file` and `--offset` are both required and each may appear once. They may come before or after the entry.
-- `--offset` is canonical decimal (`0` or a non-zero digit followed by digits) and at most 2^63-1.
-- The usage line `aster query <file.aster> --file=<path> --offset=<byte>` joins `usage_text()`.
+- `--file` is required. Exactly one of `--offset` and `--caret` is required. Each may appear once, before or after the
+  entry.
+- The position is canonical decimal (`0` or a non-zero digit followed by digits) and at most 2^63-1.
+- The usage line `aster query <file.aster> --file=<path> (--offset=<byte> | --caret=<byte>)` joins `usage_text()`.
 - These are **usage errors**, with exit 2, human usage text on stderr and nothing on stdout, as in v0.9:
-  - a missing or repeated flag
+  - a missing or repeated flag, or both `--offset` and `--caret`
   - an empty `--file=`
   - a negative, signed, non-decimal or leading-zero offset
   - an offset that does not fit
@@ -66,7 +70,7 @@ Keys appear in this order and are omitted when not listed for a status.
 
 | Key | Meaning |
 | --- | --- |
-| `request` | `{"path", "offset", "file"}`. `path` is `--file` as given, and `offset` is the number given. `file` is the matched `files` id, or `null` when the program is unavailable or the file is not in the closure. |
+| `request` | `{"path", "mode", "offset", "file"}`. `path` is `--file` as given. `mode` is `"pointer"` for `--offset` and `"caret"` for `--caret`, and `offset` is the number given to either. `file` is the matched `files` id, or `null` when the program is unavailable or the file is not in the closure. |
 | `status` | One of `found`, `none`, `unsupported`, `invalid` or `unavailable`. Consumers must tolerate statuses added later. |
 | `reason` | For `invalid` and `unavailable` only (see [Statuses](#statuses)). |
 | `site` | For `found` and `unsupported`: what was selected (see [Sites](#sites)). |
@@ -89,20 +93,21 @@ Statuses are evaluated in this order, and the first that applies wins.
 | `invalid` | the program checked, but `--file` is not a loaded file | `"file-not-in-closure"` | 2 |
 | `invalid` | `offset` > the file's size in bytes | `"offset-out-of-range"` | 2 |
 | `invalid` | `offset` < size and the byte there is a UTF-8 continuation byte (`0x80`-`0xBF`), including bytes 1 and 2 of a BOM | `"offset-not-boundary"` | 2 |
-| `none` | a valid position where no site's extent contains the selected byte, including `offset` = size (end of file) | — | 0 |
+| `none` | a valid position where selection finds no site, including a pointer at `offset` = size (end of file) | — | 0 |
 | `unsupported` | the innermost site is one this version does not answer | — | 0 |
 | `found` | the innermost site is answerable | — | 0 |
 
 - An unavailable program never reports a position result, even for a file and offset that would be valid: there is no
   trustworthy closure to validate against, and no partial typed tree is exposed. `request.file` is `null`.
+- The `invalid` checks are the same in both modes. A caret at `offset` = size is valid and still looks left.
 - `invalid` is a well-formed request about the wrong place, so it is a JSON response rather than a usage error.
 - Exit 0 means "here is the answer", including "there is nothing here". Stderr is empty in every JSON case. An internal
   compiler panic keeps v0.9's 101, with no guaranteed output.
 
 ### Selection
 
-The offset `b` selects the code point that starts at byte `b`: the character a pointer is over, not a caret between
-two characters. A client turning a caret into a query sends the offset of the character after the caret.
+With `--offset=b` (pointer mode), the query selects the code point that starts at byte `b`: the character a pointer
+is over. `--caret=b` names the gap between bytes `b-1` and `b`; see [Caret mode](#caret-mode).
 
 Every **site** has a source span, its exact token or expression range, and an **extent**:
 
@@ -118,6 +123,25 @@ keywords (`let`, `var`, `if` as a statement, `while`, `for`, `return`, `break`, 
 block punctuation, item keywords, and the first byte of a BOM.
 
 `location.range` is the selected site's extent.
+
+#### Caret mode
+
+Editors place a caret between characters, and a caret just after a name should still find that name, as it does in
+most editors. With `--caret=b`, selection runs at most two pointer selections, in this order:
+
+1. If `b` < size, select at `b` (the character after the caret). If the selected site is a **name site**, that is the answer.
+2. Otherwise, if `b` > 0, select at the code point that ends at byte `b` (the character before the caret). If the
+   selected site is a name site, that is the answer.
+3. Otherwise the answer is step 1's result, or `none` when `b` = size.
+
+The **name sites** are `declaration`, `local`, `callee` and `field`, plus the unsupported `variant-name`,
+`struct-literal-name` and `field-init-name`. So a caret anywhere on a name, or right after it, finds the name. A
+caret touching only operators, punctuation or whitespace gets the same answer as a pointer at `b`. A caret at a
+boundary between two names (impossible in Aster's grammar without punctuation between them) prefers the right-hand
+one. `location.range` is the chosen site's extent, as in pointer mode.
+
+Hover sends the hovered character as `--offset`. Go-to-definition and any other caret-driven request send
+`--caret`. #60's adapter follows this split.
 
 ### Sites
 
@@ -315,6 +339,31 @@ bytes, `bom:true`):
 | 32 | `0` | `found` / `expression` | 32-33 (line 2, col 12) | `type` int |
 | 39 | end of file | `none` | — | |
 
+### Caret table
+
+`--caret=b` on `main.aster` unless stated. `|` marks the caret. *Step* is the step of [Caret mode](#caret-mode) that
+decided the answer.
+
+| Caret | At | Step | Status / site | Extent | Result |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `\|import` | 3 | `none` | — | no left side, and the right side is a keyword |
+| 47 | `let p\|:` | 2 | `found` / `declaration` | 46-47 | `target` 1 |
+| 96 | `\|twice(` | 1 | `found` / `callee` | 96-101 | `target` 10 |
+| 101 | `twice\|(` | 2 | `found` / `callee` | 96-101 | `target` 10. A pointer at 101 gives the call instead. |
+| 103 | `p\|.x` | 2 | `found` / `local` | 102-103 | `target` 1 |
+| 105 | `p.x\|)` | 2 | `found` / `field` | 104-105 | `target` 8 |
+| 131 | inside `é` | — | `invalid` | — | `reason` `offset-not-boundary` |
+| 140 | `😀\|"` | 3 | `found` / `expression` | 128-141 | `type` string. Step 2 looks at the 4-byte `😀` ending at 140, which is not a name. |
+| 141 | `"\|;` | 3 | `none` | — | a literal is not a name, so the caret gets the pointer answer for `;` |
+| 182 | `Option\|::Some` | 2 | `unsupported` / `variant-name` | 176-182 | |
+| 190 | `Some(n\|)` | 2 | `found` / `local` | 189-190 | `target` 2 |
+| 230 | `n\| + 1` | 2 | `found` / `local` | 229-230 | `target` 2 |
+| 231 | `n \|+ 1` | 3 | `found` / `expression` | 229-234 | `type` int. Both sides are inside `n + 1`, neither a name. |
+| 251 | `print(n\|)` | 2 | `found` / `local` | 250-251 | `target` 5 |
+| 325 | end of file | 3 | `none` | — | the left side is the final `\n` |
+| 326 | past the end | — | `invalid` | — | `reason` `offset-out-of-range` |
+| 69 in `lib.aster` | `n\| * 2` | 2 | `found` / `local` | 68-69 | `target` 11 |
+
 ## Contract examples
 
 Each response is one line. They are shown pretty-printed with `semantics` elided. The fixture's `files` value is:
@@ -330,19 +379,28 @@ and slices bytes 36-41 of `lib.aster` to get `twice`.
 
 ```json
 {"schema":"aster/1","command":"query","ok":true,"files":[…],"diagnostics":[],"semantics":{"available":true,"declarations":[…]},
- "query":{"request":{"path":"/work/main.aster","offset":96,"file":0},"status":"found","site":"callee",
+ "query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":96,"file":0},"status":"found","site":"callee",
   "location":{"file":0,"path":"/work/main.aster","range":{"start":96,"end":101,"start_line":5,"start_col_utf16":18,"end_line":5,"end_col_utf16":23}},
   "signature":{"params":[{"name":"n","type":{"kind":"int"},"decl":11}],"ret":{"kind":"int"}},"target":10}}
+```
+
+**1b. The same callee from a caret.** `--file=/work/main.aster --caret=101` puts the caret between `twice` and `(`.
+The character after the caret is `(`, which is not a name, so the name to its left answers:
+
+```json
+"query":{"request":{"path":"/work/main.aster","mode":"caret","offset":101,"file":0},"status":"found","site":"callee",
+ "location":{"file":0,"path":"/work/main.aster","range":{"start":96,"end":101,"start_line":5,"start_col_utf16":18,"end_line":5,"end_col_utf16":23}},
+ "signature":{"params":[{"name":"n","type":{"kind":"int"},"decl":11}],"ret":{"kind":"int"}},"target":10}
 ```
 
 **2. Shadowing.** At offset 229, the `n` being read on the inner `let n`'s own line resolves outward. At 250, the
 next line, it resolves to the inner binding.
 
 ```json
-"query":{"request":{"path":"/work/main.aster","offset":229,"file":0},"status":"found","site":"local",
+"query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":229,"file":0},"status":"found","site":"local",
  "location":{"file":0,"path":"/work/main.aster","range":{"start":229,"end":230,"start_line":9,"start_col_utf16":22,"end_line":9,"end_col_utf16":23}},
  "type":{"kind":"int"},"target":2}
-"query":{"request":{"path":"/work/main.aster","offset":250,"file":0},"status":"found","site":"local",
+"query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":250,"file":0},"status":"found","site":"local",
  "location":{"file":0,"path":"/work/main.aster","range":{"start":250,"end":251,"start_line":10,"start_col_utf16":15,"end_line":10,"end_col_utf16":16}},
  "type":{"kind":"int"},"target":5}
 ```
@@ -351,10 +409,10 @@ next line, it resolves to the inner binding.
 selects the call itself.
 
 ```json
-"query":{"request":{"path":"/work/main.aster","offset":244,"file":0},"status":"found","site":"callee",
+"query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":244,"file":0},"status":"found","site":"callee",
  "location":{"file":0,"path":"/work/main.aster","range":{"start":244,"end":249,"start_line":10,"start_col_utf16":9,"end_line":10,"end_col_utf16":14}},
  "signature":null,"target":42}
-"query":{"request":{"path":"/work/main.aster","offset":249,"file":0},"status":"found","site":"expression",
+"query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":249,"file":0},"status":"found","site":"expression",
  "location":{"file":0,"path":"/work/main.aster","range":{"start":244,"end":252,"start_line":10,"start_col_utf16":9,"end_line":10,"end_col_utf16":17}},
  "type":{"kind":"void"}}
 ```
@@ -371,7 +429,7 @@ position result is given.
  "diagnostics":[{"code":"type.mismatch","severity":"error","message":"type mismatch: expected int, found bool",
    "primary":{"file":1,"path":"/work/lib.aster","range":{…}},"related":[]}],
  "semantics":{"available":false,"reason":"diagnostics"},
- "query":{"request":{"path":"/work/main.aster","offset":96,"file":null},"status":"unavailable","reason":"diagnostics"}}
+ "query":{"request":{"path":"/work/main.aster","mode":"pointer","offset":96,"file":null},"status":"unavailable","reason":"diagnostics"}}
 ```
 
 A missing root gives `"reason":"io"` in both places and exits 2.
@@ -382,7 +440,7 @@ bytes, but the lexical match does not equate the two spellings, so a client quer
 `files` use.
 
 ```json
-"query":{"request":{"path":"/work/other.aster","offset":0,"file":null},"status":"invalid","reason":"file-not-in-closure"}
+"query":{"request":{"path":"/work/other.aster","mode":"pointer","offset":0,"file":null},"status":"invalid","reason":"file-not-in-closure"}
 ```
 
 ## Implementation constraints for #58 and #59
@@ -419,7 +477,8 @@ These are out of scope:
 ## Acceptance for this issue
 
 - [x] CLI spelling, file identity, offset encoding and response schema, additive in `aster/1`
-- [x] Selection rules and the input → span/result table, covering name vs expression, nesting, equal extents and parens,
+- [x] Pointer and caret selection modes, so a caret just after a name finds it
+- [x] Selection rules and the input → span/result tables, covering name vs expression, nesting, equal extents and parens,
   operators, punctuation, comments, whitespace, UTF-8 continuation bytes, BOM, CRLF, negative and out-of-range offsets, and EOF
 - [x] Expression type vs callable signature, with no function type
 - [x] The no-result, unsupported, invalid-request and unavailable statuses and their exit codes
