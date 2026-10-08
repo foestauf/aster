@@ -8,6 +8,9 @@ struct CliArgs
   field backend string
   field program_args [string]
   field format string
+  field query_file string
+  field query_mode string
+  field query_offset int
 struct SourceFile
   field path string
   field src string
@@ -374,6 +377,32 @@ struct Sha256
   field pow2 [int]
   field k [int]
   field w [int]
+struct QueryRequest
+  field path string
+  field mode string
+  field offset int
+struct QueryOutcome
+  field text string
+  field status int
+struct Cand
+  field kind string
+  field start int
+  field end int
+  field fact int
+  field decl int
+  field ext_start int
+  field ext_end int
+struct ParenIndex
+  field by_start Map[int, [Paren]]
+  field by_end Map[int, [Paren]]
+struct Query
+  field w Walk
+  field fi int
+  field file SourceFile
+  field cands [Cand]
+struct QueryAnswer
+  field json string
+  field status int
 enum TypeNode
   variant Named(string, [TypeExpr])
   variant Array(TypeExpr)
@@ -635,10 +664,21 @@ enum Option[Sha256]
 enum Result[string, string]
   variant Ok(string)
   variant Err(string)
+enum Option[[Paren]]
+  variant Some([Paren])
+  variant None
 fn usage_text(): string
 fn cli_starts_with(string, string): bool
   param 0 s string
   param 1 prefix string
+fn parse_offset(string): Option[int]
+  param 0 text string
+  let 1 max string
+  var 2 bigger bool
+  var 3 decided bool
+  var 4 n int
+  let 5 i int
+  let 6 c int
 fn parse_cli([string]): Result[CliArgs, string]
   param 0 args [string]
   let 1 command string
@@ -648,12 +688,20 @@ fn parse_cli([string]): Result[CliArgs, string]
   var 5 backend string
   var 6 format string
   let 7 program_args [string]
-  var 8 i int
-  let 9 arg string
-  let 10 first int
-  let 11 k int
-  let 12 stage string
-  let 13 path string
+  var 8 query_file Option[string]
+  var 9 query_mode string
+  var 10 query_offset int
+  var 11 i int
+  let 12 arg string
+  let 13 first int
+  let 14 k int
+  let 15 stage string
+  let 16 value string
+  let 17 flag string
+  let 18 n int
+  let 19 path string
+  var 20 query_path string
+  let 21 qf string
 fn default_output(string): string
   param 0 file string
   var 1 end int
@@ -682,19 +730,20 @@ fn main([string]): int
   let 2 reason string
   let 3 parsed CliArgs
   let 4 fe FrontEnd
-  let 5 loaded Loaded
-  let 6 checked Checked
-  let 7 raw string
-  let 8 bad int
-  let 9 loaded Loaded
-  let 10 diags [Diag]
-  let 11 llvm bool
-  let 12 c string
-  var 13 result Result[int, string]
-  let 14 o string
-  let 15 out string
-  let 16 msg string
-  let 17 status int
+  let 5 out QueryOutcome
+  let 6 loaded Loaded
+  let 7 checked Checked
+  let 8 raw string
+  let 9 bad int
+  let 10 loaded Loaded
+  let 11 diags [Diag]
+  let 12 llvm bool
+  let 13 c string
+  var 14 result Result[int, string]
+  let 15 o string
+  let 16 out string
+  let 17 msg string
+  let 18 status int
 fn dirname(string): string
   param 0 path string
   let 1 has_root bool
@@ -3955,4 +4004,221 @@ fn sha256_hex(Sha256, [int], string): string
   var 10 scale int
   let 11 step int
   let 12 d int
+fn add_paren(Map[int, [Paren]], int, Paren): void
+  param 0 m Map[int, [Paren]]
+  param 1 key int
+  param 2 q Paren
+  let 3 list [Paren]
+fn paren_index([Paren]): ParenIndex
+  param 0 parens [Paren]
+  let 1 ix ParenIndex
+  let 2 q Paren
+fn extent_start(ParenIndex, int, int): int
+  param 0 ix ParenIndex
+  param 1 start int
+  param 2 end int
+  var 3 s int
+  let 4 list [Paren]
+  let 5 q Paren
+fn extent_end(ParenIndex, int, int): int
+  param 0 ix ParenIndex
+  param 1 start int
+  param 2 end int
+  var 3 e int
+  let 4 list [Paren]
+  let 5 q Paren
+fn cand(ParenIndex, string, int, int, int, int): Cand
+  param 0 ix ParenIndex
+  param 1 kind string
+  param 2 start int
+  param 3 end int
+  param 4 fact int
+  param 5 decl int
+fn syn_push([Cand], string, int, int): void
+  param 0 out [Cand]
+  param 1 kind string
+  param 2 start int
+  param 3 end int
+fn syn_items([Item]): [Cand]
+  param 0 items [Item]
+  let 1 out [Cand]
+  let 2 item Item
+  let 3 d FnDecl
+  let 4 p Typed
+  let 5 r TypeExpr
+  let 6 d StructDecl
+  let 7 f Typed
+  let 8 d EnumDecl
+  let 9 v VariantDecl
+  let 10 t TypeExpr
+  let 11 d ImportDecl
+fn syn_block([Cand], Block): void
+  param 0 out [Cand]
+  param 1 b Block
+  let 2 s Stmt
+fn syn_else([Cand], Else): void
+  param 0 out [Cand]
+  param 1 other Else
+  let 2 b Block
+  let 3 s Stmt
+  let 4 s Stmt
+fn syn_arms([Cand], [Arm]): void
+  param 0 out [Cand]
+  param 1 arms [Arm]
+  let 2 a Arm
+  let 3 b Block
+  let 4 x Expr
+fn syn_stmt([Cand], Stmt): void
+  param 0 out [Cand]
+  param 1 s Stmt
+  let 2 ty TypeExpr
+  let 3 init Expr
+  let 4 pattern Pattern
+  let 5 init Expr
+  let 6 other Block
+  let 7 target Expr
+  let 8 value Expr
+  let 9 cond Expr
+  let 10 then Block
+  let 11 other Else
+  let 12 pattern Pattern
+  let 13 scrutinee Expr
+  let 14 then Block
+  let 15 other Else
+  let 16 cond Expr
+  let 17 body Block
+  let 18 from Expr
+  let 19 to Expr
+  let 20 body Block
+  let 21 iter Expr
+  let 22 body Block
+  let 23 scrutinee Expr
+  let 24 arms [Arm]
+  let 25 value Option[Expr]
+  let 26 v Expr
+  let 27 b Block
+  let 28 e Expr
+fn syn_expr([Cand], Expr): void
+  param 0 out [Cand]
+  param 1 e Expr
+  let 2 x Expr
+  let 3 l Expr
+  let 4 r Expr
+  let 5 callee Expr
+  let 6 args [Expr]
+  let 7 a Expr
+  let 8 c Expr
+  let 9 t Expr
+  let 10 o Expr
+  let 11 x Expr
+  let 12 name Ident
+  let 13 inits [FieldInit]
+  let 14 i FieldInit
+  let 15 a Expr
+  let 16 i Expr
+  let 17 x Expr
+  let 18 xs [Expr]
+  let 19 x Expr
+  let 20 en Ident
+  let 21 v Ident
+  let 22 args [Expr]
+  let 23 a Expr
+  let 24 scrutinee Expr
+  let 25 arms [Arm]
+fn fact_site(string): string
+  param 0 kind string
+fn is_name_site(string): bool
+  param 0 kind string
+fn is_unsupported(string): bool
+  param 0 kind string
+fn build_query(Walk, int): Query
+  param 0 w Walk
+  param 1 fi int
+  let 2 f SourceFile
+  let 3 lo int
+  let 4 hi int
+  let 5 ix ParenIndex
+  let 6 cands [Cand]
+  let 7 facts [SourceFact]
+  let 8 i int
+  let 9 d DeclSite
+  let 10 s Cand
+fn select_at(Query, int): Option[int]
+  param 0 q Query
+  param 1 g int
+  var 2 best int
+  let 3 i int
+  let 4 c Cand
+  let 5 b Cand
+  let 6 size int
+  let 7 best_size int
+fn raw_byte(SourceFile, int): int
+  param 0 f SourceFile
+  param 1 o int
+  let 2 bom [int]
+fn is_continuation(int): bool
+  param 0 b int
+fn pointer(Query, int): Option[int]
+  param 0 q Query
+  param 1 o int
+fn caret(Query, int): Option[int]
+  param 0 q Query
+  param 1 o int
+  let 2 size int
+  var 3 right Option[int]
+  let 4 i int
+  var 5 k int
+  let 6 left Option[int]
+  let 7 i int
+fn request_json(QueryRequest, int): string
+  param 0 req QueryRequest
+  param 1 fi int
+fn query_json(QueryRequest, int, [string]): string
+  param 0 req QueryRequest
+  param 1 fi int
+  param 2 rest [string]
+  let 3 fields [string]
+  let 4 f string
+fn id_of(Map[string, int], string): int
+  param 0 m Map[string, int]
+  param 1 key string
+  let 2 id int
+fn site_fields(Query, Cand): [string]
+  param 0 q Query
+  param 1 c Cand
+  let 2 w Walk
+  let 3 found bool
+  let 4 fields [string]
+  let 5 t string
+  let 6 s string
+  let 7 f SourceFact
+  var 8 id int
+  let 9 user int
+  let 10 sig string
+fn invalid(QueryRequest, int, string): QueryAnswer
+  param 0 req QueryRequest
+  param 1 fi int
+  param 2 reason string
+fn answer_query(Walk, QueryRequest): QueryAnswer
+  param 0 w Walk
+  param 1 req QueryRequest
+  let 2 files [SourceFile]
+  let 3 want string
+  var 4 fi int
+  let 5 i int
+  let 6 f SourceFile
+  let 7 size int
+  let 8 q Query
+  let 9 chosen Option[int]
+  let 10 i int
+fn query_response(string, QueryRequest, FrontEnd): QueryOutcome
+  param 0 entry string
+  param 1 req QueryRequest
+  param 2 fe FrontEnd
+  let 3 fields [string]
+  let 4 loaded Loaded
+  let 5 checked Checked
+  let 6 w Walk
+  let 7 answer QueryAnswer
+  let 8 reason string
 == stderr

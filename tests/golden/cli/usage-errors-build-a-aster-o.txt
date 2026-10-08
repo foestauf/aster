@@ -5,5 +5,6 @@ error: '-o' requires a path
 usage:
   aster check <file.aster> [--format=human|json]
   aster inspect <file.aster>
+  aster query <file.aster> --file=<path> (--offset=<byte> | --caret=<byte>)
   aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]
   aster run <file.aster> [--backend=c|llvm] [-- <args>...]

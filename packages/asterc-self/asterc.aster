@@ -1,4 +1,4 @@
-// The Aster compiler, written in Aster: `check`, `inspect`, `build` and `run`,
+// The Aster compiler, written in Aster: `check`, `inspect`, `query`, `build` and `run`,
 // minus the debug emit stages (self-hosting contract §4.1). Its stdout, stderr and exit status are pinned byte for
 // byte by goldens, with the documented divergences (contract §4.5). tests/asterc_self.test.ts checks it.
 
@@ -12,6 +12,7 @@ import "emit_llvm.aster";
 import "driver.aster";
 import "frontend.aster";
 import "inspect.aster";
+import "query.aster";
 
 // Parsed command-line arguments. `program_args` are the arguments after `--`, for `run`.
 struct CliArgs {
@@ -22,16 +23,46 @@ struct CliArgs {
     backend: string,
     program_args: [string],
     format: string,
+    // `query` only: `--file`, and the position: `query_mode` "pointer" (`--offset`) or "caret" (`--caret`).
+    query_file: string,
+    query_mode: string,
+    query_offset: int,
 }
 
 // cli.ts's USAGE with the emit stages narrowed to c, without its final newline (eprint adds it).
 fn usage_text(): string {
-    return "usage:\n  aster check <file.aster> [--format=human|json]\n  aster inspect <file.aster>\n  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]\n  aster run <file.aster> [--backend=c|llvm] [-- <args>...]";
+    return "usage:\n  aster check <file.aster> [--format=human|json]\n  aster inspect <file.aster>\n  aster query <file.aster> --file=<path> (--offset=<byte> | --caret=<byte>)\n  aster build <file.aster> [-o <out>] [--backend=c|llvm] [--emit=c|llvm]\n  aster run <file.aster> [--backend=c|llvm] [-- <args>...]";
 }
 
 // Whether `s` begins with `prefix`.
 fn cli_starts_with(s: string, prefix: string): bool {
     return len(s) >= len(prefix) && substring(s, 0, len(prefix)) == prefix;
+}
+
+// A canonical decimal position up to 2^63 - 1: `0`, or a non-zero digit followed by digits.
+fn parse_offset(text: string): Option[int] {
+    if len(text) == 0 || len(text) > 19 || (len(text) > 1 && byte_at(text, 0) == '0') {
+        return Option::None;
+    }
+    let max: string = "9223372036854775807";
+    var bigger: bool = false;
+    var decided: bool = len(text) < 19;
+    var n: int = 0;
+    for i in 0..len(text) {
+        let c: int = byte_at(text, i);
+        if c < '0' || c > '9' {
+            return Option::None;
+        }
+        if !decided && c != byte_at(max, i) {
+            bigger = c > byte_at(max, i);
+            decided = true;
+        }
+        n = n * 10 + (c - '0');
+    }
+    if bigger {
+        return Option::None;
+    }
+    return Option::Some(n);
 }
 
 // The parsed arguments, or a usage-error reason: a port of cli.ts's parseArgs, with its reasons in the same order of
@@ -41,7 +72,7 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
         return Result::Err("missing command");
     }
     let command: string = args[0];
-    if command != "check" && command != "inspect" && command != "build" && command != "run" {
+    if command != "check" && command != "inspect" && command != "query" && command != "build" && command != "run" {
         return Result::Err("unknown command '" + command + "'");
     }
     var file: Option[string] = Option::None;
@@ -50,6 +81,9 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
     var backend: string = "c";
     var format: string = "human";
     let program_args: [string] = [];
+    var query_file: Option[string] = Option::None;
+    var query_mode: string = "";
+    var query_offset: int = 0;
     var i: int = 1;
     while i < len(args) {
         let arg: string = args[i];
@@ -63,7 +97,7 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
             }
             break;
         } else if cli_starts_with(arg, "--backend=") {
-            if command == "check" || command == "inspect" {
+            if command == "check" || command == "inspect" || command == "query" {
                 return Result::Err("'--backend' is only valid with 'build' or 'run'");
             }
             backend = substring(arg, len("--backend="), len(arg));
@@ -98,6 +132,31 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
                 }
                 emit_stage = stage;
             }
+        } else if cli_starts_with(arg, "--file=") {
+            if command != "query" {
+                return Result::Err("'--file' is only valid with 'query'");
+            }
+            if let Option::Some(_) = query_file {
+                return Result::Err("'--file' given more than once");
+            }
+            let value: string = substring(arg, len("--file="), len(arg));
+            if value == "" {
+                return Result::Err("'--file' requires a path");
+            }
+            query_file = Option::Some(value);
+        } else if cli_starts_with(arg, "--offset=") || cli_starts_with(arg, "--caret=") {
+            let flag: string = if cli_starts_with(arg, "--offset=") { "--offset" } else { "--caret" };
+            if command != "query" {
+                return Result::Err("'" + flag + "' is only valid with 'query'");
+            }
+            if query_mode != "" {
+                return Result::Err("give one position: '--offset' or '--caret', once");
+            }
+            let Option::Some(n) = parse_offset(substring(arg, len(flag) + 1, len(arg))) else {
+                return Result::Err("'" + flag + "' needs a byte offset, 0 to 9223372036854775807");
+            };
+            query_mode = if flag == "--offset" { "pointer" } else { "caret" };
+            query_offset = n;
         } else if cli_starts_with(arg, "-") {
             return Result::Err("unknown option '" + arg + "'");
         } else if let Option::None = file {
@@ -110,7 +169,17 @@ fn parse_cli(args: [string]): Result[CliArgs, string] {
     let Option::Some(path) = file else {
         return Result::Err("missing input file");
     };
-    return Result::Ok(CliArgs { command: command, file: path, out: out, emit_stage: emit_stage, backend: backend, program_args: program_args, format: format });
+    var query_path: string = "";
+    if command == "query" {
+        let Option::Some(qf) = query_file else {
+            return Result::Err("'query' requires '--file'");
+        };
+        if query_mode == "" {
+            return Result::Err("'query' requires '--offset' or '--caret'");
+        }
+        query_path = qf;
+    }
+    return Result::Ok(CliArgs { command: command, file: path, out: out, emit_stage: emit_stage, backend: backend, program_args: program_args, format: format, query_file: query_path, query_mode: query_mode, query_offset: query_offset });
 }
 
 // The output path for `build` without `-o`, as cli.ts's defaultOutput gives it: the input's basename without a
@@ -174,6 +243,11 @@ fn main(args: [string]): int {
         }
     };
     let fe: FrontEnd = front_end(parsed.file);
+    if parsed.command == "query" {
+        let out: QueryOutcome = query_response(parsed.file, QueryRequest { path: parsed.query_file, mode: parsed.query_mode, offset: parsed.query_offset }, fe);
+        print(out.text);
+        return out.status;
+    }
     if parsed.format == "json" || parsed.command == "inspect" {
         print(inspect_response(parsed.command, parsed.file, fe));
         return front_end_status(fe);
