@@ -1,8 +1,8 @@
 # Aster saved-source position query contract (#57)
 
-**Status:** design gate for the provisional v0.10 milestone. It records the contract that #58 (checked provenance),
-#59 (the `aster query` command) and #60 (the editor demonstration) implement. Nothing here is shipped. When #59 lands,
-the user-facing parts move into `docs/inspect/README.md` next to the v0.9 contract, which they extend.
+**Status:** implemented. #58 (checked provenance) and #59 (`aster query`) landed in PR #64, and
+`docs/inspect/README.md` is the user-facing reference for the contract, next to the v0.9 one it extends. This document
+keeps the design record and the full selection tables. #60 (the editor demonstration) is not part of it.
 
 ## Goal
 
