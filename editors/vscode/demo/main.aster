@@ -1,0 +1,13 @@
+import "shapes.aster";
+
+// Demo for the Aster VS Code extension. 📐 Hover a use, or go to its definition.
+fn main(): int {
+    let side: int = 3;
+    let label: string = "📐 square"; let total: int = area(side);
+    if total > 5 {
+        let side: int = 4;
+        print(side);
+    }
+    print(label);
+    return total - 9;
+}

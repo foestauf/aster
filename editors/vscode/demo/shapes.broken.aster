@@ -1,0 +1,4 @@
+// Areas of simple shapes.
+fn area(side: int): int {
+    return true;
+}
