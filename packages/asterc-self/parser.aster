@@ -187,6 +187,16 @@ enum ArmBody {
 // returns an Option: `fail` records the error and the function returns `Option::None`, which every caller passes up
 // with `?`. parse_block and parse_program match on the Option and resynchronise on `None`.
 
+// A parenthesised expression's parentheses (global offsets: `open` is the `(` token's start, `close` the `)` token's
+// end) and the span of the expression inside, which the parser returns without them. `aster query` widens selection
+// extents with these; diagnostics keep the inner spans.
+struct Paren {
+    open: int,
+    close: int,
+    inner_start: int,
+    inner_end: int,
+}
+
 struct Parser {
     src: string,
     tokens: [Token],
@@ -196,6 +206,7 @@ struct Parser {
     no_struct_lit: bool,
     // Added to every token's offsets (see new_parser_at), so spans are global; `text` subtracts it to index `src`.
     base: int,
+    parens: [Paren],
 }
 
 fn peek_at(p: Parser, offset: int): Token {
@@ -932,7 +943,8 @@ fn parse_primary(p: Parser): Option[Expr] {
         "(" => {
             advance(p);
             let inner: Expr = parse_expr_with_struct_lits(p)?;
-            expect(p, ")")?;
+            let close: Token = expect(p, ")")?;
+            push(p.parens, Paren { open: t.start, close: close.end, inner_start: inner.start, inner_end: inner.end });
             return Option::Some(inner);
         }
         "if" => {
@@ -1045,7 +1057,7 @@ fn parse_expr_block(p: Parser): Option[Expr] {
 }
 
 fn new_parser(lx: Lexer): Parser {
-    return Parser { src: lx.src, tokens: lx.tokens, pos: 0, errors: [], no_struct_lit: false, base: 0 };
+    return Parser { src: lx.src, tokens: lx.tokens, pos: 0, errors: [], no_struct_lit: false, base: 0, parens: [] };
 }
 
 // A Parser whose spans (and errors) are offset by `base`: a file's place in a multi-file program. The lexer's own
@@ -1055,5 +1067,5 @@ fn new_parser_at(lx: Lexer, base: int): Parser {
     for t in lx.tokens {
         push(tokens, Token { kind: t.kind, start: t.start + base, end: t.end + base });
     }
-    return Parser { src: lx.src, tokens: tokens, pos: 0, errors: [], no_struct_lit: false, base: base };
+    return Parser { src: lx.src, tokens: tokens, pos: 0, errors: [], no_struct_lit: false, base: base, parens: [] };
 }

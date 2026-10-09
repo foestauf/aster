@@ -31,6 +31,10 @@ export const STAGE_SUITES = [
   'tests/json_check.test.ts',
   'tests/json_inspect.test.ts',
   'tests/inspect_consumer.test.ts',
+  'tests/provenance.test.ts',
+  'tests/sha256.test.ts',
+  'tests/json_query.test.ts',
+  'tests/query_consumer.test.ts',
 ] as const;
 
 /** The test runs, in the order a full proof runs them: the full suite, then the stage-aware suites once per stage. */

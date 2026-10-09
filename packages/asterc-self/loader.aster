@@ -51,6 +51,8 @@ struct Loaded {
     items: [Item],
     root_end: int,
     diags: [Diag],
+    // Every parenthesised expression's parentheses, from every loaded file.
+    parens: [Paren],
 }
 
 // ---- paths
@@ -300,6 +302,9 @@ fn visit(ld: Loaded, seen: Set[string], path: string, raw: string) {
     for e in p.errors {
         push(ld.diags, Diag { code: e.code, start: e.start, end: e.end, message: e.message, related: [] });
     }
+    for q in p.parens {
+        push(ld.parens, q);
+    }
     for item in items {
         push(ld.items, item);
     }
@@ -358,7 +363,7 @@ fn import_error(ld: Loaded, imp: ImportDecl, literal: string, code: string, reas
 
 // Loads the program rooted at `path`, whose contents are `src`.
 fn load_program(path: string, src: string): Loaded {
-    let ld: Loaded = Loaded { files: [], items: [], root_end: 0, diags: [] };
+    let ld: Loaded = Loaded { files: [], items: [], root_end: 0, diags: [], parens: [] };
     let seen: Set[string] = {};
     set_add(seen, normalise(path));
     visit(ld, seen, path, src);

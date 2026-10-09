@@ -59,6 +59,11 @@ struct Pattern
 struct Arm
   field pattern Pattern
   field body ArmBody
+struct Paren
+  field open int
+  field close int
+  field inner_start int
+  field inner_end int
 struct Parser
   field src string
   field tokens [Token]
@@ -66,6 +71,7 @@ struct Parser
   field errors [LexError]
   field no_struct_lit bool
   field base int
+  field parens [Paren]
 struct Token
   field kind string
   field start int
@@ -603,6 +609,7 @@ fn parse_primary(Parser): Option[Expr]
   let 5 close Token
   let 6 close Token
   let 7 inner Expr
+  let 8 close Token
 fn parse_struct_lit(Parser, Token): Option[Expr]
   param 0 p Parser
   param 1 name Token

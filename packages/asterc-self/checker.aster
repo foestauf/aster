@@ -528,6 +528,23 @@ struct PendingDiag {
     message: string,
 }
 
+// What the checker resolved at a source span, for `aster query` (docs/inspect/README.md, "Position queries"), kept in
+// a side table so the typed tree is unchanged. Offsets are global. `kind` is:
+// - "expr": any expression that is not a resolved name; `ty` is its type.
+// - "local": a name that resolved to local `local` of function `func` (an index in `Checked.functions`); `ty` is its type.
+// - "callee": a call's function name, `name` (a user function or a builtin).
+// - "field": field `name` of struct `owner` in a field access; `ty` is the field's type.
+struct SourceFact {
+    kind: string,
+    start: int,
+    end: int,
+    ty: Type,
+    func: int,
+    local: int,
+    name: string,
+    owner: string,
+}
+
 struct Env {
     diags: [Diag],
     structs: [TStruct],
@@ -540,6 +557,9 @@ struct Env {
     builtins: Signatures,
     special_builtins: Set[string],
     local_sites: [FnSites],
+    // `facts` in recording order (children before parents); `fact_at` maps "kind:start:end" to an index, so a node checked again keeps one fact, the last.
+    facts: [SourceFact],
+    fact_at: Map[string, int],
 }
 
 // An enclosing loop, and whether a `break` leaves it.
@@ -566,6 +586,7 @@ struct Checked {
     enums: [TEnum],
     functions: [TFunction],
     local_sites: [FnSites],
+    facts: [SourceFact],
 }
 
 fn primitive_type(name: string): Option[Type] {
@@ -1137,7 +1158,7 @@ fn check_program(items: [Item], root_end: int): Checked {
     let env: Env = Env {
         diags: [], structs: [], enums: [], templates: prelude_templates(), pending: [],
         struct_ids: {}, enum_ids: {}, template_ids: {}, builtins: builtin_signatures(), special_builtins: special_builtins(),
-        local_sites: [],
+        local_sites: [], facts: [], fact_at: {},
     };
     for i in 0..len(env.templates) {
         map_set(env.template_ids, env.templates[i].decl.name.name, i);
@@ -1170,7 +1191,7 @@ fn check_program(items: [Item], root_end: int): Checked {
     for i in 0..len(declared) {
         push(functions, check_function(env, sigs, declared[i], sigs.items[i]));
     }
-    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions, local_sites: env.local_sites };
+    return Checked { diags: env.diags, structs: env.structs, enums: env.enums, functions: functions, local_sites: env.local_sites, facts: env.facts };
 }
 
 fn check_function(env: Env, sigs: Signatures, decl: FnDecl, sig: Signature): TFunction {
@@ -1545,8 +1566,42 @@ fn error_expr(): TExpr {
     return TExpr { ty: Type::Error, node: TExprNode::Error };
 }
 
-// `expected` only guides array literals (and passes into if-expression branches); callers still check the result.
+// Records `f`, replacing the fact of the same kind and span if a node is checked again.
+fn record(env: Env, f: SourceFact) {
+    let key: string = f.kind + ":" + int_to_string(f.start) + ":" + int_to_string(f.end);
+    if let Option::Some(i) = map_get(env.fact_at, key) {
+        env.facts[i] = f;
+        return;
+    }
+    map_set(env.fact_at, key, len(env.facts));
+    push(env.facts, f);
+}
+
+// A fact in the function being checked: functions are checked in order and each pushes its local sites when it ends,
+// so the current one's index is the number already pushed.
+fn fact(ctx: Ctx, kind: string, start: int, end: int, ty: Type, local: int, name: string, owner: string): SourceFact {
+    return SourceFact { kind: kind, start: start, end: end, ty: ty, func: len(ctx.env.local_sites), local: local, name: name, owner: owner };
+}
+
+// check_expr_node, recording the result for `aster query`: a name that resolved to a local as a "local" fact, any other
+// expression as "expr". An expression that failed to check records nothing.
 fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
+    let t: TExpr = check_expr_node(ctx, e, expected);
+    if is_error(t.ty) {
+        return t;
+    }
+    if let ExprNode::Name(_) = e.node {
+        if let TExprNode::Local(l) = t.node {
+            record(ctx.env, fact(ctx, "local", e.start, e.end, t.ty, l.id, "", ""));
+            return t;
+        }
+    }
+    record(ctx.env, fact(ctx, "expr", e.start, e.end, t.ty, -1, "", ""));
+    return t;
+}
+
+// `expected` only guides array literals (and passes into if-expression branches); callers still check the result.
+fn check_expr_node(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
     match e.node {
         ExprNode::Int(value) => {
             return TExpr { ty: Type::Int, node: TExprNode::Int(value) };
@@ -1618,6 +1673,7 @@ fn check_expr(ctx: Ctx, e: Expr, expected: Option[Type]): TExpr {
             }
             if let Type::Struct(name) = object.ty {
                 if let Option::Some(f) = find_field(ctx.env, name, field.name) {
+                    record(ctx.env, fact(ctx, "field", field.start, field.end, f.ty, -1, field.name, name));
                     return TExpr { ty: f.ty, node: TExprNode::Field(object, field.name) };
                 }
             }
@@ -2677,6 +2733,7 @@ fn check_place(ctx: Ctx, target: Expr): Option[TPlace] {
             if !local.mutable {
                 report(ctx.env, "assign.immutable", "cannot assign to immutable variable '" + name + "'", target.start, target.end);
             }
+            record(ctx.env, fact(ctx, "local", target.start, target.end, local.ty, local.id, "", ""));
             return Option::Some(TPlace { ty: local.ty, node: TPlaceNode::Local(local) });
         }
         ExprNode::Field(_, _) | ExprNode::Index(_, _) => {
@@ -2810,6 +2867,9 @@ fn check_call(ctx: Ctx, e: Expr, callee: Expr, args: [Expr]): TExpr {
         check_args(ctx, args, Option::None);
         report(ctx.env, "call.not-function", "'" + name + "' is not a function", callee.start, callee.end);
         return error_expr();
+    }
+    if is_function_name(ctx, name) {
+        record(ctx.env, fact(ctx, "callee", callee.start, callee.end, Type::Void, -1, name, ""));
     }
     if name == "print" || name == "eprint" {
         // A wrong argument count is reported by check_print; its arguments must not cascade then.

@@ -1,0 +1,4 @@
+== exit 1
+== stdout
+{"schema":"aster/1","command":"query","ok":false,"files":[{"id":0,"path":"main.aster","bom":false,"sha256":"606515c73aa5ccf446da75fdc73a68a0933d4dbfae49b67c0e692616e2d86ff9"},{"id":1,"path":"./lib.aster","bom":false,"sha256":"0dfd54bd18bcc583be676b1dbeb71351e698cbd0e8d655e532f467905cb4d760"}],"diagnostics":[{"code":"type.mismatch","severity":"error","message":"type mismatch: expected int, found bool","primary":{"file":1,"path":"./lib.aster","range":{"start":68,"end":72,"start_line":4,"start_col_utf16":12,"end_line":4,"end_col_utf16":16}},"related":[]}],"semantics":{"available":false,"reason":"diagnostics"},"query":{"request":{"path":"main.aster","mode":"pointer","offset":96,"file":null},"status":"unavailable","reason":"diagnostics"}}
+== stderr
