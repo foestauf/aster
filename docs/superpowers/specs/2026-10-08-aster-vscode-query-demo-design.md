@@ -14,7 +14,7 @@ An independent agent script gets the same facts through the public JSON interfac
 | Question | Decision |
 | --- | --- |
 | Adapter | Direct VS Code providers (hover, definition, a diagnostic collection), not an LSP wrapper. |
-| Code layout | `editors/vscode/src/adapter.cjs` holds all the logic and never imports `vscode`. `src/extension.cjs` is the glue. Plain CommonJS, no build step, no runtime dependencies. |
+| Code layout | All logic is in modules that never import `vscode`: `editors/vscode/src/convert.cjs` (pure conversions: positions, rendering, diagnostic mapping) and `src/adapter.cjs` (compiler runs, sessions, freshness). `src/extension.cjs` is the glue. Plain CommonJS, no build step, no runtime dependencies. |
 | Entry point | The `aster.entry` setting, relative to the first workspace folder. If it is unset the extension stays syntax-only and never guesses. |
 | Compiler | The `aster.compilerPath` setting. If it is unset the extension stays syntax-only. The compiler is spawned with an argv array (never a shell), `cwd` = the workspace folder, and a timeout from `aster.timeoutMs` (default 10000). |
 | Trust | `capabilities.untrustedWorkspaces = {supported: "limited", restrictedConfigurations: ["aster.compilerPath", "aster.entry"]}`. In an untrusted workspace no compiler runs; syntax highlighting is unchanged. |
