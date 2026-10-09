@@ -81,10 +81,12 @@ the line with the call. Its `.vscode/settings.json` sets `aster.entry` to `main.
 
 1. Build the compiler from the repository root: `pnpm bootstrap` once, then `pnpm build`.
 2. Open `editors/vscode/demo` as a folder and trust it. The status bar says `Aster: ✓ saved files`.
-3. Copy `shapes.broken.aster` over `shapes.aster` and save. `shapes.aster` shows `type mismatch: expected int, found
-   bool` on `true`, and the status bar says `Aster: 1 error — semantics unavailable`. Hover in `main.aster` shows
-   nothing.
-4. Put `return side * side;` back and save. The error clears.
+3. In `shapes.aster`, change `return side * side;` to `return true;` (the body of `shapes.broken.aster`) and save.
+   `shapes.aster` shows `type mismatch: expected int, found bool` on `true`, and the status bar says
+   `Aster: 1 error — semantics unavailable`. Hover in `main.aster` shows nothing.
+4. Put `return side * side;` back and save. The error clears. Edit in the editor: a change made outside it, such as
+   `cp` or `git checkout`, fires no save, so the diagnostics wait for the next save (hover is still protected by the
+   digests).
 5. Hover `side` in `area(side)`: it shows `int`. Hover `area`: `fn area(side: int): int`.
 6. F12 on `area` opens `shapes.aster` at `fn area`. F12 on `side` in `print(side)` goes to the inner
    `let side: int = 4;`, and F12 on `side` in `area(side)` goes to the outer one.

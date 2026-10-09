@@ -71,3 +71,42 @@ test('a compiler problem is shown once and logged, not thrown', async () => {
   assert.equal(state.status.text, 'Aster: compiler problem');
   assert.match(state.log.join('\n'), /panicked/);
 });
+
+const checkJson = (diagnostics, exit) => {
+  process.env.FAKE_ASTER = 'json';
+  process.env.FAKE_ASTER_EXIT = String(exit);
+  process.env.FAKE_ASTER_JSON = JSON.stringify({ schema: 'aster/1', command: 'check', ok: diagnostics.length === 0, files: [], diagnostics });
+};
+
+test('a missing entry is shown as an error, not a stuck check', async () => {
+  checkJson([{ code: 'io.root-unreadable', severity: 'error', message: "cannot read 'mian.aster'", primary: { file: null, path: 'mian.aster', range: null }, related: [] }], 2);
+  const { vscode, state } = mock.create({ folder: root, settings: { compilerPath: FAKE, entry: 'mian.aster' } });
+  mock.activate(vscode);
+  await settle(state);
+  assert.equal(state.status.text, 'Aster: 1 error — semantics unavailable');
+  assert.equal(state.diagnostics.get(path.join(root, 'mian.aster'))[0].code, 'io.root-unreadable');
+});
+
+test('a malformed response is a compiler problem, not an exception', async () => {
+  process.env.FAKE_ASTER = 'json';
+  process.env.FAKE_ASTER_EXIT = '0';
+  process.env.FAKE_ASTER_JSON = JSON.stringify({ schema: 'aster/1', command: 'check', ok: true });
+  const { vscode, state } = mock.create({ folder: root, settings: { compilerPath: FAKE, entry: 'main.aster' } });
+  mock.activate(vscode);
+  await settle(state);
+  assert.equal(state.status.text, 'Aster: compiler problem');
+});
+
+test('a failed check clears the previous diagnostics', async () => {
+  checkJson([{ code: 'type.mismatch', severity: 'error', message: 'm', related: [],
+    primary: { file: 1, path: './lib.aster', range: { start: 0, end: 4, start_line: 2, start_col_utf16: 12, end_line: 2, end_col_utf16: 16 } } }], 1);
+  const { vscode, state } = mock.create({ folder: root, settings: { compilerPath: FAKE, entry: 'main.aster' } });
+  mock.activate(vscode);
+  await settle(state);
+  assert.equal(state.diagnostics.size, 1);
+  process.env.FAKE_ASTER = 'panic';
+  state.listeners.save({ languageId: 'aster' });
+  await settle(state);
+  assert.equal(state.status.text, 'Aster: compiler problem');
+  assert.equal(state.diagnostics.size, 0);
+});

@@ -49,10 +49,16 @@ function activate(context) {
     const current = session;
     if (!current) return;
     show('Aster: checking…', `Checking ${current.entry}`);
-    const r = await current.check();
-    if (current !== session || r.kind === 'superseded') return;
-    if (r.kind !== 'diagnostics') return problem(r);
+    let r;
+    try {
+      r = await current.check();
+    } catch (e) {
+      r = { kind: 'error', message: `malformed compiler response: ${e.message}` };
+    }
+    if (current !== session || r.kind === 'superseded' || r.kind === 'cancelled') return;
+    // A failed check leaves no diagnostics up: the old ones may no longer be true.
     diagnostics.clear();
+    if (r.kind !== 'diagnostics') return problem(r);
     for (const [file, list] of r.byFile) {
       diagnostics.set(vscode.Uri.file(file), list.map((d) => {
         const severity = d.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
@@ -72,38 +78,55 @@ function activate(context) {
     if (!current || document.uri.scheme !== 'file') return null;
     const controller = new AbortController();
     const subscription = token.onCancellationRequested(() => controller.abort());
+    let r;
     try {
-      const r = await current.query(document.uri.fsPath, mode, position.line, position.character, controller.signal);
-      if (current !== session) return null;
-      if (r.kind === 'answer') return { doc: r.doc, root: current.root };
-      if (r.kind === 'stale') {
-        log(`dropped a stale answer: ${r.reasons.join('; ')}`);
-        show('Aster: saved files only', 'Save your changes to get hover and definition.');
-      } else if (r.kind === 'none') {
-        if (r.reason) log(r.reason);
-      } else if (r.kind !== 'unavailable') {
-        problem(r);
-      }
-      return null;
+      r = await current.query(document.uri.fsPath, mode, position.line, position.character, controller.signal);
+    } catch (e) {
+      r = { kind: 'error', message: `malformed compiler response: ${e.message}` };
     } finally {
       subscription.dispose();
+    }
+    if (current !== session) return null;
+    if (r.kind === 'answer') return { doc: r.doc, root: current.root };
+    if (r.kind === 'stale') {
+      log(`dropped a stale answer: ${r.reasons.join('; ')}`);
+      show('Aster: saved files only', 'Save your changes to get hover and definition.');
+    } else if (r.kind === 'none') {
+      if (r.reason) log(r.reason);
+    } else if (r.kind !== 'unavailable') {
+      problem(r);
+    }
+    return null;
+  }
+
+  // Builds a provider's result from an answer; a response that doesn't fit the contract is a compiler problem.
+  function rendered(build) {
+    try {
+      return build();
+    } catch (e) {
+      problem({ kind: 'error', message: `malformed compiler response: ${e.message}` });
+      return null;
     }
   }
 
   const hover = {
     async provideHover(document, position, token) {
       const a = await ask(document, position, token, 'pointer');
-      const text = a && convert.hoverText(a.doc);
-      if (!text) return null;
-      const range = toRange(convert.editorRange(a.doc.query.location.range));
-      return new vscode.Hover(new vscode.MarkdownString().appendCodeblock(text, 'aster'), range);
+      return a && rendered(() => {
+        const text = convert.hoverText(a.doc);
+        if (!text) return null;
+        const range = toRange(convert.editorRange(a.doc.query.location.range));
+        return new vscode.Hover(new vscode.MarkdownString().appendCodeblock(text, 'aster'), range);
+      });
     },
   };
   const definition = {
     async provideDefinition(document, position, token) {
       const a = await ask(document, position, token, 'caret');
-      const target = a && convert.definitionTarget(a.doc, a.root);
-      return target ? new vscode.Location(vscode.Uri.file(target.file), toRange(target.range)) : null;
+      return a && rendered(() => {
+        const target = convert.definitionTarget(a.doc, a.root);
+        return target ? new vscode.Location(vscode.Uri.file(target.file), toRange(target.range)) : null;
+      });
     },
   };
 

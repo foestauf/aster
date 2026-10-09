@@ -90,17 +90,19 @@ function definitionTarget(doc, root) {
   return { file: path.resolve(root, location.path), range: editorRange(location.range) };
 }
 
-// A check response's diagnostics by absolute file, in editor coordinates. A diagnostic in a file that didn't load
-// (`file` null) stays on that path when the file exists; otherwise it goes on the entry at 0:0 with the path in front.
+// A check response's diagnostics by absolute file, in editor coordinates; one with no range (an unreadable root) is at
+// 0:0. A diagnostic in a file that didn't load (`file` null) stays on that path when the file exists; otherwise it goes
+// on the entry at 0:0 with the path in front.
 function diagnosticsByFile(doc, root, entry, exists) {
   const byFile = new Map();
   for (const d of doc.diagnostics) {
+    const zero = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
     let file = path.resolve(root, d.primary.path);
-    let range = editorRange(d.primary.range);
+    let range = d.primary.range === null ? zero : editorRange(d.primary.range);
     let message = d.message;
     if (d.primary.file === null && !exists(file)) {
       file = path.resolve(root, entry);
-      range = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+      range = zero;
       message = `${d.primary.path}: ${d.message}`;
     }
     if (!byFile.has(file)) byFile.set(file, []);

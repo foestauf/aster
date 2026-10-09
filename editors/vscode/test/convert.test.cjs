@@ -106,3 +106,11 @@ test('diagnosticsByFile keeps an unloaded file that exists at its own path', () 
   const byFile = convert.diagnosticsByFile(doc, '/w', 'main.aster', () => true);
   assert.equal(byFile.get(path.resolve('/w/bad.aster'))[0].range.start.character, 2);
 });
+
+test('diagnosticsByFile puts a diagnostic with no range on the entry at 0:0', () => {
+  const doc = { diagnostics: [{ code: 'io.root-unreadable', severity: 'error', message: "cannot read 'mian.aster'", primary: { file: null, path: 'mian.aster', range: null }, related: [] }] };
+  const byFile = convert.diagnosticsByFile(doc, '/w', 'mian.aster', () => false);
+  assert.deepEqual(byFile.get(path.resolve('/w/mian.aster')), [
+    { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, message: "mian.aster: cannot read 'mian.aster'", code: 'io.root-unreadable', severity: 'error' },
+  ]);
+});
