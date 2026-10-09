@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { stage } from './stage.js';
 
 // The acceptance test of issue #59: a consumer that knows only the public JSON contract of `aster query`. It finds
@@ -15,6 +15,12 @@ const strict = new TextDecoder('utf-8', { fatal: true });
 
 const MAIN = 'import "shapes.aster";\n\n// 📐 entry\nfn main(): int {\n    let side: int = 3;\n    return area(side);\n}\n';
 const SHAPES = 'fn area(side: int): int {\n    return side * side;\n}\n';
+// Every test starts from these two files, so each one runs alone (`-t`); the tests that edit a file put it back.
+const reset = () => {
+  writeFileSync(join(dir, 'main.aster'), MAIN);
+  writeFileSync(join(dir, 'shapes.aster'), SHAPES);
+};
+beforeAll(reset);
 
 function aster(argv: string[]) {
   const r = spawnSync(stage().bin, argv, { cwd: dir, env: { ...process.env, LC_ALL: 'C' }, timeout: 60_000, maxBuffer: 64 * 1024 * 1024 });
@@ -28,8 +34,6 @@ const fresh = (doc: any) => doc.files.every((f: any) => sha(f.path) === f.sha256
 
 describe('a query consumer', () => {
   it('goes from a caret after a callee to the imported declaration', () => {
-    writeFileSync(join(dir, 'main.aster'), MAIN);
-    writeFileSync(join(dir, 'shapes.aster'), SHAPES);
     const caret = Buffer.from(MAIN).indexOf('area(') + 'area'.length;
     const { status, doc } = aster(['query', 'main.aster', '--file=main.aster', `--caret=${caret}`]);
     expect(status).toBe(0);
@@ -57,18 +61,24 @@ describe('a query consumer', () => {
   it('detects a stale response', () => {
     const at = Buffer.from(MAIN).indexOf('side);');
     const { doc } = aster(['query', 'main.aster', '--file=main.aster', `--offset=${at}`]);
-    writeFileSync(join(dir, 'shapes.aster'), SHAPES + '// edited after the query\n');
-    expect(fresh(doc)).toBe(false);
-    writeFileSync(join(dir, 'shapes.aster'), SHAPES);
+    try {
+      writeFileSync(join(dir, 'shapes.aster'), SHAPES + '// edited after the query\n');
+      expect(fresh(doc)).toBe(false);
+    } finally {
+      reset();
+    }
     expect(fresh(doc)).toBe(true);
   });
 
   it('gets no semantics from a broken import, by status alone', () => {
-    writeFileSync(join(dir, 'shapes.aster'), SHAPES.replace('side * side', 'true'));
-    const { status, doc } = aster(['query', 'main.aster', '--file=main.aster', '--offset=0']);
-    expect(status).toBe(1);
-    expect(doc.query).toMatchObject({ status: 'unavailable', reason: 'diagnostics' });
-    expect(doc.diagnostics[0].code).toBe('type.mismatch');
-    writeFileSync(join(dir, 'shapes.aster'), SHAPES);
+    try {
+      writeFileSync(join(dir, 'shapes.aster'), SHAPES.replace('side * side', 'true'));
+      const { status, doc } = aster(['query', 'main.aster', '--file=main.aster', '--offset=0']);
+      expect(status).toBe(1);
+      expect(doc.query).toMatchObject({ status: 'unavailable', reason: 'diagnostics' });
+      expect(doc.diagnostics[0].code).toBe('type.mismatch');
+    } finally {
+      reset();
+    }
   });
 });

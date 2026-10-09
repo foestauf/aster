@@ -3715,6 +3715,7 @@ fn emit(Walk, int, [string]): void
   let 3 f string
   let 4 v string
   let 5 v string
+  let 6 v string
 fn json_field_value(string, string): Option[string]
   param 0 field string
   param 1 key string

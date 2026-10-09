@@ -388,6 +388,12 @@ fn emit(w: Walk, id: int, fields: [string]) {
         panic("internal: inspect ids out of step");
     }
     for f in fields {
+        if let Option::Some(v) = json_field_value(f, "location") {
+            // A located declaration recorded its name site (see located) as the latest one, under this id.
+            if w.render && v != "null" && (len(w.decl_sites) == 0 || w.decl_sites[len(w.decl_sites) - 1].id != id) {
+                panic("internal: inspect declaration sites out of step");
+            }
+        }
         if let Option::Some(v) = json_field_value(f, "type") {
             map_set(w.decl_type, id, v);
         }

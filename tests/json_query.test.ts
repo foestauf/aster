@@ -92,7 +92,7 @@ const POINTER: Row[] = [
   { at: 141, status: 'none' },
   { at: 143, status: 'none' },
   { at: 176, status: 'unsupported', site: 'variant-name', extent: [176, 182] },
-  { at: 182, status: 'found', site: 'expression', extent: [176, 191] },
+  { at: 182, status: 'found', site: 'expression', extent: [176, 191], type: { kind: 'enum', name: 'Option[int]', decl: 21, args: [{ kind: 'int' }] } },
   { at: 184, status: 'unsupported', site: 'variant-name', extent: [184, 188] },
   { at: 189, status: 'found', site: 'local', extent: [189, 190], target: 2 },
   { at: 197, status: 'none' },
@@ -190,17 +190,40 @@ beforeAll(() => {
 });
 
 describe('query selection', () => {
-  it.for(POINTER)('pointer $file $at', (row) => {
+  it.for(POINTER.map((row) => ({ ...row, name: `${row.file ?? 'main.aster'} ${row.at}` })))('pointer $name', (row) => {
     const { got, want } = outcome(query(dir, 'main.aster', row.file ?? 'main.aster', 'offset', row.at), row);
     expect(got).toEqual(want);
   });
-  it.for(CARET)('caret $file $at', (row) => {
+  it.for(CARET.map((row) => ({ ...row, name: `${row.file ?? 'main.aster'} ${row.at}` })))('caret $name', (row) => {
     const { got, want } = outcome(query(dir, 'main.aster', row.file ?? 'main.aster', 'caret', row.at), row);
     expect(got).toEqual(want);
   });
   it.for(CRLF_ROWS)('bom+crlf $at', (row) => {
     const { got, want } = outcome(query(dir, 'crlf.aster', 'crlf.aster', 'offset', row.at), row);
     expect(got).toEqual(want);
+  });
+  it('caret on the BOM and CRLF file', () => {
+    // The BOM is not source, so a caret behind it has no name to its left; one just after `main` finds the declaration.
+    expect(query(dir, 'crlf.aster', 'crlf.aster', 'caret', 3).q.status).toBe('none');
+    expect(query(dir, 'crlf.aster', 'crlf.aster', 'caret', 10).q).toMatchObject({
+      status: 'found',
+      site: 'declaration',
+      target: 0,
+      location: { range: { start: 6, end: 10 } },
+    });
+  });
+  it('every byte of ((n)) selects the use of n, with the parentheses in its extent', () => {
+    const d = fixture('parens', { 'main.aster': 'fn main(): int {\n    let n: int = 3;\n    return ((n)) * 2;\n}\n' });
+    const at = Buffer.from(readFileSync(join(d, 'main.aster'))).indexOf('((n))');
+    for (let k = 0; k < 5; k++) {
+      const q = query(d, 'main.aster', 'main.aster', 'offset', at + k).q;
+      expect(q, `byte ${k}`).toMatchObject({
+        status: 'found',
+        site: 'local',
+        type: { kind: 'int' },
+        location: { range: { start: at, end: at + 5 } },
+      });
+    }
   });
   it('caret between touching sites', () => {
     const d = fixture('touch', { 'main.aster': 'fn main(): int {\n    let a: int = 1;\n    let b: int = 2;\n    return a+b;\n}\n' });
@@ -304,7 +327,7 @@ describe('query at scale', () => {
     const target = r.doc.semantics.declarations[r.q.target];
     expect([target.kind, target.name]).toEqual(['fn', 'lookup']);
   }, 120_000);
-  it('answers a large file in near-linear time', () => {
+  it('answers a 500 KB file within the time ceiling', () => {
     const parts: string[] = [];
     let size = 0;
     for (let i = 0; size < 500_000; i++) {

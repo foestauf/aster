@@ -330,7 +330,9 @@ fn build_query(w: Walk, fi: int): Query {
 }
 
 // The innermost site whose extent contains global offset `g`: the smallest extent; on a tie a name site, then the one
-// listed first (facts are recorded children first).
+// listed first (facts are recorded children first). That is the spec's "deeper wins": a child's extent lies inside its
+// parent's, so it is smaller or, when equal, was recorded earlier, and unsupported and declaration spans never tie
+// with a shallower expression.
 fn select_at(q: Query, g: int): Option[int] {
     var best: int = -1;
     for i in 0..len(q.cands) {

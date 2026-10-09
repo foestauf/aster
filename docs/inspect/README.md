@@ -428,24 +428,38 @@ Import cycles and diamonds are not errors (each file loads once) and produce no 
 
 Commands: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm selfhost` (the full proof: S0-S4 plus SL1/SL2; needs clang 18 and lld).
 
-Last run on the tree committed as dbee066 (2026-10-07; docs and test changes on top of 71dba8c, so the same compiler source), on a machine without clang or lld:
+Last run on 2026-10-08, on the tree that adds the declaration-site check to `inspect.aster` (on top of e0dcf64), on a machine without clang or lld:
 
 - `pnpm lint` and `pnpm typecheck`: clean.
-- `pnpm test`: 1220 of 1359 tests pass; the 139 failures are all `tests/llvm_backend.test.ts` (`spawnSync clang ENOENT`).
-  `json_query` (102 of 102) and `query_consumer` (5 of 5) pass.
+- `pnpm test`: 1222 of 1361 tests pass; the 139 failures are all `tests/llvm_backend.test.ts` (`spawnSync clang ENOENT`).
+  `json_query` (104 of 104) and `query_consumer` (5 of 5) pass.
+- Parity with the pre-change compiler: baseline compilers built from bc7a57a (main before this work) and from this
+  branch's source each ran `check`, `check --format=json`, `inspect` and `build --emit=c` (from the repo root, stdout,
+  stderr and exit code compared) on every `.aster` file that `git ls-files '*.aster'` lists: 1044 comparisons, 0 differences.
+  The same run between e0dcf64 and the tree with the declaration-site check also gave 0 differences, and that check never
+  fired.
 - `pnpm selfhost --suite=S1 --suite=S2 --suite=S3`: did not run. The environment check needs clang and lld and stopped
   with `spawnSync clang ENOENT`. The stage-aware suites ran against S1 inside `pnpm test`. The S2/S3 fixed points, the
   SL1 suites and the full proof are left to CI's `proof` jobs.
 
 ## Measurements
 
-Median of three runs of `build/asterc` (built with `pnpm build` from 71dba8c, which has the same compiler source as dbee066), `/usr/bin/time -f '%e s %M KB'`,
-Linux x86_64. The `query` line asks for one position in the same program.
+Median of three runs, `/usr/bin/time -f '%e s %M KB'`, Linux x86_64, on the compiler (`asterc.aster`, 18 files).
+Both compilers were built from source with `build/asterc build`: bc7a57a is main before this work, HEAD is this branch.
+The `query` line asks for `--file=checker.aster --offset=1000`.
+
+| Command on `asterc.aster` | bc7a57a | HEAD |
+| --- | --- | --- |
+| `check` | 0.13 s, 204 MB | 0.15 s, 215 MB |
+| `inspect` | 0.20 s, 309 MB | 0.24 s, 334 MB |
+| `build --emit=c` | 0.31 s, 446 MB | 0.28 s, 457 MB |
+| `query` | n/a | 0.34 s, 337 MB |
+
+Other `query` runs (HEAD, measured earlier on the same source; `inspect` is the matching run):
 
 | Program | `inspect` | `query` |
 | --- | --- | --- |
 | Small fixture (`main.aster` + `lib.aster`, 402 bytes) | 0.00 s, 2.7 MB | 0.00 s, 3.7 MB |
-| The compiler (`asterc.aster`, 18 files; query `--file=checker.aster --offset=1000`) | 0.25 s, 329 MB | 0.34 s, 334 MB |
 | Generated 500 KB file (about 5,000 small functions; query at offset 499980) | 0.76 s, 866 MB | 0.84 s, 895 MB |
 
 A query costs at most 1.4 times the matching `inspect` here, so the SHA-256 digests and the position pass are a small
