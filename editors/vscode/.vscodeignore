@@ -4,3 +4,5 @@
 !language-configuration.json
 !syntaxes/
 !syntaxes/aster.tmLanguage.json
+!src/
+!src/*.cjs

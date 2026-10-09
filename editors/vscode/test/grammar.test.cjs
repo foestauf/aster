@@ -61,11 +61,16 @@ function assertPlainIdentifier(word) {
   ]);
 }
 
-test('manifest is declarative and associates .aster with the grammar and configuration', () => {
-  assert.equal(manifest.main, undefined);
+test('manifest associates .aster with the grammar and configuration, and runs only the compiler adapter', () => {
+  assert.equal(manifest.main, './src/extension.cjs');
   assert.equal(manifest.browser, undefined);
-  assert.equal(manifest.activationEvents, undefined);
+  assert.deepEqual(manifest.activationEvents, ['onLanguage:aster']);
   assert.equal(manifest.dependencies, undefined);
+  assert.deepEqual(manifest.capabilities.untrustedWorkspaces, {
+    supported: 'limited',
+    description: 'In an untrusted workspace the extension only highlights syntax; it never runs a compiler.',
+    restrictedConfigurations: ['aster.compilerPath', 'aster.entry'],
+  });
   const [language] = manifest.contributes.languages;
   const [contribution] = manifest.contributes.grammars;
   assert.equal(language.id, 'aster');
