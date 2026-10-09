@@ -79,7 +79,11 @@ answers: VS Code breaks lines there but the compiler doesn't, so positions would
 the line with the call. Its `.vscode/settings.json` sets `aster.entry` to `main.aster` and `aster.compilerPath` to
 `../../../build/asterc`, the compiler built in this repository.
 
-1. Build the compiler from the repository root: `pnpm bootstrap` once, then `pnpm build`.
+1. Build the compiler from the repository root: `pnpm bootstrap` once, then `pnpm build`. Then load the extension,
+   either by installing the VSIX (`npm ci && npm run package` here, then
+   `code --install-extension aster-syntax-0.2.0.vsix`) or, without installing, with
+   `code --extensionDevelopmentPath <repo>/editors/vscode <repo>/editors/vscode/demo`. On Windows with WSL, run
+   these from the WSL terminal: the extension has to run on the WSL side to launch the Linux compiler.
 2. Open `editors/vscode/demo` as a folder and trust it. The status bar says `Aster: ✓ saved files`.
 3. In `shapes.aster`, change `return side * side;` to `return true;` (the body of `shapes.broken.aster`) and save.
    `shapes.aster` shows `type mismatch: expected int, found bool` on `true`, and the status bar says
@@ -104,10 +108,12 @@ definition target, and whether the answers' digests match the files.
 
 ### Manual smoke test
 
-The steps above, run in a real VS Code. **Not yet run:** the extension was developed on Linux without a desktop VS
-Code. The `vscode` API is exercised through a recorded mock (`test/extension.test.cjs`), and the adapter through the
-real compiler (`tests/vscode_adapter.test.ts`). Record a run here with the date, platform and VS Code version, plus
-a result for each of steps 2–7.
+The steps above, run in a real VS Code. The `vscode` API is also exercised through a mock
+(`test/extension.test.cjs`), and the adapter through the real compiler (`tests/vscode_adapter.test.ts`).
+
+| Run | Platform | Result |
+| --- | --- | --- |
+| 2026-10-09 | VS Code on Windows, connected to WSL (Linux x86_64); VS Code version not recorded | Steps 2–7 pass, as reported by the person who ran them |
 
 ## Latency
 
