@@ -80,7 +80,7 @@ CI runs on every push to `main` and every pull request:
 | `proof` | After the `proof (<suite>)` jobs. Fails unless they all passed and S1, S2, S3 and SL1 ran the same number of tests. |
 | `release-bootstrap` | Pull requests only. `scripts/ci-bootstrap.sh`, then `pnpm test`. Enforces the two-step rule. |
 
-`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. If no `build-*` release exists at all, it fails and points at Recovery below.
+`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. Only pushes to `main` publish releases, so when `HEAD^1` isn't on `main` (a pull request stacked on another branch), it skips the wait and falls back straight away. If no `build-*` release exists at all, it fails and points at Recovery below.
 
 `release-bootstrap` runs only on pull requests and is the job meant to be the required check.
 

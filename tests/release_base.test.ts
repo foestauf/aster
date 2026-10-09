@@ -49,6 +49,23 @@ describe('release-base.sh', () => {
     expect(r.stderr).toContain(`::warning::release for ${git('rev-parse', 'HEAD^1')} not published yet; falling back to build-20261001-aaaaaaa`);
   });
 
+  it('falls back at once for a base that is not on main, which never gets a release', () => {
+    // A stacked pull request: HEAD^1 is the tip of another branch, off main.
+    git('update-ref', 'refs/remotes/origin/main', 'HEAD^1');
+    git('tag', 'build-20261001-aaaaaaa', 'HEAD^1');
+    commit('c');
+    const r = spawnSync('sh', [join(REPO_ROOT, 'scripts', 'release-base.sh'), 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      // A wait would take an hour, far past the test timeout.
+      env: { ...process.env, ASTER_RELEASE_WAIT_TRIES: '2', ASTER_RELEASE_WAIT_INTERVAL: '3600' },
+      timeout: 10_000,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('build-20261001-aaaaaaa\n');
+    expect(r.stderr).toContain(`${git('rev-parse', 'HEAD')} is not on main, so it gets no release; falling back`);
+  });
+
   it('fails when neither the revision nor its ancestors have a release', () => {
     git('tag', 'build-20261003-ccccccc', 'HEAD');
     const r = base('HEAD^1');
