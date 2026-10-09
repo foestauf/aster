@@ -1,8 +1,8 @@
 {
   "name": "aster-syntax",
   "displayName": "Aster",
-  "description": "Lexical syntax highlighting and editing basics for Aster.",
-  "version": "0.1.0",
+  "description": "Syntax highlighting, plus compiler diagnostics, hover and go to definition for saved Aster files.",
+  "version": "0.2.0",
   "publisher": "aster-local",
   "private": true,
   "license": "UNLICENSED",
@@ -16,12 +16,27 @@
   "keywords": [
     "aster",
     "syntax",
-    "highlighting"
+    "highlighting",
+    "diagnostics"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/foestauf/aster.git",
     "directory": "editors/vscode"
+  },
+  "main": "./src/extension.cjs",
+  "activationEvents": [
+    "onLanguage:aster"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In an untrusted workspace the extension only highlights syntax; it never runs a compiler.",
+      "restrictedConfigurations": [
+        "aster.compilerPath",
+        "aster.entry"
+      ]
+    }
   },
   "contributes": {
     "languages": [
@@ -43,11 +58,32 @@
         "scopeName": "source.aster",
         "path": "./syntaxes/aster.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Aster",
+      "properties": {
+        "aster.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "The aster compiler to run for diagnostics, hover and go to definition. A path with a slash is relative to the workspace folder. Empty: syntax highlighting only."
+        },
+        "aster.entry": {
+          "type": "string",
+          "default": "",
+          "description": "The program's entry point (the file with main), relative to the workspace folder. Empty: syntax highlighting only."
+        },
+        "aster.timeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 100,
+          "description": "How long one compiler run may take, in milliseconds."
+        }
+      }
+    }
   },
   "scripts": {
     "test": "node --test test/*.test.cjs",
-    "package": "npm test && vsce package --no-dependencies --skip-license --out aster-syntax-0.1.0.vsix"
+    "package": "npm test && vsce package --no-dependencies --skip-license --out aster-syntax-0.2.0.vsix"
   },
   "devDependencies": {
     "@vscode/vsce": "4.0.0",
