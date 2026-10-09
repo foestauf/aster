@@ -1,0 +1,531 @@
+// expect-library
+// `aster query` (docs/inspect/README.md, "Position queries"; the contract is
+// docs/superpowers/specs/2026-10-07-aster-source-query-contract-design.md): what the source at one saved byte position
+// means. Sites come from the checker's facts (Checked.facts), the declaration names `inspect` lists, and a syntactic
+// pass marking positions this version does not answer. The innermost by paren-widened extent wins.
+
+import "inspect.aster";
+
+struct QueryRequest {
+    path: string,
+    // "pointer" (`--offset`) or "caret" (`--caret`).
+    mode: string,
+    offset: int,
+}
+
+struct QueryOutcome {
+    text: string,
+    status: int,
+}
+
+// A selectable site in the queried file, global offsets. `kind` is the contract's site name. `fact` indexes
+// Checked.facts for local, callee, field and expression sites; `decl` is the id of a declaration site; otherwise -1.
+// `ext_start`/`ext_end` are the span widened by enclosing parentheses.
+struct Cand {
+    kind: string,
+    start: int,
+    end: int,
+    fact: int,
+    decl: int,
+    ext_start: int,
+    ext_end: int,
+}
+
+// Paren pairs by the start and by the end of the expression they enclose.
+struct ParenIndex {
+    by_start: Map[int, [Paren]],
+    by_end: Map[int, [Paren]],
+}
+
+struct Query {
+    w: Walk,
+    fi: int,
+    file: SourceFile,
+    cands: [Cand],
+}
+
+struct QueryAnswer {
+    json: string,
+    status: int,
+}
+
+fn add_paren(m: Map[int, [Paren]], key: int, q: Paren) {
+    if let Option::Some(list) = map_get(m, key) {
+        push(list, q);
+        map_set(m, key, list);
+        return;
+    }
+    map_set(m, key, [q]);
+}
+
+fn paren_index(parens: [Paren]): ParenIndex {
+    let ix: ParenIndex = ParenIndex { by_start: {}, by_end: {} };
+    for q in parens {
+        add_paren(ix.by_start, q.inner_start, q);
+        add_paren(ix.by_end, q.inner_end, q);
+    }
+    return ix;
+}
+
+// The start of the extent of span [start, end): the outermost `(` of a pair enclosing an expression that starts where
+// the span does and lies inside it (the span itself, or its leftmost descendant).
+fn extent_start(ix: ParenIndex, start: int, end: int): int {
+    var s: int = start;
+    if let Option::Some(list) = map_get(ix.by_start, start) {
+        for q in list {
+            if q.inner_end <= end && q.open < s {
+                s = q.open;
+            }
+        }
+    }
+    return s;
+}
+
+// The end of the extent, symmetrically.
+fn extent_end(ix: ParenIndex, start: int, end: int): int {
+    var e: int = end;
+    if let Option::Some(list) = map_get(ix.by_end, end) {
+        for q in list {
+            if q.inner_start >= start && q.close > e {
+                e = q.close;
+            }
+        }
+    }
+    return e;
+}
+
+fn cand(ix: ParenIndex, kind: string, start: int, end: int, fact: int, decl: int): Cand {
+    return Cand { kind: kind, start: start, end: end, fact: fact, decl: decl, ext_start: extent_start(ix, start, end), ext_end: extent_end(ix, start, end) };
+}
+
+// ---- unsupported sites: positions this version recognises but does not answer
+
+fn syn_push(out: [Cand], kind: string, start: int, end: int) {
+    push(out, Cand { kind: kind, start: start, end: end, fact: -1, decl: -1, ext_start: start, ext_end: end });
+}
+
+fn syn_items(items: [Item]): [Cand] {
+    let out: [Cand] = [];
+    for item in items {
+        match item {
+            Item::Fn(d) => {
+                for p in d.params {
+                    syn_push(out, "type-annotation", p.ty.start, p.ty.end);
+                }
+                if let Option::Some(r) = d.ret {
+                    syn_push(out, "type-annotation", r.start, r.end);
+                }
+                syn_block(out, d.body);
+            }
+            Item::Struct(d) => {
+                for f in d.fields {
+                    syn_push(out, "type-annotation", f.ty.start, f.ty.end);
+                }
+            }
+            Item::Enum(d) => {
+                for v in d.variants {
+                    for t in v.payload {
+                        syn_push(out, "type-annotation", t.start, t.end);
+                    }
+                }
+            }
+            Item::Import(d) => {
+                syn_push(out, "import-path", d.path_start, d.path_end);
+            }
+        }
+    }
+    return out;
+}
+
+fn syn_block(out: [Cand], b: Block) {
+    for s in b.stmts {
+        syn_stmt(out, s);
+    }
+}
+
+fn syn_else(out: [Cand], other: Else) {
+    match other {
+        Else::Block(b) => {
+            syn_block(out, b);
+        }
+        Else::If(s) => {
+            syn_stmt(out, s);
+        }
+        Else::IfLet(s) => {
+            syn_stmt(out, s);
+        }
+        Else::None => {}
+    }
+}
+
+fn syn_arms(out: [Cand], arms: [Arm]) {
+    for a in arms {
+        syn_push(out, "pattern", a.pattern.start, a.pattern.end);
+        match a.body {
+            ArmBody::Block(b) => {
+                syn_block(out, b);
+            }
+            ArmBody::Expr(x) => {
+                syn_expr(out, x);
+            }
+        }
+    }
+}
+
+fn syn_stmt(out: [Cand], s: Stmt) {
+    match s.node {
+        StmtNode::Let(_, _, ty, init) => {
+            syn_push(out, "type-annotation", ty.start, ty.end);
+            syn_expr(out, init);
+        }
+        StmtNode::LetElse(pattern, init, _, other) => {
+            syn_push(out, "pattern", pattern.start, pattern.end);
+            syn_expr(out, init);
+            syn_block(out, other);
+        }
+        StmtNode::Assign(_, target, value) => {
+            syn_expr(out, target);
+            syn_expr(out, value);
+        }
+        StmtNode::If(cond, then, other) => {
+            syn_expr(out, cond);
+            syn_block(out, then);
+            syn_else(out, other);
+        }
+        StmtNode::IfLet(pattern, scrutinee, then, other) => {
+            syn_push(out, "pattern", pattern.start, pattern.end);
+            syn_expr(out, scrutinee);
+            syn_block(out, then);
+            syn_else(out, other);
+        }
+        StmtNode::While(cond, body) => {
+            syn_expr(out, cond);
+            syn_block(out, body);
+        }
+        StmtNode::ForRange(_, from, to, body) => {
+            syn_expr(out, from);
+            syn_expr(out, to);
+            syn_block(out, body);
+        }
+        StmtNode::ForEach(_, iter, body) => {
+            syn_expr(out, iter);
+            syn_block(out, body);
+        }
+        StmtNode::Match(_, scrutinee, arms) => {
+            syn_expr(out, scrutinee);
+            syn_arms(out, arms);
+        }
+        StmtNode::Return(value) => {
+            if let Option::Some(v) = value {
+                syn_expr(out, v);
+            }
+        }
+        StmtNode::Block(b) => {
+            syn_block(out, b);
+        }
+        StmtNode::Expr(e) => {
+            syn_expr(out, e);
+        }
+        _ => {}
+    }
+}
+
+fn syn_expr(out: [Cand], e: Expr) {
+    match e.node {
+        ExprNode::Unary(_, x) => {
+            syn_expr(out, x);
+        }
+        ExprNode::Binary(_, l, r) => {
+            syn_expr(out, l);
+            syn_expr(out, r);
+        }
+        ExprNode::Call(callee, args) => {
+            syn_expr(out, callee);
+            for a in args {
+                syn_expr(out, a);
+            }
+        }
+        ExprNode::If(c, t, o) => {
+            syn_expr(out, c);
+            syn_expr(out, t);
+            syn_expr(out, o);
+        }
+        ExprNode::Field(x, _) => {
+            syn_expr(out, x);
+        }
+        ExprNode::StructLit(name, inits) => {
+            syn_push(out, "struct-literal-name", name.start, name.end);
+            for i in inits {
+                syn_push(out, "field-init-name", i.name.start, i.name.end);
+                syn_expr(out, i.value);
+            }
+        }
+        ExprNode::Index(a, i) => {
+            syn_expr(out, a);
+            syn_expr(out, i);
+        }
+        ExprNode::Try(x) => {
+            syn_expr(out, x);
+        }
+        ExprNode::ArrayLit(xs) => {
+            for x in xs {
+                syn_expr(out, x);
+            }
+        }
+        ExprNode::Variant(en, v, args) => {
+            syn_push(out, "variant-name", en.start, en.end);
+            syn_push(out, "variant-name", v.start, v.end);
+            for a in args {
+                syn_expr(out, a);
+            }
+        }
+        ExprNode::Match(_, scrutinee, arms) => {
+            syn_expr(out, scrutinee);
+            syn_arms(out, arms);
+        }
+        _ => {}
+    }
+}
+
+// ---- selection
+
+fn fact_site(kind: string): string {
+    return if kind == "expr" { "expression" } else { kind };
+}
+
+fn is_name_site(kind: string): bool {
+    return kind == "declaration" || kind == "local" || kind == "callee" || kind == "field" || kind == "variant-name"
+        || kind == "struct-literal-name" || kind == "field-init-name";
+}
+
+fn is_unsupported(kind: string): bool {
+    return kind == "type-annotation" || kind == "variant-name" || kind == "struct-literal-name" || kind == "field-init-name"
+        || kind == "pattern" || kind == "import-path";
+}
+
+// Every site in file `fi`: facts (deepest first, as recorded), declaration names, then unsupported spans.
+fn build_query(w: Walk, fi: int): Query {
+    let f: SourceFile = w.loaded.files[fi];
+    let lo: int = f.base;
+    let hi: int = f.base + len(f.src);
+    let ix: ParenIndex = paren_index(w.loaded.parens);
+    let cands: [Cand] = [];
+    let facts: [SourceFact] = w.checked.facts;
+    for i in 0..len(facts) {
+        if facts[i].start >= lo && facts[i].end <= hi {
+            push(cands, cand(ix, fact_site(facts[i].kind), facts[i].start, facts[i].end, i, -1));
+        }
+    }
+    for d in w.decl_sites {
+        if d.start >= lo && d.end <= hi {
+            push(cands, cand(ix, "declaration", d.start, d.end, -1, d.id));
+        }
+    }
+    for s in syn_items(w.loaded.items) {
+        if s.start >= lo && s.end <= hi {
+            push(cands, cand(ix, s.kind, s.start, s.end, -1, -1));
+        }
+    }
+    return Query { w: w, fi: fi, file: f, cands: cands };
+}
+
+// The innermost site whose extent contains global offset `g`: the smallest extent; on a tie a name site, then the one
+// listed first (facts are recorded children first). That is the spec's "deeper wins": a child's extent lies inside its
+// parent's, so it is smaller or, when equal, was recorded earlier, and unsupported and declaration spans never tie
+// with a shallower expression.
+fn select_at(q: Query, g: int): Option[int] {
+    var best: int = -1;
+    for i in 0..len(q.cands) {
+        let c: Cand = q.cands[i];
+        if c.ext_start <= g && g < c.ext_end {
+            if best < 0 {
+                best = i;
+            } else {
+                let b: Cand = q.cands[best];
+                let size: int = c.ext_end - c.ext_start;
+                let best_size: int = b.ext_end - b.ext_start;
+                if size < best_size || (size == best_size && is_name_site(c.kind) && !is_name_site(b.kind)) {
+                    best = i;
+                }
+            }
+        }
+    }
+    if best < 0 {
+        return Option::None;
+    }
+    return Option::Some(best);
+}
+
+// The byte at on-disk offset `o` of `f`, BOM included.
+fn raw_byte(f: SourceFile, o: int): int {
+    if o < f.bom {
+        let bom: [int] = [239, 187, 191];
+        return bom[o];
+    }
+    return byte_at(f.src, o - f.bom);
+}
+
+fn is_continuation(b: int): bool {
+    return b >= 128 && b < 192;
+}
+
+// Pointer selection at on-disk offset `o` (a code point start below the file's size). The BOM is not source.
+fn pointer(q: Query, o: int): Option[int] {
+    if o < q.file.bom || o >= q.file.bom + len(q.file.src) {
+        return Option::None;
+    }
+    return select_at(q, q.file.base + o - q.file.bom);
+}
+
+// Caret selection at on-disk offset `o`: the character after the caret if it is a name, else the one before if that
+// is, else the pointer answer after it (none at end of file).
+fn caret(q: Query, o: int): Option[int] {
+    let size: int = q.file.bom + len(q.file.src);
+    var right: Option[int] = Option::None;
+    if o < size {
+        right = pointer(q, o);
+        if let Option::Some(i) = right {
+            if is_name_site(q.cands[i].kind) {
+                return right;
+            }
+        }
+    }
+    if o > 0 {
+        var k: int = o - 1;
+        while k > 0 && is_continuation(raw_byte(q.file, k)) {
+            k -= 1;
+        }
+        let left: Option[int] = pointer(q, k);
+        if let Option::Some(i) = left {
+            if is_name_site(q.cands[i].kind) {
+                return left;
+            }
+        }
+    }
+    return right;
+}
+
+// ---- the response
+
+fn request_json(req: QueryRequest, fi: int): string {
+    return json_object([
+        json_kv("path", json_str(utf8_lossy(req.path))), json_kv("mode", json_str(req.mode)), json_kv("offset", json_int(req.offset)),
+        json_kv("file", if fi < 0 { "null" } else { json_int(fi) }),
+    ]);
+}
+
+fn query_json(req: QueryRequest, fi: int, rest: [string]): string {
+    let fields: [string] = [json_kv("request", request_json(req, fi))];
+    for f in rest {
+        push(fields, f);
+    }
+    return json_object(fields);
+}
+
+fn id_of(m: Map[string, int], key: string): int {
+    let Option::Some(id) = map_get(m, key) else {
+        panic("internal: query has no declaration for '" + key + "'");
+    };
+    return id;
+}
+
+// The status, site, location and answer of the chosen site.
+fn site_fields(q: Query, c: Cand): [string] {
+    let w: Walk = q.w;
+    let found: bool = !is_unsupported(c.kind);
+    let fields: [string] = [
+        json_kv("status", json_str(if found { "found" } else { "unsupported" })), json_kv("site", json_str(c.kind)),
+        json_kv("location", json_location(q.fi, q.file.path, Option::Some(indexed_range(w, q.fi, c.ext_start, c.ext_end)))),
+    ];
+    if !found {
+        return fields;
+    }
+    if c.kind == "declaration" {
+        if let Option::Some(t) = map_get(w.decl_type, c.decl) {
+            push(fields, json_kv("type", t));
+        }
+        if let Option::Some(s) = map_get(w.decl_signature, c.decl) {
+            push(fields, json_kv("signature", s));
+        }
+        push(fields, json_kv("target", json_int(c.decl)));
+        return fields;
+    }
+    let f: SourceFact = w.checked.facts[c.fact];
+    if c.kind == "callee" {
+        var id: int = -1;
+        if let Option::Some(user) = map_get(w.fn_ids, f.name) {
+            id = user;
+        } else {
+            id = id_of(w.builtin_ids, f.name);
+        }
+        let Option::Some(sig) = map_get(w.decl_signature, id) else {
+            panic("internal: query has no signature for '" + f.name + "'");
+        };
+        push(fields, json_kv("signature", sig));
+        push(fields, json_kv("target", json_int(id)));
+        return fields;
+    }
+    push(fields, json_kv("type", json_type(w.ids, w.checked, f.ty)));
+    if c.kind == "local" {
+        push(fields, json_kv("target", json_int(w.local_ids[f.func][f.local])));
+    } else if c.kind == "field" {
+        push(fields, json_kv("target", json_int(id_of(w.field_ids, f.owner + "." + f.name))));
+    }
+    return fields;
+}
+
+fn invalid(req: QueryRequest, fi: int, reason: string): QueryAnswer {
+    return QueryAnswer { json: query_json(req, fi, [json_kv("status", json_str("invalid")), json_kv("reason", json_str(reason))]), status: 2 };
+}
+
+// The `query` object for a program that checked.
+fn answer_query(w: Walk, req: QueryRequest): QueryAnswer {
+    let files: [SourceFile] = w.loaded.files;
+    let want: string = normalise(req.path);
+    var fi: int = -1;
+    for i in 0..len(files) {
+        if fi < 0 && normalise(files[i].path) == want {
+            fi = i;
+        }
+    }
+    if fi < 0 {
+        return invalid(req, -1, "file-not-in-closure");
+    }
+    let f: SourceFile = files[fi];
+    let size: int = f.bom + len(f.src);
+    if req.offset > size {
+        return invalid(req, fi, "offset-out-of-range");
+    }
+    if req.offset < size && is_continuation(raw_byte(f, req.offset)) {
+        return invalid(req, fi, "offset-not-boundary");
+    }
+    let q: Query = build_query(w, fi);
+    let chosen: Option[int] = if req.mode == "caret" { caret(q, req.offset) } else { pointer(q, req.offset) };
+    let Option::Some(i) = chosen else {
+        return QueryAnswer { json: query_json(req, fi, [json_kv("status", json_str("none"))]), status: 0 };
+    };
+    return QueryAnswer { json: query_json(req, fi, site_fields(q, q.cands[i])), status: 0 };
+}
+
+// The whole `aster query` response for the entry `entry`, without a final newline, and its exit status.
+fn query_response(entry: string, req: QueryRequest, fe: FrontEnd): QueryOutcome {
+    let fields: [string] = response_fields("query", entry, fe, Option::Some(sha256_new()));
+    match fe {
+        FrontEnd::Passed(loaded, checked) => {
+            let w: Walk = semantics_walk(loaded, checked);
+            push(fields, json_kv("semantics", json_semantics_of(w)));
+            let answer: QueryAnswer = answer_query(w, req);
+            push(fields, json_kv("query", answer.json));
+            return QueryOutcome { text: json_object(fields), status: answer.status };
+        }
+        _ => {
+            let reason: string = match fe {
+                FrontEnd::Unreadable => "io",
+                _ => "diagnostics",
+            };
+            push(fields, json_kv("semantics", json_unavailable(reason)));
+            push(fields, json_kv("query", query_json(req, -1, [json_kv("status", json_str("unavailable")), json_kv("reason", json_str(reason))])));
+            return QueryOutcome { text: json_object(fields), status: front_end_status(fe) };
+        }
+    }
+}

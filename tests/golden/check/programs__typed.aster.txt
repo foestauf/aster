@@ -27,6 +27,7 @@ struct Loaded
   field items [Item]
   field root_end int
   field diags [Diag]
+  field parens [Paren]
 struct Pos
   field line int
   field col int
@@ -89,6 +90,11 @@ struct Pattern
 struct Arm
   field pattern Pattern
   field body ArmBody
+struct Paren
+  field open int
+  field close int
+  field inner_start int
+  field inner_end int
 struct Parser
   field src string
   field tokens [Token]
@@ -96,6 +102,7 @@ struct Parser
   field errors [LexError]
   field no_struct_lit bool
   field base int
+  field parens [Paren]
 struct Token
   field kind string
   field start int
@@ -203,6 +210,15 @@ struct ExpansionGraph
 struct PendingDiag
   field code string
   field message string
+struct SourceFact
+  field kind string
+  field start int
+  field end int
+  field ty Type
+  field func int
+  field local int
+  field name string
+  field owner string
 struct Env
   field diags [Diag]
   field structs [TStruct]
@@ -215,6 +231,8 @@ struct Env
   field builtins Signatures
   field special_builtins Set[string]
   field local_sites [FnSites]
+  field facts [SourceFact]
+  field fact_at Map[string, int]
 struct Loop
   field has_break bool
 struct Ctx
@@ -231,6 +249,7 @@ struct Checked
   field enums [TEnum]
   field functions [TFunction]
   field local_sites [FnSites]
+  field facts [SourceFact]
 struct CheckedStmt
   field node TStmt
   field diverges bool
@@ -530,9 +549,10 @@ fn visit(Loaded, Set[string], string, string): void
   let 10 p Parser
   let 11 items [Item]
   let 12 e LexError
-  let 13 item Item
+  let 13 q Paren
   let 14 item Item
-  let 15 imp ImportDecl
+  let 15 item Item
+  let 16 imp ImportDecl
 fn load_import(Loaded, Set[string], string, string, int, ImportDecl): void
   param 0 ld Loaded
   param 1 seen Set[string]
@@ -831,6 +851,7 @@ fn parse_primary(Parser): Option[Expr]
   let 5 close Token
   let 6 close Token
   let 7 inner Expr
+  let 8 close Token
 fn parse_struct_lit(Parser, Token): Option[Expr]
   param 0 p Parser
   param 1 name Token
@@ -1456,7 +1477,27 @@ fn check_for_body(Ctx, Ident, Type, Block): ForBody
   let 4 local Local
   let 5 body CheckedBlock
 fn error_expr(): TExpr
+fn record(Env, SourceFact): void
+  param 0 env Env
+  param 1 f SourceFact
+  let 2 key string
+  let 3 i int
+fn fact(Ctx, string, int, int, Type, int, string, string): SourceFact
+  param 0 ctx Ctx
+  param 1 kind string
+  param 2 start int
+  param 3 end int
+  param 4 ty Type
+  param 5 local int
+  param 6 name string
+  param 7 owner string
 fn check_expr(Ctx, Expr, Option[Type]): TExpr
+  param 0 ctx Ctx
+  param 1 e Expr
+  param 2 expected Option[Type]
+  let 3 t TExpr
+  let 4 l Local
+fn check_expr_node(Ctx, Expr, Option[Type]): TExpr
   param 0 ctx Ctx
   param 1 e Expr
   param 2 expected Option[Type]

@@ -5,6 +5,7 @@
 import "frontend.aster";
 import "report.aster";
 import "json.aster";
+import "sha256.aster";
 
 // The index of the file a global offset falls in: the last one whose base is at or before it.
 fn file_index(files: [SourceFile], start: int): int {
@@ -80,19 +81,34 @@ fn json_diag(files: [SourceFile], d: Diag): string {
     return json_diagnostic(d.code, d.message, primary, related);
 }
 
-fn json_files(files: [SourceFile]): string {
+// The `files` list. With `digests` (`aster query`), each entry also has `sha256`, the digest of its on-disk bytes.
+fn json_files(files: [SourceFile], digests: Option[Sha256]): string {
     let out: [string] = [];
     for i in 0..len(files) {
         let shown: string = utf8_lossy(files[i].path);
         let fields: [string] = [json_kv("id", json_int(i)), json_kv("path", json_str(shown)), json_kv("bom", json_bool(files[i].bom > 0))];
+        if let Option::Some(sha) = digests {
+            push(fields, json_kv("sha256", json_str(file_sha256(sha, files[i]))));
+        }
         push_path_exact(fields, files[i].path);
         push(out, json_object(fields));
     }
     return json_array(out);
 }
 
-// The whole response for `command` (`check` or `inspect`) on the root `path`, without a final newline.
-fn inspect_response(command: string, path: string, fe: FrontEnd): string {
+// The SHA-256 of a loaded file as stored on disk: the loader strips a BOM, so it goes back in front.
+fn file_sha256(sha: Sha256, f: SourceFile): string {
+    let prefix: [int] = [];
+    if f.bom > 0 {
+        push(prefix, 239);
+        push(prefix, 187);
+        push(prefix, 191);
+    }
+    return sha256_hex(sha, prefix, f.src);
+}
+
+// The keys every response shares, `schema` through `diagnostics`, for `command` on the root `path`.
+fn response_fields(command: string, path: string, fe: FrontEnd, digests: Option[Sha256]): [string] {
     var files: string = "[]";
     let diags: [string] = [];
     match fe {
@@ -103,24 +119,34 @@ fn inspect_response(command: string, path: string, fe: FrontEnd): string {
             push(diags, json_diagnostic("source.invalid-utf8", utf8_reason(raw, bad), json_location(-1, path, Option::Some(invalid_range(raw, bad))), []));
         }
         FrontEnd::Failed(loaded, ds) => {
-            files = json_files(loaded.files);
+            files = json_files(loaded.files, digests);
             for d in sort_diags(ds) {
                 push(diags, json_diag(loaded.files, d));
             }
         }
         FrontEnd::Passed(loaded, _) => {
-            files = json_files(loaded.files);
+            files = json_files(loaded.files, digests);
         }
     }
-    let fields: [string] = [
+    return [
         json_kv("schema", json_str("aster/1")), json_kv("command", json_str(command)), json_kv("ok", json_bool(len(diags) == 0)),
         json_kv("files", files), json_kv("diagnostics", json_array(diags)),
     ];
+}
+
+// `semantics` for a program that did not check: `reason` is "io" or "diagnostics".
+fn json_unavailable(reason: string): string {
+    return json_object([json_kv("available", "false"), json_kv("reason", json_str(reason))]);
+}
+
+// The whole response for `command` (`check` or `inspect`) on the root `path`, without a final newline.
+fn inspect_response(command: string, path: string, fe: FrontEnd): string {
+    let fields: [string] = response_fields(command, path, fe, Option::None);
     if command == "inspect" {
         let semantics: string = match fe {
             FrontEnd::Passed(loaded, checked) => json_semantics(loaded, checked),
-            FrontEnd::Unreadable => json_object([json_kv("available", "false"), json_kv("reason", json_str("io"))]),
-            _ => json_object([json_kv("available", "false"), json_kv("reason", json_str("diagnostics"))]),
+            FrontEnd::Unreadable => json_unavailable("io"),
+            _ => json_unavailable("diagnostics"),
         };
         push(fields, json_kv("semantics", semantics));
     }
@@ -157,10 +183,21 @@ struct Ids {
     next: int,
 }
 
+// A source declaration's name (global offsets) and its id, for `aster query`'s declaration sites.
+struct DeclSite {
+    start: int,
+    end: int,
+    id: int,
+}
+
 // One walk over the declarations. The counting pass (`render` false) only assigns ids and fills `ids`; the rendering
 // pass repeats it exactly, with every id known, and pushes each declaration's JSON to `out`, whose length is the id
 // rendered next. `fn_index` maps a function's name to its index in `checked.functions` and `checked.local_sites`;
 // `lines` holds each loaded file's line starts.
+//
+// The rendering pass also leaves behind what `aster query` needs: every source declaration's name; each declaration's
+// `type` and `signature` JSON by id; per function (index in `checked.functions`) the declaration id of each local id;
+// and the ids of functions and builtins by name, and of fields by "Struct.field".
 struct Walk {
     ids: Ids,
     render: bool,
@@ -171,6 +208,13 @@ struct Walk {
     builtins: Signatures,
     fn_index: Map[string, int],
     lines: [[int]],
+    decl_sites: [DeclSite],
+    decl_type: Map[int, string],
+    decl_signature: Map[int, string],
+    local_ids: [[int]],
+    fn_ids: Map[string, int],
+    builtin_ids: Map[string, int],
+    field_ids: Map[string, int],
 }
 
 fn json_prim(kind: string): string {
@@ -343,7 +387,30 @@ fn emit(w: Walk, id: int, fields: [string]) {
     if len(w.out) != id {
         panic("internal: inspect ids out of step");
     }
+    for f in fields {
+        if let Option::Some(v) = json_field_value(f, "location") {
+            // A located declaration recorded its name site (see located) as the latest one, under this id.
+            if w.render && v != "null" && (len(w.decl_sites) == 0 || w.decl_sites[len(w.decl_sites) - 1].id != id) {
+                panic("internal: inspect declaration sites out of step");
+            }
+        }
+        if let Option::Some(v) = json_field_value(f, "type") {
+            map_set(w.decl_type, id, v);
+        }
+        if let Option::Some(v) = json_field_value(f, "signature") {
+            map_set(w.decl_signature, id, v);
+        }
+    }
     push(w.out, json_object(fields));
+}
+
+// The value of `field`, a json_kv string, when its key is `key`.
+fn json_field_value(field: string, key: string): Option[string] {
+    let prefix: string = json_str(key) + ":";
+    if len(field) >= len(prefix) && substring(field, 0, len(prefix)) == prefix {
+        return Option::Some(substring(field, len(prefix), len(field)));
+    }
+    return Option::None;
 }
 
 // The common keys of a declaration.
@@ -358,6 +425,10 @@ fn head(id: int, kind: string, name: string, origin: string, location: string, d
 fn located(w: Walk, source: bool, name: Ident): string {
     if !source {
         return "null";
+    }
+    if w.render {
+        // The declaration being built is the next one emitted.
+        push(w.decl_sites, DeclSite { start: name.start, end: name.end, id: len(w.out) });
     }
     let files: [SourceFile] = w.loaded.files;
     let fi: int = file_index(files, name.start);
@@ -405,6 +476,8 @@ fn walk_fn(w: Walk, d: FnDecl) {
         fact[order[p]] = id + 1 + p;
     }
     if w.render {
+        map_set(w.fn_ids, d.name.name, id);
+        w.local_ids[fi] = fact;
         let params: [string] = [];
         for k in 0..f.params {
             push(params, json_object([
@@ -452,6 +525,7 @@ fn walk_struct(w: Walk, d: StructDecl) {
             let Option::Some(i) = find_tfield(st.fields, field.name.name) else {
                 panic("internal: inspect has no field '" + field.name.name + "'");
             };
+            map_set(w.field_ids, d.name.name + "." + field.name.name, fid);
             let fields: [string] = head(fid, "field", field.name.name, "source", located(w, true, field.name), decl_range(w, true, field.name.start, field.ty.end));
             push(fields, json_kv("type", json_type(w.ids, w.checked, st.fields[i].ty)));
             push(fields, json_kv("parent", json_int(id)));
@@ -574,6 +648,7 @@ fn walk_builtin(w: Walk, name: string) {
     if !w.render {
         return;
     }
+    map_set(w.builtin_ids, name, id);
     if is_builtin_type_name(name) {
         emit(w, id, head(id, "builtin-type", name, "builtin", "null", "null"));
         return;
@@ -626,8 +701,8 @@ fn walk(w: Walk) {
     }
 }
 
-// The `semantics` of a program that checked: every declaration, linked to its source.
-fn json_semantics(loaded: Loaded, checked: Checked): string {
+// Both passes of the declaration walk over a program that checked.
+fn semantics_walk(loaded: Loaded, checked: Checked): Walk {
     let ids: Ids = Ids { types: {}, enum_index: {}, struct_index: {}, next: 0 };
     for i in 0..len(checked.enums) {
         map_set(ids.enum_index, checked.enums[i].name, i);
@@ -636,12 +711,15 @@ fn json_semantics(loaded: Loaded, checked: Checked): string {
         map_set(ids.struct_index, checked.structs[i].name, i);
     }
     let fn_index: Map[string, int] = {};
+    let local_ids: [[int]] = [];
     for i in 0..len(checked.functions) {
         map_set(fn_index, checked.functions[i].name, i);
+        push(local_ids, []);
     }
     let w: Walk = Walk {
         ids: ids, render: false, out: [], loaded: loaded, checked: checked, prelude: prelude_templates(),
         builtins: builtin_signatures(), fn_index: fn_index, lines: [],
+        decl_sites: [], decl_type: {}, decl_signature: {}, local_ids: local_ids, fn_ids: {}, builtin_ids: {}, field_ids: {},
     };
     for f in loaded.files {
         push(w.lines, line_starts(f.src));
@@ -649,5 +727,15 @@ fn json_semantics(loaded: Loaded, checked: Checked): string {
     walk(w);
     w.render = true;
     walk(w);
+    return w;
+}
+
+// The `semantics` of a walked program: every declaration, linked to its source.
+fn json_semantics_of(w: Walk): string {
     return json_object([json_kv("available", "true"), json_kv("declarations", json_array(w.out))]);
+}
+
+// The `semantics` of a program that checked: every declaration, linked to its source.
+fn json_semantics(loaded: Loaded, checked: Checked): string {
+    return json_semantics_of(semantics_walk(loaded, checked));
 }

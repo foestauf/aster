@@ -1,0 +1,200 @@
+// expect-library
+// SHA-256 (FIPS 180-4) for `aster query`'s freshness digests. Aster has no bitwise operators, so a 32-bit word is an
+// int in [0, 2^32): shifts and rotations are division and multiplication by powers of two, and `xor` and `and` work a
+// byte at a time through 256 x 256 tables that sha256_new builds once.
+
+struct Sha256 {
+    xor8: [int],
+    and8: [int],
+    // pow2[i] is 2^i, for i in 0..33.
+    pow2: [int],
+    k: [int],
+    // The message schedule, reused for every block.
+    w: [int],
+}
+
+fn sha256_new(): Sha256 {
+    let xor8: [int] = [];
+    let and8: [int] = [];
+    for a in 0..256 {
+        for b in 0..256 {
+            var x: int = 0;
+            var n: int = 0;
+            var bit: int = 1;
+            var ra: int = a;
+            var rb: int = b;
+            for step in 0..8 {
+                let abit: int = ra % 2;
+                let bbit: int = rb % 2;
+                if abit != bbit {
+                    x += bit;
+                }
+                if abit == 1 && bbit == 1 {
+                    n += bit;
+                }
+                ra = ra / 2;
+                rb = rb / 2;
+                bit = bit * 2;
+            }
+            push(xor8, x);
+            push(and8, n);
+        }
+    }
+    let pow2: [int] = [];
+    var p: int = 1;
+    for i in 0..33 {
+        push(pow2, p);
+        p = p * 2;
+    }
+    let w: [int] = [];
+    for i in 0..64 {
+        push(w, 0);
+    }
+    let k: [int] = [
+        1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221, 3624381080,
+        310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580, 3835390401, 4022224774,
+        264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986, 2554220882, 2821834349, 2952996808,
+        3210313671, 3336571891, 3584528711, 113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291,
+        1695183700, 1986661051, 2177026350, 2456956037, 2730485921, 2820302411, 3259730800, 3345764771, 3516065817,
+        3600352804, 4094571909, 275423344, 430227734, 506948616, 659060556, 883997877, 958139571, 1322822218,
+        1537002063, 1747873779, 1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479,
+        3329325298,
+    ];
+    return Sha256 { xor8: xor8, and8: and8, pow2: pow2, k: k, w: w };
+}
+
+// `a xor b` (`table` = xor8) or `a and b` (`table` = and8) of two 32-bit words, a byte at a time.
+fn bytewise32(table: [int], a: int, b: int): int {
+    var out: int = 0;
+    var x: int = a;
+    var y: int = b;
+    var scale: int = 1;
+    for step in 0..4 {
+        out += table[(x % 256) * 256 + y % 256] * scale;
+        x = x / 256;
+        y = y / 256;
+        scale = scale * 256;
+    }
+    return out;
+}
+
+fn xor32(s: Sha256, a: int, b: int): int {
+    return bytewise32(s.xor8, a, b);
+}
+
+fn and32(s: Sha256, a: int, b: int): int {
+    return bytewise32(s.and8, a, b);
+}
+
+fn not32(a: int): int {
+    return 4294967295 - a;
+}
+
+fn add32(a: int, b: int): int {
+    return (a + b) % 4294967296;
+}
+
+fn rotr32(s: Sha256, x: int, n: int): int {
+    return x / s.pow2[n] + (x % s.pow2[n]) * s.pow2[32 - n];
+}
+
+fn shr32(s: Sha256, x: int, n: int): int {
+    return x / s.pow2[n];
+}
+
+// Byte `i` of the padded message: `prefix`, then `text` (`size` bytes together), then 0x80, zeros, and the bit length
+// as 8 big-endian bytes, `total` bytes in all.
+fn padded_byte(prefix: [int], text: string, size: int, total: int, i: int): int {
+    if i < len(prefix) {
+        return prefix[i];
+    }
+    if i < size {
+        return byte_at(text, i - len(prefix));
+    }
+    if i == size {
+        return 128;
+    }
+    if i < total - 8 {
+        return 0;
+    }
+    var bits: int = size * 8;
+    for step in 0..total - 1 - i {
+        bits = bits / 256;
+    }
+    return bits % 256;
+}
+
+// Folds the 64-byte block at `at` into the state `h`.
+fn sha256_block(s: Sha256, h: [int], prefix: [int], text: string, size: int, total: int, at: int) {
+    let w: [int] = s.w;
+    for t in 0..16 {
+        let i: int = at + t * 4;
+        w[t] = padded_byte(prefix, text, size, total, i) * 16777216 + padded_byte(prefix, text, size, total, i + 1) * 65536
+            + padded_byte(prefix, text, size, total, i + 2) * 256 + padded_byte(prefix, text, size, total, i + 3);
+    }
+    for t in 16..64 {
+        let x: int = w[t - 15];
+        let y: int = w[t - 2];
+        let s0: int = xor32(s, xor32(s, rotr32(s, x, 7), rotr32(s, x, 18)), shr32(s, x, 3));
+        let s1: int = xor32(s, xor32(s, rotr32(s, y, 17), rotr32(s, y, 19)), shr32(s, y, 10));
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) % 4294967296;
+    }
+    var a: int = h[0];
+    var b: int = h[1];
+    var c: int = h[2];
+    var d: int = h[3];
+    var e: int = h[4];
+    var f: int = h[5];
+    var g: int = h[6];
+    var hh: int = h[7];
+    for t in 0..64 {
+        let big1: int = xor32(s, xor32(s, rotr32(s, e, 6), rotr32(s, e, 11)), rotr32(s, e, 25));
+        let choose: int = xor32(s, and32(s, e, f), and32(s, not32(e), g));
+        let t1: int = (hh + big1 + choose + s.k[t] + w[t]) % 4294967296;
+        let big0: int = xor32(s, xor32(s, rotr32(s, a, 2), rotr32(s, a, 13)), rotr32(s, a, 22));
+        let majority: int = xor32(s, xor32(s, and32(s, a, b), and32(s, a, c)), and32(s, b, c));
+        let t2: int = add32(big0, majority);
+        hh = g;
+        g = f;
+        f = e;
+        e = add32(d, t1);
+        d = c;
+        c = b;
+        b = a;
+        a = add32(t1, t2);
+    }
+    h[0] = add32(h[0], a);
+    h[1] = add32(h[1], b);
+    h[2] = add32(h[2], c);
+    h[3] = add32(h[3], d);
+    h[4] = add32(h[4], e);
+    h[5] = add32(h[5], f);
+    h[6] = add32(h[6], g);
+    h[7] = add32(h[7], hh);
+}
+
+// The lowercase hex SHA-256 of `prefix`'s bytes followed by `text`'s.
+fn sha256_hex(s: Sha256, prefix: [int], text: string): string {
+    let h: [int] = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225];
+    let size: int = len(prefix) + len(text);
+    var total: int = size + 9;
+    while total % 64 != 0 {
+        total += 1;
+    }
+    var at: int = 0;
+    while at < total {
+        sha256_block(s, h, prefix, text, size, total, at);
+        at += 64;
+    }
+    let digits: string = "0123456789abcdef";
+    var out: string = "";
+    for word in h {
+        var scale: int = 268435456;
+        for step in 0..8 {
+            let d: int = (word / scale) % 16;
+            out += substring(digits, d, d + 1);
+            scale = scale / 16;
+        }
+    }
+    return out;
+}
