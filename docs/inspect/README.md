@@ -466,7 +466,7 @@ A query costs at most 1.4 times the matching `inspect` here, so the SHA-256 dige
 share of the run.
 
 A later 10-sample record with the closure's source size, [session-cost](../perf/session-cost.md) (#62), puts
-`query` − `inspect` at about 124 ms of 363 ms on the compiler, growing with source bytes; see
+`query` − `inspect` at about 120 ms of 360 ms on the compiler, growing with source bytes; see
 [the decision](../context/decision.md) before treating that share as small.
 
 ## Diagnostic codes

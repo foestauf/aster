@@ -5,8 +5,8 @@ A measurement of the machine and inputs named below, made by `node scripts/sessi
 not included.
 
 ```text
-recorded        2026-10-10T01:23:43.488Z
-gitCommit       2025f3d0c03f76139503197ef81927cef142f506
+recorded        2026-10-10T01:37:49.256Z
+gitCommit       70c12cecf3ef716c58d77e62b289f469e4f0d57d
 gitDirty        false
 compilerSha256  056f826e37d83d75db4b071bccbfd1e97fcadc2fa16abcb2564cefeac56ead9e
 platform        Linux 6.6.114.1-microsoft-standard-WSL2 x86_64
@@ -24,18 +24,18 @@ Each row: 10 timed runs after one separately recorded first run (`first` in the 
 
 | Program | Command | Wall ms median (min–max) | Max RSS KiB median (min–max) | Output bytes | Failed |
 | --- | --- | --- | --- | --- | --- |
-| launch (1 line) | check | 2.3 (2.2–2.4) | 1920 (1792–1920) | 117 | 0 |
-| launch (1 line) | inspect | 2.5 (2.4–2.7) | 2304 (2176–2304) | 5803 | 0 |
-| launch (1 line) | query | 4.0 (3.8–4.1) | 3328 (3200–3328) | 6188 | 0 |
-| demo (2 files) | check | 2.2 (2.0–2.5) | 1920 (1792–1920) | 162 | 0 |
-| demo (2 files) | inspect | 2.7 (2.6–3.0) | 2432 (2432–2432) | 8050 | 0 |
-| demo (2 files) | query | 4.3 (4.2–4.6) | 3584 (3584–3584) | 8488 | 0 |
-| compiler (18 files) | check | 144.9 (144.1–146.7) | 214616 (214484–214624) | 887 | 0 |
-| compiler (18 files) | inspect | 239.8 (236.1–257.5) | 330076 (329936–330080) | 1742436 | 0 |
-| compiler (18 files) | query | 363.4 (356.7–390.6) | 335236 (335160–335320) | 1743903 | 0 |
-| generated (467 KiB) | check | 121.7 (121.1–124.8) | 105468 (105340–105472) | 118 | 0 |
-| generated (467 KiB) | inspect | 554.3 (548.9–592.3) | 650412 (650408–650416) | 7877347 | 0 |
-| generated (467 KiB) | query | 723.5 (711.3–775.1) | 673452 (673220–673456) | 7877522 | 0 |
+| launch (1 line) | check | 2.3 (2.1–2.7) | 1920 (1792–1920) | 117 | 0 |
+| launch (1 line) | inspect | 2.6 (2.4–3.1) | 2304 (2176–2304) | 5803 | 0 |
+| launch (1 line) | query | 4.1 (3.9–4.3) | 3328 (3200–3328) | 6188 | 0 |
+| demo (2 files) | check | 2.2 (2.1–2.7) | 1920 (1920–1920) | 162 | 0 |
+| demo (2 files) | inspect | 2.8 (2.7–3.0) | 2432 (2304–2432) | 8050 | 0 |
+| demo (2 files) | query | 4.3 (4.1–4.4) | 3584 (3456–3584) | 8488 | 0 |
+| compiler (18 files) | check | 148.9 (144.4–185.5) | 214620 (214440–214664) | 887 | 0 |
+| compiler (18 files) | inspect | 239.5 (237.8–269.0) | 330076 (329836–330080) | 1742436 | 0 |
+| compiler (18 files) | query | 360.5 (354.2–395.2) | 335318 (335164–335324) | 1743903 | 0 |
+| generated (467 KiB) | check | 122.8 (120.9–154.0) | 105468 (105256–105472) | 118 | 0 |
+| generated (467 KiB) | inspect | 573.1 (550.0–679.5) | 650410 (650240–650416) | 7877347 | 0 |
+| generated (467 KiB) | query | 737.8 (711.9–822.3) | 673358 (673212–673452) | 7877522 | 0 |
 
 Closure source bytes: launch (1 line) 29; demo (2 files) 410; compiler (18 files) 380354; generated (467 KiB) 477844.
 
@@ -43,18 +43,18 @@ First runs (nearest approximation of a cold run):
 
 | Program | Command | First wall ms | First max RSS KiB |
 | --- | --- | --- | --- |
-| launch (1 line) | check | 3.4 | 1920 |
-| launch (1 line) | inspect | 3.1 | 2176 |
-| launch (1 line) | query | 4.2 | 3328 |
-| demo (2 files) | check | 2.2 | 1920 |
-| demo (2 files) | inspect | 2.7 | 2432 |
-| demo (2 files) | query | 4.1 | 3584 |
-| compiler (18 files) | check | 151.6 | 214388 |
-| compiler (18 files) | inspect | 250.9 | 330076 |
-| compiler (18 files) | query | 353.3 | 335320 |
-| generated (467 KiB) | check | 124.8 | 105256 |
-| generated (467 KiB) | inspect | 593.3 | 650416 |
-| generated (467 KiB) | query | 724.6 | 673452 |
+| launch (1 line) | check | 3.3 | 1920 |
+| launch (1 line) | inspect | 3.2 | 2304 |
+| launch (1 line) | query | 4.1 | 3200 |
+| demo (2 files) | check | 2.1 | 1920 |
+| demo (2 files) | inspect | 2.6 | 2432 |
+| demo (2 files) | query | 4.3 | 3456 |
+| compiler (18 files) | check | 146.6 | 214616 |
+| compiler (18 files) | inspect | 239.9 | 329952 |
+| compiler (18 files) | query | 438.2 | 335196 |
+| generated (467 KiB) | check | 125.7 | 105464 |
+| generated (467 KiB) | inspect | 625.3 | 650416 |
+| generated (467 KiB) | query | 718.2 | 673244 |
 
 ## Adapter side (in process, compiler-closure query response)
 
@@ -62,16 +62,16 @@ Response: 1743903 bytes, 18 files.
 
 | Step | ms median (min–max) |
 | --- | --- |
-| jsonParseMs | 6.086 (5.909–7.881) |
-| readbackHashMs | 0.628 (0.353–2.863) |
-| byteOffsetMs | 0.170 (0.169–0.889) |
+| jsonParseMs | 6.190 (5.934–7.908) |
+| readbackHashMs | 0.582 (0.346–2.591) |
+| byteOffsetMs | 0.171 (0.169–0.936) |
 
 ## Adapter round trip (`Session.query`, sequential)
 
 | Program | ms median (min–max) | Outcomes |
 | --- | --- | --- |
-| demo (2 files) | 4.3 (3.9–6.5) | answer |
-| compiler (18 files) | 365.8 (363.8–375.6) | answer |
+| demo (2 files) | 4.5 (4.2–7.0) | answer |
+| compiler (18 files) | 367.6 (360.6–410.6) | answer |
 
 ## Workloads (compiler closure unless named)
 
@@ -79,15 +79,15 @@ Response: 1743903 bytes, 18 files.
 {
   "hover sweep, sequential": {
     "requests": 20,
-    "totalMs": 7412.170524999965,
+    "totalMs": 7552.329275000142,
     "peakProcesses": 1,
-    "peakRssKiB": 335280,
+    "peakRssKiB": 335336,
     "leftover": 0,
     "perRequestMs": {
       "n": 20,
-      "median": 370.9846724999952,
-      "min": 362.014766999986,
-      "max": 379.3822879999643
+      "median": 370.7589460000163,
+      "min": 364.8431480000727,
+      "max": 421.27713999990374
     },
     "kinds": {
       "answer": 20
@@ -95,15 +95,15 @@ Response: 1743903 bytes, 18 files.
   },
   "hover sweep, overlap": {
     "requests": 20,
-    "totalMs": 1237.6186580000212,
-    "peakProcesses": 17,
-    "peakRssKiB": 3186556,
+    "totalMs": 1306.8083299999125,
+    "peakProcesses": 18,
+    "peakRssKiB": 3499992,
     "leftover": 0,
     "perRequestMs": {
       "n": 20,
-      "median": 617.6304204999469,
-      "min": 478.0172949999105,
-      "max": 665.2184660000494
+      "median": 683.3209369999822,
+      "min": 594.5168649998959,
+      "max": 792.5764159997925
     },
     "kinds": {
       "answer": 20
@@ -111,15 +111,15 @@ Response: 1743903 bytes, 18 files.
   },
   "hover sweep, cancel-previous": {
     "requests": 20,
-    "totalMs": 1017.4650230000261,
+    "totalMs": 1008.0654380000196,
     "peakProcesses": 2,
-    "peakRssKiB": 332024,
+    "peakRssKiB": 335256,
     "leftover": 0,
     "perRequestMs": {
       "n": 20,
-      "median": 37.350044000020716,
-      "min": 36.00956699997187,
-      "max": 375.4117130000377
+      "median": 36.745355000020936,
+      "min": 36.02354500000365,
+      "max": 372.48430599994026
     },
     "kinds": {
       "cancelled": 19,
@@ -127,15 +127,15 @@ Response: 1743903 bytes, 18 files.
     }
   },
   "rapid saves (5 checks, 30 ms apart)": {
-    "totalMs": 286.8438819999574,
+    "totalMs": 283.4751909999177,
     "peakProcesses": 2,
-    "peakRssKiB": 214188,
+    "peakRssKiB": 212824,
     "leftover": 0,
     "perRequestMs": {
       "n": 5,
-      "median": 36.849138999939896,
-      "min": 36.195136999944225,
-      "max": 153.96042999997735
+      "median": 36.86958599998616,
+      "min": 36.3341510000173,
+      "max": 149.0143889999017
     },
     "kinds": {
       "superseded": 4,
@@ -146,21 +146,21 @@ Response: 1743903 bytes, 18 files.
     "broken": {
       "ok": false,
       "count": 1,
-      "ms": 4.010293000028469
+      "ms": 4.054892000043765
     },
     "fixed": {
       "ok": true,
       "count": 0,
-      "ms": 2.8657039999961853
+      "ms": 3.008093000156805
     }
   },
   "query of a file outside the closure": {
     "outcome": "none: invalid position: file-not-in-closure",
     "ms": {
       "n": 5,
-      "median": 364.151343000005,
-      "min": 360.8996820000466,
-      "max": 374.64327499992214
+      "median": 366.6803010001313,
+      "min": 359.1841720000375,
+      "max": 373.6068240001332
     }
   }
 }

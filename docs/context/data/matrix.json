@@ -1,5 +1,5 @@
 {
-  "commit": "6de05de8f1cdaa46b1fb81454983131ea53fd537",
+  "commit": "70c12cecf3ef716c58d77e62b289f469e4f0d57d",
   "compiler": "build/asterc",
   "rows": [
     {
@@ -233,7 +233,7 @@
       "case": "Two entries share a library; ask about the second entry",
       "evidence": "observed",
       "cli": "check: ok (2 files); query: found callee [tool.aster, ./lib.aster]",
-      "editor": "diagnostics shown: ok; hover: not in closure",
+      "editor": "diagnostics shown: ok; hover: not in closure; diagnostics describe 2 file(s), the program now has 2",
       "agree": "no",
       "decision": "Which entries exist, and which one answers for a file that several (lib.aster) or only one (tool.aster) import. One `aster.entry` cannot express this.",
       "raw": {
@@ -317,7 +317,7 @@
       "case": "Two workspace folders, each its own program; ask in the second",
       "evidence": "observed",
       "cli": "check: ok (2 files); query: found local [main.aster, ./lib.aster]",
-      "editor": "diagnostics shown: ok; hover: not in closure",
+      "editor": "diagnostics shown: ok; hover: not in closure; diagnostics describe 2 file(s), the program now has 2",
       "agree": "no",
       "decision": "Whether context is per workspace folder. Today the second folder silently gets the first folder's program.",
       "raw": {
@@ -614,8 +614,8 @@
       "case": "An import is added outside the editor (e.g. git checkout)",
       "evidence": "observed",
       "cli": "check: ok (3 files); query: found callee [main.aster, ./lib2.aster, ./lib.aster]",
-      "editor": "diagnostics shown: ok (from before the change); hover: found callee",
-      "agree": "yes",
+      "editor": "diagnostics shown: ok (from before the change); hover: found callee; diagnostics describe 2 file(s), the program now has 3",
+      "agree": "no",
       "decision": "How diagnostics learn of disk changes the editor did not save. Queries are fresh (each run reloads), but the diagnostics shown still describe the old closure until the next save.",
       "raw": {
         "editor": {
@@ -745,7 +745,7 @@
       "case": "An imported file is deleted outside the editor",
       "evidence": "observed",
       "cli": "check: 1 error(s): import.unreadable; query: unavailable (diagnostics) [main.aster]",
-      "editor": "diagnostics shown: ok (from before the change); hover: unavailable (diagnostics)",
+      "editor": "diagnostics shown: ok (from before the change); hover: unavailable (diagnostics); diagnostics describe 2 file(s), the program now has 1",
       "agree": "no",
       "decision": "Same as changed-import: a file-system watch (or refresh on focus) is the missing piece, not new context.",
       "raw": {
