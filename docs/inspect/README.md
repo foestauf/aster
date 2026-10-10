@@ -465,6 +465,10 @@ Other `query` runs (HEAD, measured earlier on the same source; `inspect` is the 
 A query costs at most 1.4 times the matching `inspect` here, so the SHA-256 digests and the position pass are a small
 share of the run.
 
+A later 10-sample record with the closure's source size, [session-cost](../perf/session-cost.md) (#62), puts
+`query` − `inspect` at about 124 ms of 363 ms on the compiler, growing with source bytes; see
+[the decision](../context/decision.md) before treating that share as small.
+
 ## Diagnostic codes
 
 Every diagnostic the compiler emits carries a stable code. The message column is the human message, with placeholders in angle brackets.
