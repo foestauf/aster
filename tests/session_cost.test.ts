@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateLargeProgram, parseOptions, positionOf, parseTimeOutput, readRssKiB, renderProcessTable, summarize } from '../scripts/session-cost.js';
+import { generateLargeProgram, parseOptions, positionOf, sampleOk, parseTimeOutput, readRssKiB, renderProcessTable, summarize } from '../scripts/session-cost.js';
 
 // Issue #62: the pure helpers of the session-cost evidence script. The measurements themselves never run in CI.
 
@@ -75,5 +75,14 @@ describe('positionOf', () => {
       const p = positionOf(bytes, off);
       expect(convert.byteOffset(bytes, p.line, p.character).offset).toBe(off);
     }
+  });
+});
+
+describe('sampleOk', () => {
+  it('accepts only aster/1 JSON with the expected exit status and a parsed time line', () => {
+    expect(sampleOk({ json: true, status: 0, timed: true }, 0)).toBe(true);
+    expect(sampleOk({ json: true, status: 1, timed: true }, 0)).toBe(false);
+    expect(sampleOk({ json: false, status: 0, timed: true }, 0)).toBe(false);
+    expect(sampleOk({ json: true, status: 0, timed: false }, 0)).toBe(false);
   });
 });

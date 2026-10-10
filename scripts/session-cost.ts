@@ -95,6 +95,11 @@ export function positionOf(bytes: Buffer, offset: number): { line: number; chara
   return { line, character: text.length };
 }
 
+// Whether a sample measured what it should: aster/1 JSON, the case's expected exit status and a parsed time line.
+export function sampleOk(s: { json: boolean; status: number | null; timed: boolean }, expectedStatus: number): boolean {
+  return s.json && s.timed && s.status === expectedStatus;
+}
+
 // ---- Measurement driver (not unit-tested: it needs the real compiler and a quiet machine) ----
 
 const require = createRequire(import.meta.url);
@@ -107,7 +112,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface Sample { wallMs: number; rssKiB: number; status: number | null; outBytes: number; ok: boolean }
 
-// One compiler process under /usr/bin/time. A sample counts as failed unless it answered aster/1 JSON with status 0 or 1.
+// One compiler process under /usr/bin/time. Every measured case is a program that checks, so anything but exit 0 means
+// the compiler stopped early and the sample would time the wrong work.
 function runSample(compiler: string, argv: string[], cwd: string): Sample {
   const t0 = now();
   const r = spawnSync('/usr/bin/time', ['-f', '%e %M', compiler, ...argv], { cwd, maxBuffer: 1 << 30 });
@@ -119,7 +125,7 @@ function runSample(compiler: string, argv: string[], cwd: string): Sample {
   } catch {
     json = false;
   }
-  return { wallMs, rssKiB: t?.maxRssKiB ?? 0, status: r.status, outBytes: r.stdout.length, ok: json && (r.status === 0 || r.status === 1) };
+  return { wallMs, rssKiB: t?.maxRssKiB ?? 0, status: r.status, outBytes: r.stdout.length, ok: sampleOk({ json, status: r.status, timed: t !== null }, 0) };
 }
 
 // Direct children of this process, from every thread's /proc children list.
