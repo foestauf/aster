@@ -127,6 +127,10 @@ Each request is one compiler process. Median of three runs of `build/asterc` on 
 
 A hover on a program the size of the compiler takes about a third of a second. On small programs it is instant.
 
+A fuller record (10 samples, adapter round trip, overlapping hovers, memory) is
+[docs/perf/session-cost.md](../../docs/perf/session-cost.md); what it means for this extension is in
+[docs/context/decision.md](../../docs/context/decision.md) (#62).
+
 ## Highlighting boundaries
 
 - Keywords, booleans, wildcard `_`, decimal integers, strings, ASCII character literals, their supported escapes,
