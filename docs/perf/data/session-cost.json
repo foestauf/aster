@@ -1,0 +1,1522 @@
+{
+  "environment": {
+    "recorded": "2026-10-10T01:23:43.488Z",
+    "gitCommit": "2025f3d0c03f76139503197ef81927cef142f506",
+    "gitDirty": false,
+    "compilerSha256": "056f826e37d83d75db4b071bccbfd1e97fcadc2fa16abcb2564cefeac56ead9e",
+    "platform": "Linux 6.6.114.1-microsoft-standard-WSL2 x86_64",
+    "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+    "logicalCpus": 16,
+    "cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "node": "v24.4.0",
+    "cache": "warm page cache; the first sample of each case is reported separately as the nearest approximation of cold",
+    "timing": "wall: process.hrtime around spawnSync of /usr/bin/time; RSS: /usr/bin/time %M (KiB, the single process peak)"
+  },
+  "runs": 10,
+  "process": [
+    {
+      "program": "launch (1 line)",
+      "command": "check",
+      "argv": [
+        "check",
+        "--format=json",
+        "main.aster"
+      ],
+      "first": {
+        "wallMs": 3.399887999985367,
+        "rssKiB": 1920,
+        "status": 0,
+        "outBytes": 117,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 2.3807769999839365,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.3308490000199527,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.1508799999719486,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.2583680000388995,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.320498999906704,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.1717090000165626,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.163219999987632,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.2528590000001714,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.410206999978982,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        },
+        {
+          "wallMs": 2.1939690000144765,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 117,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        2.3807769999839365,
+        2.3308490000199527,
+        2.1508799999719486,
+        2.2583680000388995,
+        2.320498999906704,
+        2.1717090000165626,
+        2.163219999987632,
+        2.2528590000001714,
+        2.410206999978982,
+        2.1939690000144765
+      ],
+      "rssKiB": [
+        1920,
+        1920,
+        1792,
+        1792,
+        1920,
+        1920,
+        1920,
+        1792,
+        1920,
+        1920
+      ],
+      "outBytes": 117,
+      "failures": 0
+    },
+    {
+      "program": "launch (1 line)",
+      "command": "inspect",
+      "argv": [
+        "inspect",
+        "main.aster"
+      ],
+      "first": {
+        "wallMs": 3.0501210000365973,
+        "rssKiB": 2176,
+        "status": 0,
+        "outBytes": 5803,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 2.5250559999840334,
+          "rssKiB": 2176,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.40953800000716,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.3716879999265075,
+          "rssKiB": 2176,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.4546669999836013,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.47582799999509,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.657664000056684,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.4894679998978972,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.507594999973662,
+          "rssKiB": 2176,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.648715000017546,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        },
+        {
+          "wallMs": 2.6058450000127777,
+          "rssKiB": 2304,
+          "status": 0,
+          "outBytes": 5803,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        2.5250559999840334,
+        2.40953800000716,
+        2.3716879999265075,
+        2.4546669999836013,
+        2.47582799999509,
+        2.657664000056684,
+        2.4894679998978972,
+        2.507594999973662,
+        2.648715000017546,
+        2.6058450000127777
+      ],
+      "rssKiB": [
+        2176,
+        2304,
+        2176,
+        2304,
+        2304,
+        2304,
+        2304,
+        2176,
+        2304,
+        2304
+      ],
+      "outBytes": 5803,
+      "failures": 0
+    },
+    {
+      "program": "launch (1 line)",
+      "command": "query",
+      "argv": [
+        "query",
+        "main.aster",
+        "--file=main.aster",
+        "--offset=3"
+      ],
+      "first": {
+        "wallMs": 4.189010999980383,
+        "rssKiB": 3328,
+        "status": 0,
+        "outBytes": 6188,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 3.9111540000885725,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 3.936273999977857,
+          "rssKiB": 3200,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 3.8469439999898896,
+          "rssKiB": 3200,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 4.098492000019178,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 3.9833029999863356,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 4.057682000100613,
+          "rssKiB": 3200,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 3.883244999917224,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 4.031692999997176,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 4.00015199999325,
+          "rssKiB": 3200,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        },
+        {
+          "wallMs": 4.076160999946296,
+          "rssKiB": 3328,
+          "status": 0,
+          "outBytes": 6188,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        3.9111540000885725,
+        3.936273999977857,
+        3.8469439999898896,
+        4.098492000019178,
+        3.9833029999863356,
+        4.057682000100613,
+        3.883244999917224,
+        4.031692999997176,
+        4.00015199999325,
+        4.076160999946296
+      ],
+      "rssKiB": [
+        3328,
+        3200,
+        3200,
+        3328,
+        3328,
+        3200,
+        3328,
+        3328,
+        3200,
+        3328
+      ],
+      "outBytes": 6188,
+      "failures": 0
+    },
+    {
+      "program": "demo (2 files)",
+      "command": "check",
+      "argv": [
+        "check",
+        "--format=json",
+        "main.aster"
+      ],
+      "first": {
+        "wallMs": 2.1756299999542534,
+        "rssKiB": 1920,
+        "status": 0,
+        "outBytes": 162,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 2.246129999984987,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.0426019999431446,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.0826909999595955,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.0015300000086427,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.2571780000580475,
+          "rssKiB": 1792,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.162179999984801,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.414308000006713,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.4675370000768453,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.0942299999296665,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        },
+        {
+          "wallMs": 2.329278999939561,
+          "rssKiB": 1920,
+          "status": 0,
+          "outBytes": 162,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        2.246129999984987,
+        2.0426019999431446,
+        2.0826909999595955,
+        2.0015300000086427,
+        2.2571780000580475,
+        2.162179999984801,
+        2.414308000006713,
+        2.4675370000768453,
+        2.0942299999296665,
+        2.329278999939561
+      ],
+      "rssKiB": [
+        1920,
+        1792,
+        1920,
+        1792,
+        1792,
+        1920,
+        1920,
+        1920,
+        1920,
+        1920
+      ],
+      "outBytes": 162,
+      "failures": 0
+    },
+    {
+      "program": "demo (2 files)",
+      "command": "inspect",
+      "argv": [
+        "inspect",
+        "main.aster"
+      ],
+      "first": {
+        "wallMs": 2.692215000046417,
+        "rssKiB": 2432,
+        "status": 0,
+        "outBytes": 8050,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 2.9626029999926686,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.757945999968797,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.6347639999585226,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.634594999952242,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.673384999972768,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.8836240000091493,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.845873000100255,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.7437749999808148,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.608596000005491,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        },
+        {
+          "wallMs": 2.667365000001155,
+          "rssKiB": 2432,
+          "status": 0,
+          "outBytes": 8050,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        2.9626029999926686,
+        2.757945999968797,
+        2.6347639999585226,
+        2.634594999952242,
+        2.673384999972768,
+        2.8836240000091493,
+        2.845873000100255,
+        2.7437749999808148,
+        2.608596000005491,
+        2.667365000001155
+      ],
+      "rssKiB": [
+        2432,
+        2432,
+        2432,
+        2432,
+        2432,
+        2432,
+        2432,
+        2432,
+        2432,
+        2432
+      ],
+      "outBytes": 8050,
+      "failures": 0
+    },
+    {
+      "program": "demo (2 files)",
+      "command": "query",
+      "argv": [
+        "query",
+        "main.aster",
+        "--file=main.aster",
+        "--offset=209"
+      ],
+      "first": {
+        "wallMs": 4.080860999994911,
+        "rssKiB": 3584,
+        "status": 0,
+        "outBytes": 8488,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 4.50415900000371,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.482918000081554,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.200882000033744,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.183429000084288,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.572906999965198,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.501187999965623,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.278689999948256,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.212471000035293,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.238631000043824,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        },
+        {
+          "wallMs": 4.396416999981739,
+          "rssKiB": 3584,
+          "status": 0,
+          "outBytes": 8488,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        4.50415900000371,
+        4.482918000081554,
+        4.200882000033744,
+        4.183429000084288,
+        4.572906999965198,
+        4.501187999965623,
+        4.278689999948256,
+        4.212471000035293,
+        4.238631000043824,
+        4.396416999981739
+      ],
+      "rssKiB": [
+        3584,
+        3584,
+        3584,
+        3584,
+        3584,
+        3584,
+        3584,
+        3584,
+        3584,
+        3584
+      ],
+      "outBytes": 8488,
+      "failures": 0
+    },
+    {
+      "program": "compiler (18 files)",
+      "command": "check",
+      "argv": [
+        "check",
+        "--format=json",
+        "asterc.aster"
+      ],
+      "first": {
+        "wallMs": 151.56188799999654,
+        "rssKiB": 214388,
+        "status": 0,
+        "outBytes": 887,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 146.67217000003438,
+          "rssKiB": 214620,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 144.122776000062,
+          "rssKiB": 214616,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 145.65111100010108,
+          "rssKiB": 214576,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 144.40179099992383,
+          "rssKiB": 214580,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 145.053307000082,
+          "rssKiB": 214624,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 144.06386600004043,
+          "rssKiB": 214616,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 145.23390599992126,
+          "rssKiB": 214616,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 144.625933000003,
+          "rssKiB": 214484,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 144.81993999995757,
+          "rssKiB": 214492,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        },
+        {
+          "wallMs": 145.93268000008538,
+          "rssKiB": 214616,
+          "status": 0,
+          "outBytes": 887,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        146.67217000003438,
+        144.122776000062,
+        145.65111100010108,
+        144.40179099992383,
+        145.053307000082,
+        144.06386600004043,
+        145.23390599992126,
+        144.625933000003,
+        144.81993999995757,
+        145.93268000008538
+      ],
+      "rssKiB": [
+        214620,
+        214616,
+        214576,
+        214580,
+        214624,
+        214616,
+        214616,
+        214484,
+        214492,
+        214616
+      ],
+      "outBytes": 887,
+      "failures": 0
+    },
+    {
+      "program": "compiler (18 files)",
+      "command": "inspect",
+      "argv": [
+        "inspect",
+        "asterc.aster"
+      ],
+      "first": {
+        "wallMs": 250.8989419999998,
+        "rssKiB": 330076,
+        "status": 0,
+        "outBytes": 1742436,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 247.36641499993857,
+          "rssKiB": 330020,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 257.45996999996714,
+          "rssKiB": 330080,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 240.30434899998363,
+          "rssKiB": 330080,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 237.56653599999845,
+          "rssKiB": 330080,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 244.87862700002734,
+          "rssKiB": 330076,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 239.24987800000235,
+          "rssKiB": 329948,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 236.10831999999937,
+          "rssKiB": 330076,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 238.16477799997665,
+          "rssKiB": 329936,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 238.49767700000666,
+          "rssKiB": 329952,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        },
+        {
+          "wallMs": 248.2997570000589,
+          "rssKiB": 330080,
+          "status": 0,
+          "outBytes": 1742436,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        247.36641499993857,
+        257.45996999996714,
+        240.30434899998363,
+        237.56653599999845,
+        244.87862700002734,
+        239.24987800000235,
+        236.10831999999937,
+        238.16477799997665,
+        238.49767700000666,
+        248.2997570000589
+      ],
+      "rssKiB": [
+        330020,
+        330080,
+        330080,
+        330080,
+        330076,
+        329948,
+        330076,
+        329936,
+        329952,
+        330080
+      ],
+      "outBytes": 1742436,
+      "failures": 0
+    },
+    {
+      "program": "compiler (18 files)",
+      "command": "query",
+      "argv": [
+        "query",
+        "asterc.aster",
+        "--file=checker.aster",
+        "--offset=1000"
+      ],
+      "first": {
+        "wallMs": 353.2873869999312,
+        "rssKiB": 335320,
+        "status": 0,
+        "outBytes": 1743903,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 366.6893679999048,
+          "rssKiB": 335320,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 356.65498600003775,
+          "rssKiB": 335188,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 357.56397800007835,
+          "rssKiB": 335192,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 357.6515360000776,
+          "rssKiB": 335188,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 361.17215399991255,
+          "rssKiB": 335192,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 390.5566679999465,
+          "rssKiB": 335320,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 386.2094700000016,
+          "rssKiB": 335160,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 360.1853739999933,
+          "rssKiB": 335280,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 365.6545510001015,
+          "rssKiB": 335320,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        },
+        {
+          "wallMs": 370.985590999946,
+          "rssKiB": 335320,
+          "status": 0,
+          "outBytes": 1743903,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        366.6893679999048,
+        356.65498600003775,
+        357.56397800007835,
+        357.6515360000776,
+        361.17215399991255,
+        390.5566679999465,
+        386.2094700000016,
+        360.1853739999933,
+        365.6545510001015,
+        370.985590999946
+      ],
+      "rssKiB": [
+        335320,
+        335188,
+        335192,
+        335188,
+        335192,
+        335320,
+        335160,
+        335280,
+        335320,
+        335320
+      ],
+      "outBytes": 1743903,
+      "failures": 0
+    },
+    {
+      "program": "generated (467 KiB)",
+      "command": "check",
+      "argv": [
+        "check",
+        "--format=json",
+        "large.aster"
+      ],
+      "first": {
+        "wallMs": 124.82218600006308,
+        "rssKiB": 105256,
+        "status": 0,
+        "outBytes": 118,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 121.81691100005992,
+          "rssKiB": 105468,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 121.13223900005687,
+          "rssKiB": 105472,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 121.12576999992598,
+          "rssKiB": 105468,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 122.15277000004426,
+          "rssKiB": 105468,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 121.3943679999793,
+          "rssKiB": 105472,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 122.227348000044,
+          "rssKiB": 105340,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 124.75196500006132,
+          "rssKiB": 105464,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 121.12369999999646,
+          "rssKiB": 105468,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 121.51429700001609,
+          "rssKiB": 105472,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        },
+        {
+          "wallMs": 123.5729669999564,
+          "rssKiB": 105468,
+          "status": 0,
+          "outBytes": 118,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        121.81691100005992,
+        121.13223900005687,
+        121.12576999992598,
+        122.15277000004426,
+        121.3943679999793,
+        122.227348000044,
+        124.75196500006132,
+        121.12369999999646,
+        121.51429700001609,
+        123.5729669999564
+      ],
+      "rssKiB": [
+        105468,
+        105472,
+        105468,
+        105468,
+        105472,
+        105340,
+        105464,
+        105468,
+        105472,
+        105468
+      ],
+      "outBytes": 118,
+      "failures": 0
+    },
+    {
+      "program": "generated (467 KiB)",
+      "command": "inspect",
+      "argv": [
+        "inspect",
+        "large.aster"
+      ],
+      "first": {
+        "wallMs": 593.2832519999938,
+        "rssKiB": 650416,
+        "status": 0,
+        "outBytes": 7877347,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 550.0484370000195,
+          "rssKiB": 650412,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 592.2777820000192,
+          "rssKiB": 650412,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 560.4697790000355,
+          "rssKiB": 650412,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 552.0965480000013,
+          "rssKiB": 650412,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 554.605893000029,
+          "rssKiB": 650408,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 590.0080120000057,
+          "rssKiB": 650416,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 551.2416140000569,
+          "rssKiB": 650408,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 548.9002170000458,
+          "rssKiB": 650408,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 585.3890459999675,
+          "rssKiB": 650416,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        },
+        {
+          "wallMs": 553.9721900000004,
+          "rssKiB": 650412,
+          "status": 0,
+          "outBytes": 7877347,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        550.0484370000195,
+        592.2777820000192,
+        560.4697790000355,
+        552.0965480000013,
+        554.605893000029,
+        590.0080120000057,
+        551.2416140000569,
+        548.9002170000458,
+        585.3890459999675,
+        553.9721900000004
+      ],
+      "rssKiB": [
+        650412,
+        650412,
+        650412,
+        650412,
+        650408,
+        650416,
+        650408,
+        650408,
+        650416,
+        650412
+      ],
+      "outBytes": 7877347,
+      "failures": 0
+    },
+    {
+      "program": "generated (467 KiB)",
+      "command": "query",
+      "argv": [
+        "query",
+        "large.aster",
+        "--file=large.aster",
+        "--offset=477824"
+      ],
+      "first": {
+        "wallMs": 724.6253969999962,
+        "rssKiB": 673452,
+        "status": 0,
+        "outBytes": 7877522,
+        "ok": true
+      },
+      "samples": [
+        {
+          "wallMs": 769.1474210000597,
+          "rssKiB": 673220,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 717.796949999989,
+          "rssKiB": 673452,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 718.1161980000325,
+          "rssKiB": 673452,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 760.336323000025,
+          "rssKiB": 673452,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 713.8842159999767,
+          "rssKiB": 673452,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 766.969849999994,
+          "rssKiB": 673448,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 711.2949899999658,
+          "rssKiB": 673448,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 711.3600999999326,
+          "rssKiB": 673324,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 775.0727039999329,
+          "rssKiB": 673456,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        },
+        {
+          "wallMs": 728.8033649999416,
+          "rssKiB": 673452,
+          "status": 0,
+          "outBytes": 7877522,
+          "ok": true
+        }
+      ],
+      "wallMs": [
+        769.1474210000597,
+        717.796949999989,
+        718.1161980000325,
+        760.336323000025,
+        713.8842159999767,
+        766.969849999994,
+        711.2949899999658,
+        711.3600999999326,
+        775.0727039999329,
+        728.8033649999416
+      ],
+      "rssKiB": [
+        673220,
+        673452,
+        673452,
+        673452,
+        673452,
+        673448,
+        673448,
+        673324,
+        673456,
+        673452
+      ],
+      "outBytes": 7877522,
+      "failures": 0
+    }
+  ],
+  "sourceBytes": {
+    "launch (1 line)": 29,
+    "demo (2 files)": 410,
+    "compiler (18 files)": 380354,
+    "generated (467 KiB)": 477844
+  },
+  "adapterSide": {
+    "responseBytes": 1743903,
+    "files": 18,
+    "jsonParseMs": {
+      "n": 50,
+      "median": 6.085883499996271,
+      "min": 5.9085229999618605,
+      "max": 7.881377000012435
+    },
+    "readbackHashMs": {
+      "n": 50,
+      "median": 0.628489000024274,
+      "min": 0.3528469998855144,
+      "max": 2.862633000011556
+    },
+    "byteOffsetMs": {
+      "n": 50,
+      "median": 0.17030800000065938,
+      "min": 0.1685490000527352,
+      "max": 0.8891519999597222
+    }
+  },
+  "roundTrip": {
+    "demo (2 files)": {
+      "n": 10,
+      "median": 4.302139999985229,
+      "min": 3.944984999950975,
+      "max": 6.520658000023104,
+      "kinds": [
+        "answer"
+      ]
+    },
+    "compiler (18 files)": {
+      "n": 10,
+      "median": 365.7585084999446,
+      "min": 363.805427000043,
+      "max": 375.5656280000694,
+      "kinds": [
+        "answer"
+      ]
+    }
+  },
+  "workloads": {
+    "hover sweep, sequential": {
+      "requests": 20,
+      "totalMs": 7412.170524999965,
+      "peakProcesses": 1,
+      "peakRssKiB": 335280,
+      "leftover": 0,
+      "perRequestMs": {
+        "n": 20,
+        "median": 370.9846724999952,
+        "min": 362.014766999986,
+        "max": 379.3822879999643
+      },
+      "kinds": {
+        "answer": 20
+      }
+    },
+    "hover sweep, overlap": {
+      "requests": 20,
+      "totalMs": 1237.6186580000212,
+      "peakProcesses": 17,
+      "peakRssKiB": 3186556,
+      "leftover": 0,
+      "perRequestMs": {
+        "n": 20,
+        "median": 617.6304204999469,
+        "min": 478.0172949999105,
+        "max": 665.2184660000494
+      },
+      "kinds": {
+        "answer": 20
+      }
+    },
+    "hover sweep, cancel-previous": {
+      "requests": 20,
+      "totalMs": 1017.4650230000261,
+      "peakProcesses": 2,
+      "peakRssKiB": 332024,
+      "leftover": 0,
+      "perRequestMs": {
+        "n": 20,
+        "median": 37.350044000020716,
+        "min": 36.00956699997187,
+        "max": 375.4117130000377
+      },
+      "kinds": {
+        "cancelled": 19,
+        "answer": 1
+      }
+    },
+    "rapid saves (5 checks, 30 ms apart)": {
+      "totalMs": 286.8438819999574,
+      "peakProcesses": 2,
+      "peakRssKiB": 214188,
+      "leftover": 0,
+      "perRequestMs": {
+        "n": 5,
+        "median": 36.849138999939896,
+        "min": 36.195136999944225,
+        "max": 153.96042999997735
+      },
+      "kinds": {
+        "superseded": 4,
+        "diagnostics": 1
+      }
+    },
+    "invalid → fixed (demo)": {
+      "broken": {
+        "ok": false,
+        "count": 1,
+        "ms": 4.010293000028469
+      },
+      "fixed": {
+        "ok": true,
+        "count": 0,
+        "ms": 2.8657039999961853
+      }
+    },
+    "query of a file outside the closure": {
+      "outcome": "none: invalid position: file-not-in-closure",
+      "ms": {
+        "n": 5,
+        "median": 364.151343000005,
+        "min": 360.8996820000466,
+        "max": 374.64327499992214
+      }
+    }
+  }
+}
