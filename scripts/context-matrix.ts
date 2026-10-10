@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -148,7 +148,7 @@ export const ANALYSED: Row[] = [
   {
     id: 'case-alias', case: 'The editor and the closure spell a path with different case (case-insensitive file system)', evidence: 'analysed',
     cli: 'Lexical comparison: `--file=Lib.aster` against `lib.aster` is `file-not-in-closure`.',
-    editor: 'adapter.cjs builds `--file` from the editor\'s fsPath and compares dirty paths case-sensitively, so an answer is dropped or a dirty buffer is missed.',
+    editor: 'adapter.cjs builds `--file` from the editor\'s fsPath, and extension.cjs `isDirty` compares paths with exact string equality, so an answer is dropped or a dirty buffer is missed.',
     agree: 'n/a', decision: 'Whether consumers normalise case on case-insensitive systems or report it. Linux ext4 cannot reproduce this.',
   },
   {
@@ -160,8 +160,8 @@ export const ANALYSED: Row[] = [
   {
     id: 'config-change', case: '`aster.entry` changes or the extension deactivates while a check runs', evidence: 'analysed',
     cli: 'n/a (one process per request).',
-    editor: 'extension.cjs replaces the Session; a check still running in the old Session can finish and publish diagnostics for the old entry (#67 deferred review item).',
-    agree: 'n/a', decision: 'Lifecycle rule: requests belong to a context and die with it. Independent of how context is declared.',
+    editor: 'extension.cjs `configure()` drops the old Session without aborting its running check, and `deactivate()` kills nothing: the old compiler runs to completion or `aster.timeoutMs`. Its result is discarded (`current !== session`), so no wrong diagnostics appear (#67 deferred review item).',
+    agree: 'n/a', decision: 'Lifecycle rule: requests belong to a context and are killed with it. Independent of how context is declared.',
   },
 ];
 
@@ -219,7 +219,8 @@ async function runCase(compiler: string, c: CaseSpec): Promise<Row & { raw: unkn
     for (const [link, target] of Object.entries(c.symlinks ?? {})) symlinkSync(target, join(root, link));
     const folder = join(root, (c.folders ?? ['.'])[0]);
     const focusAbs = join(root, c.focus);
-    const offset = Buffer.from(c.files[c.focus] ?? c.files[c.symlinks?.[c.focus] ?? '']).indexOf(c.probe);
+    // The probe's byte offset in the focus file as it is when asked (after any change), falling back to the original.
+    const focusText = () => (existsSync(focusAbs) ? readFileSync(focusAbs) : Buffer.from(c.files[c.focus] ?? c.files[c.symlinks?.[c.focus] ?? '']));
 
     // Editor, as extension.cjs drives the adapter: check on activation, then (after any change) a hover.
     let editor: string;
@@ -238,8 +239,8 @@ async function runCase(compiler: string, c: CaseSpec): Promise<Row & { raw: unkn
         s.saved();
         check = await s.check();
       }
-      const text = Buffer.from(c.files[c.focus] ?? c.files[c.symlinks?.[c.focus] ?? '']);
-      const before = text.subarray(0, offset).toString('utf8').split('\n');
+      const text = focusText();
+      const before = text.subarray(0, text.indexOf(c.probe)).toString('utf8').split('\n');
       const q = await s.query(focusAbs, 'pointer', before.length - 1, before[before.length - 1].length, undefined);
       editorCheckOk = check.kind === 'diagnostics' ? check.ok : null;
       editorOutcome = outcomeOf({ editor: q });
@@ -253,6 +254,7 @@ async function runCase(compiler: string, c: CaseSpec): Promise<Row & { raw: unkn
     let cli: string;
     let cliOutcome = '';
     let cliCheckOk: boolean | null = null;
+    const offset = focusText().indexOf(c.probe);
     if (c.cliEntry === null) {
       const candidates = Object.entries(c.files).filter(([, b]) => Buffer.from(b).includes('fn main()')).map(([p]) => p);
       cli = `no entry given; ${candidates.length} candidates: ${candidates.map((p) => `${p} → ${checkSummary(cliRun(compiler, ['check', '--format=json', p], cwd))}`).join('; ')}`;
