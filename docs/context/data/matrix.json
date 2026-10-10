@@ -1,0 +1,1415 @@
+{
+  "commit": "6de05de8f1cdaa46b1fb81454983131ea53fd537",
+  "compiler": "build/asterc",
+  "rows": [
+    {
+      "id": "one-entry",
+      "case": "One entry, query the entry",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found callee [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: found callee",
+      "agree": "yes",
+      "decision": "None: today's explicit entry is enough.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "main.aster",
+                "mode": "pointer",
+                "offset": 54,
+                "file": 0
+              },
+              "status": "found",
+              "site": "callee",
+              "location": {
+                "file": 0,
+                "path": "main.aster",
+                "range": {
+                  "start": 54,
+                  "end": 59,
+                  "start_line": 3,
+                  "start_col_utf16": 18,
+                  "end_line": 3,
+                  "end_col_utf16": 23
+                }
+              },
+              "signature": {
+                "params": [
+                  {
+                    "name": "x",
+                    "type": {
+                      "kind": "int"
+                    },
+                    "decl": 3
+                  }
+                ],
+                "ret": {
+                  "kind": "int"
+                }
+              },
+              "target": 2
+            },
+            "files": [
+              "main.aster",
+              "./lib.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": 0
+            },
+            "status": "found",
+            "site": "callee",
+            "location": {
+              "file": 0,
+              "path": "main.aster",
+              "range": {
+                "start": 54,
+                "end": 59,
+                "start_line": 3,
+                "start_col_utf16": 18,
+                "end_line": 3,
+                "end_col_utf16": 23
+              }
+            },
+            "signature": {
+              "params": [
+                {
+                  "name": "x",
+                  "type": {
+                    "kind": "int"
+                  },
+                  "decl": 3
+                }
+              ],
+              "ret": {
+                "kind": "int"
+              }
+            },
+            "target": 2
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "focused-import",
+      "case": "One entry, query an imported file",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found local [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: found local",
+      "agree": "yes",
+      "decision": "None, as long as the consumer knows lib.aster belongs to main.aster's closure; the CLI has no way to ask \"which entry owns this file\".",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "lib.aster",
+                "mode": "pointer",
+                "offset": 35,
+                "file": 1
+              },
+              "status": "found",
+              "site": "local",
+              "location": {
+                "file": 1,
+                "path": "./lib.aster",
+                "range": {
+                  "start": 35,
+                  "end": 36,
+                  "start_line": 2,
+                  "start_col_utf16": 12,
+                  "end_line": 2,
+                  "end_col_utf16": 13
+                }
+              },
+              "type": {
+                "kind": "int"
+              },
+              "target": 3
+            },
+            "files": [
+              "main.aster",
+              "./lib.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "lib.aster",
+              "mode": "pointer",
+              "offset": 35,
+              "file": 1
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 1,
+              "path": "./lib.aster",
+              "range": {
+                "start": 35,
+                "end": 36,
+                "start_line": 2,
+                "start_col_utf16": 12,
+                "end_line": 2,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 3
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "two-entries-shared-lib",
+      "case": "Two entries share a library; ask about the second entry",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found callee [tool.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: not in closure",
+      "agree": "no",
+      "decision": "Which entries exist, and which one answers for a file that several (lib.aster) or only one (tool.aster) import. One `aster.entry` cannot express this.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "none",
+            "reason": "invalid position: file-not-in-closure"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "tool.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "tool.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": 0
+            },
+            "status": "found",
+            "site": "callee",
+            "location": {
+              "file": 0,
+              "path": "tool.aster",
+              "range": {
+                "start": 54,
+                "end": 59,
+                "start_line": 3,
+                "start_col_utf16": 18,
+                "end_line": 3,
+                "end_col_utf16": 23
+              }
+            },
+            "signature": {
+              "params": [
+                {
+                  "name": "x",
+                  "type": {
+                    "kind": "int"
+                  },
+                  "decl": 3
+                }
+              ],
+              "ret": {
+                "kind": "int"
+              }
+            },
+            "target": 2
+          },
+          "files": [
+            "tool.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "two-folders",
+      "case": "Two workspace folders, each its own program; ask in the second",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found local [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: not in closure",
+      "agree": "no",
+      "decision": "Whether context is per workspace folder. Today the second folder silently gets the first folder's program.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "none",
+            "reason": "invalid position: file-not-in-closure"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "lib.aster",
+              "mode": "pointer",
+              "offset": 35,
+              "file": 1
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 1,
+              "path": "./lib.aster",
+              "range": {
+                "start": 35,
+                "end": 36,
+                "start_line": 2,
+                "start_col_utf16": 12,
+                "end_line": 2,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 3
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alt-cwd",
+      "case": "The agent runs from the parent directory",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found local [proj/main.aster, proj/lib.aster]",
+      "editor": "diagnostics shown: ok; hover: found local",
+      "agree": "yes",
+      "decision": "Which directory paths are relative to. The answers agree but `files[].path` spellings differ (cwd-relative), so path strings from two consumers are not comparable without normalising.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "lib.aster",
+                "mode": "pointer",
+                "offset": 35,
+                "file": 1
+              },
+              "status": "found",
+              "site": "local",
+              "location": {
+                "file": 1,
+                "path": "./lib.aster",
+                "range": {
+                  "start": 35,
+                  "end": 36,
+                  "start_line": 2,
+                  "start_col_utf16": 12,
+                  "end_line": 2,
+                  "end_col_utf16": 13
+                }
+              },
+              "type": {
+                "kind": "int"
+              },
+              "target": 3
+            },
+            "files": [
+              "main.aster",
+              "./lib.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "proj/main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "proj/lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "proj/lib.aster",
+              "mode": "pointer",
+              "offset": 35,
+              "file": 1
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 1,
+              "path": "proj/lib.aster",
+              "range": {
+                "start": 35,
+                "end": 36,
+                "start_line": 2,
+                "start_col_utf16": 12,
+                "end_line": 2,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 3
+          },
+          "files": [
+            "proj/main.aster",
+            "proj/lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "outside-closure",
+      "case": "Ask about a file no entry imports",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: not in closure [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: not in closure",
+      "agree": "yes",
+      "decision": "Whether a consumer that knows the closure skips the request. Today every hover there pays for a full check (see session-cost: ~364 ms on the compiler) to learn `file-not-in-closure`.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "none",
+            "reason": "invalid position: file-not-in-closure"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "notes.aster",
+              "mode": "pointer",
+              "offset": 3,
+              "file": null
+            },
+            "status": "invalid",
+            "reason": "file-not-in-closure"
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-entry",
+      "case": "The configured entry does not exist (typo)",
+      "evidence": "observed",
+      "cli": "check: 1 error(s): io.root-unreadable; query: unavailable (io) []",
+      "editor": "diagnostics shown: 1 error(s); hover: unavailable (io)",
+      "agree": "yes",
+      "decision": "None beyond a clear message: both report the unreadable root. No guessing a replacement.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": false,
+            "count": 1,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "unavailable",
+            "reason": "io"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": false,
+            "files": [],
+            "diagnostics": [
+              {
+                "code": "io.root-unreadable",
+                "severity": "error",
+                "message": "cannot read 'mian.aster'",
+                "primary": {
+                  "file": null,
+                  "path": "mian.aster",
+                  "range": null
+                },
+                "related": []
+              }
+            ]
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": null
+            },
+            "status": "unavailable",
+            "reason": "io"
+          },
+          "files": []
+        }
+      }
+    },
+    {
+      "id": "ambiguous-entry",
+      "case": "No entry configured; two files define `main`",
+      "evidence": "observed",
+      "cli": "no entry given; 2 candidates: main.aster → ok (2 files); other.aster → ok (1 files)",
+      "editor": "syntax only: no `aster.entry`, no compiler run",
+      "agree": "n/a",
+      "decision": "Who names the entry. The editor stays syntax-only; an agent must pick, and the two candidates are different programs. Guessing stays out.",
+      "raw": {}
+    },
+    {
+      "id": "changed-import",
+      "case": "An import is added outside the editor (e.g. git checkout)",
+      "evidence": "observed",
+      "cli": "check: ok (3 files); query: found callee [main.aster, ./lib2.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok (from before the change); hover: found callee",
+      "agree": "yes",
+      "decision": "How diagnostics learn of disk changes the editor did not save. Queries are fresh (each run reloads), but the diagnostics shown still describe the old closure until the next save.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "main.aster",
+                "mode": "pointer",
+                "offset": 75,
+                "file": 0
+              },
+              "status": "found",
+              "site": "callee",
+              "location": {
+                "file": 0,
+                "path": "main.aster",
+                "range": {
+                  "start": 75,
+                  "end": 80,
+                  "start_line": 4,
+                  "start_col_utf16": 18,
+                  "end_line": 4,
+                  "end_col_utf16": 23
+                }
+              },
+              "signature": {
+                "params": [
+                  {
+                    "name": "x",
+                    "type": {
+                      "kind": "int"
+                    },
+                    "decl": 5
+                  }
+                ],
+                "ret": {
+                  "kind": "int"
+                }
+              },
+              "target": 4
+            },
+            "files": [
+              "main.aster",
+              "./lib2.aster",
+              "./lib.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib2.aster",
+                "bom": false
+              },
+              {
+                "id": 2,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 75,
+              "file": 0
+            },
+            "status": "found",
+            "site": "callee",
+            "location": {
+              "file": 0,
+              "path": "main.aster",
+              "range": {
+                "start": 75,
+                "end": 80,
+                "start_line": 4,
+                "start_col_utf16": 18,
+                "end_line": 4,
+                "end_col_utf16": 23
+              }
+            },
+            "signature": {
+              "params": [
+                {
+                  "name": "x",
+                  "type": {
+                    "kind": "int"
+                  },
+                  "decl": 5
+                }
+              ],
+              "ret": {
+                "kind": "int"
+              }
+            },
+            "target": 4
+          },
+          "files": [
+            "main.aster",
+            "./lib2.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "deleted-import",
+      "case": "An imported file is deleted outside the editor",
+      "evidence": "observed",
+      "cli": "check: 1 error(s): import.unreadable; query: unavailable (diagnostics) [main.aster]",
+      "editor": "diagnostics shown: ok (from before the change); hover: unavailable (diagnostics)",
+      "agree": "no",
+      "decision": "Same as changed-import: a file-system watch (or refresh on focus) is the missing piece, not new context.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "unavailable",
+            "reason": "diagnostics"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": false,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": [
+              {
+                "code": "import.unreadable",
+                "severity": "error",
+                "message": "cannot import 'lib.aster': No such file or directory",
+                "primary": {
+                  "file": 0,
+                  "path": "main.aster",
+                  "range": {
+                    "start": 7,
+                    "end": 18,
+                    "start_line": 1,
+                    "start_col_utf16": 8,
+                    "end_line": 1,
+                    "end_col_utf16": 19
+                  }
+                },
+                "related": [
+                  {
+                    "role": "import-target",
+                    "file": null,
+                    "path": "./lib.aster",
+                    "range": null
+                  }
+                ]
+              }
+            ]
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": null
+            },
+            "status": "unavailable",
+            "reason": "diagnostics"
+          },
+          "files": [
+            "main.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "cycle",
+      "case": "Two files import each other",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found local [a.aster, ./b.aster]",
+      "editor": "diagnostics shown: ok; hover: found local",
+      "agree": "yes",
+      "decision": "None: the closure is a set, loaded once per file.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "b.aster",
+                "mode": "pointer",
+                "offset": 54,
+                "file": 1
+              },
+              "status": "found",
+              "site": "local",
+              "location": {
+                "file": 1,
+                "path": "./b.aster",
+                "range": {
+                  "start": 54,
+                  "end": 55,
+                  "start_line": 3,
+                  "start_col_utf16": 12,
+                  "end_line": 3,
+                  "end_col_utf16": 13
+                }
+              },
+              "type": {
+                "kind": "int"
+              },
+              "target": 2
+            },
+            "files": [
+              "a.aster",
+              "./b.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "a.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./b.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "b.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": 1
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 1,
+              "path": "./b.aster",
+              "range": {
+                "start": 54,
+                "end": 55,
+                "start_line": 3,
+                "start_col_utf16": 12,
+                "end_line": 3,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 2
+          },
+          "files": [
+            "a.aster",
+            "./b.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "diamond",
+      "case": "Two imports share a base file",
+      "evidence": "observed",
+      "cli": "check: ok (4 files); query: found local [main.aster, ./l.aster, ./base.aster, ./r.aster]",
+      "editor": "diagnostics shown: ok; hover: found local",
+      "agree": "yes",
+      "decision": "None: base.aster is loaded once.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "answer",
+            "query": {
+              "request": {
+                "path": "base.aster",
+                "mode": "pointer",
+                "offset": 35,
+                "file": 2
+              },
+              "status": "found",
+              "site": "local",
+              "location": {
+                "file": 2,
+                "path": "./base.aster",
+                "range": {
+                  "start": 35,
+                  "end": 36,
+                  "start_line": 2,
+                  "start_col_utf16": 12,
+                  "end_line": 2,
+                  "end_col_utf16": 13
+                }
+              },
+              "type": {
+                "kind": "int"
+              },
+              "target": 3
+            },
+            "files": [
+              "main.aster",
+              "./l.aster",
+              "./base.aster",
+              "./r.aster"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./l.aster",
+                "bom": false
+              },
+              {
+                "id": 2,
+                "path": "./base.aster",
+                "bom": false
+              },
+              {
+                "id": 3,
+                "path": "./r.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "base.aster",
+              "mode": "pointer",
+              "offset": 35,
+              "file": 2
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 2,
+              "path": "./base.aster",
+              "range": {
+                "start": 35,
+                "end": 36,
+                "start_line": 2,
+                "start_col_utf16": 12,
+                "end_line": 2,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 3
+          },
+          "files": [
+            "main.aster",
+            "./l.aster",
+            "./base.aster",
+            "./r.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "symlink-alias",
+      "case": "The person opened a symlink to an imported file",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: not in closure [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: not in closure",
+      "agree": "yes",
+      "decision": "Whether a consumer may map an alias to the closure's spelling. The contract compares lexically and does not resolve symlinks; changing that is a separate, explicit identity decision.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "none",
+            "reason": "invalid position: file-not-in-closure"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "alias.aster",
+              "mode": "pointer",
+              "offset": 35,
+              "file": null
+            },
+            "status": "invalid",
+            "reason": "file-not-in-closure"
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "lone-cr",
+      "case": "An imported file contains a lone carriage return",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found local [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: withheld (lone CR)",
+      "agree": "no",
+      "decision": "None: the editor correctly withholds answers it cannot place; the CLI is unaffected. Documented limitation.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "none",
+            "reason": "the file has a carriage return that does not end a line"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "lib.aster",
+              "mode": "pointer",
+              "offset": 48,
+              "file": 1
+            },
+            "status": "found",
+            "site": "local",
+            "location": {
+              "file": 1,
+              "path": "./lib.aster",
+              "range": {
+                "start": 48,
+                "end": 49,
+                "start_line": 3,
+                "start_col_utf16": 12,
+                "end_line": 3,
+                "end_col_utf16": 13
+              }
+            },
+            "type": {
+              "kind": "int"
+            },
+            "target": 3
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "non-utf8",
+      "case": "An imported file has a non-UTF-8 byte",
+      "evidence": "observed",
+      "cli": "check: 1 error(s): import.invalid-utf8; query: unavailable (diagnostics) [main.aster]",
+      "editor": "diagnostics shown: 1 error(s); hover: unavailable (diagnostics)",
+      "agree": "yes",
+      "decision": "None for context: both report the encoding error and withhold semantics.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": false,
+            "count": 1,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "unavailable",
+            "reason": "diagnostics"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": false,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": [
+              {
+                "code": "import.invalid-utf8",
+                "severity": "error",
+                "message": "cannot import 'lib.aster': invalid UTF-8 at line 1, byte 6",
+                "primary": {
+                  "file": 0,
+                  "path": "main.aster",
+                  "range": {
+                    "start": 7,
+                    "end": 18,
+                    "start_line": 1,
+                    "start_col_utf16": 8,
+                    "end_line": 1,
+                    "end_col_utf16": 19
+                  }
+                },
+                "related": [
+                  {
+                    "role": "import-target",
+                    "file": null,
+                    "path": "./lib.aster",
+                    "range": {
+                      "start": 6,
+                      "end": 7,
+                      "start_line": 1,
+                      "start_col_utf16": 7,
+                      "end_line": 1,
+                      "end_col_utf16": 8
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": null
+            },
+            "status": "unavailable",
+            "reason": "diagnostics"
+          },
+          "files": [
+            "main.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "external-change",
+      "case": "An import is broken outside the editor after a clean check",
+      "evidence": "observed",
+      "cli": "check: 1 error(s): type.mismatch; query: unavailable (diagnostics) [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok (from before the change); hover: unavailable (diagnostics)",
+      "agree": "no",
+      "decision": "Refresh policy: the editor shows \"✓\" with no diagnostics while every query says the program has errors.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "unavailable",
+            "reason": "diagnostics"
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": false,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": [
+              {
+                "code": "type.mismatch",
+                "severity": "error",
+                "message": "type mismatch: expected int, found bool",
+                "primary": {
+                  "file": 1,
+                  "path": "./lib.aster",
+                  "range": {
+                    "start": 35,
+                    "end": 39,
+                    "start_line": 2,
+                    "start_col_utf16": 12,
+                    "end_line": 2,
+                    "end_col_utf16": 16
+                  }
+                },
+                "related": []
+              }
+            ]
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": null
+            },
+            "status": "unavailable",
+            "reason": "diagnostics"
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dirty-import",
+      "case": "An imported file has unsaved edits",
+      "evidence": "observed",
+      "cli": "check: ok (2 files); query: found callee [main.aster, ./lib.aster]",
+      "editor": "diagnostics shown: ok; hover: stale",
+      "agree": "no",
+      "decision": "None for saved-file support: the editor withholds the answer by design. Unsaved overlays are out of scope.",
+      "raw": {
+        "editor": {
+          "check": {
+            "kind": "diagnostics",
+            "ok": true,
+            "count": 0,
+            "byFile": {}
+          },
+          "query": {
+            "kind": "stale",
+            "reasons": [
+              "./lib.aster has unsaved changes"
+            ]
+          }
+        },
+        "cli": {
+          "check": {
+            "schema": "aster/1",
+            "command": "check",
+            "ok": true,
+            "files": [
+              {
+                "id": 0,
+                "path": "main.aster",
+                "bom": false
+              },
+              {
+                "id": 1,
+                "path": "./lib.aster",
+                "bom": false
+              }
+            ],
+            "diagnostics": []
+          },
+          "query": {
+            "request": {
+              "path": "main.aster",
+              "mode": "pointer",
+              "offset": 54,
+              "file": 0
+            },
+            "status": "found",
+            "site": "callee",
+            "location": {
+              "file": 0,
+              "path": "main.aster",
+              "range": {
+                "start": 54,
+                "end": 59,
+                "start_line": 3,
+                "start_col_utf16": 18,
+                "end_line": 3,
+                "end_col_utf16": 23
+              }
+            },
+            "signature": {
+              "params": [
+                {
+                  "name": "x",
+                  "type": {
+                    "kind": "int"
+                  },
+                  "decl": 3
+                }
+              ],
+              "ret": {
+                "kind": "int"
+              }
+            },
+            "target": 2
+          },
+          "files": [
+            "main.aster",
+            "./lib.aster"
+          ]
+        }
+      }
+    }
+  ]
+}
