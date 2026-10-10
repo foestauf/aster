@@ -192,15 +192,15 @@ not from `/proc`.
 | unchanged rows | one-entry, focused-import, alt-cwd, cycle, diamond, symlink-alias, lone-cr, non-utf8, dirty-import, missing-entry and ambiguous-entry behave as in [the matrix](matrix.md). |
 | compatibility | A single-string `aster.entry` passes the existing extension and adapter suites unchanged. |
 
-## Draft follow-up issues
+## Follow-up issues
 
-These are not filed yet. They need the maintainer's go-ahead.
+Filed as #70 and #71.
 
-**1. vscode: per-folder context, entry lists and bounded requests.** Implements items 1–5 of the selected minimum
+**1. vscode: per-folder context, entry lists and bounded requests (#70).** Implements items 1–5 of the selected minimum
 against the acceptance matrix above. Editor-only; no compiler or schema change. Out of scope: unsaved buffers, a
 project file, workers and caches.
 
-**2. perf: attribute `aster query` time on the compiler closure.** On the compiler closure a query takes about
+**2. perf: attribute `aster query` time on the compiler closure (#71).** On the compiler closure a query takes about
 360 ms:
 
 - about 150 ms checking;
