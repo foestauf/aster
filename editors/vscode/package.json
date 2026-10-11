@@ -65,17 +65,26 @@
         "aster.compilerPath": {
           "type": "string",
           "default": "",
+          "scope": "resource",
           "description": "The aster compiler to run for diagnostics, hover and go to definition. A path with a slash is relative to the workspace folder. Empty: syntax highlighting only."
         },
         "aster.entry": {
-          "type": "string",
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
           "default": "",
-          "description": "The program's entry point (the file with main), relative to the workspace folder. Empty: syntax highlighting only."
+          "scope": "resource",
+          "description": "The program's entry point (the file with main), relative to the workspace folder, or a list of entry points. A file is answered by the first listed entry that loads it. Empty: syntax highlighting only."
         },
         "aster.timeoutMs": {
           "type": "number",
           "default": 10000,
           "minimum": 100,
+          "scope": "resource",
           "description": "How long one compiler run may take, in milliseconds."
         }
       }

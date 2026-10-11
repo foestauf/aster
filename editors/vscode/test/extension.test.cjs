@@ -110,3 +110,112 @@ test('a failed check clears the previous diagnostics', async () => {
   assert.equal(state.status.text, 'Aster: compiler problem');
   assert.equal(state.diagnostics.size, 0);
 });
+
+const { entryList } = require('../src/adapter.cjs');
+
+test('aster.entry is a string or a list of strings', () => {
+  assert.deepEqual(entryList('main.aster'), ['main.aster']);
+  assert.deepEqual(entryList(''), []);
+  assert.deepEqual(entryList(['app.aster', '', 'tool.aster', 'app.aster', 3]), ['app.aster', 'tool.aster']);
+  assert.deepEqual(entryList(undefined), []);
+});
+
+test('each workspace folder runs its own compiler with its own entries, from its own directory', async () => {
+  process.env.FAKE_ASTER = 'echo-check';
+  const a = path.join(root, 'fa');
+  const b = path.join(root, 'fb');
+  const c = path.join(root, 'fc');
+  for (const d of [a, b, c]) require('node:fs').mkdirSync(d, { recursive: true });
+  const { vscode, state } = mock.create({ folders: [
+    { path: a, settings: { compilerPath: FAKE, entry: 'main.aster' } },
+    { path: b, settings: { compilerPath: FAKE, entry: ['app.aster', 'tool.aster'] } },
+    { path: c, settings: { compilerPath: FAKE } },
+  ] });
+  mock.activate(vscode);
+  await settle(state);
+  for (let i = 0; i < 200 && state.diagnostics.size < 2; i++) await new Promise((r) => setTimeout(r, 10));
+  const messages = (dir) => state.diagnostics.get(path.join(dir, 'x.aster')).map((d) => d.message);
+  assert.deepEqual(messages(a), [`${a} check --format=json main.aster`]);
+  assert.deepEqual(messages(b), [`${b} check --format=json app.aster`, `${b} check --format=json tool.aster`]);
+  assert.equal(state.diagnostics.has(path.join(c, 'x.aster')), false);
+  // The status bar follows the active editor's folder.
+  vscode.window.activeTextEditor = { document: { uri: { scheme: 'file', fsPath: path.join(c, 'main.aster') } } };
+  state.listeners.activeEditor();
+  assert.equal(state.status.text, 'Aster: syntax only');
+  assert.match(state.status.tooltip, /^fc: .*aster\.entry/);
+});
+
+test('a .aster file changed outside the editor re-checks the folder that contains it', async () => {
+  checkJson([], 0);
+  const pids = path.join(root, 'pids-watch');
+  writeFileSync(pids, '');
+  process.env.FAKE_ASTER_PIDS = pids;
+  try {
+    const { vscode, state } = mock.create({ folder: root, settings: { compilerPath: FAKE, entry: 'main.aster' } });
+    mock.activate(vscode);
+    await settle(state);
+    assert.deepEqual(state.watchers.map((w) => w.glob), ['**/*.aster']);
+    const runs = () => require('node:fs').readFileSync(pids, 'utf8').trim().split('\n').filter(Boolean).length;
+    assert.equal(runs(), 1);
+    state.listeners.fsDelete({ scheme: 'file', fsPath: path.join(root, 'lib.aster') });
+    await settle(state);
+    for (let i = 0; i < 200 && runs() < 2; i++) await new Promise((r) => setTimeout(r, 10));
+    await settle(state);
+    assert.equal(runs(), 2);
+    // Outside every folder and every closure: nothing runs.
+    state.listeners.fsChange({ scheme: 'file', fsPath: path.join(tmpdir(), 'elsewhere.aster') });
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(runs(), 2);
+  } finally {
+    delete process.env.FAKE_ASTER_PIDS;
+  }
+});
+
+// Whether a process is still running.
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+async function hungCheck(name) {
+  process.env.FAKE_ASTER = 'hang';
+  const pids = path.join(root, `pids-${name}`);
+  writeFileSync(pids, '');
+  process.env.FAKE_ASTER_PIDS = pids;
+  const { vscode, state } = mock.create({ folder: root, settings: { compilerPath: FAKE, entry: 'main.aster' } });
+  const extension = mock.activate(vscode);
+  let pid = 0;
+  for (let i = 0; i < 300 && !pid; i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    pid = Number(require('node:fs').readFileSync(pids, 'utf8').split('\n')[0]) || 0;
+  }
+  delete process.env.FAKE_ASTER_PIDS;
+  assert.ok(pid > 0 && alive(pid));
+  return { vscode, state, extension, pid };
+}
+
+async function closesWithin(pid, ms) {
+  const start = Date.now();
+  while (alive(pid) && Date.now() - start < ms) await new Promise((r) => setTimeout(r, 5));
+  return !alive(pid);
+}
+
+test('a configuration change kills the old context\'s running check', async () => {
+  const { vscode, state, pid } = await hungCheck('config');
+  process.env.FAKE_ASTER = 'json';
+  checkJson([], 0);
+  vscode.workspace.isTrusted = false;
+  state.listeners.config({ affectsConfiguration: () => true });
+  assert.ok(await closesWithin(pid, 100));
+  assert.equal(state.status.text, 'Aster: syntax only');
+});
+
+test('deactivate kills running checks', async () => {
+  const { extension, pid } = await hungCheck('deactivate');
+  extension.deactivate();
+  assert.ok(await closesWithin(pid, 100));
+});
