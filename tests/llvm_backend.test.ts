@@ -72,7 +72,7 @@ describe('LLVM deterministic output and runtime ABI', () => {
     expect(run('clang', ['--version']).stdout).toMatch(/clang version 18\./);
     const header = readFileSync(join(ROOT, 'runtime/aster_rt.h'), 'utf8');
     const names = [...header.matchAll(/^(?:_Noreturn\s+)?(?:void|bool|int64_t|aster_string|aster_array|aster_map)\s+\*?(aster_rt_\w+)\([^;{}]*\);/gm)].map((m) => m[1]);
-    expect(names.length).toBe(34);
+    expect(names.length).toBe(35);
     const probe = join(work, 'abi.c');
     const output = join(work, 'abi.ll');
     writeFileSync(probe, '#include "aster_rt.h"\nvoid *abi_symbols[] = {\n' + names.map((n) => `(void *)&${n}`).join(',\n') + '\n};\n');

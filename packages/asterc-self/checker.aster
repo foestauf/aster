@@ -158,6 +158,7 @@ fn builtin_signatures(): Signatures {
         Signature { name: "byte_at", params: [Type::Str, Type::Int], ret: Type::Int },
         Signature { name: "substring", params: [Type::Str, Type::Int, Type::Int], ret: Type::Str },
         Signature { name: "int_to_string", params: [Type::Int], ret: Type::Str },
+        Signature { name: "sha256_hex", params: [Type::Str], ret: Type::Str },
         Signature { name: "panic", params: [Type::Str], ret: Type::Never },
         Signature { name: "exit", params: [Type::Int], ret: Type::Never },
         Signature { name: "read_stdin", params: [], ret: Type::Str },

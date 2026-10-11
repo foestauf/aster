@@ -174,7 +174,7 @@ fn sha256_block(s: Sha256, h: [int], prefix: [int], text: string, size: int, tot
 }
 
 // The lowercase hex SHA-256 of `prefix`'s bytes followed by `text`'s.
-fn sha256_hex(s: Sha256, prefix: [int], text: string): string {
+fn sha256_digest(s: Sha256, prefix: [int], text: string): string {
     let h: [int] = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225];
     let size: int = len(prefix) + len(text);
     var total: int = size + 9;

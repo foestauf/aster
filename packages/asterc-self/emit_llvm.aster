@@ -527,6 +527,7 @@ fn llvm_runtime_declarations(out: [string]) {
         "declare { ptr, i64 } @aster_rt_substring(ptr, i64, i64, i64)",
         "declare { ptr, i64 } @aster_rt_int_to_string(i64)",
         "declare { ptr, i64 } @aster_rt_concat(ptr, i64, ptr, i64)",
+        "declare { ptr, i64 } @aster_rt_sha256_hex(ptr, i64)",
         "declare zeroext i1 @aster_rt_str_eq(ptr, i64, ptr, i64)",
         "declare ptr @aster_rt_args(i32, ptr)",
         "declare { ptr, i64 } @aster_rt_read_stdin()",

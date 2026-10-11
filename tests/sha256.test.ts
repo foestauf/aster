@@ -6,8 +6,9 @@ import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildDriver, REPO_ROOT } from './stage.js';
 
-// sha256.aster through a driver built by the stage under test. `plain` hashes a file's bytes; `bom` hashes EF BB BF
-// followed by them, the way `aster query` hashes a file whose BOM the loader stripped.
+// sha256.aster and the sha256_hex builtin through a driver built by the stage under test. `plain` hashes a file's
+// bytes; `bom` hashes EF BB BF followed by them, the way `aster query` hashes a file whose BOM the loader stripped;
+// `builtin` hashes the bytes with sha256_hex.
 const dir = mkdtempSync(join(tmpdir(), 'aster-sha256-'));
 const exe = join(dir, 'sha');
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -18,6 +19,10 @@ beforeAll(() => {
 import ${JSON.stringify(join(REPO_ROOT, 'packages/asterc-self/sha256.aster'))};
 fn main(args: [string]): int {
     let Result::Ok(text) = read_file(args[1]) else { return 2; };
+    if args[0] == "builtin" {
+        print(sha256_hex(text));
+        return 0;
+    }
     let s: Sha256 = sha256_new();
     let prefix: [int] = [];
     if args[0] == "bom" {
@@ -25,14 +30,14 @@ fn main(args: [string]): int {
         push(prefix, 187);
         push(prefix, 191);
     }
-    print(sha256_hex(s, prefix, text));
+    print(sha256_digest(s, prefix, text));
     return 0;
 }
 `);
   buildDriver(driver, exe);
 });
 
-function digest(mode: 'plain' | 'bom', bytes: Buffer): string {
+function digest(mode: 'plain' | 'bom' | 'builtin', bytes: Buffer): string {
   const input = join(dir, 'input');
   writeFileSync(input, bytes);
   const r = spawnSync(exe, [mode, input], { encoding: 'utf8' });
@@ -63,4 +68,12 @@ describe('sha256', () => {
     const b = randomBytes(300_000);
     expect(digest('plain', b)).toBe(node(b));
   }, 60_000);
+  it('builtin sha256_hex matches the vectors and Node across every padding boundary', () => {
+    expect(digest('builtin', Buffer.alloc(0))).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(digest('builtin', Buffer.from('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    for (const n of [1, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 129, 300_000]) {
+      const b = randomBytes(n);
+      expect(digest('builtin', b), `length ${n}`).toBe(node(b));
+    }
+  });
 });

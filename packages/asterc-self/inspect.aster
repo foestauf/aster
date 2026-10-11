@@ -104,7 +104,7 @@ fn file_sha256(sha: Sha256, f: SourceFile): string {
         push(prefix, 187);
         push(prefix, 191);
     }
-    return sha256_hex(sha, prefix, f.src);
+    return sha256_digest(sha, prefix, f.src);
 }
 
 // The keys every response shares, `schema` through `diagnostics`, for `command` on the root `path`.
@@ -160,8 +160,8 @@ fn inspect_response(command: string, path: string, fe: FrontEnd): string {
 fn builtin_names(): [string] {
     return ["Map", "Set", "bool", "byte_at", "eprint", "exit", "int", "int_to_string", "len", "make_temp_dir", "map_get",
         "map_has", "map_keys", "map_remove", "map_set", "never", "panic", "pop", "print", "push", "read_file", "read_stdin",
-        "remove_path", "run_process", "set_add", "set_has", "set_items", "set_remove", "string", "substring", "void",
-        "write_file"];
+        "remove_path", "run_process", "set_add", "set_has", "set_items", "set_remove", "sha256_hex", "string", "substring",
+        "void", "write_file"];
 }
 
 fn is_builtin_type_name(name: string): bool {
