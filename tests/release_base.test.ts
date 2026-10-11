@@ -11,11 +11,20 @@ import { REPO_ROOT } from '../scripts/build-compiler.js';
 let root: string;
 const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
 const commit = (m: string) => git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', m);
-const base = (rev: string) =>
-  spawnSync('sh', [join(REPO_ROOT, 'scripts', 'release-base.sh'), rev], {
+const base = (...args: string[]) =>
+  spawnSync('sh', [join(REPO_ROOT, 'scripts', 'release-base.sh'), ...args], {
     cwd: root,
     encoding: 'utf8',
     env: { ...process.env, ASTER_RELEASE_WAIT_TRIES: '2', ASTER_RELEASE_WAIT_INTERVAL: '0' },
+  });
+
+// --no-wait never sleeps: an hour-long wait would blow the test timeout.
+const now = (rev: string) =>
+  spawnSync('sh', [join(REPO_ROOT, 'scripts', 'release-base.sh'), '--no-wait', rev], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, ASTER_RELEASE_WAIT_TRIES: '2', ASTER_RELEASE_WAIT_INTERVAL: '3600' },
+    timeout: 10_000,
   });
 
 beforeEach(() => {
@@ -81,5 +90,31 @@ describe('release-base.sh', () => {
     const r = base('HEAD~5');
     expect(r.status).toBe(1);
     expect(r.stdout).toBe('');
+  });
+
+  describe('--no-wait', () => {
+    it("prints the revision's own release", () => {
+      git('tag', 'build-20261001-aaaaaaa', 'HEAD^1');
+      git('tag', 'build-20261004-bbbbbbb', 'HEAD');
+      expect(now('HEAD')).toMatchObject({ status: 0, stdout: 'build-20261004-bbbbbbb\n', stderr: '' });
+    });
+
+    it('prints the newest published ancestor release without waiting', () => {
+      commit('c');
+      git('tag', 'build-20261001-aaaaaaa', 'HEAD~2');
+      expect(now('HEAD^1')).toMatchObject({ status: 0, stdout: 'build-20261001-aaaaaaa\n', stderr: '' });
+    });
+
+    it('exits 3 when no build-* release exists yet', () => {
+      expect(now('HEAD^1')).toMatchObject({ status: 3, stdout: '' });
+    });
+
+    it('fails when no ancestor has a release', () => {
+      git('tag', 'build-20261003-ccccccc', 'HEAD');
+      const r = now('HEAD^1');
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe('');
+      expect(r.stderr).toContain(`no release is published for ${git('rev-parse', 'HEAD^1')} or any ancestor of it`);
+    });
   });
 });

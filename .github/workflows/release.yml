@@ -43,6 +43,9 @@ jobs:
             echo "done=true" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.tag.outputs.done != 'true'
+        # Strict: each published seed is built by its parent's release, never optimistically by an older one (#69).
+        env:
+          ASTER_BOOTSTRAP_STRICT: '1'
         run: sh scripts/ci-bootstrap.sh
       - if: steps.tag.outputs.done != 'true'
         run: node scripts/release.ts --out dist-release

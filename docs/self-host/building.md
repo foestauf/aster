@@ -80,11 +80,15 @@ CI runs on every push to `main` and every pull request:
 | `proof` | After the `proof (<suite>)` jobs. Fails unless they all passed and S1, S2, S3 and SL1 ran the same number of tests. |
 | `release-bootstrap` | Pull requests only. `scripts/ci-bootstrap.sh`, then `pnpm test`. Enforces the two-step rule. |
 
-`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change. It asks `scripts/release-base.sh` for that tag. If the release isn't published yet, the script waits up to about 15 minutes, because `release.yml` is still running for the base. If the wait runs out, it warns and uses the nearest earlier release instead. One failed CI run on `main` therefore can't wedge `main`. Only pushes to `main` publish releases, so when `HEAD^1` isn't on `main` (a pull request stacked on another branch), it skips the wait and falls back straight away. If no `build-*` release exists at all, it fails and points at Recovery below.
+`scripts/ci-bootstrap.sh` bootstraps from the release of `HEAD^1`, the base of the change, and is optimistic about it. It starts at once from the newest release already published on `HEAD^1` or one of its ancestors (`scripts/release-base.sh --no-wait`). When that isn't `HEAD^1`'s own release, it says so in a `::notice::`. An older release can only reject a change, never wrongly accept it, so only a failed bootstrap from an older release is retried. The script then asks `scripts/release-base.sh` for `HEAD^1`'s release, which waits up to about 15 minutes while `release.yml` publishes it. If the wait finds a different release, the bootstrap runs once more from it. Otherwise the first failure stands. A change that uses a feature only `HEAD^1`'s release has therefore passes once that release appears, and a change that uses a feature in no release fails, as before.
+
+`release-base.sh` without `--no-wait` falls back to the nearest earlier release when the wait runs out, with a warning, so one failed CI run on `main` can't wedge `main`. Only pushes to `main` publish releases, so when `HEAD^1` isn't on `main` (a pull request stacked on another branch), it skips the wait and falls back straight away. If no `build-*` release exists at all, `ci-bootstrap.sh` fails and points at Recovery below.
+
+`release.yml` sets `ASTER_BOOTSTRAP_STRICT=1`, which skips the optimistic try. Each published seed is then built by its parent's release, with the wait and fallback above.
 
 `release-bootstrap` runs only on pull requests and is the job meant to be the required check.
 
-A push of several commits to `main` publishes a release for the tip only. The intermediate commits get none, so the next CI run waits about 15 minutes for the release of its `HEAD^1`, then falls back to the nearest earlier release.
+A push of several commits to `main` publishes a release for the tip only. The intermediate commits get none, so the next CI run bootstraps optimistically from the nearest earlier release. Only if that fails does it wait about 15 minutes for the release of its `HEAD^1` before falling back.
 
 `release.yml` runs after CI passes on a push to `main` and publishes the release. Its concurrency group can drop a pending release run when merges arrive in quick succession. The fallback covers the gap, and re-running `release.yml` for the missed commit restores the release. See [Releases](#releases).
 
