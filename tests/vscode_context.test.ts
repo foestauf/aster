@@ -206,12 +206,21 @@ describe('bounded requests', () => {
   const files = { 'main.aster': program('lib.aster'), 'lib.aster': LIB };
 
   it('hover sweep: of 20 overlapping hovers only the newest answers, and every cancelled process closes', async () => {
-    const root = project(files);
+    // A library big enough (~150 ms a query) that every run is still going when the next hover arrives. Hovers arrive
+    // as separate events, as VS Code sends them: one burst of 20 synchronous spawns would hold the event loop and
+    // delay every `close` it measures.
+    const big = Array.from({ length: 2000 }, (_, i) => `fn f${i}(x: int): int {\n    return x * ${i} + 1;\n}\n`).join('');
+    const root = project({ 'main.aster': program('lib.aster'), 'lib.aster': `${LIB}${big}` });
     const k = counting();
     const f = folder(root, ['main.aster'], k.runner);
     await f.check();
     const p = at(root, 'main.aster', 'twice(2)');
-    const results = await Promise.all(Array.from({ length: 20 }, () => f.query(join(root, 'main.aster'), 'pointer', p.line, p.character)));
+    const pending = [];
+    for (let i = 0; i < 20; i++) {
+      pending.push(f.query(join(root, 'main.aster'), 'pointer', p.line, p.character));
+      await new Promise((r) => setImmediate(r));
+    }
+    const results = await Promise.all(pending);
     expect(results.slice(0, 19).every((r) => r.kind === 'cancelled')).toBe(true);
     expect(results[19].kind).toBe('answer');
     expect(facts(results[19].doc)).toEqual(facts(cliQuery(root, 'main.aster', 'main.aster', p.offset)));
