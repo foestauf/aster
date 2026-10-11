@@ -509,7 +509,7 @@ fn answer_query(w: Walk, req: QueryRequest): QueryAnswer {
 
 // The whole `aster query` response for the entry `entry`, without a final newline, and its exit status.
 fn query_response(entry: string, req: QueryRequest, fe: FrontEnd): QueryOutcome {
-    let fields: [string] = response_fields("query", entry, fe, Option::Some(sha256_new()));
+    let fields: [string] = response_fields("query", entry, fe, true);
     match fe {
         FrontEnd::Passed(loaded, checked) => {
             let w: Walk = semantics_walk(loaded, checked);

@@ -2,6 +2,7 @@
 == stdout
 struct SourceFile
   field path string
+  field raw string
   field src string
   field base int
   field bom int

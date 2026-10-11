@@ -5,7 +5,6 @@
 import "frontend.aster";
 import "report.aster";
 import "json.aster";
-import "sha256.aster";
 
 // The index of the file a global offset falls in: the last one whose base is at or before it.
 fn file_index(files: [SourceFile], start: int): int {
@@ -82,13 +81,13 @@ fn json_diag(files: [SourceFile], d: Diag): string {
 }
 
 // The `files` list. With `digests` (`aster query`), each entry also has `sha256`, the digest of its on-disk bytes.
-fn json_files(files: [SourceFile], digests: Option[Sha256]): string {
+fn json_files(files: [SourceFile], digests: bool): string {
     let out: [string] = [];
     for i in 0..len(files) {
         let shown: string = utf8_lossy(files[i].path);
         let fields: [string] = [json_kv("id", json_int(i)), json_kv("path", json_str(shown)), json_kv("bom", json_bool(files[i].bom > 0))];
-        if let Option::Some(sha) = digests {
-            push(fields, json_kv("sha256", json_str(file_sha256(sha, files[i]))));
+        if digests {
+            push(fields, json_kv("sha256", json_str(sha256_hex(files[i].raw))));
         }
         push_path_exact(fields, files[i].path);
         push(out, json_object(fields));
@@ -96,19 +95,8 @@ fn json_files(files: [SourceFile], digests: Option[Sha256]): string {
     return json_array(out);
 }
 
-// The SHA-256 of a loaded file as stored on disk: the loader strips a BOM, so it goes back in front.
-fn file_sha256(sha: Sha256, f: SourceFile): string {
-    let prefix: [int] = [];
-    if f.bom > 0 {
-        push(prefix, 239);
-        push(prefix, 187);
-        push(prefix, 191);
-    }
-    return sha256_digest(sha, prefix, f.src);
-}
-
 // The keys every response shares, `schema` through `diagnostics`, for `command` on the root `path`.
-fn response_fields(command: string, path: string, fe: FrontEnd, digests: Option[Sha256]): [string] {
+fn response_fields(command: string, path: string, fe: FrontEnd, digests: bool): [string] {
     var files: string = "[]";
     let diags: [string] = [];
     match fe {
@@ -141,7 +129,7 @@ fn json_unavailable(reason: string): string {
 
 // The whole response for `command` (`check` or `inspect`) on the root `path`, without a final newline.
 fn inspect_response(command: string, path: string, fe: FrontEnd): string {
-    let fields: [string] = response_fields(command, path, fe, Option::None);
+    let fields: [string] = response_fields(command, path, fe, false);
     if command == "inspect" {
         let semantics: string = match fe {
             FrontEnd::Passed(loaded, checked) => json_semantics(loaded, checked),

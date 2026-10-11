@@ -8,9 +8,11 @@
 
 import "parser.aster";
 
-// A loaded file. `src` has any byte order mark stripped; `bom` is the 3 bytes it took, or 0.
+// A loaded file. `raw` is its bytes as read from disk; `src` has any byte order mark stripped; `bom` is the 3 bytes it
+// took, or 0.
 struct SourceFile {
     path: string,
+    raw: string,
     src: string,
     base: int,
     bom: int,
@@ -292,7 +294,7 @@ fn visit(ld: Loaded, seen: Set[string], path: string, raw: string) {
         let last: SourceFile = ld.files[len(ld.files) - 1];
         base = last.base + len(last.src) + 1;
     }
-    push(ld.files, SourceFile { path: path, src: src, base: base, bom: bom });
+    push(ld.files, SourceFile { path: path, raw: raw, src: src, base: base, bom: bom });
     let lx: Lexer = lex_from(src, 0);
     for e in lx.errors {
         push(ld.diags, Diag { code: e.code, start: e.start + base, end: e.end + base, message: e.message, related: [] });
