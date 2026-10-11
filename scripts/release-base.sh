@@ -4,10 +4,17 @@
 # (an older release can only reject a change, never wrongly accept it, so one failed CI run can't wedge main).
 # Only pushes to main publish releases, so a <rev> that origin/main doesn't contain (a stacked pull request's base)
 # skips the wait and falls back at once.
+# --no-wait prints the newest release already published on <rev> or an ancestor of it, and never waits (the optimistic
+# first try in ci-bootstrap.sh, #69).
 # Exit 0: tag printed. Exit 3: no build-* release exists anywhere yet, so the caller bootstraps from the TypeScript
 # seed. Exit 1: <rev> is unknown, or has no release and no ancestor release.
 set -u
-rev=${1:?usage: release-base.sh <rev>}
+wait=1
+if [ "${1:-}" = --no-wait ]; then
+  wait=0
+  shift
+fi
+rev=${1:?usage: release-base.sh [--no-wait] <rev>}
 tries=${ASTER_RELEASE_WAIT_TRIES:-30}
 interval=${ASTER_RELEASE_WAIT_INTERVAL:-30}
 sha=$(git rev-parse --verify --quiet "$rev^{commit}") || { echo "release-base: unknown revision $rev" >&2; exit 1; }
@@ -22,6 +29,18 @@ fallback() {
   echo "$1, and no earlier release is an ancestor of it" >&2
   exit 1
 }
+if [ "$wait" = 0 ]; then
+  git fetch --quiet --tags --force origin 2>/dev/null || true
+  [ -z "$(git tag --list 'build-*')" ] && exit 3
+  # A tag on <rev> itself wins over describe's choice, which is arbitrary when a commit carries several.
+  tag=$(git tag --points-at "$sha" --list 'build-*' | sort | tail -n 1)
+  [ -n "$tag" ] || tag=$(git describe --tags --match 'build-*' --abbrev=0 "$sha" 2>/dev/null) || {
+    echo "release-base: no release is published for $sha or any ancestor of it" >&2
+    exit 1
+  }
+  echo "$tag"
+  exit 0
+fi
 i=0
 while :; do
   git fetch --quiet --tags --force origin 2>/dev/null || true
