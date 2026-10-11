@@ -32,15 +32,28 @@ or `code --uninstall-extension aster-local.aster-syntax`.
 | Setting | Meaning |
 | --- | --- |
 | `aster.compilerPath` | The `aster` executable. A path containing a slash is relative to the workspace folder; a bare name is looked up on `PATH`. Empty (the default): syntax only. |
-| `aster.entry` | The program's entry point, the file with `main`, relative to the workspace folder. Empty (the default): syntax only. The extension never guesses one. |
+| `aster.entry` | The program's entry point, the file with `main`, relative to the workspace folder, or a list of them (`["app.aster", "tool.aster"]`). Empty (the default): syntax only. The extension never guesses one. |
 | `aster.timeoutMs` | How long one compiler run may take before it is killed. Default 10000. |
 
 - **Trust.** Both path settings are restricted configurations. In an untrusted workspace (Restricted Mode) no compiler
   runs and the extension highlights syntax only. The compiler is started with an argument list, never through a
-  shell, with the first workspace folder as its working directory.
-- **Diagnostics.** `aster check --format=json <entry>` runs on activation, when an `aster.*` setting changes and
-  whenever a `.aster` file is saved. Its diagnostics replace the previous set, on whichever file they are in. A newer
-  run kills an older one that is still going, and an older result is never shown over a newer one.
+  shell, with the workspace folder as its working directory.
+- **Workspace folders.** Every setting is per folder (`resource` scope). Each folder with both settings is its own
+  context, with its own compiler, entries and working directory. A file is answered only by the innermost folder that
+  contains it.
+- **Several entries.** With a list, every entry is checked in turn and the diagnostics shown are the union, without
+  duplicates. A file is answered by the first listed entry whose latest check's closure (the files the program loaded)
+  contains it, so a library shared by two entries is answered by the one listed first. Nothing is guessed: a file no
+  entry loads gets no hover or definition, and while every closure is up to date no compiler runs for it at all.
+- **Diagnostics.** `aster check --format=json <entry>` runs on activation, when an `aster.*` setting changes, whenever
+  a `.aster` file is saved, and when one is created, changed or deleted outside the editor (`git checkout`, `cp`,
+  `rm`). A folder re-checks when the file is inside it or in one of its closures. Its diagnostics replace the previous
+  set, on whichever file they are in. A newer run kills an older one that is still going, and an older result is
+  never shown over a newer one.
+- **Bounded requests.** One hover and one definition request run at a time in each folder: a new hover kills the
+  previous hover's compiler, and a new definition request the previous one's. They don't kill each other, because
+  Ctrl+hover asks for both. A settings, trust or folder change, or deactivating the extension, kills every running
+  compiler of the old context.
 - **Hover** runs `aster query <entry> --file=<file> --offset=<byte>` for the character under the pointer. It shows
   an expression's type (`int`, `[string]`, `Option[int]`), a callee's signature (`fn area(side: int): int`), or a
   declaration (`local total: int`). A comment, keyword or unsupported position, such as a type annotation, shows
@@ -163,10 +176,13 @@ npm run package
 - `convert`: positions (BOM, CRLF, astral characters, lone `\r`), type and hover rendering, diagnostic mapping;
 - `adapter`: compiler runs against a fake compiler (no shell, timeout, cancellation, panic, malformed output),
   ordering and freshness;
-- `extension`: the VS Code glue against a mock of the API (trust, settings, status, diagnostics).
+- `extension`: the VS Code glue against a mock of the API (trust, per-folder settings and entry lists, status,
+  diagnostics, the file-system watcher, killing processes on a settings change and on deactivate).
 
 `pnpm vitest run tests/vscode_adapter.test.ts`, from the repository root, drives the adapter against the real
-compiler on a copy of the demo, and checks that `demo/agent.mjs` reports the same facts.
+compiler on a copy of the demo, and checks that `demo/agent.mjs` reports the same facts. `tests/vscode_context.test.ts`
+checks workspace folders, entry lists, external changes and bounded requests against a fresh CLI run, counting
+compiler processes.
 
 The output is `editors/vscode/aster-syntax-0.2.0.vsix`. Packaging runs the tests and includes only the manifest,
 grammar, language configuration, `src/` and this README (plus VSIX metadata), with no runtime dependencies. The

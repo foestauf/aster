@@ -15,8 +15,11 @@ function Location(uri, range) {
   Object.assign(this, { uri, range });
 }
 
-function create({ trusted = true, folder = null, settings = {} } = {}) {
-  const state = { status: null, diagnostics: new Map(), hover: null, definition: null, log: [], listeners: {} };
+// `folder` and `settings` describe one workspace folder; `folders` lists several as [{ path, settings }], each read with
+// getConfiguration('aster', folder.uri).
+function create({ trusted = true, folder = null, settings = {}, folders = null } = {}) {
+  const list = folders ?? (folder ? [{ path: folder, settings }] : []);
+  const state = { status: null, diagnostics: new Map(), hover: null, definition: null, log: [], listeners: {}, watchers: [] };
   const on = (name) => (fn) => {
     state.listeners[name] = fn;
     return { dispose() {} };
@@ -33,11 +36,14 @@ function create({ trusted = true, folder = null, settings = {} } = {}) {
     window: {
       createOutputChannel: () => ({ appendLine: (l) => state.log.push(l), dispose() {} }),
       createStatusBarItem: () => (state.status = { text: '', tooltip: '', show() {}, dispose() {} }),
+      activeTextEditor: undefined,
+      onDidChangeActiveTextEditor: on('activeEditor'),
     },
     languages: {
       createDiagnosticCollection: () => ({
-        set: (uri, list) => state.diagnostics.set(uri.fsPath, list),
+        set: (uri, items) => state.diagnostics.set(uri.fsPath, items),
         clear: () => state.diagnostics.clear(),
+        delete: (uri) => state.diagnostics.delete(uri.fsPath),
         dispose() {},
       }),
       registerHoverProvider: (_, p) => ((state.hover = p), { dispose() {} }),
@@ -45,9 +51,18 @@ function create({ trusted = true, folder = null, settings = {} } = {}) {
     },
     workspace: {
       isTrusted: trusted,
-      workspaceFolders: folder ? [{ uri: { fsPath: folder } }] : undefined,
+      workspaceFolders: list.length > 0 ? list.map((f) => ({ uri: { scheme: 'file', fsPath: f.path }, name: f.path.split('/').pop() })) : undefined,
       textDocuments: [],
-      getConfiguration: () => ({ get: (key, fallback) => (key in settings ? settings[key] : fallback) }),
+      getConfiguration: (_, uri) => {
+        const own = (uri && list.find((f) => f.path === uri.fsPath)) || list[0];
+        const values = own ? own.settings : settings;
+        return { get: (key, fallback) => (key in values ? values[key] : fallback) };
+      },
+      createFileSystemWatcher: (glob) => {
+        const watcher = { glob, onDidCreate: on('fsCreate'), onDidChange: on('fsChange'), onDidDelete: on('fsDelete'), dispose() {} };
+        state.watchers.push(watcher);
+        return watcher;
+      },
       onDidSaveTextDocument: on('save'),
       onDidChangeConfiguration: on('config'),
       onDidGrantWorkspaceTrust: on('trust'),
@@ -57,7 +72,7 @@ function create({ trusted = true, folder = null, settings = {} } = {}) {
   return { vscode, state };
 }
 
-// Loads src/extension.cjs fresh against `vscode` and activates it.
+// Loads src/extension.cjs fresh against `vscode`, activates it and returns the module (for deactivate()).
 function activate(vscode) {
   const original = Module.prototype.require;
   Module.prototype.require = function (request) {
@@ -66,7 +81,9 @@ function activate(vscode) {
   try {
     const file = require.resolve('../src/extension.cjs');
     delete require.cache[file];
-    require(file).activate({ subscriptions: [] });
+    const extension = require(file);
+    extension.activate({ subscriptions: [] });
+    return extension;
   } finally {
     Module.prototype.require = original;
   }

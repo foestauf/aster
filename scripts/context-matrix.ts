@@ -14,13 +14,13 @@ export interface Row { id: string; case: string; evidence: 'observed' | 'analyse
 export interface CaseSpec {
   id: string;
   title: string;
-  // Workspace folders, relative to the fixture root; the first is the editor's working directory (as today).
+  // Workspace folders, relative to the fixture root; each is its own editor context (#70), with the same `entry`.
   folders?: string[];
   files: Record<string, string | Buffer>;
   // link path → target path, both relative to the fixture root.
   symlinks?: Record<string, string>;
-  // `aster.entry`, relative to the first folder; null when the setting is empty.
-  entry: string | null;
+  // `aster.entry` (one entry or a list), relative to each folder; null when the setting is empty.
+  entry: string | string[] | null;
   // Where an agent runs the CLI, relative to the fixture root, and the entry it passes; null: it has to choose.
   cliCwd?: string;
   cliEntry: string | null;
@@ -52,7 +52,7 @@ export const CASES: CaseSpec[] = [
   {
     id: 'two-entries-shared-lib', title: 'Two entries share a library; ask about the second entry',
     files: { 'app.aster': program('lib.aster'), 'tool.aster': 'import "lib.aster";\nfn main(): int {\n    let w: int = twice(3);\n    return w - 6;\n}\n', 'lib.aster': LIB },
-    entry: 'app.aster', cliEntry: 'tool.aster', focus: 'tool.aster', probe: 'twice(3)',
+    entry: ['app.aster', 'tool.aster'], cliEntry: 'tool.aster', focus: 'tool.aster', probe: 'twice(3)',
     decision: 'Which entries exist, and which one answers for a file that several (lib.aster) or only one (tool.aster) import. One `aster.entry` cannot express this.',
   },
   {
@@ -228,12 +228,15 @@ async function runCase(compiler: string, c: CaseSpec): Promise<Row & { raw: unkn
       writeFileSync(join(root, p), body);
     }
     for (const [link, target] of Object.entries(c.symlinks ?? {})) symlinkSync(target, join(root, link));
-    const folder = join(root, (c.folders ?? ['.'])[0]);
     const focusAbs = join(root, c.focus);
+    // The editor's context for the focus file: the innermost workspace folder containing it, else the first.
+    const folders = (c.folders ?? ['.']).map((f) => join(root, f));
+    const folder = folders.filter((f) => adapter.inside(f, focusAbs)).toSorted((a, b) => b.length - a.length)[0] ?? folders[0];
     // The probe's byte offset in the focus file as it is when asked (after any change), falling back to the original.
     const focusText = () => (existsSync(focusAbs) ? readFileSync(focusAbs) : Buffer.from(c.files[c.focus] ?? c.files[c.symlinks?.[c.focus] ?? '']));
 
-    // Editor, as extension.cjs drives the adapter: check on activation, then (after any change) a hover.
+    // Editor, as extension.cjs drives the adapter: check on activation, then after any change a refresh (a save, or the
+    // file-system watcher for a change outside the editor), then a hover.
     let editor: string;
     let editorOutcome = '';
     let editorCheckOk: boolean | null = null;
@@ -244,26 +247,25 @@ async function runCase(compiler: string, c: CaseSpec): Promise<Row & { raw: unkn
       c.mutate?.apply(root);
     } else {
       const dirty = c.dirty ? join(root, c.dirty) : null;
-      // The closure the editor's diagnostics describe: the files of the last check response it received.
-      const runner = async (...args: unknown[]) => {
-        const r = await adapter.run(...args);
-        if (r.kind === 'ok' && r.doc.command === 'check') editorClosure = (r.doc.files ?? []).map((f: any) => resolve(folder, f.path));
-        return r;
-      };
-      const s = new adapter.Session({ compiler, root: folder, entry: c.entry, timeoutMs: 60_000, isDirty: (f: string) => f === dirty, runner });
+      const s = new adapter.Folder({ compiler, root: folder, entries: adapter.entryList(c.entry), timeoutMs: 60_000, isDirty: (f: string) => f === dirty });
       let check = await s.check();
       c.mutate?.apply(root);
-      if (c.mutate?.kind === 'save') {
+      if (c.mutate) {
         s.saved();
         check = await s.check();
       }
       const text = focusText();
       const before = text.subarray(0, text.indexOf(c.probe)).toString('utf8').split('\n');
       const q = await s.query(focusAbs, 'pointer', before.length - 1, before[before.length - 1].length, undefined);
-      editorCheckOk = check.kind === 'diagnostics' ? check.ok : null;
+      // The closure the editor's diagnostics describe for the focus file: its owning entry's, else the first entry's.
+      const owner = s.owner(focusAbs) ?? s.sessions[0];
+      editorClosure = owner.closure ? [...owner.closure] : [];
+      // The check result for the owning entry, as the CLI reports one entry.
+      const own = check.kind === 'diagnostics' ? await owner.check() : check;
+      editorCheckOk = own.kind === 'diagnostics' ? own.ok : null;
       editorOutcome = outcomeOf({ editor: q });
       const shown = check.kind === 'diagnostics' ? (check.ok ? 'ok' : `${check.count} error(s)`) : `${check.kind}${check.message ? `: ${check.message}` : ''}`;
-      editor = `diagnostics shown: ${shown}${c.mutate?.kind === 'external' ? ' (from before the change)' : ''}; hover: ${editorOutcome}`;
+      editor = `diagnostics shown: ${shown}${c.mutate?.kind === 'external' ? ' (refreshed by the watcher)' : ''}; hover: ${editorOutcome}`;
       raw.editor = { check, query: q.kind === 'answer' ? { kind: 'answer', query: q.doc.query, files: q.doc.files.map((f: any) => f.path) } : q };
     }
 
@@ -310,7 +312,7 @@ async function main(argv: string[]): Promise<number> {
     `Generated by \`node scripts/context-matrix.ts --record\` at commit \`${commit}\` with \`${compilerArg}\`. Each observed row`,
     'builds a throwaway program and asks the same question two ways: the **CLI** as an agent runs it (from the case\'s',
     'working directory, with the entry it would pass), and the **editor adapter** (`editors/vscode/src/adapter.cjs`) as the',
-    'extension drives it (first workspace folder as working directory, `aster.entry`, a check, then a hover). *Agree* requires',
+    'extension drives it (the focus file\'s workspace folder as working directory, `aster.entry`, a check, a refresh after any change, then a hover). *Agree* requires',
     'the same hover outcome, the same check result, and the same closure (the files the shown diagnostics describe, as',
     'absolute paths). Raw responses: [`data/matrix.json`](data/matrix.json).', '',
     renderMatrix(all), '',
