@@ -79,6 +79,24 @@ names cannot be redefined. A follow-up PR, after this one's release, switches `i
 deletes `sha256.aster`. The gprof share above predicts about 120–150 ms off `query` on the compiler closure. That PR
 must measure it.
 
+### Switched over (part 2)
+
+`query` now hashes each file with `sha256_hex(f.raw)`. `SourceFile.raw` holds the bytes as read from disk, BOM
+included; it is a view of the file's contents, so nothing is copied. `sha256.aster` and its tables are gone. Before =
+release `build-20261011-cb7a170` (part 1), after = this change; `session-cost.ts --runs=10`
+([before](data/query-profile/session-cost-builtin-before.md), [after](data/query-profile/session-cost-builtin-after.md)):
+
+| Program | Before ms | After ms |
+| --- | ---: | ---: |
+| launch (1 line) | 3.8 (3.5–4.1) | 2.4 (2.4–2.6) |
+| demo (2 files) | 4.1 (3.8–4.3) | 2.6 (2.4–2.8) |
+| compiler (18 files) | 240.2 (237.3–245.6) | 132.6 (130.6–134.3) |
+| generated (467 KiB) | 547.3 (540.6–565.3) | 414.2 (407.9–426.8) |
+
+That is 108 ms off the compiler query, inside the predicted range. A query now costs about 7 ms more than the matching
+`inspect` (125.4 ms). The small programs also lose the 256×256 table build. Peak RSS and output bytes are unchanged.
+Over both parts, a hover on the compiler closure went from 416 ms to 133 ms of compiler work.
+
 ## Not adopted (yet)
 
 - **JSON assembly.** On the compiler closure it is now small. On the generated file it is still the largest
