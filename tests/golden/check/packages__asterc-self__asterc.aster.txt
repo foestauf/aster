@@ -3991,7 +3991,7 @@ fn sha256_block(Sha256, [int], [int], string, int, int, int): void
   let 27 big0 int
   let 28 majority int
   let 29 t2 int
-fn sha256_hex(Sha256, [int], string): string
+fn sha256_digest(Sha256, [int], string): string
   param 0 s Sha256
   param 1 prefix [int]
   param 2 text string

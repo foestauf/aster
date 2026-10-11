@@ -100,6 +100,8 @@ int64_t aster_rt_byte_at(aster_string s, int64_t i);
 aster_string aster_rt_substring(aster_string s, int64_t start, int64_t end);
 aster_string aster_rt_int_to_string(int64_t n);
 aster_string aster_rt_concat(aster_string a, aster_string b);
+/* The lowercase hex SHA-256 of s's bytes. */
+aster_string aster_rt_sha256_hex(aster_string s);
 bool aster_rt_str_eq(aster_string a, aster_string b);
 
 /* The program's arguments argv[1..argc) as a [string]. The strings point into argv. */

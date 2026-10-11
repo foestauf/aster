@@ -1,0 +1,9 @@
+== exit 0
+== stdout
+fn main(): int
+  let 0 a string
+  let 1 b string
+  let 2 c string
+  var 3 out string
+  let 4 i int
+== stderr

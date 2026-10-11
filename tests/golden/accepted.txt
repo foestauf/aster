@@ -136,8 +136,10 @@ programs/typed.aster
 scoping/shadowing.aster
 strings/basics.aster
 strings/bytes.aster
+strings/concat_sharing.aster
 strings/equality.aster
 strings/escapes.aster
+strings/sha256.aster
 strings/utf8.aster
 structs/basics.aster
 structs/c_names.aster

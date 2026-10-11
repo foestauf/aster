@@ -437,6 +437,7 @@ Builtins are special-cased in the checker. There is no overloading in user code,
 | `byte_at` | `(s: string, i: int): int` | Byte value 0–255 at index `i`. Panics if `i < 0` or `i >= len(s)`. |
 | `substring` | `(s: string, start: int, end: int): string` | Bytes `[start, end)`. Panics unless `0 <= start <= end <= len(s)`. |
 | `int_to_string` | `(n: int): string` | Decimal representation. |
+| `sha256_hex` | `(s: string): string` | The SHA-256 digest of `s`'s bytes as 64 lowercase hex digits. |
 | `read_file` | `(path: string): Result[string, string]` | Reads the whole file as raw bytes. `Ok(contents)` on success; `Err("<path>: <reason>")` on failure, with the OS's reason (`No such file or directory`, `Is a directory`, …) or `invalid path` for a path containing `\0`. A relative path resolves against the working directory. |
 | `write_file` | `(path: string, contents: string): Result[int, string]` | Creates or truncates the file and writes `contents` as raw bytes. `Ok(len(contents))` on success; `Err("<path>: <reason>")` on failure, with `invalid path` for a path containing `\0`. |
 | `make_temp_dir` | `(prefix: string): Result[string, string]` | Creates a new directory named `<prefix>XXXXXX` under `$TMPDIR` (or `/tmp` if it is unset or empty) and returns `Ok(path)`. On failure `Err("<template>: <reason>")`, where the template is the full path pattern, or `invalid path` if `prefix` contains `\0`. |

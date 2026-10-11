@@ -317,12 +317,110 @@ aster_string aster_rt_int_to_string(int64_t n) {
     return r;
 }
 
+/*
+ * Concatenations come from a bump arena: [cat_start, cat_top) is used, [cat_top, cat_end) is free. Strings are
+ * immutable views, so when `a` ends exactly at cat_top, `a + b` can write b's bytes after it and return a longer view
+ * of the same memory: `a` itself still sees its old bytes. That makes `out += piece` loops linear instead of quadratic
+ * (issue #71). A full arena is abandoned, never freed, like every other string.
+ */
+static char *cat_start;
+static char *cat_top;
+static char *cat_end;
+
 aster_string aster_rt_concat(aster_string a, aster_string b) {
+    if (b.len == 0) return a;
+    if (a.len == 0) return b;
     int64_t len = a.len + b.len;
-    char *p = alloc_bytes(len);
-    if (a.len > 0) memcpy(p, a.ptr, (size_t)a.len);
-    if (b.len > 0) memcpy(p + a.len, b.ptr, (size_t)b.len);
+    if (a.ptr >= cat_start && a.ptr + a.len == cat_top && cat_end - cat_top >= b.len) {
+        memcpy(cat_top, b.ptr, (size_t)b.len);
+        cat_top += b.len;
+        aster_string r = { a.ptr, len };
+        return r;
+    }
+    if (cat_end - cat_top < len) {
+        /* Twice the result, so a string that keeps growing past arenas still copies a linear number of bytes. */
+        if (len > INT64_MAX / 2) aster_rt_panic_cstr("out of memory");
+        int64_t cap = len * 2 > ((int64_t)1 << 20) ? len * 2 : ((int64_t)1 << 20);
+        cat_start = alloc_bytes(cap);
+        cat_top = cat_start;
+        cat_end = cat_start + cap;
+    }
+    char *p = cat_top;
+    memcpy(p, a.ptr, (size_t)a.len);
+    memcpy(p + a.len, b.ptr, (size_t)b.len);
+    cat_top += len;
     aster_string r = { p, len };
+    return r;
+}
+
+/* SHA-256 (FIPS 180-4). */
+static const uint32_t sha256_k[64] = {
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+};
+
+static uint32_t rotr32(uint32_t x, int n) {
+    return (x >> n) | (x << (32 - n));
+}
+
+static void sha256_block(uint32_t h[8], const unsigned char *block) {
+    uint32_t w[64];
+    for (int t = 0; t < 16; t++) {
+        w[t] = (uint32_t)block[t * 4] << 24 | (uint32_t)block[t * 4 + 1] << 16 | (uint32_t)block[t * 4 + 2] << 8
+            | (uint32_t)block[t * 4 + 3];
+    }
+    for (int t = 16; t < 64; t++) {
+        uint32_t s0 = rotr32(w[t - 15], 7) ^ rotr32(w[t - 15], 18) ^ (w[t - 15] >> 3);
+        uint32_t s1 = rotr32(w[t - 2], 17) ^ rotr32(w[t - 2], 19) ^ (w[t - 2] >> 10);
+        w[t] = w[t - 16] + s0 + w[t - 7] + s1;
+    }
+    uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+    for (int t = 0; t < 64; t++) {
+        uint32_t t1 = hh + (rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)) + ((e & f) ^ (~e & g)) + sha256_k[t] + w[t];
+        uint32_t t2 = (rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+        hh = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
+    }
+    h[0] += a;
+    h[1] += b;
+    h[2] += c;
+    h[3] += d;
+    h[4] += e;
+    h[5] += f;
+    h[6] += g;
+    h[7] += hh;
+}
+
+aster_string aster_rt_sha256_hex(aster_string s) {
+    uint32_t h[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    const unsigned char *bytes = (const unsigned char *)s.ptr;
+    int64_t full = s.len / 64;
+    for (int64_t i = 0; i < full; i++) sha256_block(h, bytes + i * 64);
+    /* The tail, 0x80, zeros and the bit length fill one or two final blocks. */
+    unsigned char tail[128] = { 0 };
+    int64_t rest = s.len - full * 64;
+    if (rest > 0) memcpy(tail, bytes + full * 64, (size_t)rest);
+    tail[rest] = 0x80;
+    int64_t tail_len = rest < 56 ? 64 : 128;
+    uint64_t bits = (uint64_t)s.len * 8;
+    for (int i = 0; i < 8; i++) tail[tail_len - 1 - i] = (unsigned char)(bits >> (i * 8));
+    for (int64_t at = 0; at < tail_len; at += 64) sha256_block(h, tail + at);
+    static const char digits[] = "0123456789abcdef";
+    char *out = alloc_bytes(64);
+    for (int i = 0; i < 64; i++) out[i] = digits[(h[i / 8] >> (28 - (i % 8) * 4)) & 15];
+    aster_string r = { out, 64 };
     return r;
 }
 

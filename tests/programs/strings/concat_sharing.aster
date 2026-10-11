@@ -1,0 +1,29 @@
+// expect-stdout:
+// xy1
+// xy2
+// xy
+// xy1!
+// 2000000
+// 1999999
+// ab
+// ab
+fn main(): int {
+    // Two appends to the same string must not see each other's bytes.
+    let a: string = "x" + "y";
+    let b: string = a + "1";
+    let c: string = a + "2";
+    print(b);
+    print(c);
+    print(a);
+    print(b + "!");
+    // A string grown past any single arena keeps every byte.
+    var out: string = "";
+    for i in 0..1000000 {
+        out += "ab";
+    }
+    print(len(out));
+    print(len(substring(out, 1, len(out))));
+    print(substring(out, 0, 2));
+    print(substring(out, 1999998, 2000000));
+    return 0;
+}
